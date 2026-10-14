@@ -31,6 +31,7 @@ namespace BuildingEscape.EditorTools
             var gen = tower.AddComponent<FloorGenerator>();
             gen.floorMat = Mat("floor"); gen.wallMat = Mat("wall"); gen.deskMat = Mat("desk");
             gen.elevatorMat = Mat("elevator"); gen.lootMat = Mat("loot"); gen.mugMat = Mat("mug"); gen.guardMat = Mat("guard");
+            gen.vendorMat = Mat("vendor");
             var tm = tower.AddComponent<TowerManager>();
             tm.generator = gen;
 
@@ -54,7 +55,7 @@ namespace BuildingEscape.EditorTools
         {
             var go = new GameObject("SmokeTest");
             var gen = go.AddComponent<FloorGenerator>();
-            gen.floorMat = gen.wallMat = gen.deskMat = gen.elevatorMat = gen.lootMat = gen.mugMat = gen.guardMat = Mat("wall");
+            gen.floorMat = gen.wallMat = gen.deskMat = gen.elevatorMat = gen.lootMat = gen.mugMat = gen.guardMat = gen.vendorMat = Mat("wall");
             for (int level = 0; level <= 10; level++)
             {
                 var info = gen.Generate(level, 20240 + level * 7919);
@@ -62,7 +63,7 @@ namespace BuildingEscape.EditorTools
                 bool shaft = gen.Current.Find("ElevatorRoom") != null;
                 Debug.Log($"[Smoke] level {level}: {info.cols}x{info.rows} rooms ({info.cols * gen.cellSize:0}m x {info.rows * gen.cellSize:0}m), " +
                           $"~{info.estimatedMinutes:0.0} min, loot {info.lootCount} ${info.lootValue}, quota ${info.quota}, " +
-                          $"guards {info.guards} (agents {agents}), shaftRoom {shaft}");
+                          $"guards {info.guards} (agents {agents}), shaftRoom {shaft}, safeZone {info.isHub}");
                 gen.Clear();
             }
             Object.DestroyImmediate(go);
@@ -114,6 +115,7 @@ namespace BuildingEscape.EditorTools
                 "mug" => new Color(0.95f, 0.95f, 0.95f),
                 "guard" => new Color(0.8f, 0.15f, 0.15f),
                 "player" => new Color(0.2f, 0.5f, 0.95f),
+                "vendor" => new Color(0.6f, 0.3f, 0.8f),
                 _ => Color.magenta
             };
             System.IO.Directory.CreateDirectory("Assets/Materials");

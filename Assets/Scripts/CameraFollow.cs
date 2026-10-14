@@ -44,8 +44,8 @@ namespace BuildingEscape
         {
             var hm = HeistManager.Instance;
             bool menu = hm && (hm.Phase == HeistPhase.Won || hm.Phase == HeistPhase.Failed);
-            if (Input.GetKeyDown(KeyCode.Escape)) cursorFree = !cursorFree;
-            bool locked = !menu && !cursorFree;
+            cursorFree = EscapeMenu.Open; // Esc opens the menu (it does not pause)
+            bool locked = !menu && !cursorFree && !Backpack.UiOpen && !TestMode.PanelOpen && !Vendor.ShopOpen;
             Cursor.lockState = locked ? CursorLockMode.Locked : CursorLockMode.None;
             Cursor.visible = !locked;
             if (!locked) return;

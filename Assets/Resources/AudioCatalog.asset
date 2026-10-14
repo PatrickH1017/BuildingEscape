@@ -1,0 +1,56 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 30e7d76538231bd45821571459040e82, type: 3}
+  m_Name: AudioCatalog
+  m_EditorClassIdentifier: 
+  stepsPlayer:
+  - {fileID: 8300000, guid: ce9f205e7df440544a17845da959555d, type: 3}
+  - {fileID: 8300000, guid: 8b3652c64b15eff409d6814888eb5fab, type: 3}
+  - {fileID: 8300000, guid: c4a79cb480543584bb574c042f0d7aa7, type: 3}
+  - {fileID: 8300000, guid: 3cc041e1dabdaec45ac2b0a11eb3f084, type: 3}
+  - {fileID: 8300000, guid: fa6e92c9bb6d91a468c7cc26a8b425aa, type: 3}
+  stepsGuard:
+  - {fileID: 8300000, guid: c9c4335209593f646b1d2d8f1465f7be, type: 3}
+  - {fileID: 8300000, guid: 9ae7c3d60f6fb3b45abebe8fdc831fac, type: 3}
+  - {fileID: 8300000, guid: a67715f73f72b164eba6f2c4f59cfee5, type: 3}
+  - {fileID: 8300000, guid: 15ff437831d076148934ab5c5f204ac4, type: 3}
+  - {fileID: 8300000, guid: 620cc173734a77040a02edea8046c28d, type: 3}
+  - {fileID: 8300000, guid: 53fc64ba926031140a94268f925b3c6d, type: 3}
+  - {fileID: 8300000, guid: 5bd5b76976c31714f9a33bde9ef6561a, type: 3}
+  whoosh:
+  - {fileID: 8300000, guid: c266e86e5ec11e344bf66dede26cbc46, type: 3}
+  - {fileID: 8300000, guid: 90fb91c5d9f18df4183363d36d921429, type: 3}
+  hitBat:
+  - {fileID: 8300000, guid: 1e3312d22540aa14597a1fb4739f2782, type: 3}
+  - {fileID: 8300000, guid: d0f166575306db84091dc03fce0eff69, type: 3}
+  - {fileID: 8300000, guid: 58a5d36d6b134014ea5623d9802082e2, type: 3}
+  hitCrowbar:
+  - {fileID: 8300000, guid: 4e7a9f408abdba8459fdccbeaea95215, type: 3}
+  - {fileID: 8300000, guid: d0f166575306db84091dc03fce0eff69, type: 3}
+  hitHatchet:
+  - {fileID: 8300000, guid: 7cbd6cd765888ff418d01d98bd1ce9c2, type: 3}
+  - {fileID: 8300000, guid: 3df9bbbc130ccb344af5f3fc793a630f, type: 3}
+  killBat:
+  - {fileID: 8300000, guid: 605611dd6463bbc4090ab6408907d9e8, type: 3}
+  - {fileID: 8300000, guid: d7ea6b2cca581414e87717a0d085aa62, type: 3}
+  killCrowbar:
+  - {fileID: 8300000, guid: e4b229d1cd4c5954c982c44b6f42eb27, type: 3}
+  - {fileID: 8300000, guid: 5174415e9879415498f7b0dd794d19c5, type: 3}
+  killHatchet:
+  - {fileID: 8300000, guid: 3df9bbbc130ccb344af5f3fc793a630f, type: 3}
+  - {fileID: 8300000, guid: 8ba1ce15e8593064aa781b941381f053, type: 3}
+  layerBone:
+  - {fileID: 8300000, guid: 13ab71b1338584b4b8031373d7fdeacf, type: 3}
+  - {fileID: 8300000, guid: 41b3db18e389a464da57cc13049e290f, type: 3}
+  layerGore:
+  - {fileID: 8300000, guid: 2ee71cfc2c8d7334abb8ad72203c0068, type: 3}
+  - {fileID: 8300000, guid: 2b202aff8c946d745a2ab81e2cd60819, type: 3}

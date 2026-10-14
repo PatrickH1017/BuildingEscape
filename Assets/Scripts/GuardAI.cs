@@ -20,6 +20,13 @@ namespace BuildingEscape
         public float investigateWait = 3f;
         public float loseSightSeconds = 4f;
         public LayerMask sightBlockers = ~0;
+        [Tooltip("Melee hits it takes to knock a guard out for good.")]
+        public int hitsToKill = 10;
+
+        /// <summary>Melee hits taken so far.</summary>
+        public int Hits { get; private set; }
+        /// <summary>Knocked out for good: lies on the ground and never gets up.</summary>
+        public bool Dead { get; private set; }
 
         public GuardState State { get; private set; } = GuardState.Patrol;
 
@@ -46,8 +53,26 @@ namespace BuildingEscape
             waitUntil = 0;
         }
 
+        /// <summary>A weapon hit: stuns like Stun, and the hitsToKill-th hit leaves the guard down for good.</summary>
+        public void WeaponHit(float stunSeconds, GameObject by = null)
+        {
+            if (Dead) return;
+            Hits++;
+            if (Hits >= hitsToKill)
+            {
+                Dead = true;
+                State = GuardState.Stunned;
+                stunUntil = float.MaxValue;
+                agent.isStopped = true;
+                Debug.Log($"{name} is down for good after {Hits} hits.");
+                return;
+            }
+            Stun(stunSeconds, by);
+        }
+
         public void Stun(float seconds, GameObject by = null)
         {
+            if (Dead) return;
             State = GuardState.Stunned;
             stunUntil = Time.time + seconds;
             agent.isStopped = true;

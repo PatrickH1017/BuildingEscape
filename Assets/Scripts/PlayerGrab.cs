@@ -13,14 +13,19 @@ namespace BuildingEscape
         public LayerMask grabbable = ~0;
         public float carryForce = 40f;
         public float throwForce = 9f;
-        public KeyCode grabKey = KeyCode.E;
+        public KeyCode grabKey = KeyCode.Q; // E now puts things in the backpack
         public KeyCode throwKey = KeyCode.Mouse0;
 
         public Rigidbody Held { get; private set; }
         HeavyLoot heldLoot;
 
+        Pickup heldPickup;
+
+        void Awake() { grabKey = KeyCode.Q; } // overrides the old value saved in the scene
+
         void Update()
         {
+            if (Backpack.UiOpen || Vendor.ShopOpen || EscapeMenu.Open) return;
             if (Input.GetKeyDown(grabKey)) { if (Held) Release(false); else TryGrab(); }
             if (Held && Input.GetKeyDown(throwKey)) Release(true);
         }
@@ -40,11 +45,20 @@ namespace BuildingEscape
 
         void TryGrab()
         {
-            var origin = hand ? hand.position : transform.position + Vector3.up;
-            if (!Physics.SphereCast(origin, 0.4f, transform.forward, out var hit, reach, grabbable)) return;
-            var rb = hit.rigidbody;
-            if (!rb) return;
+            Rigidbody rb = null;
+            var p = Pickup.FindNearest(transform, reach);
+            if (p) p.TryGetComponent(out rb);
+            if (!rb)
+            {
+                var origin = transform.position + Vector3.up * 0.3f;
+                if (!Physics.SphereCast(origin, 0.6f, transform.forward, out var hit, reach, grabbable)) return;
+                rb = hit.rigidbody;
+                if (!rb || rb.GetComponent<WobblyPlayer>()) return;
+                p = rb.GetComponent<Pickup>();
+            }
             Held = rb;
+            heldPickup = p;
+            if (heldPickup) heldPickup.IsHeld = true;
             heldLoot = rb.GetComponent<HeavyLoot>();
             heldLoot?.AddHolder(this);
         }
@@ -60,7 +74,8 @@ namespace BuildingEscape
                               ForceMode.VelocityChange);
                 t?.OnThrown(gameObject);
             }
-            Held = null; heldLoot = null;
+            if (heldPickup) heldPickup.IsHeld = heldLoot != null && heldLoot.Holders > 0;
+            Held = null; heldLoot = null; heldPickup = null;
         }
 
         void OnDisable() { Release(false); }

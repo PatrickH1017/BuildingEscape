@@ -33,6 +33,7 @@ namespace BuildingEscape
             rb = GetComponent<Rigidbody>();
             rb.mass = lifters * massPerLifter;
             Integrity = maxIntegrity;
+            if (!GetComponent<Pickup>()) gameObject.AddComponent<Pickup>().weight = lifters * 6f;
         }
 
         public void AddHolder(PlayerGrab g) { holders.Add(g); }

@@ -19,10 +19,14 @@ namespace BuildingEscape
         public float sprintNoise = 8f;
         public float stumbleSeconds = 1.6f;
         public float jumpImpulse = 5.5f;
+        [Tooltip("Dress the capsule as a Party Characters pack character (adds PlayerVisual).")]
+        public bool usePartyCharacter = true;
 
         public bool IsStumbling { get; private set; }
         public bool IsHidden { get; set; }
         public bool IsSprinting { get; private set; }
+        /// <summary>Raised when the player jumps (used to play the jump animation).</summary>
+        public event System.Action Jumped;
 
         Rigidbody rb;
         float stumbleUntil, nextStep;
@@ -31,7 +35,14 @@ namespace BuildingEscape
         Transform cam;
         CameraFollow rig;
 
-        void Awake() { rb = GetComponent<Rigidbody>(); rb.maxAngularVelocity = 12f; cam = Camera.main ? Camera.main.transform : null; }
+        void Awake()
+        {
+            rb = GetComponent<Rigidbody>(); rb.maxAngularVelocity = 12f; cam = Camera.main ? Camera.main.transform : null;
+            if (!GetComponent<Backpack>()) gameObject.AddComponent<Backpack>();
+            if (!GetComponent<FootstepPlayer>()) gameObject.AddComponent<FootstepPlayer>();
+            if (!GetComponent<MeleeController>()) gameObject.AddComponent<MeleeController>();
+            if (usePartyCharacter && !GetComponent<PlayerVisual>()) gameObject.AddComponent<PlayerVisual>();
+        }
 
         void Update()
         {
@@ -42,7 +53,10 @@ namespace BuildingEscape
             moveInput = basis * raw.normalized;
             IsSprinting = Input.GetKey(KeyCode.LeftShift) && moveInput.sqrMagnitude > 0.01f;
             if (Input.GetKeyDown(KeyCode.Space) && grounded && !IsStumbling)
+            {
                 rb.AddForce(Vector3.up * jumpImpulse, ForceMode.VelocityChange);
+                Jumped?.Invoke();
+            }
             if (IsStumbling && Time.time > stumbleUntil) IsStumbling = false;
         }
 
