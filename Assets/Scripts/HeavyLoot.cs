@@ -1,4 +1,4 @@
-﻿using UnityEngine;
+using UnityEngine;
 
 namespace BuildingEscape
 {
@@ -33,6 +33,7 @@ namespace BuildingEscape
             rb = GetComponent<Rigidbody>();
             rb.mass = lifters * massPerLifter;
             Integrity = maxIntegrity;
+            if (!GetComponent<Pickup>()) gameObject.AddComponent<Pickup>().weight = lifters * 6f;
         }
 
         public void AddHolder(PlayerGrab g) { holders.Add(g); }
@@ -40,7 +41,7 @@ namespace BuildingEscape
 
         void OnCollisionEnter(Collision c)
         {
-            if (Broken) return;
+            if (Broken || Net.NetRole.IsRemoteClient) return; // the host runs the physics consequences
             float speed = c.relativeVelocity.magnitude;
             if (speed < fragility) return;
             float dmg = (speed - fragility) * 12f;
@@ -53,8 +54,17 @@ namespace BuildingEscape
         {
             Broken = true;
             NoiseBus.Emit(transform.position, 30f, gameObject);
+            if (TryGetComponent(out Pickup pk)) Net.RunSync.Instance?.BroadcastBroken(pk.NetId);
             if (shatterPrefab) Instantiate(shatterPrefab, transform.position, transform.rotation);
             HeistManager.Instance?.NotifyLootBroken(this);
+            Destroy(gameObject);
+        }
+
+        /// <summary>Client: the host says this one broke.</summary>
+        public void NetShatter()
+        {
+            Broken = true;
+            if (shatterPrefab) Instantiate(shatterPrefab, transform.position, transform.rotation);
             Destroy(gameObject);
         }
     }

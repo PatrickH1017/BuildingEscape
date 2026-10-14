@@ -1,0 +1,307 @@
+using System.Collections.Generic;
+using Unity.Collections;
+using Unity.Netcode;
+using UnityEngine;
+
+namespace BuildingEscape.Net
+{
+    /// <summary>
+    /// Proximity voice chat. The local microphone (Steam voice, or the Unity microphone without Steam) is sent to
+    /// the host, which relays it to everyone else over the existing connection. Teammates are heard from their
+    /// character's position in a run (plain stereo in the lobby). Your own voice level also drives VoiceNoise,
+    /// so guards hear you talk.
+    ///
+    /// Controls: open mic by default; M toggles mute; push-to-talk (T) and the voice volume are in Settings.
+    /// Created automatically; works whenever a Netcode session is running.
+    /// </summary>
+    public class VoiceChat : MonoBehaviour
+    {
+        public enum Mode { OpenMic, PushToTalk, Off }
+
+        public const string ModeKey = "OvertimeEscape.VoiceMode";
+        public const string VolumeKey = "OvertimeEscape.VoiceVolume";
+        const string MessageName = "be.voice";
+        const int MaxPacket = 4000;       // compressed bytes
+        const int ReliableAbove = 1000;   // bigger than one unreliable packet: send fragmented
+        const float SendHangover = 0.25f; // keep sending a moment after the level drops
+
+        public static VoiceChat Instance { get; private set; }
+
+        public static Mode CurrentMode
+        {
+            get => (Mode)Mathf.Clamp(PlayerPrefs.GetInt(ModeKey, 0), 0, 2);
+            set => PlayerPrefs.SetInt(ModeKey, (int)value);
+        }
+
+        public static float Volume
+        {
+            get => PlayerPrefs.GetFloat(VolumeKey, 1f);
+            set => PlayerPrefs.SetFloat(VolumeKey, Mathf.Clamp01(value));
+        }
+
+        public KeyCode talkKey = KeyCode.T;
+        public KeyCode muteKey = KeyCode.M;
+        [Tooltip("Level (0..1 RMS) below which the microphone counts as silent.")]
+        public float gate = 0.012f;
+
+        public bool Muted { get; private set; }
+        public bool Speaking { get; private set; }
+        public float MicLevel { get; private set; }
+
+        // test / diagnostics
+        public int PacketsSent, PacketsReceived, PacketsRelayed;
+
+        IVoiceInput input;
+        bool inputActive;
+        readonly byte[] packet = new byte[MaxPacket];
+        readonly float[] pcm = new float[48000];
+        ushort seq;
+        float lastLoud;
+        bool registered;
+
+        readonly Dictionary<ulong, VoiceVoice> voices = new();
+
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
+        static void Boot()
+        {
+            if (FindFirstObjectByType<VoiceChat>()) return;
+            var go = new GameObject("VoiceChat");
+            DontDestroyOnLoad(go);
+            go.AddComponent<VoiceChat>();
+        }
+
+        void Awake()
+        {
+            if (Instance != null && Instance != this) { Destroy(gameObject); return; }
+            Instance = this;
+        }
+
+        void OnDestroy()
+        {
+            input?.Dispose();
+            if (Instance == this) Instance = null;
+        }
+
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+        /// <summary>Dev only: use a tone instead of the microphone.</summary>
+        public void UseTestInput(IVoiceInput testInput)
+        {
+            input?.Dispose();
+            input = testInput;
+            inputActive = false;
+        }
+#endif
+
+        // ------------------------------------------------------------------ capture + send
+
+        IVoiceInput PickInput()
+        {
+            var steam = SteamService.Instance;
+            if (steam != null && steam.Ready) return new SteamVoiceInput();
+            return new MicrophoneVoiceInput();
+        }
+
+        void Update()
+        {
+            var nm = NetworkManager.Singleton;
+            bool online = nm != null && nm.IsListening;
+            if (online && !registered) Register(nm);
+            if (!online && registered) { registered = false; DropAllVoices(); }
+
+            if (Input.GetKeyDown(muteKey) && !EscapeMenu.Open && !Backpack.UiOpen && !Vendor.ShopOpen) Muted = !Muted;
+
+            bool wantMic = online && !Muted && (CurrentMode == Mode.OpenMic || (CurrentMode == Mode.PushToTalk && Input.GetKey(talkKey)))
+                           && CurrentMode != Mode.Off;
+            if (wantMic && input == null) input = PickInput();
+            if (input != null && wantMic != inputActive) { input.SetActive(wantMic); inputActive = wantMic; }
+            if (!wantMic) { Speaking = false; MicLevel = Mathf.MoveTowards(MicLevel, 0f, Time.deltaTime * 4f); }
+
+            if (online && wantMic) PumpInput(nm);
+            if (online) UpdateVoices(nm);
+        }
+
+        void PumpInput(NetworkManager nm)
+        {
+            int guard = 8; // a few packets per frame at most
+            while (guard-- > 0 && input.TryRead(packet, out int length) && length > 0)
+            {
+                var decoder = VoiceCodecs.DecoderFor(input.Codec);
+                float rms = 0f;
+                if (decoder != null)
+                {
+                    int n = decoder.Decode(packet, length, pcm);
+                    if (n > 0)
+                    {
+                        double sum = 0;
+                        for (int i = 0; i < n; i++) sum += pcm[i] * pcm[i];
+                        rms = Mathf.Sqrt((float)(sum / n));
+                    }
+                }
+                MicLevel = Mathf.Max(rms, MicLevel * 0.85f);
+                if (rms >= gate) lastLoud = Time.unscaledTime;
+                Speaking = Time.unscaledTime - lastLoud < SendHangover;
+                FeedGuards();
+                if (!Speaking) continue;   // silence is not worth the bandwidth
+                SendPacket(nm, input.Codec, length);
+            }
+        }
+
+        /// <summary>Your voice makes noise: guards hear a talker (VoiceNoise sends it on to the host).</summary>
+        void FeedGuards()
+        {
+            var me = NetPlayer.Local;
+            var vn = me ? me.GetComponent<VoiceNoise>() : null;
+            if (vn) vn.SetLevel(Speaking ? Mathf.Clamp01(MicLevel * 8f) : 0f);
+        }
+
+        void SendPacket(NetworkManager nm, byte codec, int length)
+        {
+            using var w = new FastBufferWriter(length + 16, Allocator.Temp);
+            w.WriteValueSafe(nm.LocalClientId);   // the host replaces this with the real sender
+            w.WriteValueSafe(codec);
+            w.WriteValueSafe(seq++);
+            w.WriteValueSafe((ushort)length);
+            w.WriteBytesSafe(packet, length);
+            var delivery = length > ReliableAbove ? NetworkDelivery.ReliableFragmentedSequenced : NetworkDelivery.UnreliableSequenced;
+            if (nm.IsServer)
+                Relay(nm, nm.LocalClientId, w, delivery, nm.LocalClientId);
+            else
+                nm.CustomMessagingManager.SendNamedMessage(MessageName, NetworkManager.ServerClientId, w, delivery);
+            PacketsSent++;
+        }
+
+        // ------------------------------------------------------------------ receive + relay
+
+        void Register(NetworkManager nm)
+        {
+            if (nm.CustomMessagingManager == null) return;
+            nm.CustomMessagingManager.RegisterNamedMessageHandler(MessageName, OnVoice);
+            registered = true;
+        }
+
+        void OnVoice(ulong sender, FastBufferReader r)
+        {
+            var nm = NetworkManager.Singleton;
+            if (nm == null) return;
+            r.ReadValueSafe(out ulong claimed);
+            r.ReadValueSafe(out byte codec);
+            r.ReadValueSafe(out ushort seqNo);
+            r.ReadValueSafe(out ushort length);
+            if (length == 0 || length > MaxPacket || r.Length - r.Position < length) return;
+            var data = new byte[length];
+            r.ReadBytesSafe(ref data, length);
+
+            // On the host the real sender is known; on a client the host vouches for who it relayed.
+            ulong speaker = nm.IsServer ? sender : claimed;
+            if (speaker == nm.LocalClientId) return; // never play my own voice back
+
+            PacketsReceived++;
+            Play(speaker, codec, data, length);
+
+            if (nm.IsServer)
+            {
+                using var w = new FastBufferWriter(length + 16, Allocator.Temp);
+                w.WriteValueSafe(speaker);
+                w.WriteValueSafe(codec);
+                w.WriteValueSafe(seqNo);
+                w.WriteValueSafe(length);
+                w.WriteBytesSafe(data, length);
+                var delivery = length > ReliableAbove ? NetworkDelivery.ReliableFragmentedSequenced : NetworkDelivery.UnreliableSequenced;
+                Relay(nm, speaker, w, delivery, nm.LocalClientId);
+            }
+        }
+
+        /// <summary>Host: send to everyone except the speaker (and itself).</summary>
+        void Relay(NetworkManager nm, ulong speaker, FastBufferWriter w, NetworkDelivery delivery, ulong self)
+        {
+            foreach (var id in nm.ConnectedClientsIds)
+            {
+                if (id == speaker || id == self) continue;
+                nm.CustomMessagingManager.SendNamedMessage(MessageName, id, w, delivery);
+                PacketsRelayed++;
+            }
+        }
+
+        // ------------------------------------------------------------------ playback
+
+        void Play(ulong speaker, byte codec, byte[] data, int length)
+        {
+            var decoder = VoiceCodecs.DecoderFor(codec);
+            if (decoder == null) return;
+            if (codec == VoiceCodecs.Steam && (SteamService.Instance == null || !SteamService.Instance.Ready)) return;
+            int n = decoder.Decode(data, length, pcm);
+            if (n <= 0) return;
+
+            if (!voices.TryGetValue(speaker, out var voice) || !voice)
+            {
+                var go = new GameObject("Voice_" + speaker);
+                go.transform.SetParent(transform, false);
+                go.AddComponent<AudioSource>();
+                voice = go.AddComponent<VoiceVoice>();
+                voice.speakerId = speaker;
+                voices[speaker] = voice;
+            }
+            voice.Push(pcm, n, decoder.SampleRate);
+        }
+
+        void UpdateVoices(NetworkManager nm)
+        {
+            float vol = Volume;
+            foreach (var kv in voices)
+            {
+                var v = kv.Value;
+                if (!v) continue;
+                NetPlayer owner = null;
+                foreach (var p in NetPlayer.All) if (p.OwnerClientId == kv.Key) { owner = p; break; }
+                if (owner)
+                {
+                    v.transform.position = owner.transform.position + Vector3.up * 1.6f;
+                    v.SetSpatial(true, vol);
+                }
+                else v.SetSpatial(false, vol * 0.8f);
+            }
+        }
+
+        void DropAllVoices()
+        {
+            foreach (var kv in voices) if (kv.Value) Destroy(kv.Value.gameObject);
+            voices.Clear();
+            input?.SetActive(false);
+            inputActive = false;
+        }
+
+        /// <summary>Speakers heard in the last half second (for the HUD).</summary>
+        public IEnumerable<ulong> ActiveSpeakers()
+        {
+            foreach (var kv in voices)
+                if (kv.Value && Time.unscaledTime - kv.Value.lastPacketTime < 0.5f) yield return kv.Key;
+        }
+
+        public VoiceVoice VoiceOf(ulong speaker) => voices.TryGetValue(speaker, out var v) ? v : null;
+
+        // ------------------------------------------------------------------ HUD
+
+        void OnGUI()
+        {
+            var nm = NetworkManager.Singleton;
+            if (nm == null || !nm.IsListening) return;
+            string state = CurrentMode == Mode.Off ? "voice off"
+                : Muted ? $"MIC MUTED ({muteKey})"
+                : CurrentMode == Mode.PushToTalk ? $"hold {talkKey} to talk"
+                : Speaking ? "MIC: talking" : $"mic open ({muteKey} mutes)";
+            var style = new GUIStyle(GUI.skin.label) { alignment = TextAnchor.MiddleRight, fontSize = 14 };
+            style.normal.textColor = Muted || CurrentMode == Mode.Off ? new Color(1f, 0.5f, 0.4f) : (Speaking ? new Color(0.5f, 1f, 0.5f) : Color.white);
+            GUI.Label(new Rect(Screen.width - 260f, 30f, 250f, 22f), state, style);
+
+            float y = 52f;
+            foreach (var id in ActiveSpeakers())
+            {
+                string who = "teammate";
+                foreach (var p in NetPlayer.All) if (p.OwnerClientId == id) { who = $"Player {p.Slot + 1}"; break; }
+                var s = new GUIStyle(style); s.normal.textColor = new Color(0.6f, 0.9f, 1f);
+                GUI.Label(new Rect(Screen.width - 260f, y, 250f, 20f), $"{who} is talking", s);
+                y += 20f;
+            }
+        }
+    }
+}

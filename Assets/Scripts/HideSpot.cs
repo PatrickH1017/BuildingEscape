@@ -1,4 +1,4 @@
-﻿using UnityEngine;
+using UnityEngine;
 
 namespace BuildingEscape
 {
@@ -11,7 +11,11 @@ namespace BuildingEscape
         bool hiding;
 
         void Reset() { GetComponent<Collider>().isTrigger = true; }
-        void OnTriggerEnter(Collider o) { var p = o.GetComponentInParent<WobblyPlayer>(); if (p) inside = p; }
+        void OnTriggerEnter(Collider o)
+        {
+            var p = o.GetComponentInParent<WobblyPlayer>();
+            if (p && Net.NetPlayer.IsLocalPlayer(p)) inside = p; // only your own player hides when you press H
+        }
         void OnTriggerExit(Collider o)
         {
             var p = o.GetComponentInParent<WobblyPlayer>();

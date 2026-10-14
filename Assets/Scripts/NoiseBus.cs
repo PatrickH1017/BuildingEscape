@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using UnityEngine;
 
 namespace BuildingEscape
@@ -14,7 +14,15 @@ namespace BuildingEscape
         public static void Emit(Vector3 position, float loudness, GameObject source = null)
         {
             if (loudness <= 0f) return;
+            // On a remote client the guards are puppets; the host hears it instead.
+            if (Net.NetRole.IsRemoteClient) { Net.RunSync.Instance?.RequestNoise(position, loudness); return; }
             OnNoise?.Invoke(new NoiseEvent(position, loudness, source));
+        }
+
+        /// <summary>Raises the noise on this machine only (the host, for a noise a client reported).</summary>
+        public static void EmitLocal(Vector3 position, float loudness)
+        {
+            if (loudness > 0f) OnNoise?.Invoke(new NoiseEvent(position, loudness, null));
         }
     }
 

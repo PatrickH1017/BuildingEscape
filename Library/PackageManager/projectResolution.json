@@ -9,6 +9,36 @@
     "C:\\Program Files\\Unity\\Hub\\Editor\\6000.0.45f1\\Editor\\Data\\Resources\\PackageManager\\BuiltInPackages\\BuiltInPackagesCombined.sha1"
   ],
   "outputs": {
+    "com.rlabrecque.steamworks.net@https://github.com/rlabrecque/Steamworks.NET.git?path=/com.rlabrecque.steamworks.net": {
+      "name": "com.rlabrecque.steamworks.net",
+      "displayName": "Steamworks.NET",
+      "resolvedPath": "C:\\Users\\phick\\OneDrive\\Desktop\\BuildingEscape\\Library\\PackageCache\\com.rlabrecque.steamworks.net@ce8fef2ba93b",
+      "fingerprint": "ce8fef2ba93bc7eede964a0f225f7e2a0ce45227",
+      "editorCompatibility": "2019.4.0a1",
+      "version": "2025.165.0",
+      "source": "git",
+      "testable": false
+    },
+    "com.unity.netcode.gameobjects@2.13.1": {
+      "name": "com.unity.netcode.gameobjects",
+      "displayName": "Netcode for GameObjects",
+      "resolvedPath": "C:\\Users\\phick\\OneDrive\\Desktop\\BuildingEscape\\Library\\PackageCache\\com.unity.netcode.gameobjects@d43d28498f17",
+      "fingerprint": "d43d28498f17a7c4b769e88d9ab6542b2f80a865",
+      "editorCompatibility": "6000.0.0a1",
+      "version": "2.13.1",
+      "source": "registry",
+      "testable": false
+    },
+    "com.unity.transport@2.7.4": {
+      "name": "com.unity.transport",
+      "displayName": "Unity Transport",
+      "resolvedPath": "C:\\Users\\phick\\OneDrive\\Desktop\\BuildingEscape\\Library\\PackageCache\\com.unity.transport@98ef8bfec34d",
+      "fingerprint": "98ef8bfec34d7eea791603fc1e45ce86c3484180",
+      "editorCompatibility": "2022.3.0a1",
+      "version": "2.7.4",
+      "source": "registry",
+      "testable": false
+    },
     "com.unity.ai.navigation@2.0.5": {
       "name": "com.unity.ai.navigation",
       "displayName": "AI Navigation",
@@ -27,6 +57,16 @@
       "editorCompatibility": "6000.0.0a1",
       "version": "1.0.0",
       "source": "builtin",
+      "testable": false
+    },
+    "com.unity.toonshader@0.11.0-preview": {
+      "name": "com.unity.toonshader",
+      "displayName": "Unity Toon Shader",
+      "resolvedPath": "C:\\Users\\phick\\OneDrive\\Desktop\\BuildingEscape\\Library\\PackageCache\\com.unity.toonshader@b31df88ebb07",
+      "fingerprint": "b31df88ebb07e2ae10b59040280be067b48387d7",
+      "editorCompatibility": "2021.3.0a1",
+      "version": "0.11.0-preview",
+      "source": "registry",
       "testable": false
     },
     "com.unity.modules.accessibility@1.0.0": {
@@ -298,6 +338,126 @@
       "displayName": "Hierarchy Core",
       "resolvedPath": "C:\\Program Files\\Unity\\Hub\\Editor\\6000.0.45f1\\Editor\\Data\\Resources\\PackageManager\\BuiltInPackages\\com.unity.modules.hierarchycore",
       "version": "1.0.0",
+      "source": "builtin",
+      "testable": false
+    },
+    "com.unity.render-pipelines.core@17.0.4": {
+      "name": "com.unity.render-pipelines.core",
+      "displayName": "Core RP Library",
+      "resolvedPath": "C:\\Users\\phick\\OneDrive\\Desktop\\BuildingEscape\\Library\\PackageCache\\com.unity.render-pipelines.core@fe255bed7938",
+      "fingerprint": "fe255bed79380968ac3ab81c007263ba67856996",
+      "editorCompatibility": "6000.0.0a1",
+      "version": "17.0.4",
+      "source": "builtin",
+      "testable": false
+    },
+    "com.unity.film-internal-utilities@0.19.2-preview": {
+      "name": "com.unity.film-internal-utilities",
+      "displayName": "Film Internal Utilities",
+      "resolvedPath": "C:\\Users\\phick\\OneDrive\\Desktop\\BuildingEscape\\Library\\PackageCache\\com.unity.film-internal-utilities@9cbf5b4c1845",
+      "fingerprint": "9cbf5b4c184598bf2eb019ba26a5737486e6c592",
+      "editorCompatibility": "2020.3.0a1",
+      "version": "0.19.2-preview",
+      "source": "registry",
+      "testable": false
+    },
+    "com.unity.burst@1.8.24": {
+      "name": "com.unity.burst",
+      "displayName": "Burst",
+      "resolvedPath": "C:\\Users\\phick\\OneDrive\\Desktop\\BuildingEscape\\Library\\PackageCache\\com.unity.burst@f7a407abf4d5",
+      "fingerprint": "f7a407abf4d5abf19ce630824dcde261e02ed97e",
+      "editorCompatibility": "2021.3.0a1",
+      "version": "1.8.24",
+      "source": "registry",
+      "testable": false
+    },
+    "com.unity.collections@2.5.1": {
+      "name": "com.unity.collections",
+      "displayName": "Collections",
+      "resolvedPath": "C:\\Users\\phick\\OneDrive\\Desktop\\BuildingEscape\\Library\\PackageCache\\com.unity.collections@56bff8827a7e",
+      "fingerprint": "56bff8827a7ef6d44fcee4f36e558a74da89c1a0",
+      "editorCompatibility": "2022.3.11f1",
+      "version": "2.5.1",
+      "source": "registry",
+      "testable": false
+    },
+    "com.unity.mathematics@1.3.2": {
+      "name": "com.unity.mathematics",
+      "displayName": "Mathematics",
+      "resolvedPath": "C:\\Users\\phick\\OneDrive\\Desktop\\BuildingEscape\\Library\\PackageCache\\com.unity.mathematics@8017b507cc74",
+      "fingerprint": "8017b507cc74bf0a1dd14b18aa860569f807314d",
+      "editorCompatibility": "2021.3.0a1",
+      "version": "1.3.2",
+      "source": "registry",
+      "testable": false
+    },
+    "com.unity.nuget.mono-cecil@1.11.4": {
+      "name": "com.unity.nuget.mono-cecil",
+      "displayName": "Mono Cecil",
+      "resolvedPath": "C:\\Users\\phick\\OneDrive\\Desktop\\BuildingEscape\\Library\\PackageCache\\com.unity.nuget.mono-cecil@d6f9955a5d5f",
+      "fingerprint": "d6f9955a5d5f84d45442ff1ad0fb694cc6e2fd62",
+      "editorCompatibility": "2018.4.0a1",
+      "version": "1.11.4",
+      "source": "registry",
+      "testable": false
+    },
+    "com.unity.timeline@1.8.7": {
+      "name": "com.unity.timeline",
+      "displayName": "Timeline",
+      "resolvedPath": "C:\\Users\\phick\\OneDrive\\Desktop\\BuildingEscape\\Library\\PackageCache\\com.unity.timeline@c58b4ee65782",
+      "fingerprint": "c58b4ee65782ad38338e29f7ee67787cb6998f04",
+      "editorCompatibility": "2019.3.0a1",
+      "version": "1.8.7",
+      "source": "registry",
+      "testable": false
+    },
+    "com.unity.ugui@2.0.0": {
+      "name": "com.unity.ugui",
+      "displayName": "Unity UI",
+      "resolvedPath": "C:\\Users\\phick\\OneDrive\\Desktop\\BuildingEscape\\Library\\PackageCache\\com.unity.ugui@f3fac7af1578",
+      "fingerprint": "f3fac7af157843ea3b769ef7c6aa56de52618aeb",
+      "editorCompatibility": "2019.2.0a1",
+      "version": "2.0.0",
+      "source": "builtin",
+      "testable": false
+    },
+    "com.unity.rendering.light-transport@1.0.1": {
+      "name": "com.unity.rendering.light-transport",
+      "displayName": "Unity Light Transport Library",
+      "resolvedPath": "C:\\Users\\phick\\OneDrive\\Desktop\\BuildingEscape\\Library\\PackageCache\\com.unity.rendering.light-transport@307bc27a498f",
+      "fingerprint": "307bc27a498fc9cd409bbd426c85d8dc7f140bc1",
+      "editorCompatibility": "2023.3.0b1",
+      "version": "1.0.1",
+      "source": "builtin",
+      "testable": false
+    },
+    "com.unity.test-framework@1.5.1": {
+      "name": "com.unity.test-framework",
+      "displayName": "Test Framework",
+      "resolvedPath": "C:\\Users\\phick\\OneDrive\\Desktop\\BuildingEscape\\Library\\PackageCache\\com.unity.test-framework@388540dd9ce6",
+      "fingerprint": "388540dd9ce60b7f4463a23bfdf0d2dafa9a6f3e",
+      "editorCompatibility": "2022.3.0a1",
+      "version": "1.5.1",
+      "source": "builtin",
+      "testable": false
+    },
+    "com.unity.test-framework.performance@3.0.3": {
+      "name": "com.unity.test-framework.performance",
+      "displayName": "Performance testing API",
+      "resolvedPath": "C:\\Users\\phick\\OneDrive\\Desktop\\BuildingEscape\\Library\\PackageCache\\com.unity.test-framework.performance@fb0dc592af8b",
+      "fingerprint": "fb0dc592af8b524f1a06c50d7caf95552f1bcd2f",
+      "editorCompatibility": "2020.3.0a1",
+      "version": "3.0.3",
+      "source": "registry",
+      "testable": false
+    },
+    "com.unity.ext.nunit@2.0.5": {
+      "name": "com.unity.ext.nunit",
+      "displayName": "Custom NUnit",
+      "resolvedPath": "C:\\Users\\phick\\OneDrive\\Desktop\\BuildingEscape\\Library\\PackageCache\\com.unity.ext.nunit@031a54704bff",
+      "fingerprint": "031a54704bffe39e6a0324909f8eaa4565bdebf2",
+      "editorCompatibility": "2019.4.0a1",
+      "version": "2.0.5",
       "source": "builtin",
       "testable": false
     }
