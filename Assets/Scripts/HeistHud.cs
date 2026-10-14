@@ -33,6 +33,8 @@ namespace BuildingEscape
                     ? "Quota met - doors closing, heading down to the basement..."
                     : "Quota met - get everyone into the elevator to head down to the basement";
                 GUI.Label(new Rect(0, 80, Screen.width, 60), msg, big);
+                GUI.Label(new Rect(0, 135, Screen.width, 32), $"Surplus ${m.Surplus} over the quota becomes your cash to spend at the vendor",
+                    new GUIStyle(style) { alignment = TextAnchor.MiddleCenter, fontSize = 22 });
             }
             else if (hub)
             {
@@ -43,10 +45,13 @@ namespace BuildingEscape
                     ? $"Press G to ride up to {nextLabel} (finished floors are closed)"
                     : $"Safe zone - everyone into the elevator, then G to go up to {nextLabel}";
                 GUI.Label(new Rect(0, 80, Screen.width, 60), msg, big);
+                if (m.SurplusPaid > 0)
+                    GUI.Label(new Rect(0, 135, Screen.width, 32), $"+${m.SurplusPaid} surplus from the last floor added to your cash",
+                        new GUIStyle(style) { alignment = TextAnchor.MiddleCenter, fontSize = 22 });
             }
             else if (m.Phase == HeistPhase.Won || m.Phase == HeistPhase.Failed)
             {
-                string msg = m.Phase == HeistPhase.Won ? "ESCAPED THE TOWER" : $"BUSTED on {m.FloorLabel}";
+                string msg = m.Phase == HeistPhase.Won ? "ESCAPED THE TOWER" : (m.BackupCalled ? $"BACKUP CALLED - BUSTED on {m.FloorLabel}" : $"BUSTED on {m.FloorLabel}");
                 GUI.Label(new Rect(0, 0, Screen.width, Screen.height), msg, big);
                 if (GUI.Button(new Rect(Screen.width / 2 - 60, Screen.height / 2 + 50, 120, 36), "Restart"))
                     UnityEngine.SceneManagement.SceneManager.LoadScene(UnityEngine.SceneManagement.SceneManager.GetActiveScene().buildIndex);

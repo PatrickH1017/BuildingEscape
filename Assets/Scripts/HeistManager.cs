@@ -29,6 +29,10 @@ namespace BuildingEscape
         /// <summary>Spendable money for the whole run. Earned by selling loot to the basement vendor.</summary>
         public int Cash { get; private set; }
         public float TimeLeft { get; private set; }
+        /// <summary>True if the floor was lost because a guard called for backup.</summary>
+        public bool BackupCalled { get; private set; }
+        public string BackupMessage { get; private set; }
+        public float BackupMessageUntil { get; private set; }
 
         [Header("Test mode")]
         public bool godMode;
@@ -44,6 +48,8 @@ namespace BuildingEscape
         {
             Floor = floor; TotalFloors = totalFloors; Quota = quota;
             Banked = Lost = Caught = 0;
+            BackupCalled = false;
+            if (floor > 0) SurplusPaid = 0;
             TimeLeft = timeLimitSeconds;
             SetPhase(floor <= 0 ? HeistPhase.Hub : HeistPhase.Heist);
         }
@@ -90,6 +96,44 @@ namespace BuildingEscape
             Banked = Quota;
             OnBankedChanged?.Invoke(Banked);
             SetPhase(Floor >= TotalFloors - 1 ? HeistPhase.Won : HeistPhase.FloorComplete);
+        }
+
+        /// <summary>A charging guard caught a player: the team is busted.</summary>
+        public void Bust(WobblyPlayer p)
+        {
+            if (Phase != HeistPhase.Heist || godMode) return;
+            p.Stumble(Vector3.up * 3f, 3f);
+            SetPhase(HeistPhase.Failed);
+        }
+
+        /// <summary>Banked value above the quota: it becomes spendable cash when the team rides down.</summary>
+        public int Surplus => Mathf.Max(0, Banked - Quota);
+
+        public void PayOutSurplus()
+        {
+            int extra = Surplus;
+            if (extra <= 0) return;
+            AddCash(extra);
+            SurplusPaid = extra;
+        }
+
+        /// <summary>Surplus paid into cash on the last ride down (shown in the basement).</summary>
+        public int SurplusPaid { get; private set; }
+
+        /// <summary>A guard finished radioing: the team is busted.</summary>
+        public void CallBackup(GuardAI by)
+        {
+            if (Phase != HeistPhase.Heist) return;
+            var gen = FindFirstObjectByType<FloorGenerator>();
+            int max = gen ? gen.maxGuardsAlive : 24;
+            int alive = 0;
+            foreach (var g in GuardAI.All) if (g && !g.Dead) alive++;
+            int n = Mathf.Max(0, Mathf.Min(2, max - alive));
+            if (n > 0 && gen) n = gen.SpawnReinforcements(by ? by.transform.position : Vector3.zero, n);
+            BackupMessage = n > 0
+                ? $"BACKUP CALLED - {n} more guards are on the way ({alive + n}/{max})"
+                : $"BACKUP CALLED - but the floor is already full of guards ({alive}/{max})";
+            BackupMessageUntil = Time.time + 4f;
         }
 
         public void NotifyLootBroken(HeavyLoot l) { Lost += l.baseValue; }

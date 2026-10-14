@@ -42,6 +42,8 @@ namespace BuildingEscape
         public float guardChaseSpeed = 3.6f;
         public int baseGuards = 3;
         public int maxGuards = 12;
+        [Tooltip("Most guards alive on a floor at once, counting backup that gets called in.")]
+        public int maxGuardsAlive = 24;
 
         [Header("Materials")]
         public Material floorMat, wallMat, deskMat, elevatorMat, lootMat, mugMat, guardMat;
@@ -608,7 +610,7 @@ namespace BuildingEscape
             return placed;
         }
 
-        void SpawnGuard(string name, List<Vector3> route, int look)
+        GuardAI SpawnGuard(string name, List<Vector3> route, int look)
         {
             var go = GameObject.CreatePrimitive(PrimitiveType.Capsule);
             go.name = name; go.transform.SetParent(current);
@@ -633,6 +635,49 @@ namespace BuildingEscape
             nose.transform.localPosition = new Vector3(0, 0.6f, 0.45f);
             nose.transform.localScale = new Vector3(0.4f, 0.15f, 0.2f);
             Kill(nose.GetComponent<Collider>());
+            return ai;
+        }
+
+        int reinforcementCount;
+
+        /// <summary>A random point on the NavMesh somewhere on the current floor (not in the elevator room).</summary>
+        Vector3 RandomWalkable()
+        {
+            for (int i = 0; i < 20; i++)
+            {
+                var cell = new Vector2Int(Random.Range(0, cols), Random.Range(0, rows));
+                if (cell == Vector2Int.zero) continue;
+                var p = CellCenter(cell) + new Vector3(Random.Range(-7f, 7f), 0f, Random.Range(-7f, 7f));
+                if (NavMesh.SamplePosition(p, out var hit, 6f, NavMesh.AllAreas)) return hit.position;
+            }
+            return CellCenter(new Vector2Int(cols - 1, rows - 1));
+        }
+
+        /// <summary>
+        /// Backup: spawns guards well away from <paramref name="target"/> (out of sight, across the floor)
+        /// and sends them running to it. Returns how many were spawned.
+        /// </summary>
+        public int SpawnReinforcements(Vector3 target, int n)
+        {
+            if (!current) return 0;
+            int spawned = 0;
+            for (int i = 0; i < n; i++)
+            {
+                // a random walkable spot anywhere on the floor (not right on top of the trouble)
+                Vector3 best = Vector3.zero; bool found = false;
+                for (int tries = 0; tries < 30 && !found; tries++)
+                {
+                    var p = RandomWalkable();
+                    if (Vector3.Distance(p, target) < 12f && tries < 25) continue;
+                    best = p; found = true;
+                }
+                if (!found) continue;
+                var ai = SpawnGuard($"Backup_{reinforcementCount++}", new List<Vector3> { best }, Random.Range(0, 100));
+                ai.roam = RandomWalkable;   // after reaching the spot, wander freely again
+                ai.Dispatch(target);
+                spawned++;
+            }
+            return spawned;
         }
 
         // ------------------------------------------------------------------ helpers

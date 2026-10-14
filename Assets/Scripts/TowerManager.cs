@@ -52,6 +52,7 @@ namespace BuildingEscape
                 // A finished floor is closed for good: the elevator only goes down to the basement,
                 // and from there up to the next unfinished floor.
                 ResumeLevel = h.Floor + 1;
+                h.PayOutSurplus(); // money banked beyond the quota is yours to spend at the vendor
                 StartCoroutine(LoadFloor(0));
             }
         }
