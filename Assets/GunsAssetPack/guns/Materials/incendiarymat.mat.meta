@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 5456d8c535aea874e89fe37ff0300d15
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 2100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 403208
+  packageName: Guns Asset Pack
+  packageVersion: 1.0
+  assetPath: Assets/GunsAssetPack/guns/Materials/incendiarymat.mat
+  uploadId: 983570

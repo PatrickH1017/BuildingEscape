@@ -155,6 +155,14 @@ namespace BuildingEscape.Net
                 entries.Add(($"Friend {i + 1}", i == 0 ? local.Serialize() : PlayerAppearance.ForSlot(i).Serialize(), i == 0));
             ApplyEntries();
         }
+
+        /// <summary>Editor/test only: show exactly these look strings (the first one is "you").</summary>
+        public void DebugShowLooks(System.Collections.Generic.IList<string> looks)
+        {
+            entries.Clear();
+            for (int i = 0; i < looks.Count; i++) entries.Add(($"Friend {i + 1}", looks[i], i == 0));
+            ApplyEntries();
+        }
 #endif
 
         void ApplyEntries()

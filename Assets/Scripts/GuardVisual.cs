@@ -23,7 +23,13 @@ namespace BuildingEscape
             ai = GetComponent<GuardAI>();
             agent = GetComponent<NavMeshAgent>();
             var looks = PartyCharacterFactory.GuardLooks;
-            anim = PartyCharacterFactory.Attach(gameObject, looks[Mathf.Abs(lookIndex) % looks.Length]);
+            var look = looks[Mathf.Abs(lookIndex) % looks.Length];
+            // Guards are the Tiny Toon police officers when that pack is set up; the look's build (height / width) is
+            // kept so they still come in different sizes. Without the pack they stay the mean Party characters.
+            var catalog = CharacterCatalog.Instance;
+            var officer = catalog ? catalog.FirstWithRole(ToonRole.Guard) : null;
+            if (officer != null) look = look.WithModel(officer.id);
+            anim = PartyCharacterFactory.Attach(gameObject, look);
         }
 
         void Update()

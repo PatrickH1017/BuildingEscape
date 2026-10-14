@@ -49,7 +49,8 @@ namespace BuildingEscape
             if (!eq || !eq.TryGetComponent(out MeleeWeapon mw) || !MeleeWeapon.Available) return;
             var anim = vis ? vis.Anim : null;
             if (!anim) { shown = null; return; } // model not ready yet, retry next frame
-            var hand = anim.transform.Find(HandPath);
+            var hand = anim.RightHand;                    // a Tiny Toon person: the humanoid right hand
+            if (!hand) hand = anim.transform.Find(HandPath);
             if (!hand) hand = FindDeep(anim.transform, "RightHand");
             if (!hand) { Debug.LogWarning("MeleeController: RightHand bone not found on the character."); return; }
             heldModel = MeleeWeapon.BuildHeld(mw.kind, hand);

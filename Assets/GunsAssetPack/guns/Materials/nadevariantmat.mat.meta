@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: fce1e731e44a05d468aca059697977a4
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 2100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 403208
+  packageName: Guns Asset Pack
+  packageVersion: 1.0
+  assetPath: Assets/GunsAssetPack/guns/Materials/nadevariantmat.mat
+  uploadId: 983570

@@ -3,7 +3,7 @@ using UnityEngine;
 
 namespace BuildingEscape
 {
-    /// <summary>One character design from the Party Characters pack: body colour, face, hat and build.</summary>
+    /// <summary>One character design: a Party Characters body colour, face, hat and build, or a Tiny Toon person.</summary>
     public sealed class CharacterLook
     {
         public readonly string name;
@@ -14,12 +14,17 @@ namespace BuildingEscape
         public readonly string hat;
         /// <summary>Build multipliers on top of the base scale (1 = normal).</summary>
         public readonly float height, width;
+        /// <summary>A CharacterCatalog id (a Tiny Toon person; colour, face and hat then do not apply), or null for the Party character.</summary>
+        public readonly string model;
 
-        public CharacterLook(string name, Color body, int face, string hat, float height = 1f, float width = 1f)
+        public CharacterLook(string name, Color body, int face, string hat, float height = 1f, float width = 1f, string model = null)
         {
             this.name = name; this.body = body; this.face = face; this.hat = hat;
-            this.height = height; this.width = width;
+            this.height = height; this.width = width; this.model = model;
         }
+
+        /// <summary>The same look wearing another model (keeps the build, so guards stay different sizes).</summary>
+        public CharacterLook WithModel(string modelId) => new CharacterLook(name, body, face, hat, height, width, modelId);
     }
 
     /// <summary>
@@ -73,6 +78,13 @@ namespace BuildingEscape
         /// </summary>
         public static CharacterAnimator Attach(GameObject host, CharacterLook look)
         {
+            if (!string.IsNullOrEmpty(look.model))
+            {
+                // a Tiny Toon person; if this machine lacks that character, the Party model below is used instead
+                var toon = ToonCharacterFactory.Attach(host, look);
+                if (toon) return toon;
+            }
+
             var prefab = Resources.Load<GameObject>(PrefabPath);
             if (!prefab)
             {

@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: beb4119d609a00b46aab7ab5b27c0b2b
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 403208
+  packageName: Guns Asset Pack
+  packageVersion: 1.0
+  assetPath: Assets/GunsAssetPack/guns/Prefabs/bulletshotgun.prefab
+  uploadId: 983570

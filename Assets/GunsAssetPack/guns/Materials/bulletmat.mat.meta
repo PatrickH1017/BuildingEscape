@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 4f1e143c3e243c94ebbce6d16b3df048
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 2100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 403208
+  packageName: Guns Asset Pack
+  packageVersion: 1.0
+  assetPath: Assets/GunsAssetPack/guns/Materials/bulletmat.mat
+  uploadId: 983570

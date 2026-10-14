@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 05268daa2dc3e344088ea165871f5c24
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 2100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 403208
+  packageName: Guns Asset Pack
+  packageVersion: 1.0
+  assetPath: Assets/GunsAssetPack/guns/Materials/flashbangmat.mat
+  uploadId: 983570

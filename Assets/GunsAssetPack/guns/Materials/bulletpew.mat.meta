@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 1550cd5ff29c81a40ba548ae00cb31dd
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 2100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 403208
+  packageName: Guns Asset Pack
+  packageVersion: 1.0
+  assetPath: Assets/GunsAssetPack/guns/Materials/bulletpew.mat
+  uploadId: 983570

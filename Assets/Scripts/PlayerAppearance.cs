@@ -4,14 +4,17 @@ using UnityEngine;
 namespace BuildingEscape
 {
     /// <summary>
-    /// What a player chose for their character: body colour, face, hat and build. Saved to PlayerPrefs,
-    /// shared with friends as a short string ("40E6B2-1-2-100-100") and rebuilt into a CharacterLook.
+    /// What a player chose for their character: which character, and (for the Party character) body colour,
+    /// face and hat, plus build. Saved to PlayerPrefs, shared with friends as a short string
+    /// ("40E6B2-1-2-100-100", or "40E6B2-1-2-100-100-male_a" for a Tiny Toon person) and rebuilt into a CharacterLook.
     /// Strings from other players are validated and clamped; they are never trusted.
     /// </summary>
     public struct PlayerAppearance
     {
         public const string PrefKey = "OvertimeEscape.Appearance";
         public const float MinBuild = 0.9f, MaxBuild = 1.15f;
+        /// <summary>Longest string accepted from another machine (the network field holds 61 bytes).</summary>
+        public const int MaxLength = 56;
 
         /// <summary>Index 0 is "no hat"; the rest are the pack's hat prefab names.</summary>
         public static readonly string[] HatNames = { null, "party hat", "chef hat", "orange fedora" };
@@ -23,6 +26,11 @@ namespace BuildingEscape
         public int face;
         public int hat;
         public float height, width;
+        /// <summary>A CharacterCatalog id (a Tiny Toon person), or null / empty for the Party character.</summary>
+        public string model;
+
+        /// <summary>True when this look is a Tiny Toon person (colour, face and hat then do not apply).</summary>
+        public bool IsToon => !string.IsNullOrEmpty(model);
 
         /// <summary>The pack look this player slot would get by default.</summary>
         public static PlayerAppearance ForSlot(int slot)
@@ -34,7 +42,7 @@ namespace BuildingEscape
         }
 
         public CharacterLook ToLook(string name = "Player") =>
-            new CharacterLook(name, body, face, HatNames[hat], height, width);
+            new CharacterLook(name, body, face, HatNames[hat], height, width, IsToon ? model : null);
 
         public static PlayerAppearance Random(System.Random rng)
         {
@@ -51,27 +59,33 @@ namespace BuildingEscape
 
         // ------------------------------------------------------------------ string form
 
-        public string Serialize() =>
-            string.Format(CultureInfo.InvariantCulture, "{0:X2}{1:X2}{2:X2}-{3}-{4}-{5}-{6}",
+        public string Serialize()
+        {
+            string s = string.Format(CultureInfo.InvariantCulture, "{0:X2}{1:X2}{2:X2}-{3}-{4}-{5}-{6}",
                 body.r, body.g, body.b, face, hat, Mathf.RoundToInt(height * 100f), Mathf.RoundToInt(width * 100f));
+            return IsToon && CharacterCatalog.ValidId(model) ? s + "-" + model : s;
+        }
 
         public static bool TryParse(string s, out PlayerAppearance a)
         {
             a = ForSlot(0);
-            if (string.IsNullOrEmpty(s) || s.Length > 40) return false;
+            if (string.IsNullOrEmpty(s) || s.Length > MaxLength) return false;
             var p = s.Split('-');
-            if (p.Length != 5 || p[0].Length != 6) return false;
+            if ((p.Length != 5 && p.Length != 6) || p[0].Length != 6) return false;
             if (!int.TryParse(p[0], NumberStyles.HexNumber, CultureInfo.InvariantCulture, out int rgb)) return false;
             if (!int.TryParse(p[1], NumberStyles.None, CultureInfo.InvariantCulture, out int face)) return false;
             if (!int.TryParse(p[2], NumberStyles.None, CultureInfo.InvariantCulture, out int hat)) return false;
             if (!int.TryParse(p[3], NumberStyles.None, CultureInfo.InvariantCulture, out int h)) return false;
             if (!int.TryParse(p[4], NumberStyles.None, CultureInfo.InvariantCulture, out int w)) return false;
+            if (p.Length == 6 && !CharacterCatalog.ValidId(p[5])) return false;
 
             a.body = new Color32((byte)(rgb >> 16), (byte)(rgb >> 8), (byte)rgb, 255);
             a.face = Mathf.Clamp(face, 1, 3);
             a.hat = Mathf.Clamp(hat, 0, HatNames.Length - 1);
             a.height = Mathf.Clamp(h / 100f, MinBuild, MaxBuild);
             a.width = Mathf.Clamp(w / 100f, MinBuild, MaxBuild);
+            // an id this machine's catalog does not know still parses (a friend on a newer build); the Party model is shown then
+            a.model = p.Length == 6 ? p[5] : null;
             return true;
         }
 

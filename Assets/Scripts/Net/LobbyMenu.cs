@@ -243,6 +243,28 @@ namespace BuildingEscape.Net
             GUILayout.Label("<size=18><b>Customize</b></size>   (drag on the character to turn it)", Rich());
             bool changed = false;
 
+            // Which character: the Party character (colour, face, hat) or one of the Tiny Toon people.
+            var catalog = CharacterCatalog.Instance;
+            var toons = catalog ? catalog.Players() : null;
+            if (toons != null && toons.Count > 0)
+            {
+                GUILayout.Space(6f);
+                GUILayout.Label("Character");
+                var names = new string[toons.Count + 1];
+                names[0] = "Party";
+                int current = 0;
+                for (int i = 0; i < toons.Count; i++)
+                {
+                    names[i + 1] = toons[i].label;
+                    if (edit.model == toons[i].id) current = i + 1;
+                }
+                int rows = (names.Length + 3) / 4;
+                int pick = GUILayout.SelectionGrid(current, names, 4, GUILayout.Height(28f * rows));
+                if (pick != current) { edit.model = pick == 0 ? null : toons[pick - 1].id; changed = true; }
+            }
+
+            if (!edit.IsToon) // colour, face and hat belong to the Party character
+            {
             GUILayout.Space(6f);
             GUILayout.Label("Colour");
             for (int row = 0; row < Swatches.Length / 4; row++)
@@ -279,6 +301,7 @@ namespace BuildingEscape.Net
             GUILayout.Label("Hat");
             int hat = GUILayout.SelectionGrid(edit.hat, PlayerAppearance.HatLabels, 4, GUILayout.Height(28f));
             if (hat != edit.hat) { edit.hat = hat; changed = true; }
+            }
 
             GUILayout.Space(4f);
             float height = Slider("Height", edit.height, PlayerAppearance.MinBuild, PlayerAppearance.MaxBuild);
@@ -289,7 +312,9 @@ namespace BuildingEscape.Net
             GUILayout.BeginHorizontal();
             if (GUILayout.Button("Randomize", GUILayout.Height(30f)))
             {
+                string keepModel = edit.model; // randomize the look, not which character it is
                 edit = PlayerAppearance.Random(new System.Random());
+                edit.model = keepModel;
                 Color.RGBToHSV(edit.body, out hue, out sat, out val);
                 changed = true;
             }

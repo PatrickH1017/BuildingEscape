@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: bc17256c3ec2ba84793ad8ec62f149dc
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 2100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 403208
+  packageName: Guns Asset Pack
+  packageVersion: 1.0
+  assetPath: Assets/GunsAssetPack/guns/Materials/pewfinal.mat
+  uploadId: 983570

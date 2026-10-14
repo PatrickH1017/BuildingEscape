@@ -69,6 +69,46 @@ namespace BuildingEscape.EditorTools
             for (int i = 0; i < 50; i++) allOk &= PlayerAppearance.TryParse(PlayerAppearance.Random(rng).Serialize(), out _);
             Check("50 random looks all parse", allOk);
             Check("look builds", PlayerAppearance.ForSlot(0).ToLook("x").name == "x");
+
+            // Tiny Toon people: a sixth part names the character; old five-part strings stay Party looks
+            var toon = PlayerAppearance.ForSlot(1);
+            toon.model = "male_a";
+            string ts = toon.Serialize();
+            Check("toon model round trip", PlayerAppearance.TryParse(ts, out var t) && t.IsToon && t.model == "male_a" && t.Serialize() == ts);
+            Check("toon look carries the model", t.ToLook("x").model == "male_a" && PlayerAppearance.ForSlot(0).ToLook("x").model == null);
+            Check("old five-part string is a Party look", PlayerAppearance.TryParse("40E6B2-1-2-100-100", out var old) && !old.IsToon && old.model == null);
+            Check("rejects bad model ids", !PlayerAppearance.TryParse("40E6B2-1-2-100-100-Male-A", out _)
+                && !PlayerAppearance.TryParse("40E6B2-1-2-100-100-bad id", out _)
+                && !PlayerAppearance.TryParse("40E6B2-1-2-100-100-" + new string('a', 30), out _)
+                && !PlayerAppearance.TryParse("40E6B2-1-2-100-100-", out _));
+            var longest = PlayerAppearance.ForSlot(0); longest.model = new string('a', 24);
+            Check("longest legal toon string fits the network field", longest.Serialize().Length <= 61
+                && PlayerAppearance.TryParse(longest.Serialize(), out _));
+            Check("unknown model id still parses (friend on a newer build)", PlayerAppearance.TryParse("40E6B2-1-2-100-100-zz_new_guy", out var unk) && unk.model == "zz_new_guy");
+            Check("ids", CharacterCatalog.ValidId("male_a") && !CharacterCatalog.ValidId("Male") && !CharacterCatalog.ValidId("a-b") && !CharacterCatalog.ValidId(""));
+        }
+
+        /// <summary>Builds the character catalog from the Tiny Toon pack and checks it (needs the pack imported).</summary>
+        public static void ToonSetup()
+        {
+            UnityEditor.AssetDatabase.Refresh();
+            CharacterCatalogBuilder.BuildNow(true);
+            var cat = UnityEditor.AssetDatabase.LoadAssetAtPath<CharacterCatalog>("Assets/Resources/CharacterCatalog.asset");
+            Check("catalog asset exists", cat != null);
+            if (!cat) return;
+            Check("catalog has an atlas", cat.atlas != null);
+            Check("catalog lists characters", cat.characters.Length >= 4);
+            foreach (var c in cat.characters)
+                Debug.Log($"[NetTest] catalog character id={c.id} label={c.label} role={c.role} clips={c.clips} prefab={(c.prefab ? c.prefab.name : "NONE")}");
+            Check("three players to pick from", cat.Players().Count >= 3);
+            Check("a guard character", cat.FirstWithRole(ToonRole.Guard) != null);
+            foreach (var (n, s) in new[] { ("male", cat.male), ("female", cat.female), ("zombie", cat.zombie) })
+                Debug.Log($"[NetTest] clipset {n}: idle={s.idle != null} walk={s.walk != null} run={s.run != null} death={s.death != null} attack={s.attack != null} pistolIdle={s.pistolIdle != null} pistolRun={s.pistolRun != null} pistolShoot={s.pistolShoot != null}");
+            Check("male clips complete", cat.male.idle && cat.male.walk && cat.male.run && cat.male.death && cat.male.attack);
+            Check("female clips complete", cat.female.idle && cat.female.walk && cat.female.run && cat.female.death && cat.female.attack);
+            Check("male pistol clips (armed guards)", cat.male.pistolIdle && cat.male.pistolRun && cat.male.pistolShoot);
+            foreach (var clip in new[] { cat.male.idle, cat.male.walk, cat.male.run, cat.male.death, cat.male.attack })
+                if (clip) Debug.Log($"[NetTest] clip {clip.name}: length={clip.length:0.00}s humanMotion={clip.humanMotion} looping={clip.isLooping}");
         }
 
         static void Check(string name, bool ok) => Debug.Log($"[NetTest] policy {name}: {(ok ? "PASS" : "FAIL")}");

@@ -39,6 +39,7 @@ namespace BuildingEscape.EditorTools
         public static void Qa() => Start("qa");
         public static void Social() => Start("social");
         public static void Shots() => Start("shots");
+        public static void Toon() => Start("toon");
         public static void VoiceHost() => Start("voicehost");
         public static void VoiceClient() => Start("voiceclient");
         public static void Offline()
@@ -73,6 +74,7 @@ namespace BuildingEscape.EditorTools
                 case "client": case "sockclient": yield return ClientScenario(); break;
                 case "steamhost": yield return SteamHostScenario(); break;
                 case "shots": yield return ShotsScenario(); break;
+                case "toon": yield return ToonScenario(); break;
                 case "offline": yield return OfflineScenario(); break;
                 case "voicehost": yield return VoiceScenario(true); break;
                 case "voiceclient": yield return VoiceScenario(false); break;
@@ -230,6 +232,18 @@ namespace BuildingEscape.EditorTools
             hm.godMode = true; hm.freezeTimer = true;
             int puppets = 0; foreach (var gd in GuardAI.All) if (gd && gd.IsPuppet) puppets++;
             Log($"[Solo] floor 1: objects={NetIds.Count} guards={GuardAI.All.Count} puppets={puppets} (must be 0) quota={hm.Quota}");
+
+            // guards are the Tiny Toon police officers (when the pack is set up) and walk their patrol
+            yield return new WaitForSeconds(3f);
+            int cops = 0, moving = 0;
+            foreach (var gd in GuardAI.All)
+            {
+                var ca = gd ? gd.GetComponentInChildren<CharacterAnimator>() : null;
+                if (!ca || !ca.ClipMode) continue;
+                cops++;
+                if (ca.DebugWeights()[0] < 0.5f) moving++;
+            }
+            Log($"[Solo] guards as police officers: {cops}/{GuardAI.All.Count}, walking or running: {moving}");
 
             var player = WobblyPlayerRegistry.All[0];
             var pack = player.GetComponent<Backpack>();
@@ -668,9 +682,10 @@ namespace BuildingEscape.EditorTools
 
         // ------------------------------------------------------------------ screenshots of the 3D lobby
 
-        static void Shot(string name)
+        static void Shot(string name) => ShotCam(Camera.main, name);
+
+        static void ShotCam(Camera cam, string name)
         {
-            var cam = Camera.main;
             var rt = new RenderTexture(1280, 720, 24);
             cam.targetTexture = rt;
             cam.Render();

@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: f2b38acf42fd9f9479aed19c1ab029aa
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 403208
+  packageName: Guns Asset Pack
+  packageVersion: 1.0
+  assetPath: Assets/GunsAssetPack/guns/Prefabs/shotgun.prefab
+  uploadId: 983570
