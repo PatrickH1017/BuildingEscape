@@ -1,7 +1,37 @@
+# Unity generated folders - never commit these, they are rebuilt on open
 /[Ll]ibrary/
 /[Tt]emp/
 /[Oo]bj/
-/[叠]uild/
-/[叠]uilds/
-/[尝]ogs/
-/[𠘨]erf/
+/[Bb]uild/
+/[Bb]uilds/
+/[Ll]ogs/
+/[Uu]ser[Ss]ettings/
+/[Mm]emoryCaptures/
+/[Rr]ecordings/
+
+# IDE / project files (Unity regenerates them)
+.vs/
+.vscode/
+.idea/
+*.csproj
+*.sln
+*.slnx
+*.suo
+*.user
+*.userprefs
+*.pidb
+*.booproj
+*.svd
+*.pdb
+*.mdb
+*.opendb
+*.VC.db
+
+# Build outputs and OS files
+*.apk
+*.aab
+*.unitypackage
+*.app
+sysinfo.txt
+.DS_Store
+Thumbs.db
