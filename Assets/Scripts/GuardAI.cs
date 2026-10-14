@@ -49,6 +49,11 @@ namespace BuildingEscape
         public bool IsPuppet { get; private set; }
         float netProgress, netSpeed;
 
+        /// <summary>The boss: tough, and knocking it out wins the run.</summary>
+        public bool IsBoss;
+        /// <summary>Drops the elevator key when knocked out for good (floor 12).</summary>
+        public bool carriesKey;
+
         /// <summary>Metres per second, for the walk animation (the host reads its agent, a puppet the streamed value).</summary>
         public float CurrentSpeed => IsPuppet ? netSpeed : (agent && agent.enabled && agent.isOnNavMesh ? agent.velocity.magnitude : 0f);
 
@@ -131,6 +136,13 @@ namespace BuildingEscape
                 stunUntil = float.MaxValue;
                 agent.isStopped = true;
                 Debug.Log($"{name} is down for good after {Hits} hits.");
+                if (carriesKey)
+                {
+                    carriesKey = false;
+                    var gen = FindFirstObjectByType<FloorGenerator>();
+                    if (gen) gen.DropKey(transform.position + Vector3.up * 0.5f);
+                }
+                if (IsBoss) HeistManager.Instance?.BossDefeated();
                 return;
             }
             Stun(stunSeconds, by);

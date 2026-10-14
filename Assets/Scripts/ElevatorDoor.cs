@@ -34,6 +34,13 @@ namespace BuildingEscape
 
         public void SetOpen(bool open) { target = open ? 1f : 0f; }
 
+        /// <summary>Jump straight to closed / open (used right after the NavMesh is baked with the doors open).</summary>
+        public void Snap(bool open)
+        {
+            target = k = open ? 1f : 0f;
+            Apply();
+        }
+
         void Update()
         {
             k = Mathf.MoveTowards(k, target, speed * Time.deltaTime);

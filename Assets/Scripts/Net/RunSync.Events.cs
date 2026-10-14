@@ -104,6 +104,18 @@ namespace BuildingEscape.Net
             if (tm && tm.generator) tm.generator.SpawnReinforcementFromNet(id, pos, look);
         }
 
+        public void BroadcastSpawnKey(int id, Vector3 pos)
+        {
+            if (IsServer) SpawnKeyRpc((ushort)id, pos);
+        }
+
+        [Rpc(SendTo.NotServer)]
+        void SpawnKeyRpc(ushort id, Vector3 pos)
+        {
+            var tm = TowerManager.Instance;
+            if (tm && tm.generator) tm.generator.SpawnKeyFromNet(id, pos);
+        }
+
         public void BroadcastToast(string text)
         {
             if (IsServer && !string.IsNullOrEmpty(text)) ToastRpc(text);

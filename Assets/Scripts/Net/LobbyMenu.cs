@@ -11,7 +11,7 @@ namespace BuildingEscape.Net
     /// </summary>
     public class LobbyMenu : MonoBehaviour
     {
-        enum Page { Main, Play, Browse, Customize, Settings, HowTo }
+        enum Page { Main, Play, Browse, Customize, Settings, HowTo, Invite }
 
         const float PanelW = 380f;
         const string VolumeKey = "OvertimeEscape.MasterVolume";   // shared with the in-run Esc menu
@@ -56,6 +56,7 @@ namespace BuildingEscape.Net
 
             // A lobby / connection takes over the panel; pages that make no sense online fall back to Main.
             if (net.State != NetSessionState.Offline && (page == Page.Play || page == Page.Browse)) page = Page.Main;
+            if (net.State == NetSessionState.Offline && page == Page.Invite) page = Page.Main; // only inside a lobby
 
             GUILayout.BeginArea(new Rect(10f, 10f, PanelW, Screen.height / k - 20f), GUI.skin.box);
             GUILayout.Label("<size=26><b>OVERTIME ESCAPE</b></size>", Rich());
@@ -65,6 +66,7 @@ namespace BuildingEscape.Net
             if (page == Page.Customize) DrawCustomize(net);
             else if (page == Page.Settings) DrawSettings();
             else if (page == Page.HowTo) DrawHowTo();
+            else if (page == Page.Invite) DrawInvite(net);
             else switch (net.State)
             {
                 case NetSessionState.Offline:
@@ -201,7 +203,7 @@ namespace BuildingEscape.Net
                                 (net.UsingSteam && !r.IsHost ? (r.Ready ? "   - ready" : "   - not ready") : ""));
 
             GUILayout.Space(10f);
-            if (net.UsingSteam && GUILayout.Button("Invite friends", GUILayout.Height(30f))) net.InviteFriends();
+            if (net.UsingSteam && GUILayout.Button("Invite friends", GUILayout.Height(30f))) { page = Page.Invite; RefreshFriends(); }
             if (GUILayout.Button("Customize your character", GUILayout.Height(30f))) OpenCustomize();
 
             if (net.State == NetSessionState.StartingRun) { GUILayout.Label("Loading the run..."); return; }
@@ -318,6 +320,83 @@ namespace BuildingEscape.Net
             float v = GUILayout.HorizontalSlider(value, min, max);
             GUILayout.EndHorizontal();
             return v;
+        }
+
+        // ------------------------------------------------------------------ invite friends
+
+        readonly List<FriendEntry> friends = new();
+        readonly Dictionary<ulong, float> invitedAt = new();
+        Vector2 friendsScroll;
+        float nextFriendRefresh;
+        Texture2D dotTexture;
+
+        void RefreshFriends()
+        {
+            FriendsService.Refresh(friends);
+            nextFriendRefresh = Time.unscaledTime + 2f;
+        }
+
+        Texture2D Dot()
+        {
+            if (dotTexture) return dotTexture;
+            const int n = 16;
+            dotTexture = new Texture2D(n, n, TextureFormat.RGBA32, false) { hideFlags = HideFlags.HideAndDontSave };
+            for (int y = 0; y < n; y++)
+                for (int x = 0; x < n; x++)
+                {
+                    float dx = x - (n - 1) / 2f, dy = y - (n - 1) / 2f;
+                    float a = Mathf.Clamp01((n / 2f - 0.5f) - Mathf.Sqrt(dx * dx + dy * dy));
+                    dotTexture.SetPixel(x, y, new Color(1f, 1f, 1f, a));
+                }
+            dotTexture.Apply();
+            return dotTexture;
+        }
+
+        void DrawInvite(NetSession net)
+        {
+            GUILayout.Label("<size=18><b>Invite friends</b></size>", Rich());
+            if (Time.unscaledTime >= nextFriendRefresh) RefreshFriends();
+
+            int online = 0;
+            foreach (var f in friends) if (f.Online) online++;
+            GUILayout.Label(friends.Count == 0 ? "No friends found on Steam." : $"{online} of {friends.Count} friends online");
+
+            friendsScroll = GUILayout.BeginScrollView(friendsScroll);
+            foreach (var f in friends)
+            {
+                GUILayout.BeginHorizontal(GUI.skin.box);
+
+                // status dot: green when online, grey when not
+                var r = GUILayoutUtility.GetRect(16f, 24f, GUILayout.Width(16f), GUILayout.Height(24f));
+                var old = GUI.color;
+                GUI.color = f.Online ? new Color(0.25f, 0.85f, 0.4f) : new Color(0.45f, 0.45f, 0.5f);
+                GUI.DrawTexture(new Rect(r.x + 2f, r.y + 6f, 12f, 12f), Dot());
+                GUI.color = old;
+
+                var name = new GUIStyle(GUI.skin.label);
+                if (!f.Online) name.normal.textColor = new Color(0.6f, 0.6f, 0.65f);
+                GUILayout.Label(f.Name, name);
+                var status = new GUIStyle(GUI.skin.label) { fontSize = 11, alignment = TextAnchor.MiddleRight };
+                status.normal.textColor = new Color(0.65f, 0.7f, 0.8f);
+                GUILayout.Label(f.Status, status, GUILayout.Width(110f));
+
+                bool recent = invitedAt.TryGetValue(f.Id.m_SteamID, out float at) && Time.unscaledTime - at < 8f;
+                GUI.enabled = f.Online && !recent;
+                if (GUILayout.Button(recent ? "Invited" : "Invite", GUILayout.Width(74f)))
+                {
+                    if (net.InviteFriend(f.Id)) invitedAt[f.Id.m_SteamID] = Time.unscaledTime;
+                }
+                GUI.enabled = true;
+                GUILayout.EndHorizontal();
+            }
+            GUILayout.EndScrollView();
+
+            GUILayout.Space(6f);
+            GUILayout.BeginHorizontal();
+            if (GUILayout.Button("Refresh", GUILayout.Height(30f))) RefreshFriends();
+            if (GUILayout.Button("Steam invite dialog", GUILayout.Height(30f))) net.InviteFriends();
+            GUILayout.EndHorizontal();
+            if (GUILayout.Button("< Back", GUILayout.Height(34f))) page = Page.Main;
         }
 
         // ------------------------------------------------------------------ how to play

@@ -26,7 +26,11 @@ namespace BuildingEscape
         /// <summary>The level the elevator goes to when it rides up from the basement.</summary>
         public int ResumeLevel { get; private set; } = 1;
 
-        void Awake() { Instance = this; }
+        void Awake()
+        {
+            Instance = this;
+            totalFloors = TowerRules.Levels; // 13 floors + the Loading Docks (overrides the value saved in the scene)
+        }
 
         void Start()
         {
@@ -63,12 +67,30 @@ namespace BuildingEscape
             }
             else if (h.Phase == HeistPhase.FloorComplete)
             {
-                // A finished floor is closed for good: the elevator only goes down to the basement,
-                // and from there up to the next unfinished floor.
-                ResumeLevel = h.Floor + 1;
-                h.PayOutSurplus(); // money banked beyond the quota is yours to spend at the vendor
+                // legacy path (test mode): a finished floor sends the team to the docks
+                ResumeLevel = TowerRules.ResumeAfterLeaving(h.Floor, true);
+                h.PayOutSurplus();
                 BeginLevel(0);
             }
+        }
+
+        /// <summary>
+        /// The service elevator was confirmed to go to <paramref name="level"/> (the rules were checked on the
+        /// panel). Leaving a floor for the docks remembers where to resume; surplus cash is paid out.
+        /// </summary>
+        public void RideTo(int level)
+        {
+            var h = HeistManager.Instance;
+            if (Loading || h == null || Net.NetRole.IsRemoteClient) return;
+            if (level == h.Floor || level < 0 || level >= totalFloors) return;
+            bool complete = h.Phase == HeistPhase.FloorComplete;
+            if (TowerRules.IsDocks(level) && !TowerRules.IsDocks(h.Floor))
+            {
+                ResumeLevel = TowerRules.ResumeAfterLeaving(h.Floor, complete);
+                if (complete) h.PayOutSurplus(); // money banked beyond the quota is yours to spend at the vendor
+            }
+            else if (!TowerRules.IsDocks(level)) ResumeLevel = level;
+            BeginLevel(level);
         }
 
         /// <summary>Test mode: jump straight to a level (0 = basement).</summary>

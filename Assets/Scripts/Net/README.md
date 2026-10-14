@@ -67,3 +67,12 @@ uses the saved look too. Local test lobbies show default looks (there is no Stea
 Gameplay objects still simulate locally on each machine: loot, guards, the elevator and phase changes,
 backpack contents, the vendor and cash. Players, the seed and the floor layout are shared. That is the
 next phase (host-authoritative guards and loot, replicated run state).
+
+## Inviting friends
+
+In a lobby, **Invite friends** opens the in-game friends list: online friends first, each with a green dot, then
+offline ones (greyed). **Invite** sends them the lobby. The friend sees a pop-up with **Join party** and **Decline**
+and a bar that runs down over 10 seconds (`Social/InviteInbox.cs`). Accepting while already in another lobby
+leaves it and joins the new one. Invites are ignored once a run has started. The list needs the Steam client
+running; it works in the Editor. The friend needs the game running to get the pop-up (otherwise Steam shows its
+own notification). The old Steam overlay invite dialog is still available from the same page.

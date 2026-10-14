@@ -14,7 +14,7 @@ namespace BuildingEscape
 
             if (hub)
             {
-                GUI.Label(new Rect(12, 8, 900, 28), $"{m.FloorLabel} - SAFE ZONE   Cash ${m.Cash}   Run total ${m.RunTotal}", style);
+                GUI.Label(new Rect(12, 8, 900, 28), $"{m.FloorLabel}   Cash ${m.Cash}   Run total ${m.RunTotal}", style);
             }
             else
             {
@@ -24,14 +24,15 @@ namespace BuildingEscape
                 GUI.Label(new Rect(12, 34, 600, 28), $"Time {t / 60}:{t % 60:00}   Cash ${m.Cash}   Run total ${m.RunTotal}", style);
             }
             GUI.Label(new Rect(12, Screen.height - 30, 1400, 28),
-                "WASD move  Mouse look  Hold Alt (or V) look around  Shift sprint  Space jump  E pick up  Tab inventory  Q grab/drop  LMB throw/swing weapon  H hide  F sell (basement)  drop loot in the elevator to bank it  G elevator (basement)  1-7 buy  Esc cursor", style);
+                "WASD move  Mouse look  Hold Alt (or V) look around  Shift sprint  Space jump  E pick up  Tab inventory  Q grab/drop  LMB throw/swing weapon  H hide  drop loot in the elevator to bank it  Elevator: F direction, G go  F sell (loading docks)  M mute  Esc cursor", style);
 
             var big = new GUIStyle(GUI.skin.label) { fontSize = 40, alignment = TextAnchor.MiddleCenter };
             if (m.Phase == HeistPhase.FloorComplete)
             {
-                string msg = ElevatorExtraction.EveryoneAboard
-                    ? "Quota met - doors closing, heading down to the basement..."
-                    : "Quota met - get everyone into the elevator to head down to the basement";
+                bool groupEnd = TowerRules.IsGroupEnd(m.Floor);
+                string msg = groupEnd
+                    ? "Quota met - return to the Loading Docks (elevator: F direction, G go)"
+                    : "Quota met - the elevator can go up now (F direction, G go)";
                 GUI.Label(new Rect(0, 80, Screen.width, 60), msg, big);
                 GUI.Label(new Rect(0, 135, Screen.width, 32), $"Surplus ${m.Surplus} over the quota becomes your cash to spend at the vendor",
                     new GUIStyle(style) { alignment = TextAnchor.MiddleCenter, fontSize = 22 });
@@ -40,10 +41,10 @@ namespace BuildingEscape
             {
                 var tm = TowerManager.Instance;
                 int next = tm ? tm.ResumeLevel : 1;
-                string nextLabel = next <= 0 ? "the Basement" : $"Floor {next}";
+                string nextLabel = TowerRules.Label(next);
                 string msg = ElevatorExtraction.EveryoneAboard
                     ? $"Press G to ride up to {nextLabel} (finished floors are closed)"
-                    : $"Safe zone - everyone into the elevator, then G to go up to {nextLabel}";
+                    : $"Loading Docks - everyone into the elevator, then G to go up to {nextLabel}";
                 GUI.Label(new Rect(0, 80, Screen.width, 60), msg, big);
                 if (m.SurplusPaid > 0)
                     GUI.Label(new Rect(0, 135, Screen.width, 32), $"+${m.SurplusPaid} surplus from the last floor added to your cash",

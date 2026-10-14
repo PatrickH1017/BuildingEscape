@@ -210,14 +210,23 @@ namespace BuildingEscape.Net
             NoiseBus.EmitLocal(pos, Mathf.Min(loudness, 40f));
         }
 
-        public void RequestRide()
+        /// <summary>A panel button in an elevator: 0 = direction (or the key at the back door), 1 = go.</summary>
+        public void RequestPanel(int action)
         {
-            if (IsServer) ElevatorExtraction.NetRideRequested = true; else RideRequestRpc();
+            if (IsServer) HostPanel(Me, action); else PanelRequestRpc((byte)action);
         }
 
         [Rpc(SendTo.Server)]
-        void RideRequestRpc(RpcParams rp = default) => ElevatorExtraction.NetRideRequested = true;
+        void PanelRequestRpc(byte action, RpcParams rp = default) => HostPanel(rp.Receive.SenderClientId, action);
 
+        void HostPanel(ulong who, int action)
+        {
+            var np = PlayerOf(who);
+            if (np == null) return;
+            var pack = np.GetComponent<Backpack>();
+            ElevatorExtraction.Current?.HostPress(np.transform, pack, action);  // each one checks the player is next to it
+            BossElevator.Current?.HostPress(np.transform, action);
+        }
         public void RequestBuy(int index)
         {
             if (IsServer) HostBuy(Me, index); else BuyRequestRpc((byte)index);

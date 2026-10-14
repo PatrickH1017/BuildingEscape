@@ -53,6 +53,13 @@ namespace BuildingEscape
         // ------------------------------------------------------------------ logic
 
         public bool Contains(Pickup p) => items.Contains(p);
+
+        /// <summary>Host: an item in the pack is used up (a key in a lock). The caller destroys the object.</summary>
+        internal void RemoveUsed(Pickup p)
+        {
+            if (!p || !items.Remove(p)) return;
+            if (Equipped == p) Equipped = null;
+        }
         public List<Pickup> Snapshot() => new List<Pickup>(items);
 
         /// <summary>Where a dropped item lands (in front of the player).</summary>

@@ -44,7 +44,7 @@ namespace BuildingEscape.Net
         [Tooltip("Level (0..1 RMS) below which the microphone counts as silent.")]
         public float gate = 0.012f;
 
-        public bool Muted { get; private set; }
+        public bool Muted { get; set; }
         public bool Speaking { get; private set; }
         public float MicLevel { get; private set; }
 

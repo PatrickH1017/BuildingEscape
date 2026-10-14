@@ -20,8 +20,10 @@ namespace BuildingEscape
             ("Q", "Grab or drop heavy loot (more people carry heavier things)"),
             ("Left mouse", "Throw what you hold / swing your weapon"),
             ("H", "Hide at a desk"),
-            ("F", "Sell to the vendor (basement)"),
-            ("G", "Call the elevator (basement)"),
+            ("F", "Sell to the vendor / choose Up or Down on the elevator panel"),
+            ("G", "Elevator: go (everyone must be inside)"),
+            ("M", "Mute your microphone"),
+            ("T", "Push to talk (when set in Settings)"),
             ("1 - 7", "Buy from the vendor's shop"),
             ("Esc", "Menu"),
         };
@@ -32,7 +34,7 @@ namespace BuildingEscape
             ("The goal", "[Write the goal of the game here.]"),
             ("Working together", "[Write how teammates cooperate here.]"),
             ("The guards", "[Write how guards notice you and what to do about it here.]"),
-            ("The elevator and the basement", "[Write how floors, the elevator and the basement work here.]"),
+            ("The elevator and the Loading Docks", "[Write how floors, the elevator and the Loading Docks work here.]"),
         };
     }
 }

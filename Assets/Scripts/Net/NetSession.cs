@@ -65,6 +65,11 @@ namespace BuildingEscape.Net
         int approving;
         bool leaving;
 
+        // Local test mode has no Steam lobby: the host tells clients who is connected (Steam mode reads the lobby).
+        const string RosterMessage = "be.roster";
+        readonly List<ulong> localRosterIds = new();
+        float nextRosterSend;
+
         readonly List<RosterEntry> roster = new();
         readonly List<LobbyMember> members = new();
 
@@ -96,6 +101,12 @@ namespace BuildingEscape.Net
 
         void Update()
         {
+            // resend now and then: a client that has just connected may not have its handler registered yet
+            if (IsHost && !UsingSteam && State == NetSessionState.InLobby && Time.unscaledTime >= nextRosterSend)
+            {
+                nextRosterSend = Time.unscaledTime + 1f;
+                SendRoster();
+            }
             if (State == NetSessionState.Connecting && connectDeadline > 0 && Time.unscaledTime > connectDeadline)
                 Leave("Could not reach the host (timed out).");
         }
@@ -183,6 +194,12 @@ namespace BuildingEscape.Net
         }
 
         public void InviteFriends() { lobby?.ShowInviteDialog(); }
+
+        /// <summary>Invite one Steam friend to this lobby (from the in-game friends list).</summary>
+        public bool InviteFriend(CSteamID friend) => lobby != null && lobby.Invite(friend);
+
+        /// <summary>The Steam lobby this machine is in (nil when not in one).</summary>
+        public CSteamID CurrentLobby => lobby != null ? lobby.Current : CSteamID.Nil;
 
         /// <summary>Publishes this player's chosen look to the lobby so friends see it on the stage.</summary>
         public void SetLook(string look) { if (UsingSteam) lobby?.SetLook(look); }
@@ -361,8 +378,38 @@ namespace BuildingEscape.Net
 
         void OnClientConnected(ulong id)
         {
-            if (!IsHost && id == nm.LocalClientId) EnterLobby();
-            else RebuildRoster();
+            if (!IsHost && id == nm.LocalClientId)
+            {
+                if (!UsingSteam && nm.CustomMessagingManager != null)
+                    nm.CustomMessagingManager.RegisterNamedMessageHandler(RosterMessage, OnRoster);
+                EnterLobby();
+            }
+            else
+            {
+                RebuildRoster();
+                SendRoster();
+            }
+        }
+
+        /// <summary>Host, local mode: send the list of connected clients to everyone.</summary>
+        void SendRoster()
+        {
+            if (!IsHost || UsingSteam || !nm.IsListening || nm.CustomMessagingManager == null) return;
+            var ids = new List<ulong>(nm.ConnectedClientsIds);
+            using var w = new FastBufferWriter(2 + ids.Count * 8, Unity.Collections.Allocator.Temp);
+            w.WriteValueSafe((byte)ids.Count);
+            foreach (var id in ids) w.WriteValueSafe(id);
+            foreach (var id in ids)
+                if (id != NetworkManager.ServerClientId)
+                    nm.CustomMessagingManager.SendNamedMessage(RosterMessage, id, w, NetworkDelivery.ReliableSequenced);
+        }
+
+        void OnRoster(ulong sender, FastBufferReader r)
+        {
+            r.ReadValueSafe(out byte n);
+            localRosterIds.Clear();
+            for (int i = 0; i < n; i++) { r.ReadValueSafe(out ulong id); localRosterIds.Add(id); }
+            RebuildRoster();
         }
 
         void OnClientDisconnected(ulong id)
@@ -405,7 +452,8 @@ namespace BuildingEscape.Net
             else if (nm.IsListening)
             {
                 int n = 1;
-                foreach (var id in nm.ConnectedClientsIds)
+                IEnumerable<ulong> ids = IsHost || localRosterIds.Count == 0 ? nm.ConnectedClientsIds : localRosterIds;
+                foreach (var id in ids)
                     roster.Add(new RosterEntry { Name = "Player " + n++, Ready = true, IsHost = id == NetworkManager.ServerClientId, IsLocal = id == nm.LocalClientId, Look = "" });
             }
             RosterChanged?.Invoke();

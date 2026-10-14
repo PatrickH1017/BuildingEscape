@@ -36,6 +36,8 @@ namespace BuildingEscape.EditorTools
         public static void Client() => Start("client");
         public static void WorldHost() => Start("worldhost");
         public static void WorldClient() => Start("worldclient");
+        public static void Qa() => Start("qa");
+        public static void Social() => Start("social");
         public static void Shots() => Start("shots");
         public static void VoiceHost() => Start("voicehost");
         public static void VoiceClient() => Start("voiceclient");
@@ -51,7 +53,7 @@ namespace BuildingEscape.EditorTools
         public static void SteamClient() => Start("steamclient");
     }
 
-    public class NetDevRunner : MonoBehaviour
+    public partial class NetDevRunner : MonoBehaviour
     {
         public string mode;
         float started;
@@ -74,6 +76,8 @@ namespace BuildingEscape.EditorTools
                 case "offline": yield return OfflineScenario(); break;
                 case "voicehost": yield return VoiceScenario(true); break;
                 case "voiceclient": yield return VoiceScenario(false); break;
+                case "social": yield return SocialScenario(); break;
+                case "qa": yield return QaScenario(System.Environment.GetEnvironmentVariable("BE_QA_ROLE")); break;
                 case "worldhost": yield return WorldHostScenario(); break;
                 case "worldclient": yield return WorldClientScenario(); break;
                 case "steamclient": yield return SteamClientScenario(); break;
@@ -252,6 +256,15 @@ namespace BuildingEscape.EditorTools
             Log($"[Solo] banked +{hm.Banked - before}");
 
             hm.DebugCompleteFloor();
+            // the team gets into the car and uses the two buttons: direction (Up -> Down), then go
+            player.transform.position = TowerManager.Instance.CurrentInfo.spawn + Vector3.up * 1.1f;
+            yield return new WaitForSeconds(1.5f);
+            var panel = ElevatorExtraction.Current;
+            Log($"[Solo] panel before: up={ElevatorExtraction.GoingUp} destination={ElevatorExtraction.Destination} aboard={ElevatorExtraction.EveryoneAboard}");
+            panel.HostPress(player.transform, pack, 0);
+            yield return new WaitForSeconds(0.3f);
+            Log($"[Solo] panel after direction: up={ElevatorExtraction.GoingUp} destination={ElevatorExtraction.Destination}");
+            panel.HostPress(player.transform, pack, 1);
             yield return new WaitUntil(() => TowerManager.Instance.Loading || hm.Floor == 0);
             yield return WaitFor(() => !TowerManager.Instance.Loading && hm.Floor == 0, 60, "back down");
             Log($"[Solo] back in the basement: phase={hm.Phase} objects={NetIds.Count}");
@@ -444,6 +457,7 @@ namespace BuildingEscape.EditorTools
             yield return WaitSig("c_in_car", 30);
             Log($"[World] H floor complete: everyone aboard={ElevatorExtraction.EveryoneAboard}, car holds {car.CargoIds().Length} item(s)");
             hm.DebugCompleteFloor();
+            Signal("h_complete");
             yield return new WaitUntil(() => TowerManager.Instance.Loading || HeistManager.Instance.Floor == 0);
             yield return FloorReady(0, 90);
             yield return new WaitForSeconds(2f);
@@ -498,7 +512,7 @@ namespace BuildingEscape.EditorTools
             Teleport(TowerManager.Instance.CurrentInfo.spawn + Vector3.up * 1.1f);
             yield return WaitFor(() => ElevatorExtraction.EveryoneAboard, 30, "everyone aboard (replicated)");
             Log($"[World] C everyone aboard={ElevatorExtraction.EveryoneAboard}; asking to ride up");
-            RunSync.Instance.RequestRide();
+            RunSync.Instance.RequestPanel(1);                    // Go (direction is Up by default)
             Signal("c_ride_sent");
             yield return new WaitForSeconds(2f);
             yield return FloorReady(1, 90);
@@ -611,6 +625,11 @@ namespace BuildingEscape.EditorTools
             Teleport(TowerManager.Instance.CurrentInfo.spawn + Vector3.up * 1.1f);
             yield return new WaitForSeconds(1.5f);
             Signal("c_in_car");
+            yield return WaitSig("h_complete", 30);
+            yield return new WaitForSeconds(0.5f);
+            RunSync.Instance.RequestPanel(0);                    // Up -> Down
+            yield return new WaitForSeconds(0.6f);
+            RunSync.Instance.RequestPanel(1);                    // Go
             yield return new WaitUntil(() => TowerManager.Instance.Loading || HeistManager.Instance.Floor == 0);
             yield return FloorReady(0, 90);
             yield return new WaitForSeconds(2.5f);

@@ -208,6 +208,9 @@ namespace BuildingEscape.Net
             SteamMatchmaking.SetLobbyJoinable(Current, false);
         }
 
+        /// <summary>Sends this lobby to one friend (they get an in-game pop-up, or a Steam notification if not playing).</summary>
+        public bool Invite(CSteamID friend) => InLobby && SteamMatchmaking.InviteUserToLobby(Current, friend);
+
         public void ShowInviteDialog()
         {
             if (InLobby) SteamFriends.ActivateGameOverlayInviteDialog(Current);

@@ -19,8 +19,8 @@ namespace BuildingEscape
         /// <summary>Level index: 0 = Basement, 1..10 = office floors.</summary>
         public int Floor { get; private set; }
         /// <summary>Number of levels including the basement.</summary>
-        public int TotalFloors { get; private set; } = 11;
-        public string FloorLabel => Floor <= 0 ? "Basement" : $"Floor {Floor}";
+        public int TotalFloors { get; private set; } = TowerRules.Levels;
+        public string FloorLabel => TowerRules.Label(Floor);
         public int Quota { get; private set; }
         public int Banked { get; private set; }
         public int Lost { get; private set; }
@@ -104,8 +104,15 @@ namespace BuildingEscape
             if (Phase != HeistPhase.Heist && Phase != HeistPhase.FloorComplete) return;
             Banked += v; RunTotal += v;
             OnBankedChanged?.Invoke(Banked);
-            if (Phase == HeistPhase.Heist && Banked >= Quota)
-                SetPhase(Floor >= TotalFloors - 1 ? HeistPhase.Won : HeistPhase.FloorComplete);
+            // the boss floor is won by knocking the boss out, not by banking loot
+            if (Phase == HeistPhase.Heist && Banked >= Quota && !TowerRules.IsBoss(Floor))
+                SetPhase(HeistPhase.FloorComplete);
+        }
+
+        /// <summary>The boss is down for good: the team has escaped.</summary>
+        public void BossDefeated()
+        {
+            if (Phase == HeistPhase.Heist && TowerRules.IsBoss(Floor)) SetPhase(HeistPhase.Won);
         }
 
         /// <summary>Test mode: meet the quota right now.</summary>
@@ -114,7 +121,7 @@ namespace BuildingEscape
             if (Phase != HeistPhase.Heist) return;
             Banked = Quota;
             OnBankedChanged?.Invoke(Banked);
-            SetPhase(Floor >= TotalFloors - 1 ? HeistPhase.Won : HeistPhase.FloorComplete);
+            SetPhase(TowerRules.IsBoss(Floor) ? HeistPhase.Won : HeistPhase.FloorComplete);
         }
 
         /// <summary>A charging guard caught a player: the team is busted.</summary>

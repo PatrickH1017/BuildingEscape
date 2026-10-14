@@ -9,6 +9,9 @@ namespace BuildingEscape.Net
         readonly NetworkVariable<int> vPhase = new(), vFloor = new(), vTotal = new(), vQuota = new(), vBanked = new(),
             vLost = new(), vCaught = new(), vRunTotal = new(), vCash = new(), vSurplusPaid = new(), vResume = new(), vTimeLeft = new();
         readonly NetworkVariable<bool> vBackupCalled = new(), vAboard = new(), vSealing = new();
+        // service elevator panel, floor 12 back door, guest (backup) elevator door
+        readonly NetworkVariable<bool> vGoingUp = new(true), vBackOpen = new(), vGuestOpen = new();
+        readonly NetworkVariable<int> vDestination = new(-1);
         // The epoch of the floor the host has finished building. Until it matches this machine's epoch the
         // mirrored values still belong to the previous floor, so they are not applied.
         readonly NetworkVariable<byte> vReadyEpoch = new();
@@ -37,6 +40,11 @@ namespace BuildingEscape.Net
             vBackupCalled.Value = hm.BackupCalled;
             vAboard.Value = ElevatorExtraction.EveryoneAboard;
             vSealing.Value = ElevatorExtraction.Sealing;
+            vGoingUp.Value = ElevatorExtraction.GoingUp;
+            vDestination.Value = ElevatorExtraction.Destination;
+            vBackOpen.Value = ElevatorExtraction.BackDoorOpen;
+            var gen0 = TowerManager.Instance != null ? TowerManager.Instance.generator : null;
+            vGuestOpen.Value = gen0 != null && gen0.GuestDoorOpen;
             var tm = TowerManager.Instance;
             if (tm != null) vResume.Value = tm.ResumeLevel;
         }
@@ -50,6 +58,8 @@ namespace BuildingEscape.Net
             hm.ApplyNet((HeistPhase)vPhase.Value, vFloor.Value, vTotal.Value, vQuota.Value, vBanked.Value, vLost.Value,
                         vCaught.Value, vRunTotal.Value, vCash.Value, vSurplusPaid.Value, vTimeLeft.Value, vBackupCalled.Value);
             ElevatorExtraction.NetSetFlags(vAboard.Value, vSealing.Value);
+            ElevatorExtraction.NetSetPanel(vGoingUp.Value, vDestination.Value, vBackOpen.Value);
+            if (tm != null && tm.generator != null) tm.generator.NetGuestDoor(vGuestOpen.Value);
             if (tm != null) tm.NetSetResume(vResume.Value);
         }
     }

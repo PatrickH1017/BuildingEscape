@@ -4,22 +4,46 @@ using UnityEngine;
 namespace BuildingEscape
 {
     /// <summary>
-    /// Elevator car (same spot on every level). Loot dropped inside the car (not carried, not in a pack) is
-    /// banked automatically toward the quota; weapons and other items are never banked. Once the quota is
-    /// met and everyone is aboard, the doors close and the car drops to the basement; G in the basement
-    /// rides up to the next unfinished floor. Loot and items left in the car ride along.
+    /// The service elevator car (the same corner room on every level; it is the way to the Loading Docks).
+    /// Loot dropped inside the car (not carried, not in a pack) is banked automatically toward the quota; weapons
+    /// and other items are never banked.
+    ///
+    /// Two buttons on the wall control it: F chooses Up or Down, G confirms. Everyone must be aboard. Up goes to
+    /// the next floor once the quota is met (not from 3, 6, 9, 12, where the team must return); Down always goes
+    /// to the Loading Docks; from the docks, Up resumes at the next unfinished floor. Loot and items left in the
+    /// car ride along. On floor 12 the car's back door is locked until the key from a guard is used on it.
     /// </summary>
     [RequireComponent(typeof(Collider))]
     public class ElevatorExtraction : MonoBehaviour
     {
-        public KeyCode bankKey = KeyCode.F;
-        public KeyCode rideKey = KeyCode.G;
-        public KeyCode downKey = KeyCode.B; // unused: finished floors send you down automatically
+        public KeyCode directionKey = KeyCode.F;
+        public KeyCode confirmKey = KeyCode.G;
         public ElevatorDoor door;
+
+        [Header("Panel (set by the floor generator)")]
+        public Vector3 panelPosition;
+        public float panelReach = 4.5f;
+        [Tooltip("Floor 12 only: the locked back door to the hidden elevator.")]
+        public ElevatorDoor backDoor;
+        public Vector3 backDoorPosition;
+        public float backDoorReach = 3.5f;
+
+        /// <summary>The car on this floor (there is one).</summary>
+        public static ElevatorExtraction Current { get; private set; }
 
         /// <summary>True while the doors are shut and the car is about to move.</summary>
         public static bool Sealing { get; private set; }
         bool sealing;
+
+        public static bool EveryoneAboard { get; private set; }
+        /// <summary>The chosen direction on the panel.</summary>
+        public static bool GoingUp { get; private set; } = true;
+        /// <summary>Where Confirm would take the team (-1: nowhere from here).</summary>
+        public static int Destination { get; private set; } = -1;
+        /// <summary>Floor 12: the back door has been unlocked.</summary>
+        public static bool BackDoorOpen { get; private set; }
+        /// <summary>The local player is inside the car (the panel prompt shows).</summary>
+        public static bool LocalInside { get; private set; }
 
         readonly HashSet<HeavyLoot> inside = new();
         readonly Dictionary<HeavyLoot, float> since = new();
@@ -30,30 +54,27 @@ namespace BuildingEscape
         readonly HashSet<Backpack> packs = new();
         int playersInside;
 
-        public static bool EveryoneAboard { get; private set; }
+        void Reset() { GetComponent<Collider>().isTrigger = true; }
 
-        /// <summary>A client pressed G in the basement; the host consumes it on its next Update.</summary>
-        public static bool NetRideRequested;
-
-        /// <summary>Client: take the host's elevator state.</summary>
-        public static void NetSetFlags(bool aboard, bool sealing) { EveryoneAboard = aboard; Sealing = sealing; }
-
-        public static void ShowToast(string text) { toast = text; toastUntil = Time.time + 3f; }
-
-        /// <summary>Banked-item message: the host tells everybody, offline just shows it.</summary>
-        static void Announce(string text)
+        void OnEnable()
         {
-            if (Net.NetRole.IsHost) Net.RunSync.Instance?.BroadcastToast(text); else ShowToast(text);
+            Current = this;
+            GoingUp = true; Destination = -1; BackDoorOpen = false; LocalInside = false;
         }
 
-        void Reset() { GetComponent<Collider>().isTrigger = true; }
+        void OnDisable() { if (Current == this) Current = null; }
 
         void OnTriggerEnter(Collider o)
         {
             var l = o.GetComponentInParent<HeavyLoot>(); if (l && inside.Add(l)) since[l] = Time.time;
             var t = o.GetComponentInParent<Throwable>(); if (t && items.Add(t)) itemSince[t] = Time.time;
             var bp = o.GetComponentInParent<Backpack>(); if (bp) packs.Add(bp);
-            if (o.GetComponentInParent<WobblyPlayer>()) playersInside++;
+            var wp = o.GetComponentInParent<WobblyPlayer>();
+            if (wp)
+            {
+                playersInside++;
+                if (Net.NetPlayer.IsLocalPlayer(wp)) LocalInside = true;
+            }
         }
 
         void OnTriggerExit(Collider o)
@@ -61,49 +82,184 @@ namespace BuildingEscape
             var l = o.GetComponentInParent<HeavyLoot>(); if (l) { inside.Remove(l); since.Remove(l); }
             var t = o.GetComponentInParent<Throwable>(); if (t) { items.Remove(t); itemSince.Remove(t); }
             var bp = o.GetComponentInParent<Backpack>(); if (bp) packs.Remove(bp);
-            if (o.GetComponentInParent<WobblyPlayer>()) playersInside = Mathf.Max(0, playersInside - 1);
+            var wp = o.GetComponentInParent<WobblyPlayer>();
+            if (wp)
+            {
+                playersInside = Mathf.Max(0, playersInside - 1);
+                if (Net.NetPlayer.IsLocalPlayer(wp)) LocalInside = false;
+            }
         }
+
+        // ------------------------------------------------------------------ state shared with clients
+
+        /// <summary>A client's view of the panel (the host replicates it).</summary>
+        public static void NetSetPanel(bool goingUp, int destination, bool backDoorOpen)
+        {
+            GoingUp = goingUp; Destination = destination;
+            if (backDoorOpen != BackDoorOpen)
+            {
+                BackDoorOpen = backDoorOpen;
+                if (Current && Current.backDoor) Current.backDoor.SetOpen(backDoorOpen);
+            }
+        }
+
+        /// <summary>Client: take the host's elevator flags.</summary>
+        public static void NetSetFlags(bool aboard, bool sealing) { EveryoneAboard = aboard; Sealing = sealing; }
+
+        public static void ShowToast(string text) { toast = text; toastUntil = Time.time + 3f; }
+
+        /// <summary>A message for everyone: the host tells the clients, offline just shows it.</summary>
+        public static void Announce(string text)
+        {
+            if (Net.NetRole.IsHost) Net.RunSync.Instance?.BroadcastToast(text); else ShowToast(text);
+        }
+
+        // ------------------------------------------------------------------ per frame
+
+        static Transform LocalPlayerTransform()
+        {
+            var np = Net.NetPlayer.Local;
+            if (np) return np.transform;
+            return WobblyPlayerRegistry.All.Count > 0 && WobblyPlayerRegistry.All[0] ? WobblyPlayerRegistry.All[0].transform : null;
+        }
+
+        static Backpack LocalPack()
+        {
+            var t = LocalPlayerTransform();
+            return t ? t.GetComponent<Backpack>() : null;
+        }
+
+        static bool InputBlocked => Backpack.UiOpen || Vendor.ShopOpen || EscapeMenu.Open || TestMode.PanelOpen;
 
         void Update()
         {
+            bool pressF = !InputBlocked && Input.GetKeyDown(directionKey);
+            bool pressG = !InputBlocked && Input.GetKeyDown(confirmKey);
+
             if (Net.NetRole.IsRemoteClient)
             {
-                // the host runs the elevator; this machine mirrors its doors and passes on the ride key
+                // the host runs the elevator; this machine mirrors its doors and passes on the button presses
                 if (door) door.SetOpen(!Sealing);
-                var h0 = HeistManager.Instance;
-                if (h0 && h0.Phase == HeistPhase.Hub && EveryoneAboard && Input.GetKeyDown(rideKey)) Net.RunSync.Instance?.RequestRide();
+                if (LocalInside || NearBackDoorLocal())
+                {
+                    if (pressF) Net.RunSync.Instance?.RequestPanel(0);
+                    if (pressG) Net.RunSync.Instance?.RequestPanel(1);
+                }
                 return;
             }
 
             var hm = HeistManager.Instance;
-            // loot is only banked on office floors; the basement vendor buys it instead
-            bool canBank = hm && (hm.Phase == HeistPhase.Heist || hm.Phase == HeistPhase.FloorComplete);
+            var tm = TowerManager.Instance;
+            if (!hm || !tm) return;
+
+            // loot is only banked on office floors; the docks vendor buys it instead
+            bool canBank = hm.Phase == HeistPhase.Heist || hm.Phase == HeistPhase.FloorComplete;
             EveryoneAboard = playersInside > 0 && playersInside >= WobblyPlayerRegistry.All.Count;
             if (canBank) AutoBank();
-            if (!sealing && EveryoneAboard && hm)
+
+            RefreshPanel(hm, tm);
+
+            var me = LocalPlayerTransform();
+            if (me && (pressF || pressG))
             {
-                // quota met: once everyone is aboard the doors shut and the car drops to the basement
-                if (hm.Phase == HeistPhase.FloorComplete) StartCoroutine(Seal(true));
-                // in the basement: G shuts the doors and rides up to the next unfinished floor
-                else if (hm.Phase == HeistPhase.Hub && (Input.GetKeyDown(rideKey) || NetRideRequested)) StartCoroutine(Seal(false));
+                var pack = LocalPack();
+                if (pressF) HostPress(me, pack, 0);
+                if (pressG) HostPress(me, pack, 1);
             }
-            NetRideRequested = false;
         }
 
-        System.Collections.IEnumerator Seal(bool down)
+        bool NearBackDoorLocal()
+        {
+            var me = LocalPlayerTransform();
+            return backDoor && me && (me.position - backDoorPosition).sqrMagnitude <= backDoorReach * backDoorReach;
+        }
+
+        bool prevUpValid;
+
+        /// <summary>Works out where Up / Down would go and makes the chosen direction valid.</summary>
+        void RefreshPanel(HeistManager hm, TowerManager tm)
+        {
+            int up = TowerRules.UpFrom(hm.Floor, hm.Phase == HeistPhase.FloorComplete, tm.ResumeLevel);
+            int down = TowerRules.DownFrom(hm.Floor);
+            bool upValid = up >= 0;
+            if (up < 0 && down >= 0) GoingUp = false;
+            else if (down < 0 && up >= 0) GoingUp = true;
+            else if (upValid && !prevUpValid) GoingUp = true; // the quota was just met: going up becomes the default
+            prevUpValid = upValid;
+            Destination = GoingUp ? up : down;
+        }
+
+        /// <summary>
+        /// A player pressed a panel button (host / offline). action 0 = direction (or the key at the back door),
+        /// 1 = confirm. Distance to the panel is checked here, so a client cannot press it from across the floor.
+        /// </summary>
+        public void HostPress(Transform who, Backpack pack, int action)
+        {
+            if (!who || sealing) return;
+            var hm = HeistManager.Instance;
+            var tm = TowerManager.Instance;
+            if (!hm || !tm || tm.Loading) return;
+            bool nearPanel = (who.position - panelPosition).sqrMagnitude <= panelReach * panelReach;
+            bool nearBack = backDoor && (who.position - backDoorPosition).sqrMagnitude <= backDoorReach * backDoorReach;
+
+            if (action == 0)
+            {
+                if (nearBack && !BackDoorOpen) { TryUnlockBackDoor(pack); return; }
+                if (!nearPanel) return;
+                int up = TowerRules.UpFrom(hm.Floor, hm.Phase == HeistPhase.FloorComplete, tm.ResumeLevel);
+                int down = TowerRules.DownFrom(hm.Floor);
+                if (up >= 0 && down >= 0) GoingUp = !GoingUp;
+                else Announce(up < 0 && down < 0 ? "The elevator is out of service" : "Only one way to go from here");
+            }
+            else if (action == 1 && nearPanel)
+            {
+                RefreshPanel(hm, tm);
+                if (Destination < 0) { Announce(RefusalReason(hm)); return; }
+                if (!EveryoneAboard) { Announce("Everyone must be inside the elevator"); return; }
+                StartCoroutine(Seal(Destination));
+            }
+        }
+
+        string RefusalReason(HeistManager hm)
+        {
+            if (TowerRules.IsBoss(hm.Floor)) return "The elevator is out of service";
+            if (GoingUp)
+            {
+                if (TowerRules.IsGroupEnd(hm.Floor)) return "Three floors done: return to the Loading Docks";
+                return "Meet the quota before going up";
+            }
+            return "No way down from here";
+        }
+
+        void TryUnlockBackDoor(Backpack pack)
+        {
+            var key = ElevatorKey.InPack(pack);
+            if (key == null) { Announce("The back door is locked. One of the guards has the key"); return; }
+            int id = key.NetId;
+            pack.RemoveUsed(key);
+            Net.RunSync.Instance?.BroadcastConsumed(id);
+            Destroy(key.gameObject);
+            BackDoorOpen = true;
+            if (backDoor) backDoor.SetOpen(true); // reaches clients through the run state
+            Announce("The back door unlocks. A hidden elevator waits beyond it");
+        }
+
+        System.Collections.IEnumerator Seal(int destination)
         {
             sealing = true; Sealing = true;
             if (door) door.SetOpen(false);
             yield return new WaitForSeconds(door ? 1.6f : 0.2f);
             yield return new WaitForSeconds(0.8f);
-            TowerManager.Instance?.RideElevator(down);
+            TowerManager.Instance?.RideTo(destination);
             yield return new WaitForSeconds(0.5f);
             // still here: the ride was refused, so open up again
             Sealing = false; sealing = false;
             if (door) door.SetOpen(true);
         }
 
-        void OnDestroy() { EveryoneAboard = false; Sealing = false; }
+        void OnDestroy() { EveryoneAboard = false; Sealing = false; LocalInside = false; if (Current == this) Current = null; }
+
+        // ------------------------------------------------------------------ banking
 
         /// <summary>Banks loot that has been dropped in the car: set down (not held) and settled for a moment.</summary>
         void AutoBank()
@@ -142,13 +298,36 @@ namespace BuildingEscape
             }
         }
 
+        // ------------------------------------------------------------------ prompts
+
         void OnGUI()
         {
-            if (Time.time >= toastUntil || string.IsNullOrEmpty(toast)) return;
-            var st = new GUIStyle(GUI.skin.label) { fontSize = 26, alignment = TextAnchor.MiddleCenter };
-            st.normal.textColor = new Color(0.5f, 1f, 0.5f);
-            GUI.Label(new Rect(0, Screen.height * 0.3f, Screen.width, 40), toast, st);
+            var big = new GUIStyle(GUI.skin.label) { fontSize = 26, alignment = TextAnchor.MiddleCenter };
+            if (Time.time < toastUntil && !string.IsNullOrEmpty(toast))
+            {
+                big.normal.textColor = new Color(0.5f, 1f, 0.5f);
+                GUI.Label(new Rect(0, Screen.height * 0.3f, Screen.width, 40), toast, big);
+            }
+
+            // the panel prompt: while you are in the car (or at the back door on floor 12)
+            var hm = HeistManager.Instance;
+            if (hm == null) return;
+            var st = new GUIStyle(GUI.skin.label) { fontSize = 20, alignment = TextAnchor.MiddleCenter };
+            st.normal.textColor = Color.white;
+            float y = Screen.height * 0.72f;
+            if (LocalInside)
+            {
+                string dir = GoingUp ? "UP" : "DOWN";
+                string dest = Destination >= 0 ? TowerRules.Label(Destination) : "(nowhere from here)";
+                GUI.Label(new Rect(0, y, Screen.width, 30), $"Elevator panel   Direction: {dir} -> {dest}", st);
+                GUI.Label(new Rect(0, y + 28, Screen.width, 30),
+                    $"[{directionKey}] change direction    [{confirmKey}] go" + (EveryoneAboard ? "" : "   (everyone must be inside)"), st);
+            }
+            if (backDoor && !BackDoorOpen && NearBackDoorLocal())
+                GUI.Label(new Rect(0, y - 34, Screen.width, 30), $"Back door is locked - [{directionKey}] to use the key", st);
         }
+
+        // ------------------------------------------------------------------ cargo
 
         /// <summary>Network ids of what is in the car (the host names them so every machine carries the same things).</summary>
         public ushort[] CargoIds()
@@ -172,6 +351,83 @@ namespace BuildingEscape
             inside.Clear();
             items.Clear();
             return cargo;
+        }
+    }
+
+    /// <summary>
+    /// The hidden elevator behind the service car's back door on floor 12. It only goes to floor 13 (the boss).
+    /// Everyone must be aboard and one player presses G.
+    /// </summary>
+    [RequireComponent(typeof(Collider))]
+    public class BossElevator : MonoBehaviour
+    {
+        public KeyCode confirmKey = KeyCode.G;
+        public ElevatorDoor door;
+
+        public static BossElevator Current { get; private set; }
+        public static bool LocalInside { get; private set; }
+        public static bool EveryoneAboard { get; private set; }
+
+        int playersInside;
+        bool going;
+
+        void Reset() { GetComponent<Collider>().isTrigger = true; }
+        void OnEnable() { Current = this; LocalInside = false; EveryoneAboard = false; }
+        void OnDisable() { if (Current == this) Current = null; }
+
+        void OnTriggerEnter(Collider o)
+        {
+            var wp = o.GetComponentInParent<WobblyPlayer>();
+            if (!wp) return;
+            playersInside++;
+            if (Net.NetPlayer.IsLocalPlayer(wp)) LocalInside = true;
+        }
+
+        void OnTriggerExit(Collider o)
+        {
+            var wp = o.GetComponentInParent<WobblyPlayer>();
+            if (!wp) return;
+            playersInside = Mathf.Max(0, playersInside - 1);
+            if (Net.NetPlayer.IsLocalPlayer(wp)) LocalInside = false;
+        }
+
+        void Update()
+        {
+            bool blocked = Backpack.UiOpen || Vendor.ShopOpen || EscapeMenu.Open || TestMode.PanelOpen;
+            bool press = !blocked && LocalInside && Input.GetKeyDown(confirmKey);
+            if (Net.NetRole.IsRemoteClient)
+            {
+                if (press) Net.RunSync.Instance?.RequestPanel(1);
+                return;
+            }
+            EveryoneAboard = playersInside > 0 && playersInside >= WobblyPlayerRegistry.All.Count;
+            if (press)
+            {
+                var me = Net.NetPlayer.Local ? Net.NetPlayer.Local.transform
+                         : (WobblyPlayerRegistry.All.Count > 0 ? WobblyPlayerRegistry.All[0].transform : null);
+                HostPress(me, 1);
+            }
+        }
+
+        /// <summary>A player pressed Go (host / offline).</summary>
+        public void HostPress(Transform who, int action)
+        {
+            if (going || action != 1 || !who) return;
+            var tm = TowerManager.Instance;
+            if (tm == null || tm.Loading) return;
+            if ((who.position - transform.position).sqrMagnitude > 6f * 6f) return;
+            if (!EveryoneAboard) { ElevatorExtraction.Announce("Everyone must be inside the elevator"); return; }
+            going = true;
+            tm.RideTo(TowerRules.BossFloor);
+        }
+
+        void OnGUI()
+        {
+            if (!LocalInside) return;
+            var st = new GUIStyle(GUI.skin.label) { fontSize = 22, alignment = TextAnchor.MiddleCenter };
+            st.normal.textColor = Color.white;
+            GUI.Label(new Rect(0, Screen.height * 0.72f, Screen.width, 32),
+                $"Hidden elevator to {TowerRules.Label(TowerRules.BossFloor)}   [{confirmKey}] go" + (EveryoneAboard ? "" : "   (everyone must be inside)"), st);
         }
     }
 }
