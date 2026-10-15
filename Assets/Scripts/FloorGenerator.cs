@@ -19,7 +19,7 @@ namespace BuildingEscape
     /// sized from targetMinutes so a full sweep of the floor takes about that long.
     /// Rooms hold loot, desks (hide spots) and mugs; guards patrol slowly between rooms.
     /// </summary>
-    public class FloorGenerator : MonoBehaviour
+    public partial class FloorGenerator : MonoBehaviour
     {
         [Header("Size (derived from target time)")]
         [Tooltip("How long a full sweep of one floor should take.")]
@@ -62,11 +62,8 @@ namespace BuildingEscape
         [Header("Office pack (Overtime Escape > Setup Office Pack)")]
         [Tooltip("Leave empty to load Resources/OfficeCatalog automatically.")]
         public OfficeCatalog office;
-        public float deskScale = 1.2f;
 
         OfficeCatalog Office => office ? office : (office = Resources.Load<OfficeCatalog>("OfficeCatalog"));
-        readonly List<Vector3> deskTops = new();
-        readonly List<float> deskYaws = new();
 
         Transform current;
         bool[,] openE, openN;
@@ -134,8 +131,8 @@ namespace BuildingEscape
                 estimatedMinutes = hub ? 0f : 2f * (rooms - 1) * cellSize / assumedMoveSpeed / 60f
             };
 
+            layout = null;
             BuildShell();
-            var deskSpots = (hub || boss) ? new List<Vector3>() : BuildFurniture(rng, elevCell);
             BuildElevatorRoom(elevCell, floor);
 
             if (hub)
@@ -144,7 +141,25 @@ namespace BuildingEscape
                 return info; // safe zone: no loot, mugs, hide spots, guards (so no NavMesh needed either)
             }
 
-            BuildGuestElevator(FarthestCell(dist)); // where backup arrives (not in the docks: there are no guards there)
+            var guestCell = FarthestCell(dist);
+            BuildGuestElevator(guestCell); // where backup arrives (not in the docks: there are no guards there)
+            if (!boss)
+            {
+                // corridors, offices, break rooms...: partitions, floors and furniture, all in place before the bake
+                try
+                {
+                    PlanInterior(floor, seed, elevCell, guestCell);
+                    BuildInterior();
+                }
+                catch (System.Exception e)
+                {
+                    // a problem in the furnishing must never stop the floor from loading: fall back to the empty rooms
+                    Debug.LogError("[Rooms] Could not furnish floor " + floor + ", so it is left empty. Please report this:\n" + e);
+                    layout = null;
+                    var unfinished = current.Find("Interior");
+                    if (unfinished) { unfinished.gameObject.SetActive(false); Kill(unfinished.gameObject); }
+                }
+            }
 
             // ---- bake before adding dynamic things
             var surface = current.gameObject.AddComponent<NavMeshSurface>();
@@ -152,7 +167,7 @@ namespace BuildingEscape
             surface.useGeometry = NavMeshCollectGeometry.PhysicsColliders;
             surface.BuildNavMesh();
 
-            foreach (var (pos, i) in WithIndex(deskSpots)) MakeHideSpot(pos, i, deskYaws[i]);
+            MakeHideZones();
             if (boss)
             {
                 info.lootCount = 0; info.lootValue = 0; info.quota = 0; // the boss floor is won by knocking the boss out
@@ -306,54 +321,10 @@ namespace BuildingEscape
         void WallX(float x, float z, float len) =>
             Box("Wall", new Vector3(x, wallHeight / 2f, z), new Vector3(len, wallHeight, 0.4f), wallMat);
 
-        List<Vector3> BuildFurniture(System.Random rng, Vector2Int elevCell)
-        {
-            var spots = new List<Vector3>();
-            deskTops.Clear(); deskYaws.Clear();
-            for (int c = 0; c < cols; c++)
-                for (int r = 0; r < rows; r++)
-                {
-                    var cell = new Vector2Int(c, r);
-                    if (cell == Vector2Int.zero || cell == elevCell) continue;
-                    if (rng.NextDouble() > 0.55) continue;
-                    var pos = CellCenter(cell) + new Vector3(Rand(rng, -5f, 5f), 0, Rand(rng, -5f, 5f));
-                    var cat = Office;
-                    float yaw = rng.Next(2) * 90f;
-                    if (cat && cat.desk1)
-                    {
-                        var prefab = (rng.Next(2) == 0 || !cat.desk2) ? cat.desk1 : cat.desk2;
-                        var d = Instantiate(prefab, pos, Quaternion.Euler(0f, yaw, 0f), current);
-                        d.name = "Desk"; d.transform.localScale = Vector3.one * deskScale;
-                        deskTops.Add(pos + Vector3.up * 0.95f * deskScale);
-                    }
-                    else
-                    {
-                        yaw = 0f;
-                        Box("Desk", pos + new Vector3(0, 0.75f, 0), new Vector3(2.4f, 0.15f, 1.2f), deskMat);
-                        foreach (var sx in new[] { -1f, 1f })
-                            Box("DeskLeg", pos + new Vector3(sx * 1.1f, 0.35f, 0), new Vector3(0.15f, 0.7f, 1.1f), deskMat);
-                    }
-                    deskYaws.Add(yaw);
-                    spots.Add(pos);
-                }
-            return spots;
-        }
-
-        void MakeHideSpot(Vector3 pos, int i, float yaw)
-        {
-            var hs = new GameObject($"HideSpot_{i}");
-            hs.transform.SetParent(current); hs.transform.position = pos + new Vector3(0, 0.4f, 0);
-            bool model = deskTops.Count > 0;
-            hs.transform.rotation = Quaternion.Euler(0f, yaw, 0f);
-            var c = hs.AddComponent<BoxCollider>(); c.isTrigger = true;
-            c.size = model ? new Vector3(1.6f, 0.9f, 2.8f) : new Vector3(2.2f, 0.9f, 1.4f);
-            hs.AddComponent<HideSpot>();
-        }
-
         /// <summary>
         /// The service elevator: a private walled room in the corner cell with one front door (east, or north if
-        /// east is closed). Its interior is Not Walkable on the NavMesh so guards never wander in. Two buttons sit
-        /// on the wall by the door (F chooses direction, G goes). On floor 12 the opposite wall is a locked back
+        /// east is closed). Its interior is Not Walkable on the NavMesh so guards never wander in. A floor panel and a
+        /// GO button sit on the wall by the door (F to use it, click a floor, click GO). On floor 12 the opposite wall is a locked back
         /// door to a hallway with the hidden elevator to the boss floor.
         /// </summary>
         void BuildElevatorRoom(Vector2Int cell, int floor)
@@ -415,20 +386,21 @@ namespace BuildingEscape
 
             Box("ElevatorFloor", center + new Vector3(0, 0.02f, 0.5f), new Vector3(5, 0.1f, 4.5f), elevatorMat, room.transform, collider: false);
 
-            // the two buttons (direction, go) on the wall next to the front door
-            Vector3 b1, b2, bScale;
-            if (doorEast) { b1 = center + new Vector3(2.7f, 1.3f, half - 0.3f); b2 = center + new Vector3(1.9f, 1.3f, half - 0.3f); bScale = new Vector3(0.45f, 0.45f, 0.2f); }
-            else { b1 = center + new Vector3(half - 0.3f, 1.3f, 2.7f); b2 = center + new Vector3(half - 0.3f, 1.3f, 1.9f); bScale = new Vector3(0.2f, 0.45f, 0.45f); }
-            Box("PanelDirection", b1, bScale, lootMat, room.transform, collider: false);
-            Box("PanelGo", b2, bScale, elevatorMat, room.transform, collider: false);
+            // the floor panel (a lit button for every floor) and its GO button on the wall by the front door,
+            // in the corner where the player has room to stand in front of it
+            Vector3 pPos, pView; int goSide;
+            if (doorEast) { pPos = center + new Vector3(2.9f, 1.7f, half - t / 2f); pView = Vector3.forward; goSide = -1; }
+            else { pPos = center + new Vector3(half - t / 2f, 1.7f, 2.9f); pView = Vector3.right; goSide = 1; }
+            var panel = ElevatorPanel.Build(room.transform, pPos, pView, goSide);
 
+            // the whole inside of the car counts as "in the elevator" (loot dropped anywhere in it banks; everyone must be in it to go)
             var zone = new GameObject("DropZone");
             zone.transform.SetParent(room.transform, false);
-            zone.transform.localPosition = new Vector3(0, 1.2f, 0.5f);
-            var bc = zone.AddComponent<BoxCollider>(); bc.isTrigger = true; bc.size = new Vector3(5, 2.4f, 4.5f);
+            zone.transform.localPosition = new Vector3(0, 1.2f, 0);
+            var bc = zone.AddComponent<BoxCollider>(); bc.isTrigger = true; bc.size = new Vector3(7.2f, 2.4f, 7.2f);
             var car = zone.AddComponent<ElevatorExtraction>();
             car.door = door;
-            car.panelPosition = (b1 + b2) * 0.5f;
+            car.panelPosition = panel.transform.position;
 
             // keep guards out of the car
             AddKeepOut(room.transform, Vector3.zero, new Vector3(half * 2 - 0.2f, 3f, half * 2 - 0.2f));
@@ -507,12 +479,7 @@ namespace BuildingEscape
             var center = CellCenter(cell);
             const float h = 2.6f, t = 0.4f, doorHalf = 1.4f;
             var dirs = new[] { Vector2Int.left, Vector2Int.down, Vector2Int.right, Vector2Int.up };
-            var dir = Vector2Int.left;
-            foreach (var d in dirs)
-            {
-                var n = cell + d;
-                if (n.x >= 0 && n.y >= 0 && n.x < cols && n.y < rows && IsOpen(cell, n)) { dir = d; break; }
-            }
+            var dir = GuestDoorDir(cell);
 
             var room = new GameObject("GuestElevator");
             room.transform.SetParent(current); room.transform.position = center;
@@ -684,9 +651,6 @@ namespace BuildingEscape
 
         // ------------------------------------------------------------------ things
 
-        int ModelLoot(GameObject prefab, string label, Vector3 pos, float yaw, int lifters, float weight, int value, float scale)
-            => ModelLootObj(prefab, label, pos, yaw, lifters, weight, value, scale).GetComponent<HeavyLoot>().baseValue;
-
         /// <summary>Names for the test-mode spawn buttons (the loot table, then the Office pack items).</summary>
         public string[] SpawnableLootNames
         {
@@ -723,73 +687,48 @@ namespace BuildingEscape
             return null;
         }
 
-        GameObject ModelLootObj(GameObject prefab, string label, Vector3 pos, float yaw, int lifters, float weight, int value, float scale)
-        {
-            var go = Instantiate(prefab, pos, Quaternion.Euler(0f, yaw, 0f), current ? current : transform);
-            go.name = label;
-            var rb = go.AddComponent<Rigidbody>();
-            var l = go.AddComponent<HeavyLoot>();
-            l.displayName = label; l.lifters = lifters;
-            l.baseValue = Mathf.RoundToInt(value * scale / 50f) * 50;
-            rb.mass = lifters * l.massPerLifter;
-            go.GetComponent<Pickup>().weight = weight;
-            return go;
-        }
-
         void PlaceLoot(System.Random rng, int floor, Vector2Int elevCell, ref FloorInfo info)
         {
-            int baseCount = 8 + floor; // floor 1 -> 9 items, top floor -> 18
             float scale = 1f + 0.12f * floor;
             int total = 0, count = 0;
-            for (int i = 0; i < baseCount; i++)
+            if (layout != null)
             {
-                Vector2Int cell;
-                do { cell = new Vector2Int(rng.Next(cols), rng.Next(rows)); }
-                while (cell == Vector2Int.zero || cell == elevCell);
-                var t = LootTable[rng.Next(LootTable.Length)];
-                var pos = CellCenter(cell) + new Vector3(Rand(rng, -6f, 6f), t.size.y / 2f + 0.05f, Rand(rng, -6f, 6f));
-                var go = Box(t.name, pos, t.size, lootMat, null, dynamic: true);
-                go.transform.SetParent(current);
-                var l = go.AddComponent<HeavyLoot>();
-                l.displayName = t.name; l.lifters = t.lifters;
-                l.baseValue = Mathf.RoundToInt(t.value * scale / 50f) * 50;
-                go.GetComponent<Rigidbody>().mass = t.lifters * l.massPerLifter;
-                go.GetComponent<Pickup>().weight = t.weight;
-                total += l.baseValue; count++;
+                // treasure spots and stealable furniture from the room plan
+                PlaceLootFromLayout(rng, floor, scale, ref total, ref count);
             }
-
-            // Office pack: computers sitting on desks, and printers on the floor
-            var cat = Office;
-            if (cat && cat.pc)
-                foreach (var top in deskTops)
-                {
-                    if (rng.NextDouble() > 0.5) continue;
-                    total += ModelLoot(cat.pc, "Office PC", top + Vector3.up * 0.03f, rng.Next(4) * 90f, 1, 7f, 900, scale);
-                    count++;
-                }
-            if (cat && cat.printer)
+            else
             {
-                int printers = 1 + floor / 3;
-                for (int i = 0; i < printers; i++)
+                // no room plan (rooms switched off): the big treasures lie about in random rooms
+                int baseCount = 8 + floor; // floor 1 -> 9 items, top floor -> 18
+                for (int i = 0; i < baseCount; i++)
                 {
                     Vector2Int cell;
                     do { cell = new Vector2Int(rng.Next(cols), rng.Next(rows)); }
                     while (cell == Vector2Int.zero || cell == elevCell);
-                    var pos = CellCenter(cell) + new Vector3(Rand(rng, -6f, 6f), 0.05f, Rand(rng, -6f, 6f));
-                    total += ModelLoot(cat.printer, "Office Printer", pos, rng.Next(4) * 90f, 2, 16f, 800, scale);
-                    count++;
+                    var t = LootTable[rng.Next(LootTable.Length)];
+                    var pos = CellCenter(cell) + new Vector3(Rand(rng, -6f, 6f), t.size.y / 2f + 0.05f, Rand(rng, -6f, 6f));
+                    var go = Box(t.name, pos, t.size, lootMat, null, dynamic: true);
+                    go.transform.SetParent(current);
+                    var l = go.AddComponent<HeavyLoot>();
+                    l.displayName = t.name; l.lifters = t.lifters;
+                    l.baseValue = Mathf.RoundToInt(t.value * scale / 50f) * 50;
+                    go.GetComponent<Rigidbody>().mass = t.lifters * l.massPerLifter;
+                    EnsurePickup(go).weight = t.weight;
+                    total += l.baseValue; count++;
                 }
             }
 
             info.lootCount = count;
             info.lootValue = total;
-            // gentle start: 35% of the loot value on floor 1, rising to ~60% by floor 10
-            float quotaShare = Mathf.Lerp(0.35f, 0.6f, Mathf.Clamp01((floor - 1) / 9f));
-            info.quota = Mathf.RoundToInt(total * quotaShare / 100f) * 100;
+            // Floor 1 asks for $4,300 and the quota climbs from there (TowerRules.QuotaFor), but never more than 60% of
+            // what is actually lying on the floor, so it can always be met.
+            int quotaCap = Mathf.RoundToInt(total * 0.6f / 100f) * 100;
+            info.quota = Mathf.Max(100, Mathf.Min(TowerRules.QuotaFor(floor), quotaCap));
         }
 
         void PlaceMugs(System.Random rng)
         {
+            if (layout != null) { PlaceMugsOnSurfaces(rng); return; }
             int n = cols * rows * 2 / 3;
             for (int i = 0; i < n; i++)
             {
@@ -808,6 +747,7 @@ namespace BuildingEscape
         {
             int count = Mathf.Min(maxGuards, baseGuards + floor);
             int placed = 0;
+            var spots = GuardSpots();
             for (int g = 0; g < count; g++)
             {
                 var route = new List<Vector3>();
@@ -818,7 +758,11 @@ namespace BuildingEscape
                     int tries = 0;
                     do { cell = new Vector2Int(rng.Next(cols), rng.Next(rows)); tries++; }
                     while ((dist[cell.x, cell.y] < 2 || cell == elevCell) && tries < 30); // calm spawn, no guards in the elevator room
-                    var p = CellCenter(cell) + new Vector3(Rand(rng, -3f, 3f), 0, Rand(rng, -3f, 3f));
+                    // a walkable spot in one of that cell's rooms or corridors (or near its middle if there is no plan)
+                    var list = spots[cell.x, cell.y];
+                    var p = list != null && list.Count > 0
+                        ? list[rng.Next(list.Count)]
+                        : CellCenter(cell) + new Vector3(Rand(rng, -3f, 3f), 0, Rand(rng, -3f, 3f));
                     if (NavMesh.SamplePosition(p, out var hit, 6f, NavMesh.AllAreas)) route.Add(hit.position);
                 }
                 if (route.Count < 2) continue;

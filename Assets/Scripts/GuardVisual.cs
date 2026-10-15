@@ -30,6 +30,10 @@ namespace BuildingEscape
             var officer = catalog ? catalog.FirstWithRole(ToonRole.Guard) : null;
             if (officer != null) look = look.WithModel(officer.id);
             anim = PartyCharacterFactory.Attach(gameObject, look);
+            // flashlight in the hand + the visible cone of vision
+            var vision = GetComponent<GuardVision>();
+            if (!vision) vision = gameObject.AddComponent<GuardVision>();
+            vision.Init(anim);
         }
 
         void Update()

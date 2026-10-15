@@ -12,7 +12,7 @@ namespace BuildingEscape
 
         public static bool Open { get; private set; }
 
-        bool shopWasOpen;
+        bool shopWasOpen, panelWasOpen;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         static void Boot()
@@ -31,11 +31,11 @@ namespace BuildingEscape
             if (Input.GetKeyDown(KeyCode.Escape))
             {
                 if (Backpack.UiOpen) Backpack.CloseUi();   // Esc closes the inventory first
-                else if (!shopWasOpen) Open = !Open;        // (the shop closes itself on Esc)
+                else if (!shopWasOpen && !panelWasOpen) Open = !Open;   // (the shop and the elevator panel close themselves on Esc)
             }
         }
 
-        void LateUpdate() { shopWasOpen = Vendor.ShopOpen; }
+        void LateUpdate() { shopWasOpen = Vendor.ShopOpen; panelWasOpen = ElevatorPanel.Open; }
 
         void OnGUI()
         {

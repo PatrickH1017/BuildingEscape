@@ -134,7 +134,6 @@ namespace BuildingEscape
             if (hm)
             {
                 hm.godMode = GUILayout.Toggle(hm.godMode, "God mode (guards can't catch you)");
-                hm.freezeTimer = GUILayout.Toggle(hm.freezeTimer, "Freeze floor timer");
             }
             if (tm && pack && GUILayout.Button("Teleport to elevator"))
             {

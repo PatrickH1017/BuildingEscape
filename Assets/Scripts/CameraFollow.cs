@@ -46,7 +46,7 @@ namespace BuildingEscape
             var hm = HeistManager.Instance;
             bool menu = hm && (hm.Phase == HeistPhase.Won || hm.Phase == HeistPhase.Failed);
             cursorFree = EscapeMenu.Open; // Esc opens the menu (it does not pause)
-            bool locked = !menu && !cursorFree && !Backpack.UiOpen && !TestMode.PanelOpen && !Vendor.ShopOpen;
+            bool locked = !menu && !cursorFree && !Backpack.UiOpen && !TestMode.PanelOpen && !Vendor.ShopOpen && !ElevatorPanel.Open;
             Cursor.lockState = locked ? CursorLockMode.Locked : CursorLockMode.None;
             Cursor.visible = !locked;
             if (!locked) return;
@@ -73,6 +73,14 @@ namespace BuildingEscape
         void LateUpdate()
         {
             if (!target) return;
+            // using the elevator panel: the camera glides in front of it and looks straight at it
+            if (ElevatorPanel.Open && ElevatorPanel.Active && ElevatorPanel.Active.TryGetView(out var viewPos, out var viewRot))
+            {
+                float vk = 1f - Mathf.Exp(-9f * Time.deltaTime);
+                transform.SetPositionAndRotation(Vector3.Lerp(transform.position, viewPos, vk), Quaternion.Slerp(transform.rotation, viewRot, vk));
+                smoothedPivot = Pivot();
+                return;
+            }
             smoothedPivot = Vector3.Lerp(smoothedPivot, Pivot(), 1f - Mathf.Exp(-followSmooth * Time.deltaTime));
             var rot = Quaternion.Euler(pitch + lookPitch, aimYaw + lookYaw, 0f);
             var dir = rot * new Vector3(shoulderOffset, 0f, -distance);

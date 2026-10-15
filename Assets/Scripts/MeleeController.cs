@@ -37,7 +37,7 @@ namespace BuildingEscape
             if (!eq) eq = null;
             if (eq != shown) Show(eq);
 
-            if (!eq || !pack.Viewed || Backpack.UiOpen || Vendor.ShopOpen || EscapeMenu.Open || TestMode.PanelOpen || swinging || Time.time < nextSwing) return;
+            if (!eq || !pack.Viewed || Backpack.UiOpen || Vendor.ShopOpen || EscapeMenu.Open || TestMode.PanelOpen || ElevatorPanel.Open || swinging || Time.time < nextSwing) return;
             if (grab && grab.Held) return; // hands full: LMB throws instead
             if (Input.GetMouseButtonDown(0)) StartCoroutine(Swing(eq.GetComponent<MeleeWeapon>()));
         }

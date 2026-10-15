@@ -3,9 +3,9 @@ using UnityEngine;
 namespace BuildingEscape
 {
     /// <summary>
-    /// Shows the "calling for backup" circle: a ring that fills as a guard radios for help (about 5 seconds).
+    /// Shows the "calling for backup" circle: a ring that fills as a guard radios for help (the player's 2 seconds to get out of view).
     /// A big one at the top of the screen for the guard furthest along, and a small one above each calling
-    /// guard's head. When it is full, backup has arrived and the team is busted. Created automatically.
+    /// guard's head. When it is full, backup has been called. Created automatically.
     /// </summary>
     public class BackupHud : MonoBehaviour
     {
@@ -28,7 +28,7 @@ namespace BuildingEscape
             {
                 var st = new GUIStyle(GUI.skin.label) { alignment = TextAnchor.MiddleCenter, fontSize = 26, fontStyle = FontStyle.Bold };
                 st.normal.textColor = new Color(1f, 0.3f, 0.2f);
-                GUI.Label(new Rect(0, 215f, Screen.width, 40f), hm.BackupMessage, st);
+                HudText.Label(new Rect(0, 215f, Screen.width, 40f), hm.BackupMessage, st);
             }
             if (hm.Phase != HeistPhase.Heist && hm.Phase != HeistPhase.FloorComplete) return;
 
@@ -76,8 +76,8 @@ namespace BuildingEscape
             {
                 var cap = new GUIStyle(GUI.skin.label) { alignment = TextAnchor.MiddleCenter, fontSize = 18, fontStyle = FontStyle.Bold };
                 cap.normal.textColor = Color.white;
-                GUI.Label(new Rect(c.x - 200f, c.y + radius + 6f, 400f, 28f),
-                    "GUARD CALLING FOR BACKUP - knock him down with a weapon!", cap);
+                HudText.Label(new Rect(c.x - 350f, c.y + radius + 6f, 700f, 28f),
+                    "He is checking it out - get out of his view before he calls backup!", cap);
             }
             GUI.color = old;
         }

@@ -8,16 +8,19 @@ namespace BuildingEscape
     /// Loot dropped inside the car (not carried, not in a pack) is banked automatically toward the quota; weapons
     /// and other items are never banked.
     ///
-    /// Two buttons on the wall control it: F chooses Up or Down, G confirms. Everyone must be aboard. Up goes to
-    /// the next floor once the quota is met (not from 3, 6, 9, 12, where the team must return); Down always goes
-    /// to the Loading Docks; from the docks, Up resumes at the next unfinished floor. Loot and items left in the
-    /// car ride along. On floor 12 the car's back door is locked until the key from a guard is used on it.
+    /// A wall panel (ElevatorPanel) has a button for every floor and a GO button: press F beside it, click the floor
+    /// you want, then click GO. Everyone must be aboard. The car can only go to the next floor once the quota is met
+    /// (not from 3, 6, 9, 12, where the team must return), or down to the Loading Docks; from the docks it goes to the
+    /// next unfinished floor. Loot and items left in the car ride along. On floor 12 the car's back door is locked
+    /// until the key from a guard is used on it (F).
     /// </summary>
     [RequireComponent(typeof(Collider))]
     public class ElevatorExtraction : MonoBehaviour
     {
+        [Tooltip("F: use the key on the locked back door (floor 12). The panel itself is used with F too (see ElevatorPanel).")]
         public KeyCode directionKey = KeyCode.F;
-        public KeyCode confirmKey = KeyCode.G;
+        /// <summary>Panel action codes: 0 = key at the back door, 1 = GO, SelectBase + floor = choose that floor.</summary>
+        public const int SelectBase = 10;
         public ElevatorDoor door;
 
         [Header("Panel (set by the floor generator)")]
@@ -36,10 +39,11 @@ namespace BuildingEscape
         bool sealing;
 
         public static bool EveryoneAboard { get; private set; }
-        /// <summary>The chosen direction on the panel.</summary>
+        /// <summary>True when the chosen floor is above the car (kept for the network state).</summary>
         public static bool GoingUp { get; private set; } = true;
-        /// <summary>Where Confirm would take the team (-1: nowhere from here).</summary>
+        /// <summary>The floor chosen on the panel (-1: nothing chosen yet).</summary>
         public static int Destination { get; private set; } = -1;
+        int selected = -1;
         /// <summary>Floor 12: the back door has been unlocked.</summary>
         public static bool BackDoorOpen { get; private set; }
         /// <summary>The local player is inside the car (the panel prompt shows).</summary>
@@ -59,7 +63,7 @@ namespace BuildingEscape
         void OnEnable()
         {
             Current = this;
-            GoingUp = true; Destination = -1; BackDoorOpen = false; LocalInside = false;
+            GoingUp = true; Destination = -1; selected = -1; BackDoorOpen = false; LocalInside = false;
         }
 
         void OnDisable() { if (Current == this) Current = null; }
@@ -129,22 +133,26 @@ namespace BuildingEscape
             return t ? t.GetComponent<Backpack>() : null;
         }
 
-        static bool InputBlocked => Backpack.UiOpen || Vendor.ShopOpen || EscapeMenu.Open || TestMode.PanelOpen;
+        static bool InputBlocked => Backpack.UiOpen || Vendor.ShopOpen || EscapeMenu.Open || TestMode.PanelOpen || ElevatorPanel.Open;
+
+        /// <summary>A click on the wall panel from this machine: the host runs it, a client asks the host.</summary>
+        public void LocalPress(int action)
+        {
+            if (Net.NetRole.IsRemoteClient) { Net.RunSync.Instance?.RequestPanel(action); return; }
+            var me = LocalPlayerTransform();
+            if (me) HostPress(me, LocalPack(), action);
+        }
 
         void Update()
         {
+            // F here only works the key on the floor-12 back door; the wall panel has its own script
             bool pressF = !InputBlocked && Input.GetKeyDown(directionKey);
-            bool pressG = !InputBlocked && Input.GetKeyDown(confirmKey);
 
             if (Net.NetRole.IsRemoteClient)
             {
                 // the host runs the elevator; this machine mirrors its doors and passes on the button presses
                 if (door) door.SetOpen(!Sealing);
-                if (LocalInside || NearBackDoorLocal())
-                {
-                    if (pressF) Net.RunSync.Instance?.RequestPanel(0);
-                    if (pressG) Net.RunSync.Instance?.RequestPanel(1);
-                }
+                if (pressF && NearBackDoorLocal()) Net.RunSync.Instance?.RequestPanel(0);
                 return;
             }
 
@@ -160,12 +168,7 @@ namespace BuildingEscape
             RefreshPanel(hm, tm);
 
             var me = LocalPlayerTransform();
-            if (me && (pressF || pressG))
-            {
-                var pack = LocalPack();
-                if (pressF) HostPress(me, pack, 0);
-                if (pressG) HostPress(me, pack, 1);
-            }
+            if (me && pressF && NearBackDoorLocal()) HostPress(me, LocalPack(), 0);
         }
 
         bool NearBackDoorLocal()
@@ -174,24 +177,38 @@ namespace BuildingEscape
             return backDoor && me && (me.position - backDoorPosition).sqrMagnitude <= backDoorReach * backDoorReach;
         }
 
-        bool prevUpValid;
-
-        /// <summary>Works out where Up / Down would go and makes the chosen direction valid.</summary>
+        /// <summary>Keeps the chosen floor only while the elevator can still go there.</summary>
         void RefreshPanel(HeistManager hm, TowerManager tm)
         {
             int up = TowerRules.UpFrom(hm.Floor, hm.Phase == HeistPhase.FloorComplete, tm.ResumeLevel);
             int down = TowerRules.DownFrom(hm.Floor);
-            bool upValid = up >= 0;
-            if (up < 0 && down >= 0) GoingUp = false;
-            else if (down < 0 && up >= 0) GoingUp = true;
-            else if (upValid && !prevUpValid) GoingUp = true; // the quota was just met: going up becomes the default
-            prevUpValid = upValid;
-            Destination = GoingUp ? up : down;
+            if (selected >= 0 && selected != up && selected != down) selected = -1;
+            Destination = selected;
+            GoingUp = selected < 0 || selected == up;
         }
 
         /// <summary>
-        /// A player pressed a panel button (host / offline). action 0 = direction (or the key at the back door),
-        /// 1 = confirm. Distance to the panel is checked here, so a client cannot press it from across the floor.
+        /// Why the panel will not take the car to floor <paramref name="f"/> (shown when a button that is not
+        /// available is clicked). <paramref name="up"/> / <paramref name="down"/> are where the car can go (-1: nowhere).
+        /// </summary>
+        public static string WhyNot(int f, int current, int up, int down)
+        {
+            if (f == current) return $"You are already on {TowerRules.Label(f)}";
+            if (TowerRules.IsBoss(current)) return "The elevator is out of service";
+            if (f > current)
+            {
+                if (up >= 0) return $"From here the elevator only goes up to {TowerRules.Label(up)}";
+                if (TowerRules.IsGroupEnd(current)) return "Three floors done: return to the Loading Docks first";
+                return "Meet the quota before going up";
+            }
+            if (down >= 0) return "Going down always leads to the Loading Docks";
+            return "There is no way down from here";
+        }
+
+        /// <summary>
+        /// A player pressed a panel button (host / offline). action 0 = the key at the back door, 1 = GO,
+        /// SelectBase + n = choose floor n. Distance to the panel is checked here, so a client cannot press it from
+        /// across the floor.
         /// </summary>
         public void HostPress(Transform who, Backpack pack, int action)
         {
@@ -204,31 +221,33 @@ namespace BuildingEscape
 
             if (action == 0)
             {
-                if (nearBack && !BackDoorOpen) { TryUnlockBackDoor(pack); return; }
-                if (!nearPanel) return;
-                int up = TowerRules.UpFrom(hm.Floor, hm.Phase == HeistPhase.FloorComplete, tm.ResumeLevel);
-                int down = TowerRules.DownFrom(hm.Floor);
-                if (up >= 0 && down >= 0) GoingUp = !GoingUp;
-                else Announce(up < 0 && down < 0 ? "The elevator is out of service" : "Only one way to go from here");
+                if (nearBack && !BackDoorOpen) TryUnlockBackDoor(pack);
+                return;
             }
-            else if (action == 1 && nearPanel)
+            if (!nearPanel) return;
+
+            RefreshPanel(hm, tm);
+            int up = TowerRules.UpFrom(hm.Floor, hm.Phase == HeistPhase.FloorComplete, tm.ResumeLevel);
+            int down = TowerRules.DownFrom(hm.Floor);
+
+            if (action >= SelectBase)
             {
+                int f = action - SelectBase;
+                if (f < 0 || f >= TowerRules.Levels) return;
+                if (f == up || f == down) selected = selected == f ? -1 : f;   // click again to un-choose
+                else Announce(WhyNot(f, hm.Floor, up, down));
                 RefreshPanel(hm, tm);
-                if (Destination < 0) { Announce(RefusalReason(hm)); return; }
+            }
+            else if (action == 1)
+            {
+                if (Destination < 0)
+                {
+                    Announce(up < 0 && down < 0 ? "The elevator is out of service" : "Choose a floor on the panel first");
+                    return;
+                }
                 if (!EveryoneAboard) { Announce("Everyone must be inside the elevator"); return; }
                 StartCoroutine(Seal(Destination));
             }
-        }
-
-        string RefusalReason(HeistManager hm)
-        {
-            if (TowerRules.IsBoss(hm.Floor)) return "The elevator is out of service";
-            if (GoingUp)
-            {
-                if (TowerRules.IsGroupEnd(hm.Floor)) return "Three floors done: return to the Loading Docks";
-                return "Meet the quota before going up";
-            }
-            return "No way down from here";
         }
 
         void TryUnlockBackDoor(Backpack pack)
@@ -306,25 +325,17 @@ namespace BuildingEscape
             if (Time.time < toastUntil && !string.IsNullOrEmpty(toast))
             {
                 big.normal.textColor = new Color(0.5f, 1f, 0.5f);
-                GUI.Label(new Rect(0, Screen.height * 0.3f, Screen.width, 40), toast, big);
+                HudText.Label(new Rect(0, Screen.height * 0.3f, Screen.width, 40), toast, big);
             }
 
-            // the panel prompt: while you are in the car (or at the back door on floor 12)
+            // the wall panel draws its own prompts (ElevatorPanel); this is only the locked back door on floor 12
             var hm = HeistManager.Instance;
             if (hm == null) return;
             var st = new GUIStyle(GUI.skin.label) { fontSize = 20, alignment = TextAnchor.MiddleCenter };
             st.normal.textColor = Color.white;
             float y = Screen.height * 0.72f;
-            if (LocalInside)
-            {
-                string dir = GoingUp ? "UP" : "DOWN";
-                string dest = Destination >= 0 ? TowerRules.Label(Destination) : "(nowhere from here)";
-                GUI.Label(new Rect(0, y, Screen.width, 30), $"Elevator panel   Direction: {dir} -> {dest}", st);
-                GUI.Label(new Rect(0, y + 28, Screen.width, 30),
-                    $"[{directionKey}] change direction    [{confirmKey}] go" + (EveryoneAboard ? "" : "   (everyone must be inside)"), st);
-            }
             if (backDoor && !BackDoorOpen && NearBackDoorLocal())
-                GUI.Label(new Rect(0, y - 34, Screen.width, 30), $"Back door is locked - [{directionKey}] to use the key", st);
+                HudText.Label(new Rect(0, y - 34, Screen.width, 30), $"Back door is locked - [{directionKey}] to use the key", st);
         }
 
         // ------------------------------------------------------------------ cargo
@@ -426,7 +437,7 @@ namespace BuildingEscape
             if (!LocalInside) return;
             var st = new GUIStyle(GUI.skin.label) { fontSize = 22, alignment = TextAnchor.MiddleCenter };
             st.normal.textColor = Color.white;
-            GUI.Label(new Rect(0, Screen.height * 0.72f, Screen.width, 32),
+            HudText.Label(new Rect(0, Screen.height * 0.72f, Screen.width, 32),
                 $"Hidden elevator to {TowerRules.Label(TowerRules.BossFloor)}   [{confirmKey}] go" + (EveryoneAboard ? "" : "   (everyone must be inside)"), st);
         }
     }

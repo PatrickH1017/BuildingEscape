@@ -175,7 +175,7 @@ namespace BuildingEscape
 
             if (!ShopOpen)
             {
-                GUI.Label(new Rect(0, Screen.height * 0.62f, Screen.width, 36), "[E] Talk to the dealer",
+                HudText.Label(new Rect(0, Screen.height * 0.62f, Screen.width, 36), "[E] Talk to the dealer",
                     new GUIStyle(label) { alignment = TextAnchor.MiddleCenter, fontSize = 24 });
                 return;
             }
@@ -189,7 +189,7 @@ namespace BuildingEscape
             GUI.Box(r, "BLACK MARKET  -  no questions asked");
 
             var buyer = Buyer();
-            GUI.Label(new Rect(r.x + pad, r.y + 28, pw - pad * 2, 28),
+            HudText.Label(new Rect(r.x + pad, r.y + 28, pw - pad * 2, 28),
                 $"Cash ${hm.Cash}      Pack {(buyer ? buyer.Weight : 0):0.#} / {(buyer ? buyer.capacity : 0):0.#} kg      Hover an item and left click to buy it.", label);
 
             var ev = Event.current;
@@ -205,8 +205,8 @@ namespace BuildingEscape
                 GUI.Box(cr, GUIContent.none);
                 GUI.color = old;
                 var small = new GUIStyle(label) { fontSize = 14 };
-                GUI.Label(new Rect(cr.x + 8, cr.y + 4, cw - 16, 26), p.name, new GUIStyle(label) { fontStyle = FontStyle.Bold });
-                GUI.Label(new Rect(cr.x + 8, cr.y + 30, cw - 16, 22), $"${p.price}   {ItemWeight(p):0.#} kg", afford ? label : new GUIStyle(label) { normal = { textColor = new Color(1f, 0.5f, 0.5f) } });
+                HudText.Label(new Rect(cr.x + 8, cr.y + 4, cw - 16, 26), p.name, new GUIStyle(label) { fontStyle = FontStyle.Bold });
+                HudText.Label(new Rect(cr.x + 8, cr.y + 30, cw - 16, 24), $"${p.price}   {ItemWeight(p):0.#} kg", afford ? label : new GUIStyle(label) { normal = { textColor = new Color(1f, 0.5f, 0.5f) } });
                 GUI.Label(new Rect(cr.x + 8, cr.y + 56, cw - 16, ch - 60), p.blurb, small);
                 if (hover && ev.type == EventType.MouseDown && ev.button == 0)
                 {
@@ -221,7 +221,7 @@ namespace BuildingEscape
             if (GUI.Button(new Rect(r.x + pad, by, 470, 32), sell)) Sell(hm);
             GUI.enabled = was;
             if (GUI.Button(new Rect(r.xMax - pad - 120, by, 120, 32), "Leave [E]")) ShopOpen = false;
-            if (Time.time < msgUntil) GUI.Label(new Rect(r.x + pad, by + 36, pw - pad * 2, 28), msg, label);
+            if (Time.time < msgUntil) HudText.Label(new Rect(r.x + pad, by + 36, pw - pad * 2, 28), msg, label);
         }
 
         static float ItemWeight(Product p) => p.isWeapon ? MeleeWeapon.Specs[(int)p.kind].weight : Mathf.Max(0.2f, p.mass);

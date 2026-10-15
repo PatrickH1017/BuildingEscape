@@ -172,8 +172,8 @@ namespace BuildingEscape
         {
             if (!Viewed) return;
             CleanUp();
-            bool talk = Vendor.ShopOpen || (Vendor.Nearby && Vendor.Nearby.CanTalk);
-            if (Input.GetKeyDown(inventoryKey) && !Vendor.ShopOpen) { UiOpen = !UiOpen; scroll = Vector2.zero; }
+            bool talk = Vendor.ShopOpen || ElevatorPanel.Open || (Vendor.Nearby && Vendor.Nearby.CanTalk);
+            if (Input.GetKeyDown(inventoryKey) && !Vendor.ShopOpen && !ElevatorPanel.Open) { UiOpen = !UiOpen; scroll = Vector2.zero; }
 
             target = (UiOpen || talk) ? null : Pickup.FindNearest(transform, reach);
             if (!UiOpen && !talk && Input.GetKeyDown(pickupKey))
@@ -199,14 +199,14 @@ namespace BuildingEscape
             float w = Weight;
 
             // weight bar (bottom left, above the controls line)
-            var bar = new Rect(12, Screen.height - 66, 260, 18);
+            var bar = new Rect(12, Screen.height - 96, 260, 18);
             GUI.Box(bar, GUIContent.none);
             float f = Mathf.Clamp01(w / Mathf.Max(0.1f, capacity));
             var old = GUI.color;
             GUI.color = f > 0.9f ? Color.red : f > 0.65f ? Color.yellow : Color.green;
             GUI.DrawTexture(new Rect(bar.x + 2, bar.y + 2, (bar.width - 4) * f, bar.height - 4), Texture2D.whiteTexture);
             GUI.color = old;
-            GUI.Label(new Rect(bar.xMax + 8, bar.y - 6, 400, 28), $"Pack {w:0.#} / {capacity:0.#} kg   (Tab: inventory)", label);
+            HudText.Label(new Rect(bar.xMax + 8, bar.y - 6, 400, 28), $"Pack {w:0.#} / {capacity:0.#} kg   (Tab: inventory)", label);
 
             if (!UiOpen)
             {
@@ -222,10 +222,10 @@ namespace BuildingEscape
                 if (prompt != null)
                 {
                     var c = new GUIStyle(label) { alignment = TextAnchor.MiddleCenter, fontSize = 22 };
-                    GUI.Label(new Rect(0, Screen.height * 0.62f, Screen.width, 36), prompt, c);
+                    HudText.Label(new Rect(0, Screen.height * 0.62f, Screen.width, 36), prompt, c);
                 }
                 if (target && Time.time < noticeUntil)
-                    GUI.Label(new Rect(0, Screen.height * 0.62f + 34, Screen.width, 30), notice,
+                    HudText.Label(new Rect(0, Screen.height * 0.62f + 34, Screen.width, 30), notice,
                         new GUIStyle(label) { alignment = TextAnchor.MiddleCenter });
                 return;
             }

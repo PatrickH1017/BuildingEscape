@@ -3,15 +3,17 @@ using UnityEngine;
 
 namespace BuildingEscape
 {
-    /// <summary>Hub = the basement safe zone (vendor, no guards, no timer, no quota).</summary>
+    /// <summary>Hub = the basement safe zone (vendor, no guards, no quota).</summary>
     public enum HeistPhase { Lobby, Heist, FloorComplete, Won, Failed, Hub }
 
-    /// <summary>Per-floor state: quota, timer, banked / lost value, caught players, run total.</summary>
+    /// <summary>Per-floor state: quota, banked / lost value, caught players, run total.</summary>
     public class HeistManager : MonoBehaviour
     {
         public static HeistManager Instance { get; private set; }
 
-        [Tooltip("Per-floor time limit. A full sweep is ~7 min, so this leaves slack.")]
+        [Tooltip("Off by default: floors have no countdown. Turn on to bust the team when timeLimitSeconds runs out.")]
+        public bool useTimer = false;
+        [Tooltip("Per-floor time limit (only used when Use Timer is on).")]
         public float timeLimitSeconds = 600f;
         public int maxCaught = 3;
 
@@ -72,7 +74,7 @@ namespace BuildingEscape
         void Update()
         {
             if (Phase != HeistPhase.Heist) return;
-            if (freezeTimer) return;
+            if (!useTimer || freezeTimer) return; // no countdown on a normal run
             TimeLeft -= Time.deltaTime;
             if (TimeLeft <= 0f && Net.NetRole.Simulates) SetPhase(HeistPhase.Failed);
         }
