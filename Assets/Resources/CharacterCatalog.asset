@@ -14,17 +14,17 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   characters:
   - id: female
-    label: Female
+    label: Toon 1
     prefab: {fileID: 6252356961377389083, guid: 2db03e7c8a8135146b280e5da7e0289c, type: 3}
     role: 0
     clips: 1
   - id: male_a
-    label: Male A
+    label: Toon 2
     prefab: {fileID: 7478225697116208144, guid: 6fb37f825ee63264b9c2600bf1a52006, type: 3}
     role: 0
     clips: 0
   - id: male_b
-    label: Male B
+    label: Toon 3
     prefab: {fileID: 7447163605589988728, guid: 907fd825e3988774caab4234b943bf44, type: 3}
     role: 0
     clips: 0

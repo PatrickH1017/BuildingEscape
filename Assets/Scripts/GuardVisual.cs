@@ -27,8 +27,8 @@ namespace BuildingEscape
             // Guards are the Tiny Toon police officers when that pack is set up; the look's build (height / width) is
             // kept so they still come in different sizes. Without the pack they stay the mean Party characters.
             var catalog = CharacterCatalog.Instance;
-            var officer = catalog ? catalog.FirstWithRole(ToonRole.Guard) : null;
-            if (officer != null) look = look.WithModel(officer.id);
+            var officers = catalog ? catalog.WithRole(ToonRole.Guard) : null;
+            if (officers != null && officers.Count > 0) look = look.WithModel(officers[Mathf.Abs(lookIndex) % officers.Count].id); // several officer designs (full pack): one per look
             anim = PartyCharacterFactory.Attach(gameObject, look);
             // flashlight in the hand + the visible cone of vision
             var vision = GetComponent<GuardVision>();

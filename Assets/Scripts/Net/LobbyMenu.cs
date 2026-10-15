@@ -31,6 +31,7 @@ namespace BuildingEscape.Net
         bool searching;
         Vector2 scroll, howToScroll;
         PlayerAppearance edit;
+        Vector2 charScroll;
         float hue, sat = 1f, val = 1f;
 
         void Start()
@@ -258,8 +259,13 @@ namespace BuildingEscape.Net
                     names[i + 1] = toons[i].label;
                     if (edit.model == toons[i].id) current = i + 1;
                 }
-                int rows = (names.Length + 3) / 4;
-                int pick = GUILayout.SelectionGrid(current, names, 4, GUILayout.Height(28f * rows));
+                // one list of everybody; with a big roster (the Citizens Megapack) the list scrolls instead of growing the page
+                const int columns = 3;
+                int rows = (names.Length + columns - 1) / columns;
+                float gridHeight = 28f * rows, shown = Mathf.Min(gridHeight, 28f * 4f);
+                charScroll = GUILayout.BeginScrollView(charScroll, GUILayout.Height(shown + (gridHeight > shown ? 4f : 0f)));
+                int pick = GUILayout.SelectionGrid(current, names, columns, GUILayout.Height(gridHeight));
+                GUILayout.EndScrollView();
                 if (pick != current) { edit.model = pick == 0 ? null : toons[pick - 1].id; changed = true; }
             }
 

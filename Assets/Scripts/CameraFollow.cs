@@ -39,7 +39,17 @@ namespace BuildingEscape
             if (target) { aimYaw = target.eulerAngles.y; smoothedPivot = Pivot(); }
         }
 
-        Vector3 Pivot() => target.position + Vector3.up * headHeight;
+        WobblyPlayer targetPlayer;
+        float crouchDrop;
+
+        /// <summary>The camera sinks a little while the player it follows is crouched.</summary>
+        Vector3 Pivot()
+        {
+            if (!targetPlayer || targetPlayer.transform != target) targetPlayer = target.GetComponent<WobblyPlayer>();
+            bool crouched = targetPlayer && targetPlayer.IsCrouching;
+            crouchDrop = Mathf.MoveTowards(crouchDrop, crouched ? 1f : 0f, Time.deltaTime * 5f);
+            return target.position + Vector3.up * (headHeight - 0.5f * crouchDrop);
+        }
 
         void Update()
         {

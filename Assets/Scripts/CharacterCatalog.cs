@@ -64,13 +64,16 @@ namespace BuildingEscape
             return null;
         }
 
-        /// <summary>The characters a player may pick in Customize, in catalog order.</summary>
-        public List<ToonCharacter> Players()
+        /// <summary>Every usable character with this role, in catalog order.</summary>
+        public List<ToonCharacter> WithRole(ToonRole role)
         {
             var list = new List<ToonCharacter>();
-            foreach (var c in characters) if (c != null && c.prefab && c.role == ToonRole.Player) list.Add(c);
+            foreach (var c in characters) if (c != null && c.prefab && c.role == role) list.Add(c);
             return list;
         }
+
+        /// <summary>The characters a player may pick in Customize (one list, no grouping), in catalog order.</summary>
+        public List<ToonCharacter> Players() => WithRole(ToonRole.Player);
 
         /// <summary>Is this a safe id to put in a look string?</summary>
         public static bool ValidId(string id)

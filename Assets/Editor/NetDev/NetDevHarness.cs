@@ -40,6 +40,18 @@ namespace BuildingEscape.EditorTools
         public static void Social() => Start("social");
         public static void Shots() => Start("shots");
         public static void Toon() => Start("toon");
+        public static void Floors()
+        {
+            SessionState.SetString("netdev.mode", "floors");
+            EditorSceneManager.OpenScene("Assets/Scenes/Greybox.unity");
+            EditorApplication.isPlaying = true;
+        }
+        public static void Sneak()
+        {
+            SessionState.SetString("netdev.mode", "sneak");
+            EditorSceneManager.OpenScene("Assets/Scenes/Greybox.unity");
+            EditorApplication.isPlaying = true;
+        }
         public static void VoiceHost() => Start("voicehost");
         public static void VoiceClient() => Start("voiceclient");
         public static void Offline()
@@ -65,7 +77,7 @@ namespace BuildingEscape.EditorTools
         {
             DontDestroyOnLoad(gameObject);
             started = Time.realtimeSinceStartup;
-            if (mode != "offline")
+            if (mode != "offline" && mode != "sneak" && mode != "floors")
                 yield return WaitFor(() => NetSession.Instance != null && SceneManager.GetActiveScene().name == NetConst.MenuScene, 30, "menu");
             switch (mode)
             {
@@ -75,6 +87,8 @@ namespace BuildingEscape.EditorTools
                 case "steamhost": yield return SteamHostScenario(); break;
                 case "shots": yield return ShotsScenario(); break;
                 case "toon": yield return ToonScenario(); break;
+                case "sneak": yield return SneakScenario(); break;
+                case "floors": yield return FloorsScenario(); break;
                 case "offline": yield return OfflineScenario(); break;
                 case "voicehost": yield return VoiceScenario(true); break;
                 case "voiceclient": yield return VoiceScenario(false); break;
@@ -697,7 +711,9 @@ namespace BuildingEscape.EditorTools
             RenderTexture.active = null;
             string path = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "be_shot_" + name + ".png");
             System.IO.File.WriteAllBytes(path, tex.EncodeToPNG());
-            Log("saved " + path);
+            int pink = RenderAudit.CountMagenta(tex.GetPixels32());
+            Log("saved " + path + $" magenta={pink}");
+            if (pink >= 200) Log($"FAIL magenta in {name}: {pink} pixels");
         }
 
         IEnumerator ShotsScenario()

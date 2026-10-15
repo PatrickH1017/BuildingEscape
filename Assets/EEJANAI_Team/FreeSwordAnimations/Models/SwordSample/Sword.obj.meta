@@ -1,5 +1,12 @@
 fileFormatVersion: 2
 guid: 8e3055a60484b194489bc7cded1491cc
+AssetOrigin:
+  serializedVersion: 1
+  productId: 318172
+  packageName: Free Sword Animation
+  packageVersion: 1.0
+  assetPath: Assets/EEJANAI_Team/FreeSwordAnimations/Models/SwordSample/Sword.obj
+  uploadId: 751376
 ModelImporter:
   serializedVersion: 22200
   internalIDToNameTable: []
@@ -10,7 +17,7 @@ ModelImporter:
       name: defaultMat
     second: {fileID: 2100000, guid: 68eb37acd4747ac4ebb9b2999b0582bb, type: 2}
   materials:
-    materialImportMode: 2
+    materialImportMode: 0
     materialName: 0
     materialSearch: 1
     materialLocation: 1
@@ -110,10 +117,3 @@ ModelImporter:
   userData: 
   assetBundleName: 
   assetBundleVariant: 
-AssetOrigin:
-  serializedVersion: 1
-  productId: 318172
-  packageName: Free Sword Animation
-  packageVersion: 1.0
-  assetPath: Assets/EEJANAI_Team/FreeSwordAnimations/Models/SwordSample/Sword.obj
-  uploadId: 751376

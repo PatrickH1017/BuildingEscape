@@ -130,6 +130,15 @@ namespace BuildingEscape
             foreach (var c in cols)
             {
                 if (c.transform.IsChildOf(transform)) continue;
+                var dummy = c.GetComponentInParent<TrainingDummy>();
+                if (dummy)
+                {
+                    if (!seen.Add(dummy)) continue;
+                    if (!dummy.Down) GameAudio.MeleeHit(kind, false, dummy.transform.position + Vector3.up);
+                    dummy.Hit(spec.damage, transform.position);
+                    hitSomething = true;
+                    continue;
+                }
                 var guard = c.GetComponentInParent<GuardAI>();
                 if (guard)
                 {

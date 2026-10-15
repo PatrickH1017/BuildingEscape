@@ -12,6 +12,7 @@ namespace BuildingEscape
         public float volume = 0.45f;
 
         GuardAI ai;
+        WobblyPlayer player;
         bool guard;
         Vector3 last;
         float acc;
@@ -19,6 +20,7 @@ namespace BuildingEscape
         void Start()
         {
             ai = GetComponent<GuardAI>();
+            player = GetComponent<WobblyPlayer>();
             guard = ai != null;
             if (guard) { stride = 1.3f; volume = 0.8f; }
             last = transform.position;
@@ -43,7 +45,10 @@ namespace BuildingEscape
             var cat = GameAudio.Catalog;
             if (cat == null) return;
             var clip = GameAudio.Pick(guard ? cat.stepsGuard : cat.stepsPlayer);
-            GameAudio.Play(clip, transform.position + Vector3.down * 0.9f, volume, Random.Range(0.92f, 1.08f), guard);
+            // a crouched step is soft and a little lower
+            bool soft = player && player.IsCrouching;
+            GameAudio.Play(clip, transform.position + Vector3.down * 0.9f, soft ? volume * 0.3f : volume,
+                soft ? Random.Range(0.85f, 0.95f) : Random.Range(0.92f, 1.08f), guard);
         }
     }
 }

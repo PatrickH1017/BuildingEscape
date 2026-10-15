@@ -50,9 +50,20 @@ namespace BuildingEscape
 
         void OnJumped() { if (anim) anim.Jump(); }
 
+        // crouching squashes the model down towards its feet (the rigs have no crouch clip)
+        CharacterAnimator scaledFor;
+        Vector3 baseScale;
+        float crouchBlend;
+
         void Update()
         {
             if (!anim) return;
+            if (scaledFor != anim) { scaledFor = anim; baseScale = anim.transform.localScale; crouchBlend = 0f; }
+            crouchBlend = Mathf.MoveTowards(crouchBlend, player.IsCrouching ? 1f : 0f, Time.deltaTime * 5f);
+            float squash = Mathf.Lerp(1f, player.crouchHeight, crouchBlend);
+            float widen = Mathf.Lerp(1f, 1.06f, crouchBlend);
+            anim.transform.localScale = new Vector3(baseScale.x * widen, baseScale.y * squash, baseScale.z * widen);
+
             if (player.IsStumbling) { anim.Fall(); return; }
             anim.Recover();
             var v = player.VelocityOverride ?? rb.linearVelocity; v.y = 0f;

@@ -14,6 +14,7 @@ namespace BuildingEscape
             ("Mouse", "Look / turn"),
             ("Alt (or V) hold", "Look around your character"),
             ("Shift", "Sprint"),
+            ("Ctrl (or C) hold", "Crouch: slower, but your footsteps are much quieter"),
             ("Space", "Jump"),
             ("E", "Pick up into your backpack / talk to the vendor"),
             ("Tab", "Open your inventory"),

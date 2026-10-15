@@ -1,4 +1,4 @@
-﻿using UnityEngine;
+using UnityEngine;
 
 namespace BuildingEscape
 {
@@ -11,11 +11,19 @@ namespace BuildingEscape
     {
         public bool useLocalMicrophone;
         [Tooltip("Normalised 0-1 level above which speech makes noise.")]
-        public float threshold = 0.15f;
-        public float maxRadius = 18f;
+        public float hearThreshold = 0.08f;
+        [Tooltip("Radius, in metres, at which a guard hears a quiet voice at the threshold...")]
+        public float quietRadius = 7f;
+        [Tooltip("...and a shout. Talking normally lands in between, so a chatty team is a loud team.")]
+        public float shoutRadius = 26f;
         public float emitInterval = 0.25f;
 
         float level, nextEmit;
+
+        /// <summary>The level currently being turned into noise (0 when silent).</summary>
+        public float Level => level;
+        /// <summary>The hearing radius a given level carries.</summary>
+        public float RadiusFor(float normalised) => Mathf.Lerp(quietRadius, shoutRadius, Mathf.Clamp01(normalised));
         AudioClip mic; string device; int lastPos;
         readonly float[] buf = new float[256];
 
@@ -31,9 +39,9 @@ namespace BuildingEscape
         void Update()
         {
             if (mic != null) SampleMic();
-            if (level < threshold || Time.time < nextEmit) return;
+            if (level < hearThreshold || Time.time < nextEmit) return;
             nextEmit = Time.time + emitInterval;
-            NoiseBus.Emit(transform.position, Mathf.Lerp(2f, maxRadius, level), gameObject);
+            NoiseBus.Emit(transform.position, RadiusFor(level), gameObject);
         }
 
         void SampleMic()

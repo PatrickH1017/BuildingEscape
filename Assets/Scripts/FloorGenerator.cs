@@ -132,12 +132,13 @@ namespace BuildingEscape
             };
 
             layout = null;
+            dockWalls = hub;
             BuildShell();
             BuildElevatorRoom(elevCell, floor);
 
             if (hub)
             {
-                BuildVendor(new Vector2Int(cols - 1, rows - 1));
+                BuildLoadingDock(new Vector2Int(cols - 1, rows - 1), seed);
                 return info; // safe zone: no loot, mugs, hide spots, guards (so no NavMesh needed either)
             }
 
@@ -305,6 +306,7 @@ namespace BuildingEscape
             for (int r = 0; r <= rows; r++)
                 for (int c = 0; c < cols; c++)
                 {
+                    if (dockWalls && r == rows && c == cols - 1) continue; // the garage-door wall: see FloorGenerator.Dock.cs
                     bool solid = r == 0 || r == rows || !openN[c, r - 1];
                     float z = r * cellSize, x0 = c * cellSize;
                     if (solid) WallX(x0 + cellSize / 2f, z, cellSize);
@@ -589,65 +591,7 @@ namespace BuildingEscape
             ai.transform.localScale = Vector3.one * 1.35f;
             return 1;
         }
-        /// <summary>
-        /// The basement shop: a counter with the vendor behind it, a sale zone in front of it
-        /// (F sells loot inside, number keys buy) and a shelf point where bought items appear.
-        /// </summary>
-        void BuildVendor(Vector2Int cell)
-        {
-            var c = CellCenter(cell);
-            var mat = vendorMat ? vendorMat : lootMat;
 
-            var root = new GameObject("Vendor");
-            root.transform.SetParent(current);
-            root.transform.position = c;
-
-            Box("VendorCounter", c + new Vector3(0f, 0.55f, 4f), new Vector3(6f, 1.1f, 1.2f), deskMat, root.transform);
-            Box("VendorSign", c + new Vector3(0f, 2.8f, 8.6f), new Vector3(5f, 0.8f, 0.2f), mat, root.transform, collider: false);
-
-            // the vendor: a capsule behind the counter, facing the shop floor (-Z)
-            var npc = GameObject.CreatePrimitive(PrimitiveType.Capsule);
-            npc.name = "VendorNPC";
-            npc.transform.SetParent(root.transform);
-            npc.transform.position = c + new Vector3(0f, 1f, 5.6f);
-            npc.transform.rotation = Quaternion.Euler(0f, 180f, 0f);
-            npc.GetComponent<Renderer>().sharedMaterial = mat;
-            var nose = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            nose.transform.SetParent(npc.transform, false);
-            nose.transform.localPosition = new Vector3(0f, 0.6f, 0.45f);
-            nose.transform.localScale = new Vector3(0.4f, 0.15f, 0.2f);
-            nose.GetComponent<Renderer>().sharedMaterial = deskMat;
-            Kill(nose.GetComponent<Collider>());
-            if (Application.isPlaying) PartyCharacterFactory.Attach(npc, PartyCharacterFactory.VendorLook);
-
-            // shady back-alley setup: stacked crates and duffel bags behind him, a dim bare bulb
-            var back = c + new Vector3(0f, 0f, 7.6f);
-            Box("Crate1", back + new Vector3(-2.6f, 0.5f, 0f), new Vector3(1.4f, 1f, 1.2f), deskMat, root.transform);
-            Box("Crate2", back + new Vector3(-2.4f, 1.4f, 0.1f), new Vector3(1.0f, 0.8f, 1.0f), deskMat, root.transform);
-            Box("Crate3", back + new Vector3(2.8f, 0.6f, 0f), new Vector3(1.6f, 1.2f, 1.3f), deskMat, root.transform);
-            Box("Duffel1", back + new Vector3(1.4f, 0.25f, -0.2f), new Vector3(1.2f, 0.5f, 0.55f), mat, root.transform);
-            Box("Duffel2", back + new Vector3(-0.8f, 0.2f, -0.4f), new Vector3(0.9f, 0.4f, 0.5f), mat, root.transform);
-            var lamp = new GameObject("DealerBulb");
-            lamp.transform.SetParent(root.transform);
-            lamp.transform.position = c + new Vector3(0f, 3.0f, 5.2f);
-            var lt = lamp.AddComponent<Light>();
-            lt.type = LightType.Point; lt.color = new Color(1f, 0.45f, 0.2f); lt.range = 9f; lt.intensity = 1.6f;
-
-            // sale zone in front of the counter (also overlaps the counter top)
-            var zone = new GameObject("VendorZone");
-            zone.transform.SetParent(root.transform);
-            zone.transform.position = c + new Vector3(0f, 1.2f, 1f);
-            var bc = zone.AddComponent<BoxCollider>(); bc.isTrigger = true; bc.size = new Vector3(8f, 2.4f, 6f);
-
-            var shelf = new GameObject("Shelf").transform;
-            shelf.SetParent(root.transform);
-            shelf.position = c + new Vector3(0f, 1.2f, 4f);
-
-            var v = zone.AddComponent<Vendor>();
-            v.shelf = shelf;
-            v.itemMat = mugMat;
-            v.npc = npc.transform;
-        }
 
         // ------------------------------------------------------------------ things
 

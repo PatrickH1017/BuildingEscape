@@ -23,9 +23,13 @@ namespace BuildingEscape.EditorTools
             EditorApplication.delayCall += () =>
             {
                 var cat = AssetDatabase.LoadAssetAtPath<CharacterCatalog>(AssetPath);
-                if (!cat || cat.characters.Length == 0 || !cat.atlas || !cat.male.idle) Build(false);
+                if (!cat || cat.characters.Length == 0 || !cat.atlas || !cat.male.idle || HasFileNameLabels(cat)) Build(false);
             };
         }
+
+        /// <summary>An earlier version named players after their files ("Female", "Male A"); those are renamed on the next build.</summary>
+        static bool HasFileNameLabels(CharacterCatalog cat) =>
+            cat.characters.Any(c => c != null && c.role == ToonRole.Player && (string.IsNullOrEmpty(c.label) || c.label == LabelOf(c.id)));
 
         [MenuItem("Overtime Escape/Setup Characters", priority = 32)]
         static void Menu() => Build(true);
@@ -73,9 +77,13 @@ namespace BuildingEscape.EditorTools
             return string.Join(" ", words);
         }
 
+        /// <summary>"Toon 3" style names this builder generated itself (so they may be renumbered).</summary>
+        static bool IsPlaceholderLabel(string label) => label.StartsWith("Toon ") && int.TryParse(label.Substring(5), out _);
+
         static ToonRole RoleOf(string id)
         {
-            if (id.Contains("police") || id.Contains("cop") || id.Contains("guard") || id.Contains("officer")) return ToonRole.Guard;
+            if (id.Contains("police") || id.Contains("cop") || id.Contains("guard") || id.Contains("officer")
+                || id.Contains("swat") || id.Contains("security") || id.Contains("sheriff")) return ToonRole.Guard;
             if (id.Contains("zombie")) return ToonRole.Other;
             return ToonRole.Player;
         }
@@ -112,6 +120,16 @@ namespace BuildingEscape.EditorTools
                 return;
             }
 
+            if (!AssetDatabase.IsValidFolder("Assets/Resources")) AssetDatabase.CreateFolder("Assets", "Resources");
+            var cat = AssetDatabase.LoadAssetAtPath<CharacterCatalog>(AssetPath);
+            bool isNew = !cat;
+            if (isNew) cat = ScriptableObject.CreateInstance<CharacterCatalog>();
+
+            // A character already in the catalog keeps what was edited on it (label, role, clip set); only entries
+            // still carrying the generated defaults are refreshed.
+            var existing = new Dictionary<string, ToonCharacter>();
+            foreach (var old in cat.characters) if (old != null && !string.IsNullOrEmpty(old.id)) existing[old.id] = old;
+
             var list = new List<ToonCharacter>();
             foreach (var path in prefabs)
             {
@@ -119,15 +137,24 @@ namespace BuildingEscape.EditorTools
                 if (!prefab) continue;
                 var id = IdOf(prefab.name);
                 if (!CharacterCatalog.ValidId(id) || list.Any(c => c.id == id)) continue;
-                list.Add(new ToonCharacter { id = id, label = LabelOf(id), prefab = prefab, role = RoleOf(id), clips = SetOf(id) });
+                var entry = new ToonCharacter { id = id, label = null, prefab = prefab, role = RoleOf(id), clips = SetOf(id) };
+                if (existing.TryGetValue(id, out var old))
+                {
+                    entry.role = old.role; entry.clips = old.clips;
+                    // keep a hand-edited label; the generated ones ("Male A", "Toon 3") are regenerated below
+                    if (!string.IsNullOrEmpty(old.label) && old.label != LabelOf(id) && !IsPlaceholderLabel(old.label)) entry.label = old.label;
+                }
+                list.Add(entry);
             }
             // players first (pick order in Customize), then guards, then the rest
             list = list.OrderBy(c => c.role).ThenBy(c => c.id).ToList();
-
-            if (!AssetDatabase.IsValidFolder("Assets/Resources")) AssetDatabase.CreateFolder("Assets", "Resources");
-            var cat = AssetDatabase.LoadAssetAtPath<CharacterCatalog>(AssetPath);
-            bool isNew = !cat;
-            if (isNew) cat = ScriptableObject.CreateInstance<CharacterCatalog>();
+            // One plain list for Customize: players are "Toon 1, Toon 2, ..." until the owner names them in the asset.
+            int playerNumber = 0;
+            foreach (var c in list)
+            {
+                if (c.role == ToonRole.Player) playerNumber++;
+                if (string.IsNullOrEmpty(c.label)) c.label = c.role == ToonRole.Player ? $"Toon {playerNumber}" : LabelOf(c.id);
+            }
             cat.characters = list.ToArray();
             cat.atlas = AssetDatabase.LoadAssetAtPath<Texture2D>(atlasPath);
             cat.male = ReadSet(fbx, "m");

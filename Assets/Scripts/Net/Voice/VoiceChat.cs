@@ -116,15 +116,26 @@ namespace BuildingEscape.Net
             if (input != null && wantMic != inputActive) { input.SetActive(wantMic); inputActive = wantMic; }
             if (!wantMic) { Speaking = false; MicLevel = Mathf.MoveTowards(MicLevel, 0f, Time.deltaTime * 4f); }
 
-            if (online && wantMic) PumpInput(nm);
+            bool gotPacket = online && wantMic && PumpInput(nm);
+            if (!gotPacket)
+            {
+                // No audio this frame (silence, or Steam sends nothing between words): the level must still fall,
+                // or the last loud word would keep guards hearing you.
+                Speaking = wantMic && Time.unscaledTime - lastLoud < SendHangover;
+                MicLevel = Mathf.MoveTowards(MicLevel, 0f, Time.deltaTime * 2f);
+                FeedGuards();
+            }
             if (online) UpdateVoices(nm);
         }
 
-        void PumpInput(NetworkManager nm)
+        /// <summary>Reads and sends what the microphone has. Returns true if it handled any packet this frame.</summary>
+        bool PumpInput(NetworkManager nm)
         {
+            bool any = false;
             int guard = 8; // a few packets per frame at most
             while (guard-- > 0 && input.TryRead(packet, out int length) && length > 0)
             {
+                any = true;
                 var decoder = VoiceCodecs.DecoderFor(input.Codec);
                 float rms = 0f;
                 if (decoder != null)
@@ -144,6 +155,7 @@ namespace BuildingEscape.Net
                 if (!Speaking) continue;   // silence is not worth the bandwidth
                 SendPacket(nm, input.Codec, length);
             }
+            return any;
         }
 
         /// <summary>Your voice makes noise: guards hear a talker (VoiceNoise sends it on to the host).</summary>

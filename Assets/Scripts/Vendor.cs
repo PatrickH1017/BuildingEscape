@@ -82,6 +82,8 @@ namespace BuildingEscape
         public float sellRate = 0.7f;
         [Tooltip("Where bought items appear (above the counter).")]
         public Transform shelf;
+        [Tooltip("Sideways gap between bought items on the shelf (five fit across).")]
+        public float shelfSpacing = 0.9f;
         public Material itemMat;
 
         /// <summary>The vendor whose zone a player is standing in, if any (the HUD shows its shop).</summary>
@@ -309,7 +311,7 @@ namespace BuildingEscape
         GameObject Spawn(Product p, int index)
         {
             var basePos = shelf ? shelf.position : transform.position + Vector3.up;
-            float x = ((spawned++ % 5) - 2) * 0.9f;
+            float x = ((spawned++ % 5) - 2) * shelfSpacing;
             float yaw = Random.Range(0f, 360f);
             var go = SpawnAt(p, basePos + new Vector3(x, p.isWeapon ? 0.3f : 0.2f, 0f), yaw);
             if (go && go.TryGetComponent(out Pickup pk)) Net.RunSync.Instance?.BroadcastSpawnItem(pk.NetId, index, go.transform.position, yaw);

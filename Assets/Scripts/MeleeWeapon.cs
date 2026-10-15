@@ -15,14 +15,16 @@ namespace BuildingEscape
         {
             public string name;
             public float weight, length, stun, knock, cooldown, noise;
+            /// <summary>Health taken off a training dummy per hit (guards go down by hit count instead).</summary>
+            public float damage;
         }
 
         // length = how long the weapon is in metres when held; stun in seconds; knock = shove on hit.
         public static readonly Spec[] Specs =
         {
-            new Spec { name = "Crowbar",      weight = 3f, length = 0.85f, stun = 4f, knock = 5f, cooldown = 0.9f, noise = 16f },
-            new Spec { name = "Baseball Bat", weight = 2f, length = 1.00f, stun = 3f, knock = 9f, cooldown = 0.8f, noise = 14f },
-            new Spec { name = "Hatchet",      weight = 3f, length = 0.70f, stun = 6f, knock = 4f, cooldown = 1.0f, noise = 18f },
+            new Spec { name = "Crowbar",      weight = 3f, length = 0.85f, stun = 4f, knock = 5f, cooldown = 0.9f, noise = 16f, damage = 14f },
+            new Spec { name = "Baseball Bat", weight = 2f, length = 1.00f, stun = 3f, knock = 9f, cooldown = 0.8f, noise = 14f, damage = 11f },
+            new Spec { name = "Hatchet",      weight = 3f, length = 0.70f, stun = 6f, knock = 4f, cooldown = 1.0f, noise = 18f, damage = 22f },
         };
 
         public Kind kind;
