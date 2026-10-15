@@ -27,16 +27,31 @@ namespace BuildingEscape.Net
 
         public static VoiceChat Instance { get; private set; }
 
+        // The settings are read from PlayerPrefs once and kept: they are asked for every frame (and every GUI event).
+        static int modeCache = -1;
+        static float volumeCache = -1f;
+
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        static void ResetStatics() { modeCache = -1; volumeCache = -1f; Instance = null; }
+
         public static Mode CurrentMode
         {
-            get => (Mode)Mathf.Clamp(PlayerPrefs.GetInt(ModeKey, 0), 0, 2);
-            set => PlayerPrefs.SetInt(ModeKey, (int)value);
+            get
+            {
+                if (modeCache < 0) modeCache = Mathf.Clamp(PlayerPrefs.GetInt(ModeKey, 0), 0, 2);
+                return (Mode)modeCache;
+            }
+            set { modeCache = (int)value; PlayerPrefs.SetInt(ModeKey, modeCache); }
         }
 
         public static float Volume
         {
-            get => PlayerPrefs.GetFloat(VolumeKey, 1f);
-            set => PlayerPrefs.SetFloat(VolumeKey, Mathf.Clamp01(value));
+            get
+            {
+                if (volumeCache < 0f) volumeCache = Mathf.Clamp01(PlayerPrefs.GetFloat(VolumeKey, 1f));
+                return volumeCache;
+            }
+            set { volumeCache = Mathf.Clamp01(value); PlayerPrefs.SetFloat(VolumeKey, volumeCache); }
         }
 
         public KeyCode talkKey = KeyCode.T;
@@ -55,7 +70,8 @@ namespace BuildingEscape.Net
 
         IVoiceInput input;
         bool inputActive;
-        readonly byte[] packet = new byte[MaxPacket];
+        readonly byte[] packet = new byte[MaxPacket];     // outgoing: what the microphone produced
+        readonly byte[] received = new byte[MaxPacket];   // incoming: one packet at a time (reused, so a talker makes no garbage)
         readonly float[] pcm = new float[48000];
         ushort seq;
         float lastLoud;
@@ -112,8 +128,8 @@ namespace BuildingEscape.Net
 
             if (Input.GetKeyDown(muteKey) && !EscapeMenu.Open && !Backpack.UiOpen && !Vendor.ShopOpen) Muted = !Muted;
 
-            bool wantMic = online && !Muted && (CurrentMode == Mode.OpenMic || (CurrentMode == Mode.PushToTalk && Input.GetKey(talkKey)))
-                           && CurrentMode != Mode.Off;
+            var mode = CurrentMode;
+            bool wantMic = online && !Muted && mode != Mode.Off && (mode == Mode.OpenMic || Input.GetKey(talkKey));
             if (wantMic && input == null) input = PickInput();
             if (input != null && wantMic != inputActive) { input.SetActive(wantMic); inputActive = wantMic; }
             if (!wantMic) { Speaking = false; MicLevel = Mathf.MoveTowards(MicLevel, 0f, Time.deltaTime * 4f); }
@@ -204,7 +220,7 @@ namespace BuildingEscape.Net
             r.ReadValueSafe(out ushort seqNo);
             r.ReadValueSafe(out ushort length);
             if (length == 0 || length > MaxPacket || r.Length - r.Position < length) return;
-            var data = new byte[length];
+            var data = received;
             r.ReadBytesSafe(ref data, length);
 
             // On the host the real sender is known; on a client the host vouches for who it relayed.
@@ -297,25 +313,29 @@ namespace BuildingEscape.Net
 
         // ------------------------------------------------------------------ HUD
 
+        static readonly Color Warning = new Color(1f, 0.5f, 0.4f), Talking = new Color(0.5f, 1f, 0.5f), Heard = new Color(0.6f, 0.9f, 1f);
+
         void OnGUI()
         {
+            if (Event.current.type != EventType.Repaint) return;
             var nm = NetworkManager.Singleton;
             if (nm == null || !nm.IsListening) return;
-            string state = CurrentMode == Mode.Off ? "voice off"
+            var mode = CurrentMode;
+            string state = mode == Mode.Off ? "voice off"
                 : Muted ? $"MIC MUTED ({muteKey})"
-                : CurrentMode == Mode.PushToTalk ? $"hold {talkKey} to talk"
+                : mode == Mode.PushToTalk ? $"hold {talkKey} to talk"
                 : Speaking ? $"MIC: talking - guards hear you up to {HearingRadius:0} m" : $"mic open ({muteKey} mutes)";
-            var style = new GUIStyle(GUI.skin.label) { alignment = TextAnchor.MiddleRight, fontSize = 14 };
-            style.normal.textColor = Muted || CurrentMode == Mode.Off ? new Color(1f, 0.5f, 0.4f) : (Speaking ? new Color(0.5f, 1f, 0.5f) : Color.white);
-            GUI.Label(new Rect(Screen.width - 260f, 30f, 250f, 22f), state, style);
+            var colour = Muted || mode == Mode.Off ? Warning : (Speaking ? Talking : Color.white);
+            HudText.Label(new Rect(Screen.width - 260f, 30f, 250f, 22f), state, HudStyles.Label(14, TextAnchor.MiddleRight, FontStyle.Normal, colour));
 
             float y = 52f;
-            foreach (var id in ActiveSpeakers())
+            var heard = HudStyles.Label(14, TextAnchor.MiddleRight, FontStyle.Normal, Heard);
+            foreach (var kv in voices)
             {
+                if (!kv.Value || Time.unscaledTime - kv.Value.lastPacketTime >= 0.5f) continue;   // (the speakers heard in the last half second)
                 string who = "teammate";
-                foreach (var p in NetPlayer.All) if (p.OwnerClientId == id) { who = $"Player {p.Slot + 1}"; break; }
-                var s = new GUIStyle(style); s.normal.textColor = new Color(0.6f, 0.9f, 1f);
-                GUI.Label(new Rect(Screen.width - 260f, y, 250f, 20f), $"{who} is talking", s);
+                foreach (var p in NetPlayer.All) if (p.OwnerClientId == kv.Key) { who = $"Player {p.Slot + 1}"; break; }
+                HudText.Label(new Rect(Screen.width - 260f, y, 250f, 20f), $"{who} is talking", heard);
                 y += 20f;
             }
         }

@@ -52,6 +52,7 @@ namespace BuildingEscape.Net
             if (net == null) return;
 
             float k = Mathf.Max(0.75f, Screen.height / 720f);
+            var oldMatrix = GUI.matrix;                 // GUI state is shared by every OnGUI of the frame: put it back when done
             GUI.matrix = Matrix4x4.Scale(new Vector3(k, k, 1f));
             LobbyStage.PanelPixels = (PanelW + 20f) * k;
 
@@ -84,6 +85,7 @@ namespace BuildingEscape.Net
                     break;
             }
             GUILayout.EndArea();
+            GUI.matrix = oldMatrix;
         }
 
         // ------------------------------------------------------------------ main
@@ -404,12 +406,8 @@ namespace BuildingEscape.Net
                 GUI.DrawTexture(new Rect(r.x + 2f, r.y + 6f, 12f, 12f), Dot());
                 GUI.color = old;
 
-                var name = new GUIStyle(GUI.skin.label);
-                if (!f.Online) name.normal.textColor = new Color(0.6f, 0.6f, 0.65f);
-                GUILayout.Label(f.Name, name);
-                var status = new GUIStyle(GUI.skin.label) { fontSize = 11, alignment = TextAnchor.MiddleRight };
-                status.normal.textColor = new Color(0.65f, 0.7f, 0.8f);
-                GUILayout.Label(f.Status, status, GUILayout.Width(110f));
+                GUILayout.Label(f.Name, f.Online ? GUI.skin.label : OfflineFriendStyle());
+                GUILayout.Label(f.Status, FriendStatusStyle(), GUILayout.Width(110f));
 
                 bool recent = invitedAt.TryGetValue(f.Id.m_SteamID, out float at) && Time.unscaledTime - at < 8f;
                 GUI.enabled = f.Online && !recent;
@@ -495,7 +493,29 @@ namespace BuildingEscape.Net
             }
         }
 
-        static GUIStyle Rich() => new GUIStyle(GUI.skin.label) { richText = true };
-        static GUIStyle Wrap() => new GUIStyle(GUI.skin.label) { wordWrap = true };
+        // The styles are made once (a GUIStyle is a native object: making them on every GUI event is a steady stream of garbage).
+        static GUIStyle rich, wrap, offlineFriend, friendStatus;
+        static GUIStyle Rich() => rich ??= new GUIStyle(GUI.skin.label) { richText = true };
+        static GUIStyle Wrap() => wrap ??= new GUIStyle(GUI.skin.label) { wordWrap = true };
+
+        static GUIStyle OfflineFriendStyle()
+        {
+            if (offlineFriend == null)
+            {
+                offlineFriend = new GUIStyle(GUI.skin.label);
+                offlineFriend.normal.textColor = new Color(0.6f, 0.6f, 0.65f);
+            }
+            return offlineFriend;
+        }
+
+        static GUIStyle FriendStatusStyle()
+        {
+            if (friendStatus == null)
+            {
+                friendStatus = new GUIStyle(GUI.skin.label) { fontSize = 11, alignment = TextAnchor.MiddleRight };
+                friendStatus.normal.textColor = new Color(0.65f, 0.7f, 0.8f);
+            }
+            return friendStatus;
+        }
     }
 }

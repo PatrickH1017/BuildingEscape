@@ -22,13 +22,20 @@ namespace BuildingEscape
         HeavyLoot heldLoot;
 
         Pickup heldPickup;
+        WobblyPlayer wob;
 
-        void Awake() { grabKey = KeyCode.Q; } // overrides the old value saved in the scene
+        void Awake()
+        {
+            grabKey = KeyCode.Q; // overrides the old value saved in the scene
+            TryGetComponent(out wob);
+        }
 
         void Update()
         {
-            if (!Net.NetPlayer.IsLocalPlayer(GetComponent<WobblyPlayer>())) return; // teammates are driven by their own machine
+            if (!wob && !TryGetComponent(out wob)) return;
+            if (!Net.NetPlayer.IsLocalPlayer(wob)) return; // teammates are driven by their own machine
             if (Backpack.UiOpen || Vendor.ShopOpen || EscapeMenu.Open || ElevatorPanel.Open) return;
+            if (wob.InCustody) return; // pinned or busted
             if (Input.GetKeyDown(grabKey)) { if (Held) AskRelease(false); else TryGrab(); }
             if (Held && Input.GetKeyDown(throwKey)) AskRelease(true);
         }
@@ -57,8 +64,8 @@ namespace BuildingEscape
                 var origin = transform.position + Vector3.up * 0.3f;
                 if (!Physics.SphereCast(origin, 0.6f, transform.forward, out var hit, reach, grabbable)) return;
                 rb = hit.rigidbody;
-                if (!rb || rb.GetComponent<WobblyPlayer>()) return;
-                p = rb.GetComponent<Pickup>();
+                if (!rb || rb.TryGetComponent<WobblyPlayer>(out _)) return;      // never pick up another player
+                rb.TryGetComponent(out p);
             }
             if (Net.NetRole.Synced)
             {
@@ -73,8 +80,8 @@ namespace BuildingEscape
             Held = rb;
             heldPickup = p;
             if (heldPickup) heldPickup.IsHeld = true;
-            heldLoot = rb.GetComponent<HeavyLoot>();
-            heldLoot?.AddHolder(this);
+            heldLoot = rb.TryGetComponent(out HeavyLoot loot) ? loot : null;
+            if (heldLoot) heldLoot.AddHolder(this);
         }
 
         /// <summary>The host said this player now holds the item (every machine applies it).</summary>
@@ -93,8 +100,8 @@ namespace BuildingEscape
         /// <summary>Where the throw goes (the host calculates it from the player's facing).</summary>
         public Vector3 ThrowImpulse()
         {
-            var t = Held ? Held.GetComponent<Throwable>() : null;
-            return (transform.forward + Vector3.up * 0.25f) * throwForce * (t ? t.throwMultiplier : 1f);
+            float multiplier = Held && Held.TryGetComponent(out Throwable t) ? t.throwMultiplier : 1f;
+            return (transform.forward + Vector3.up * 0.25f) * throwForce * multiplier;
         }
 
         /// <summary>Let go now, on this machine only (offline play, or tidy-up when the player goes away).</summary>
@@ -108,13 +115,13 @@ namespace BuildingEscape
         public void ApplyRelease(bool thrown, Vector3 impulse)
         {
             if (!Held) return;
-            heldLoot?.RemoveHolder(this);
-            if (thrown && (heldLoot == null || heldLoot.Holders == 0))
+            if (heldLoot) heldLoot.RemoveHolder(this);
+            if (thrown && (!heldLoot || heldLoot.Holders == 0))
             {
                 if (Net.NetRole.Simulates) Held.AddForce(impulse, ForceMode.VelocityChange);
-                Held.GetComponent<Throwable>()?.OnThrown(gameObject);
+                if (Held.TryGetComponent(out Throwable thrownItem)) thrownItem.OnThrown(gameObject);
             }
-            if (heldPickup) heldPickup.IsHeld = heldLoot != null && heldLoot.Holders > 0;
+            if (heldPickup) heldPickup.IsHeld = heldLoot && heldLoot.Holders > 0;
             Held = null; heldLoot = null; heldPickup = null;
         }
 

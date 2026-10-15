@@ -9,6 +9,10 @@ namespace BuildingEscape
     /// </summary>
     public class BackupHud : MonoBehaviour
     {
+        static readonly Color Alarm = new Color(1f, 0.15f, 0.1f);
+        static readonly Color Dim = new Color(0f, 0f, 0f, 0.55f);
+        static readonly Color MessageColour = new Color(1f, 0.3f, 0.2f);
+
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         static void Boot()
         {
@@ -25,11 +29,8 @@ namespace BuildingEscape
             if (!hm) return;
 
             if (Time.time < hm.BackupMessageUntil && !string.IsNullOrEmpty(hm.BackupMessage))
-            {
-                var st = new GUIStyle(GUI.skin.label) { alignment = TextAnchor.MiddleCenter, fontSize = 26, fontStyle = FontStyle.Bold };
-                st.normal.textColor = new Color(1f, 0.3f, 0.2f);
-                HudText.Label(new Rect(0, 215f, Screen.width, 40f), hm.BackupMessage, st);
-            }
+                HudText.Label(new Rect(0, 215f, Screen.width, 40f), hm.BackupMessage,
+                    HudStyles.Label(26, TextAnchor.MiddleCenter, FontStyle.Bold, MessageColour));
             if (hm.Phase != HeistPhase.Heist && hm.Phase != HeistPhase.FloorComplete) return;
 
             float best = 0f; GuardAI bestGuard = null;
@@ -50,7 +51,7 @@ namespace BuildingEscape
         /// <summary>A circular loading bar: a dim full circle with a red arc filling clockwise from the top.</summary>
         static void DrawRing(Vector2 c, float radius, float progress, float thickness, bool big)
         {
-            const int segs = 72;
+            int segs = big ? 72 : 36;                // the small rings above the guards' heads do not need as many pieces
             var white = Texture2D.whiteTexture;
             var old = GUI.color;
             float segLen = 2f * Mathf.PI * radius / segs + 1.5f;
@@ -58,7 +59,7 @@ namespace BuildingEscape
             for (int i = 0; i < segs; i++)
             {
                 bool filled = (i + 0.5f) / segs <= progress;
-                GUI.color = filled ? new Color(1f, 0.15f, 0.1f, 1f) : new Color(0f, 0f, 0f, 0.55f);
+                GUI.color = filled ? Alarm : Dim;
                 var m = GUI.matrix;
                 GUIUtility.RotateAroundPivot(i * 360f / segs, c);
                 GUI.DrawTexture(new Rect(c.x - segLen / 2f, c.y - radius - thickness / 2f, segLen, thickness), white);
@@ -66,19 +67,14 @@ namespace BuildingEscape
             }
 
             // the icon in the middle: a warning mark (a radio call going out)
-            GUI.color = progress >= 1f ? new Color(1f, 0.15f, 0.1f) : Color.white;
-            var st = new GUIStyle(GUI.skin.label) { alignment = TextAnchor.MiddleCenter, fontSize = big ? 44 : 20, fontStyle = FontStyle.Bold };
-            st.normal.textColor = GUI.color;
             GUI.color = Color.white;
-            GUI.Label(new Rect(c.x - radius, c.y - radius, radius * 2f, radius * 2f), "!", st);
+            GUI.Label(new Rect(c.x - radius, c.y - radius, radius * 2f, radius * 2f), "!",
+                HudStyles.Label(big ? 44 : 20, TextAnchor.MiddleCenter, FontStyle.Bold, progress >= 1f ? Alarm : Color.white));
 
             if (big)
-            {
-                var cap = new GUIStyle(GUI.skin.label) { alignment = TextAnchor.MiddleCenter, fontSize = 18, fontStyle = FontStyle.Bold };
-                cap.normal.textColor = Color.white;
                 HudText.Label(new Rect(c.x - 350f, c.y + radius + 6f, 700f, 28f),
-                    "He is checking it out - get out of his view before he calls backup!", cap);
-            }
+                    "He is checking it out - get out of his view before he calls backup!",
+                    HudStyles.Label(18, TextAnchor.MiddleCenter, FontStyle.Bold, Color.white));
             GUI.color = old;
         }
     }

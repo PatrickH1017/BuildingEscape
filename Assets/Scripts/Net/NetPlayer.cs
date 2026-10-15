@@ -29,6 +29,11 @@ namespace BuildingEscape.Net
         readonly NetworkVariable<bool> crouched = new(false,
             NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
 
+        // Custody (pinned / busted), written by the host and applied on every machine so teammates see who is down.
+        readonly NetworkVariable<byte> custody = new(0);
+        readonly NetworkVariable<byte> pinSecondsLeft = new(0);
+        readonly NetworkVariable<byte> bustedLevel = new(0);
+
         int pendingSlot = -1;
         Rigidbody rb;
         WobblyPlayer wobbly;
@@ -90,9 +95,19 @@ namespace BuildingEscape.Net
             if (c) c.enabled = on;
         }
 
+        /// <summary>Host: publish a player's custody state (the host's own copy was already applied by HeistManager).</summary>
+        public void HostSetCustody(CustodyState state, int pinSeconds, int bustedOnLevel)
+        {
+            if (!IsServer) return;
+            custody.Value = (byte)state;
+            pinSecondsLeft.Value = (byte)Mathf.Clamp(pinSeconds, 0, 255);
+            bustedLevel.Value = (byte)Mathf.Clamp(bustedOnLevel, 0, 255);
+        }
+
         void Update()
         {
             if (!IsSpawned || wobbly == null) return;
+            if (!IsServer) wobbly.ApplyCustody((CustodyState)custody.Value, pinSecondsLeft.Value, bustedLevel.Value);
             if (IsOwner) { hidden.Value = wobbly.IsHidden; crouched.Value = wobbly.IsCrouching; return; }
             wobbly.IsHidden = hidden.Value;
             wobbly.SetPuppetCrouch(crouched.Value);
@@ -129,10 +144,9 @@ namespace BuildingEscape.Net
         }
 
         /// <summary>True for the player this machine controls (offline: every player, there is only one).</summary>
-        public static bool IsLocalPlayer(WobblyPlayer p)
+        public new static bool IsLocalPlayer(WobblyPlayer p)   // (hides NetworkBehaviour.IsLocalPlayer on purpose: that one is about the NGO player object)
         {
-            var np = p ? p.GetComponent<NetPlayer>() : null;
-            return np == null || !np.IsSpawned || np.IsOwner;
+            return !p || !p.TryGetComponent(out NetPlayer np) || !np.IsSpawned || np.IsOwner;
         }
 
         /// <summary>Registry players ordered by network slot, so every machine arranges the team identically.</summary>
@@ -145,8 +159,7 @@ namespace BuildingEscape.Net
 
         static int SlotOf(WobblyPlayer p)
         {
-            var np = p ? p.GetComponent<NetPlayer>() : null;
-            return np && np.IsSpawned ? np.Slot : int.MaxValue;
+            return p && p.TryGetComponent(out NetPlayer np) && np.IsSpawned ? np.Slot : int.MaxValue;
         }
     }
 }

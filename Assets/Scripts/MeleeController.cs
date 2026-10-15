@@ -17,6 +17,7 @@ namespace BuildingEscape
         Backpack pack;
         PlayerVisual vis;
         PlayerGrab grab;
+        WobblyPlayer wobbly;
         GameObject heldModel;
         Pickup shown;
         float nextSwing;
@@ -27,6 +28,7 @@ namespace BuildingEscape
             pack = GetComponent<Backpack>();
             vis = GetComponent<PlayerVisual>();
             grab = GetComponent<PlayerGrab>();
+            wobbly = GetComponent<WobblyPlayer>();
         }
 
         void Update()
@@ -38,6 +40,7 @@ namespace BuildingEscape
             if (eq != shown) Show(eq);
 
             if (!eq || !pack.Viewed || Backpack.UiOpen || Vendor.ShopOpen || EscapeMenu.Open || TestMode.PanelOpen || ElevatorPanel.Open || swinging || Time.time < nextSwing) return;
+            if (wobbly && wobbly.InCustody) return; // pinned or busted: no swinging
             if (grab && grab.Held) return; // hands full: LMB throws instead
             if (Input.GetMouseButtonDown(0)) StartCoroutine(Swing(eq.GetComponent<MeleeWeapon>()));
         }

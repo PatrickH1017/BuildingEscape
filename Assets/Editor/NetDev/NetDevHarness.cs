@@ -46,6 +46,12 @@ namespace BuildingEscape.EditorTools
             EditorSceneManager.OpenScene("Assets/Scenes/Greybox.unity");
             EditorApplication.isPlaying = true;
         }
+        public static void Doors()
+        {
+            SessionState.SetString("netdev.mode", "doors");
+            EditorSceneManager.OpenScene("Assets/Scenes/Greybox.unity");
+            EditorApplication.isPlaying = true;
+        }
         public static void Sneak()
         {
             SessionState.SetString("netdev.mode", "sneak");
@@ -77,7 +83,7 @@ namespace BuildingEscape.EditorTools
         {
             DontDestroyOnLoad(gameObject);
             started = Time.realtimeSinceStartup;
-            if (mode != "offline" && mode != "sneak" && mode != "floors")
+            if (mode != "offline" && mode != "sneak" && mode != "floors" && mode != "doors")
                 yield return WaitFor(() => NetSession.Instance != null && SceneManager.GetActiveScene().name == NetConst.MenuScene, 30, "menu");
             switch (mode)
             {
@@ -89,6 +95,7 @@ namespace BuildingEscape.EditorTools
                 case "toon": yield return ToonScenario(); break;
                 case "sneak": yield return SneakScenario(); break;
                 case "floors": yield return FloorsScenario(); break;
+                case "doors": yield return DoorsScenario(); break;
                 case "offline": yield return OfflineScenario(); break;
                 case "voicehost": yield return VoiceScenario(true); break;
                 case "voiceclient": yield return VoiceScenario(false); break;

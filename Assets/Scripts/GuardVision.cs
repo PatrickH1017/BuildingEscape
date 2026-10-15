@@ -19,6 +19,7 @@ namespace BuildingEscape
         const float EdgeWidth = 0.35f;     // the bright band along the rim of the cone
         const float CullDistance = 45f;    // beyond this from the camera the cone is not drawn
         const float LightDistance = 25f;   // beyond this the real spot light is switched off
+        const int FanEvery = 2;            // the cone (37 view rays) is rebuilt every this many frames; guards take turns so the cost is spread
 
         GuardAI ai;
         Transform hand, torch;
@@ -31,8 +32,14 @@ namespace BuildingEscape
         Vector3[] verts;
         Color[] cols;
         readonly RaycastHit[] hits = new RaycastHit[24];
+        int fanTurn;                       // which of the FanEvery frames this guard rebuilds its cone on
+        bool fanDrawn;                     // the cone has been built since it was last switched on
 
-        void Awake() { ai = GetComponent<GuardAI>(); }
+        void Awake()
+        {
+            ai = GetComponent<GuardAI>();
+            fanTurn = (int)((uint)GetInstanceID() % FanEvery);
+        }
 
         void Start() { if (!initialised) Init(null); }
 
@@ -196,7 +203,7 @@ namespace BuildingEscape
         Color StateColor()
         {
             if (ai.IsCalling) return Color.Lerp(new Color(1f, 0.55f, 0.15f), new Color(1f, 0.1f, 0.08f), ai.CallProgress);
-            if (ai.State == GuardState.Chase) return new Color(1f, 0.1f, 0.08f);
+            if (ai.State == GuardState.Chase || ai.State == GuardState.Pinning) return new Color(1f, 0.1f, 0.08f);
             if (ai.State == GuardState.Investigate) return new Color(1f, 0.72f, 0.25f);
             return new Color(1f, 0.93f, 0.55f);
         }
@@ -206,8 +213,11 @@ namespace BuildingEscape
         void UpdateFan(bool on)
         {
             if (!fanObject) return;
-            if (fanObject.activeSelf != on) fanObject.SetActive(on);
+            if (fanObject.activeSelf != on) { fanObject.SetActive(on); fanDrawn = false; }
             if (!on) return;
+            // between its turns the cone stays as it was (a frame old is invisible), but it is always built the moment it appears
+            if (fanDrawn && (Time.frameCount + fanTurn) % FanEvery != 0) return;
+            fanDrawn = true;
 
             var origin = transform.position;
             float floorY = FloorHeight(origin) + 0.06f;

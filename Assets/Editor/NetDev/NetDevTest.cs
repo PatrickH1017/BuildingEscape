@@ -29,6 +29,7 @@ namespace BuildingEscape.EditorTools
             RulesTest();
             AppearanceTest();
             VoiceCurveTest();
+            CustodyTest();
             string v = NetConst.BuildVersion;
             Check("allow", JoinPolicy.Evaluate(false, 1, v, v, true) == JoinVerdict.Allow);
             Check("allow 4th (3 connected)", JoinPolicy.Evaluate(false, 3, v, v, true) == JoinVerdict.Allow);
@@ -111,6 +112,40 @@ namespace BuildingEscape.EditorTools
             Check("voice: the louder you speak the further guards hear (3 m ... 30 m)", r0 < r1 && r1 < r2 && r2 < r3 && Mathf.Approximately(r0, 3f) && Mathf.Approximately(r3, 30f));
             Object.DestroyImmediate(go);
         }
+        /// <summary>The pinned / busted / backup / buy-back rules (CustodyRules, BackupClock) and the player's custody state.</summary>
+        public static void CustodyTest()
+        {
+            Check("custody: a pin lasts 12 s and backup repeats every 30 s", CustodyRules.PinSeconds == 12f && CustodyRules.BackupIntervalSeconds == 30f);
+            Check("custody: only a free, non-immune player can be pinned",
+                CustodyRules.CanPin(CustodyState.Free, 10f, 0f) && !CustodyRules.CanPin(CustodyState.Pinned, 10f, 0f)
+                && !CustodyRules.CanPin(CustodyState.Busted, 10f, 0f) && !CustodyRules.CanPin(CustodyState.Free, 11f, 13f));
+            Check("custody: the team is busted when nobody is free", CustodyRules.TeamDown(0, 3) && !CustodyRules.TeamDown(1, 3) && CustodyRules.TeamDown(0, 1) && !CustodyRules.TeamDown(0, 0));
+            float left = CustodyRules.PinSeconds; int ticks = 0;
+            while (left > 0f) { left = CustodyRules.PinLeftAfter(left, 0.5f); ticks++; }
+            Check("custody: a pinned player is busted after 12 s", ticks == 24 && CustodyRules.ShownSeconds(12f) == 12 && CustodyRules.ShownSeconds(0.01f) == 1);
+            Check("custody: buy-back costs more the higher the floor", CustodyRules.BuyBackPrice(1) == 350 && CustodyRules.BuyBackPrice(12) == 900 && CustodyRules.CanAffordBuyBack(350, 1) && !CustodyRules.CanAffordBuyBack(349, 1));
+            Check("custody: the vendor's lines", CustodyRules.VendorLine(true) == "One of your friends got got. You're lucky I have someone on the inside" && CustodyRules.VendorLine(false).StartsWith("Glad you made it"));
+
+            var clock = new BackupClock();
+            bool offFirst = !clock.Active && !clock.Tick(100f);
+            clock.Start();
+            int fired = 0;
+            for (int i = 0; i < 950; i++) if (clock.Tick(0.1f)) fired++;
+            clock.Start(); // a second call does not restart it
+            Check("custody: after backup is called another officer comes every 30 s", offFirst && fired == 3 && clock.Repeats == 3);
+
+            // the player's own state
+            var go = new GameObject("custodyPlayer"); go.AddComponent<Rigidbody>().isKinematic = true; go.AddComponent<CapsuleCollider>();   // kinematic: no physics in an edit-mode test
+            var wp = go.AddComponent<WobblyPlayer>();
+            wp.usePartyCharacter = false;
+            wp.ApplyCustody(CustodyState.Pinned, 12f, 0);
+            bool pinned = wp.Custody == CustodyState.Pinned && wp.InCustody && Mathf.Approximately(wp.PinLeft, 12f);
+            wp.IsHidden = true; wp.ApplyCustody(CustodyState.Busted, 0f, 4);
+            bool busted = wp.Custody == CustodyState.Busted && wp.BustedOnLevel == 4 && !wp.IsHidden;
+            wp.ApplyCustody(CustodyState.Free, 0f, 0);
+            Check("custody: a player goes free -> pinned -> busted -> free", pinned && busted && wp.Custody == CustodyState.Free && !wp.InCustody);
+            Object.DestroyImmediate(go);
+        }
         /// <summary>Builds the character catalog from the Tiny Toon pack and checks it (needs the pack imported).</summary>
         public static void ToonSetup()
         {
@@ -136,4 +171,4 @@ namespace BuildingEscape.EditorTools
 
         static void Check(string name, bool ok) => Debug.Log($"[NetTest] policy {name}: {(ok ? "PASS" : "FAIL")}");
     }
-}
+}

@@ -3,7 +3,7 @@ using UnityEngine.AI;
 
 namespace BuildingEscape
 {
-    public enum GuardState { Patrol, Investigate, Chase, Stunned, Calling }
+    public enum GuardState { Patrol, Investigate, Chase, Stunned, Calling, Pinning }
 
     /// <summary>
     /// Security guard / robot: patrols waypoints, investigates noise, chases players it sees.
@@ -66,6 +66,10 @@ namespace BuildingEscape
             State = state; Dead = dead; calling = isCalling; netProgress = progress; netSpeed = speed;
         }
 
+        /// <summary>The player this officer is holding down (host only), or null.</summary>
+        public WobblyPlayer Holding => holding;
+        WobblyPlayer holding;
+
         NavMeshAgent agent;
         int patrolIndex;
         float waitUntil, stunUntil, lastSeen;
@@ -109,7 +113,7 @@ namespace BuildingEscape
         void OnNoise(NoiseEvent n)
         {
             if (IsPuppet) return;
-            if (State == GuardState.Stunned || State == GuardState.Chase || State == GuardState.Calling) return;
+            if (State == GuardState.Stunned || State == GuardState.Chase || State == GuardState.Calling || State == GuardState.Pinning) return;
             float dist = Vector3.Distance(transform.position, n.Position);
             if (dist > n.Loudness * hearingMultiplier) return;
             noiseTarget = n.Position;
@@ -131,6 +135,7 @@ namespace BuildingEscape
         {
             if (Dead) return;
             calling = false; callTimer = 0f; // a weapon hit cuts the radio call
+            ReleaseHold(true);               // hit while holding someone down: they get free
             Hits++;
             if (Hits >= hitsToKill)
             {
@@ -154,6 +159,7 @@ namespace BuildingEscape
         public void Stun(float seconds, GameObject by = null)
         {
             if (Dead || IsPuppet) return;
+            ReleaseHold(true);               // stunned (melee or a thrown item) while holding someone down: they get free
             State = GuardState.Stunned;
             stunUntil = Time.time + seconds;
             agent.isStopped = true;
@@ -180,8 +186,9 @@ namespace BuildingEscape
                 case GuardState.Investigate: UpdateInvestigate(); break;
                 case GuardState.Calling: WatchWhileCalling(); break;
                 case GuardState.Chase: UpdateChase(); break;
+                case GuardState.Pinning: UpdatePinning(); break;
             }
-            if (State != GuardState.Chase && State != GuardState.Calling) ScanForPlayers();
+            if (State != GuardState.Chase && State != GuardState.Calling && State != GuardState.Pinning) ScanForPlayers();
         }
 
         void StartCall(WobblyPlayer p)
@@ -254,9 +261,11 @@ namespace BuildingEscape
             return d.magnitude;
         }
 
-        /// <summary>The chase (after the backup call): run at the player; catching them busts the team. Lose them for a while and he gives up.</summary>
+        /// <summary>The chase (after the backup call): run at the player; touching them pins them to the ground. Lose them for a while and he gives up.</summary>
         void UpdateChase()
         {
+            // the player he was after got pinned by someone else, or arrested: go for another free player in view
+            if (target && target.Custody != CustodyState.Free) target = FindVisibleFreePlayer();
             if (!target) { LoseChase(); return; }
             agent.isStopped = false;
             agent.speed = chaseSpeed;
@@ -267,7 +276,57 @@ namespace BuildingEscape
                 unseenFor += Time.deltaTime;
                 if (unseenFor >= loseSightSeconds) { LoseChase(); return; }
             }
-            if (FlatDistance(target.transform) <= catchRadius) HeistManager.Instance?.Bust(target);
+            if (FlatDistance(target.transform) <= catchRadius && HeistManager.Instance != null && HeistManager.Instance.Pin(target, this))
+                BeginHold(target);
+        }
+
+        WobblyPlayer FindVisibleFreePlayer()
+        {
+            foreach (var p in WobblyPlayerRegistry.All)
+                if (p && p.Custody == CustodyState.Free && CanSee(p)) return p;
+            return null;
+        }
+
+        /// <summary>The officer got hold of a player: he stops and kneels on them until they are freed or arrested.</summary>
+        public void BeginHold(WobblyPlayer p)
+        {
+            holding = p;
+            State = GuardState.Pinning;
+            calling = false; callTimer = 0f;
+            agent.isStopped = true;
+            Debug.Log($"{name} pinned {p.name}");
+        }
+
+        void UpdatePinning()
+        {
+            agent.isStopped = true;
+            // the player is no longer pinned (busted, freed, bought back): back to work
+            if (!holding || holding.Custody != CustodyState.Pinned || holding.PinnedBy != this) { EndHold(); return; }
+            var to = holding.transform.position - transform.position; to.y = 0f;
+            if (to.sqrMagnitude > 0.01f) transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(to), 8f * Time.deltaTime);
+        }
+
+        /// <summary>He is hit, stunned or knocked out while holding someone: they are freed (host).</summary>
+        public void ReleaseHold(bool freeThem = false)
+        {
+            var p = holding;
+            if (!p) return;
+            holding = null;
+            if (freeThem && p.PinnedBy == this) HeistManager.Instance?.FreePinned(p);
+            if (State == GuardState.Pinning) EndHold();
+        }
+
+        void EndHold()
+        {
+            holding = null;
+            if (Dead || State == GuardState.Stunned) return;
+            // look around where it happened, then carry on patrolling
+            State = GuardState.Investigate;
+            noiseTarget = transform.position;
+            agent.isStopped = false;
+            agent.speed = investigateSpeed;
+            agent.SetDestination(noiseTarget);
+            waitUntil = 0;
         }
 
         void LoseChase()
@@ -333,6 +392,7 @@ namespace BuildingEscape
 
         bool CanSee(WobblyPlayer p)
         {
+            if (p.Custody != CustodyState.Free) return false; // pinned or arrested players are not what he is looking for
             var eye = transform.position + Vector3.up * 1.6f;
             var to = p.transform.position + Vector3.up * 0.9f - eye;
             float range = p.IsHidden ? hiddenSightRange : sightRange;

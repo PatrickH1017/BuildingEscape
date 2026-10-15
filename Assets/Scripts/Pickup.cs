@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace BuildingEscape
@@ -42,48 +43,68 @@ namespace BuildingEscape
         /// <summary>Cash value (0 for plain items like mugs).</summary>
         public int Value => Loot ? Loot.CurrentValue : bankValue;
 
-        static readonly Collider[] buf = new Collider[64];
+        // ------------------------------------------------------------------ finding pickups near a player
+        // Asked every frame by the local player's backpack, so nothing here allocates: the buffers are shared (the game
+        // is single threaded and none of these calls can reach another one).
+
+        /// <summary>Room for every collider within reach. A crowded office floor puts well over 64 of them inside a 3 m ball.</summary>
+        const int OverlapCapacity = 256;
+        static readonly Collider[] overlap = new Collider[OverlapCapacity];
+        static readonly HashSet<Pickup> seen = new HashSet<Pickup>();
+        static readonly List<Pickup> found = new List<Pickup>(32);
+        static readonly List<Collider> ownColliders = new List<Collider>(16);
 
         /// <summary>Nearest free pickup in front of / around <paramref name="who"/>, or null.</summary>
         public static Pickup FindNearest(Transform who, float radius = 2.2f)
         {
+            ScanNear(who, radius, found);
+            var pos = who.position;
+            var forward = who.forward;
             Pickup best = null; float bestScore = float.MaxValue;
-            ScanNear(who, radius, p =>
+            for (int i = 0; i < found.Count; i++)
             {
-                float d = Vector3.Distance(who.position, p.ClosestPointTo(who.position));
-                float facing = Vector3.Dot(who.forward, (p.transform.position - who.position).normalized);
-                float score = d - 0.6f * facing;
+                var p = found[i];
+                float d = Vector3.Distance(pos, p.ClosestPointTo(pos));
+                float facing = Vector3.Dot(forward, (p.transform.position - pos).normalized);
+                float score = d - 0.6f * facing;        // close counts most, then whatever the player is facing
                 if (score < bestScore) { bestScore = score; best = p; }
-            });
+            }
+            found.Clear();
             return best;
         }
 
-        /// <summary>Calls <paramref name="visit"/> once for each free pickup within reach.</summary>
-        public static void ScanNear(Transform who, float radius, System.Action<Pickup> visit)
+        /// <summary>Fills <paramref name="into"/> (cleared first) with each free pickup within reach, each one once.</summary>
+        public static void ScanNear(Transform who, float radius, List<Pickup> into)
         {
+            into.Clear();
             var centre = who.position + who.forward * 0.7f + Vector3.up * 0.2f;
-            int n = Physics.OverlapSphereNonAlloc(centre, radius, buf, ~0, QueryTriggerInteraction.Ignore);
-            var seen = new System.Collections.Generic.HashSet<Pickup>();
+            int n = Physics.OverlapSphereNonAlloc(centre, radius, overlap, ~0, QueryTriggerInteraction.Ignore);
+            seen.Clear();
             for (int i = 0; i < n; i++)
             {
-                var p = buf[i].GetComponentInParent<Pickup>();
+                var p = overlap[i].GetComponentInParent<Pickup>();
                 if (!p || p.IsHeld || !p.isActiveAndEnabled || !seen.Add(p)) continue;
                 var l = p.Loot;
                 if (l && l.Holders > 0) continue; // someone is carrying it
-                visit(p);
+                into.Add(p);
             }
+            System.Array.Clear(overlap, 0, n);          // do not keep destroyed colliders alive
         }
 
+        /// <summary>The point of this item's solid colliders nearest to <paramref name="pos"/> (its centre when it has none).</summary>
         Vector3 ClosestPointTo(Vector3 pos)
         {
             var best = transform.position; float bd = float.MaxValue;
-            foreach (var c in GetComponentsInChildren<Collider>())
+            GetComponentsInChildren(ownColliders);
+            for (int i = 0; i < ownColliders.Count; i++)
             {
+                var c = ownColliders[i];
                 if (c.isTrigger) continue;
                 var q = c.bounds.ClosestPoint(pos);
                 float d = (q - pos).sqrMagnitude;
                 if (d < bd) { bd = d; best = q; }
             }
+            ownColliders.Clear();
             return best;
         }
     }

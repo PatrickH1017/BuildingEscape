@@ -61,6 +61,7 @@ namespace BuildingEscape
             tintMats.Clear();
             if (partitionMat) Kill(partitionMat);
             if (panelMat) Kill(panelMat);
+            DestroyDoorMaterial();
             if (protoHolder) Kill(protoHolder.gameObject);
         }
 

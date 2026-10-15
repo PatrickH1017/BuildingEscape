@@ -31,6 +31,22 @@ namespace BuildingEscape
 
         public bool IsStumbling { get; private set; }
         public bool IsHidden { get; set; }
+
+        // ---- custody: free, pinned down by an officer, or busted (see CustodyRules). The host decides (HeistManager),
+        // every machine applies it through ApplyCustody, so a teammate sees you lying on the ground too.
+        public CustodyState Custody { get; private set; }
+        /// <summary>True while pinned or busted: no walking, jumping, hiding, grabbing or swinging.</summary>
+        public bool InCustody => Custody != CustodyState.Free;
+        /// <summary>Seconds until a pinned player is busted (host-driven; clients show the replicated whole seconds).</summary>
+        public float PinLeft { get; private set; }
+        /// <summary>The level (0 = docks, 1.. = floors) this player was busted on; sets the vendor's buy-back price.</summary>
+        public int BustedOnLevel { get; private set; }
+        /// <summary>Host: the officer holding this player down.</summary>
+        public GuardAI PinnedBy { get; set; }
+        /// <summary>Host: no officer may pin this player before this time (Time.time), set when they are freed.</summary>
+        public float PinImmuneUntil { get; set; }
+        /// <summary>Raised on every machine when the custody state changes.</summary>
+        public event System.Action<CustodyState> CustodyChanged;
         public bool IsSprinting { get; private set; }
         /// <summary>Crouched: slower, lower, and a footstep only carries <see cref="crouchNoise"/> metres.</summary>
         public bool IsCrouching { get; private set; }
@@ -49,12 +65,13 @@ namespace BuildingEscape
         public Vector3? VelocityOverride { get; set; }
 
         Rigidbody rb;
-        float stumbleUntil, nextStep;
+        float stumbleUntil, nextStep, nextRigLookup;
         Vector3 moveInput;
         bool grounded;
         Transform cam;
         CameraFollow rig;
         CapsuleCollider capsule;
+        PlayerGrab grab;
         float standHeight;
         Vector3 standCenter;
         bool crouchApplied;
@@ -63,12 +80,19 @@ namespace BuildingEscape
         {
             rb = GetComponent<Rigidbody>(); rb.maxAngularVelocity = 12f; cam = Camera.main ? Camera.main.transform : null;
             capsule = GetComponent<CapsuleCollider>();
+            TryGetComponent(out grab);
             if (capsule) { standHeight = capsule.height; standCenter = capsule.center; }
             if (!GetComponent<Backpack>()) gameObject.AddComponent<Backpack>();
             if (!GetComponent<FootstepPlayer>()) gameObject.AddComponent<FootstepPlayer>();
             if (!GetComponent<MeleeController>()) gameObject.AddComponent<MeleeController>();
             if (usePartyCharacter && !GetComponent<PlayerVisual>()) gameObject.AddComponent<PlayerVisual>();
         }
+
+        // This script only runs for the body this machine controls (NetPlayer switches it off on every teammate's puppet). The
+        // camera follows that body every frame, so it is drawn smoothed between physics steps; a puppet is moved by the network
+        // transform instead, and the physics smoothing would fight it.
+        void OnEnable() { if (rb) rb.interpolation = RigidbodyInterpolation.Interpolate; }
+        void OnDisable() { if (rb) rb.interpolation = RigidbodyInterpolation.None; }
 
         void Update()
         {
@@ -80,14 +104,18 @@ namespace BuildingEscape
             sprintKey |= testSprint;
             crouchKey |= testCrouch;
 #endif
-            if (!rig) rig = FindFirstObjectByType<CameraFollow>();
+            if (!rig && Time.unscaledTime >= nextRigLookup)       // (looked for twice a second at most while there is no camera rig)
+            {
+                rig = FindFirstObjectByType<CameraFollow>();
+                nextRigLookup = Time.unscaledTime + 0.5f;
+            }
             float yaw = rig ? rig.AimYaw : (cam ? cam.eulerAngles.y : 0f);
             var basis = Quaternion.Euler(0, yaw, 0);
             moveInput = basis * raw.normalized;
             // crouching: not while knocked over or hidden, and it takes the place of sprinting and jumping
-            SetCrouch(crouchKey && !IsStumbling && !IsHidden);
-            IsSprinting = sprintKey && !IsCrouching && moveInput.sqrMagnitude > 0.01f;
-            if (Input.GetKeyDown(KeyCode.Space) && grounded && !IsStumbling && !IsCrouching)
+            SetCrouch(crouchKey && !IsStumbling && !IsHidden && !InCustody);
+            IsSprinting = sprintKey && !IsCrouching && !InCustody && moveInput.sqrMagnitude > 0.01f;
+            if (Input.GetKeyDown(KeyCode.Space) && grounded && !IsStumbling && !IsCrouching && !InCustody)
             {
                 rb.AddForce(Vector3.up * jumpImpulse, ForceMode.VelocityChange);
                 Jumped?.Invoke();
@@ -110,6 +138,7 @@ namespace BuildingEscape
         void FixedUpdate()
         {
             grounded = CheckGrounded();
+            if (InCustody) { HoldDown(); return; }
             if (!IsStumbling)
             {
                 float gait = IsSprinting ? sprintMultiplier : IsCrouching ? crouchSpeedMultiplier : 1f;
@@ -153,6 +182,48 @@ namespace BuildingEscape
             return false;
         }
 
+        /// <summary>Pinned / busted: the body lies where it fell. No walking, no righting torque; it just settles.</summary>
+        void HoldDown()
+        {
+            var v = rb.linearVelocity;
+            rb.linearVelocity = new Vector3(v.x * 0.8f, v.y, v.z * 0.8f);
+            rb.angularVelocity *= 0.95f;
+            // still upright (e.g. just put into an elevator car): keep tipping until the body lies on the ground
+            if (Vector3.Dot(transform.up, Vector3.up) > 0.6f) rb.AddTorque(transform.right * 3f, ForceMode.Acceleration);
+        }
+
+        /// <summary>
+        /// Take the custody state the host decided (every machine calls this, the host included).
+        /// <paramref name="pinLeft"/> is the countdown for a pinned player; <paramref name="bustedLevel"/> the level a busted
+        /// player was arrested on.
+        /// </summary>
+        public void ApplyCustody(CustodyState state, float pinLeft, int bustedLevel)
+        {
+            PinLeft = pinLeft;
+            BustedOnLevel = bustedLevel;
+            if (state == Custody) return;
+            var was = Custody;
+            Custody = state;
+            if (state != CustodyState.Free)
+            {
+                IsHidden = false;
+                if (grab) grab.Release(false); // whatever was being carried is dropped
+                if (was == CustodyState.Free && rb && !rb.isKinematic)
+                {
+                    // taken down: tipped over onto the ground (only the machine that owns the body moves it)
+                    rb.AddForce(-transform.forward * 1.5f, ForceMode.VelocityChange);
+                    rb.AddTorque(transform.right * 5f, ForceMode.VelocityChange);
+                    NoiseBus.Emit(transform.position, 8f, gameObject);
+                }
+            }
+            else
+            {
+                PinnedBy = null;
+                if (rb && !rb.isKinematic) rb.AddForce(Vector3.up * 2f, ForceMode.VelocityChange); // gets back up
+            }
+            CustodyChanged?.Invoke(state);
+        }
+
         void KeepUpright()
         {
             var axis = Vector3.Cross(transform.up, Vector3.up);
@@ -169,14 +240,14 @@ namespace BuildingEscape
         /// <summary>Knock the player over; physics takes over until the timer runs out.</summary>
         public void Stumble(Vector3 impulse, float? seconds = null)
         {
-            var np = GetComponent<Net.NetPlayer>();
-            if (np != null && np.IsSpawned && !np.IsOwner)
+            float duration = seconds ?? stumbleSeconds;
+            if (TryGetComponent(out Net.NetPlayer np) && np.IsSpawned && !np.IsOwner)
             {
                 // a puppet on this machine: only the owner's machine can move the body
-                Net.RunSync.Instance?.BroadcastStumble(np.Slot, impulse, seconds ?? stumbleSeconds);
+                if (Net.RunSync.Instance) Net.RunSync.Instance.BroadcastStumble(np.Slot, impulse, duration);
                 return;
             }
-            StumbleLocal(impulse, seconds ?? stumbleSeconds);
+            StumbleLocal(impulse, duration);
         }
 
         /// <summary>Actually knock this player over (their own machine).</summary>
@@ -197,10 +268,12 @@ namespace BuildingEscape
             other.Stumble(dir * 4f + Vector3.up * 2f);
         }
 
+        // Also sent to a disabled script, so the HOST gets it for a teammate's puppet body: a hard hit on a teammate is routed to
+        // their machine by Stumble. Somebody who is already down (pinned / busted) cannot be tripped again.
         void OnCollisionEnter(Collision c)
         {
             // Trip on hard impacts (stairs, being hit by flung loot).
-            if (!IsStumbling && c.relativeVelocity.magnitude > 9f) Stumble(Vector3.zero, 1.2f);
+            if (!IsStumbling && !InCustody && c.relativeVelocity.sqrMagnitude > 81f) Stumble(Vector3.zero, 1.2f);
         }
     }
 }

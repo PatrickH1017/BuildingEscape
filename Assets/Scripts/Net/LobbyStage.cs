@@ -253,30 +253,20 @@ namespace BuildingEscape.Net
 
         void OnGUI()
         {
-            if (!cam) return;
+            if (!cam || Event.current.type != EventType.Repaint) return;     // name tags are only drawn, never clicked
             float k = Mathf.Max(0.75f, Screen.height / 720f);
-            var style = new GUIStyle(GUI.skin.label) { alignment = TextAnchor.MiddleCenter, fontSize = Mathf.RoundToInt(16 * k), fontStyle = FontStyle.Bold };
-            style.normal.textColor = Color.white;
+            int size = Mathf.RoundToInt(16 * k);
+            var style = HudStyles.Label(size, TextAnchor.MiddleCenter, FontStyle.Bold, Color.white);
+            var shadow = HudStyles.Label(size, TextAnchor.MiddleCenter, FontStyle.Bold, Color.black);
             foreach (var s in slots)
             {
                 var p = cam.WorldToScreenPoint(s.root.transform.position + Vector3.up * (2.15f * s.height + 0.15f));
                 if (p.z <= 0f) continue;
                 var rect = new Rect(p.x - 110f, Screen.height - p.y - 14f, 220f, 28f);
                 string text = s.isLocal ? s.name + "  (you)" : s.name;
-                GUI.Label(new Rect(rect.x + 1, rect.y + 1, rect.width, rect.height), text, ShadowStyle(style));
+                GUI.Label(new Rect(rect.x + 1, rect.y + 1, rect.width, rect.height), text, shadow);
                 GUI.Label(rect, text, style);
             }
-        }
-
-        static GUIStyle shadow;
-        static GUIStyle ShadowStyle(GUIStyle basis)
-        {
-            shadow ??= new GUIStyle(basis);
-            shadow.fontSize = basis.fontSize;
-            shadow.alignment = basis.alignment;
-            shadow.fontStyle = basis.fontStyle;
-            shadow.normal.textColor = Color.black;
-            return shadow;
         }
     }
 }

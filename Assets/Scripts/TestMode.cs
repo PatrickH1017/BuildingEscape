@@ -75,9 +75,9 @@ namespace BuildingEscape
 
             GUILayout.Label($"Cash: ${(hm ? hm.Cash : 0)}");
             GUILayout.BeginHorizontal();
-            if (GUILayout.Button("+$100")) hm?.AddCash(100);
-            if (GUILayout.Button("+$1,000")) hm?.AddCash(1000);
-            if (GUILayout.Button("+$10,000")) hm?.AddCash(10000);
+            if (GUILayout.Button("+$100") && hm) hm.AddCash(100);
+            if (GUILayout.Button("+$1,000") && hm) hm.AddCash(1000);
+            if (GUILayout.Button("+$10,000") && hm) hm.AddCash(10000);
             GUILayout.EndHorizontal();
 
             Header("Weapons (into your pack, equipped)");
@@ -114,7 +114,8 @@ namespace BuildingEscape
             Header("Go to level");
             if (tm)
             {
-                for (int row = 0; row < 3; row++)
+                int rows = Mathf.CeilToInt(tm.totalFloors / 4f);          // the basement and every floor up to the boss, four to a row
+                for (int row = 0; row < rows; row++)
                 {
                     GUILayout.BeginHorizontal();
                     for (int c = 0; c < 4; c++)
@@ -135,6 +136,19 @@ namespace BuildingEscape
             {
                 hm.godMode = GUILayout.Toggle(hm.godMode, "God mode (guards can't catch you)");
             }
+            Header("Police (pinning / busted / backup)");
+            WobblyPlayer me = null;
+            if (pack) pack.TryGetComponent(out me);
+            if (hm && me)
+            {
+                GUILayout.Label($"You: {me.Custody}" + (me.Custody == CustodyState.Pinned ? $" ({me.PinLeft:0} s)" : ""));
+                GUILayout.BeginHorizontal();
+                if (GUILayout.Button("Pin me")) PinMe(hm, me);
+                if (GUILayout.Button("Free me")) { me.PinImmuneUntil = 0f; hm.FreePinned(me); hm.ReleaseBusted(me); }
+                GUILayout.EndHorizontal();
+                GUILayout.Label("Pin needs a guard to hold you: the nearest one is used. Wait 12 s to get busted.");
+            }
+            if (hm && GUILayout.Button("Call backup now (starts the 30 s repeat)")) hm.CallBackup(null);
             if (tm && pack && GUILayout.Button("Teleport to elevator"))
             {
                 pack.transform.position = tm.CurrentInfo.spawn + new Vector3(0, 1.1f, 0);
@@ -146,10 +160,27 @@ namespace BuildingEscape
             GUILayout.EndArea();
         }
 
+        static GUIStyle headerStyle;
+
         static void Header(string s)
         {
             GUILayout.Space(8);
-            GUILayout.Label("<b>" + s + "</b>", new GUIStyle(GUI.skin.label) { richText = true });
+            GUILayout.Label("<b>" + s + "</b>", headerStyle ??= new GUIStyle(GUI.skin.label) { richText = true });
+        }
+
+        /// <summary>Pin the local player under the nearest live guard (offline only; with one player that busts the team at once).</summary>
+        void PinMe(HeistManager hm, WobblyPlayer me)
+        {
+            GuardAI best = null; float bd = float.MaxValue;
+            foreach (var g in GuardAI.All)
+            {
+                if (!g || g.Dead) continue;
+                float d = (g.transform.position - me.transform.position).sqrMagnitude;
+                if (d < bd) { bd = d; best = g; }
+            }
+            if (!best) { Say("No guard on this floor to pin you"); return; }
+            me.PinImmuneUntil = 0f;
+            if (hm.Pin(me, best)) best.BeginHold(me);
         }
 
         void GiveWeapon(Backpack pack, MeleeWeapon.Kind k)

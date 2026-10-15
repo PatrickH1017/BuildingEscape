@@ -59,12 +59,16 @@ namespace BuildingEscape
         {
             if (!anim) return;
             if (scaledFor != anim) { scaledFor = anim; baseScale = anim.transform.localScale; crouchBlend = 0f; }
-            crouchBlend = Mathf.MoveTowards(crouchBlend, player.IsCrouching ? 1f : 0f, Time.deltaTime * 5f);
-            float squash = Mathf.Lerp(1f, player.crouchHeight, crouchBlend);
-            float widen = Mathf.Lerp(1f, 1.06f, crouchBlend);
-            anim.transform.localScale = new Vector3(baseScale.x * widen, baseScale.y * squash, baseScale.z * widen);
+            float crouchTarget = player.IsCrouching ? 1f : 0f;
+            if (crouchBlend != crouchTarget)       // (the scale is only written while it is changing: a write dirties the whole model's transforms)
+            {
+                crouchBlend = Mathf.MoveTowards(crouchBlend, crouchTarget, Time.deltaTime * 5f);
+                float squash = Mathf.Lerp(1f, player.crouchHeight, crouchBlend);
+                float widen = Mathf.Lerp(1f, 1.06f, crouchBlend);
+                anim.transform.localScale = new Vector3(baseScale.x * widen, baseScale.y * squash, baseScale.z * widen);
+            }
 
-            if (player.IsStumbling) { anim.Fall(); return; }
+            if (player.IsStumbling || player.InCustody) { anim.Fall(); return; }
             anim.Recover();
             var v = player.VelocityOverride ?? rb.linearVelocity; v.y = 0f;
             anim.Locomote(v.magnitude > 0.5f, Mathf.Clamp(v.magnitude / 3.5f, 0.6f, 1.6f));

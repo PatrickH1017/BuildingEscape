@@ -124,10 +124,13 @@ namespace BuildingEscape.Net
             Declined++;
         }
 
+        static readonly Color SubColour = new Color(0.7f, 0.74f, 0.82f);
+
         void OnGUI()
         {
             if (!showing) return;
             float k = Mathf.Max(0.75f, Screen.height / 720f);
+            var oldMatrix = GUI.matrix;                 // GUI state is shared by every OnGUI of the frame: put it back when done
             GUI.matrix = Matrix4x4.Scale(new Vector3(k, k, 1f));
             float sw = Screen.width / k, sh = Screen.height / k;
 
@@ -145,15 +148,14 @@ namespace BuildingEscape.Net
             GUI.DrawTexture(new Rect(card.x, card.yMax - bar, w * left, bar), Texture2D.whiteTexture);
             GUI.color = prev;
 
-            var title = new GUIStyle(GUI.skin.label) { fontSize = 16, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleLeft };
-            title.normal.textColor = Color.white;
-            GUI.Label(new Rect(card.x + 14f, card.y + 6f, w - 28f, 26f), $"{current.from} invited you to their party", title);
-            var sub = new GUIStyle(GUI.skin.label) { fontSize = 12, alignment = TextAnchor.MiddleLeft };
-            sub.normal.textColor = new Color(0.7f, 0.74f, 0.82f);
-            GUI.Label(new Rect(card.x + 14f, card.y + 30f, 200f, 20f), $"expires in {Mathf.CeilToInt(TimeLeft)}s", sub);
+            GUI.Label(new Rect(card.x + 14f, card.y + 6f, w - 28f, 26f), $"{current.from} invited you to their party",
+                HudStyles.Label(16, TextAnchor.MiddleLeft, FontStyle.Bold, Color.white));
+            GUI.Label(new Rect(card.x + 14f, card.y + 30f, 200f, 20f), $"expires in {Mathf.CeilToInt(TimeLeft)}s",
+                HudStyles.Label(12, TextAnchor.MiddleLeft, FontStyle.Normal, SubColour));
 
             if (GUI.Button(new Rect(card.xMax - 250f, card.y + 34f, 120f, 34f), "Join party")) Accept();
             if (GUI.Button(new Rect(card.xMax - 120f, card.y + 34f, 106f, 34f), "Decline")) Decline();
+            GUI.matrix = oldMatrix;
         }
     }
 }

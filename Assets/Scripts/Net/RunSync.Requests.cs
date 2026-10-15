@@ -223,6 +223,8 @@ namespace BuildingEscape.Net
         {
             var np = PlayerOf(who);
             if (np == null) return;
+            var wob = np.GetComponent<WobblyPlayer>();
+            if (wob && wob.InCustody) return; // pinned or busted players cannot work the panel
             var pack = np.GetComponent<Backpack>();
             ElevatorExtraction.Current?.HostPress(np.transform, pack, action);  // each one checks the player is next to it
             BossElevator.Current?.HostPress(np.transform, action);
@@ -258,6 +260,24 @@ namespace BuildingEscape.Net
             var v = Vendor.Current;
             if (np == null || v == null) return;
             string msg = v.HostSell(np);
+            if (!string.IsNullOrEmpty(msg)) Notice(who, msg);
+        }
+
+        /// <summary>Vendor: pay to get a busted teammate out (their network slot).</summary>
+        public void RequestBuyBack(int slot)
+        {
+            if (IsServer) HostBuyBack(Me, slot); else BuyBackRequestRpc((byte)slot);
+        }
+
+        [Rpc(SendTo.Server)]
+        void BuyBackRequestRpc(byte slot, RpcParams rp = default) => HostBuyBack(rp.Receive.SenderClientId, slot);
+
+        void HostBuyBack(ulong who, int slot)
+        {
+            var np = PlayerOf(who);
+            var v = Vendor.Current;
+            if (np == null || v == null) return;
+            string msg = v.HostBuyBack(np, slot);
             if (!string.IsNullOrEmpty(msg)) Notice(who, msg);
         }
     }

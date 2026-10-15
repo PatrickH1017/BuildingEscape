@@ -20,6 +20,8 @@ namespace BuildingEscape
         void Start()
         {
             if (!GetComponent<FootstepPlayer>()) gameObject.AddComponent<FootstepPlayer>();
+            if (!GetComponent<GuardSounds>()) gameObject.AddComponent<GuardSounds>();   // keys on his belt, walkie-talkie static
+            if (!GetComponent<GuardBubble>()) gameObject.AddComponent<GuardBubble>();   // the occasional comic-book curse
             ai = GetComponent<GuardAI>();
             agent = GetComponent<NavMeshAgent>();
             var looks = PartyCharacterFactory.GuardLooks;

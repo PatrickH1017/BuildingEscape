@@ -161,16 +161,25 @@ namespace BuildingEscape.Net
             }
         }
 
+        // A puppet this close to where the host says it is counts as arrived: it is left alone (writing a transform every frame for
+        // every loot item on the floor makes the physics engine treat all of them as moving).
+        const float SettledDistanceSq = 0.000004f;    // 2 mm
+        const float SettledRotationDot = 0.999999f;   // about 0.16 degrees
+
         void ClientSmoothPuppets()
         {
+            if (puppets.Count == 0) return;
             float k = 1f - Mathf.Exp(-18f * Time.deltaTime);
             deadPuppets.Clear();
             foreach (var kv in puppets)
             {
                 var pp = kv.Value;
-                if (!pp.t) { deadPuppets.Add(kv.Key); continue; }
-                if (!pp.t.gameObject.activeInHierarchy) { pp.placed = false; continue; } // in a backpack: re-place when it comes out
-                pp.t.SetPositionAndRotation(Vector3.Lerp(pp.t.position, pp.pos, k), Quaternion.Slerp(pp.t.rotation, pp.rot, k));
+                var t = pp.t;
+                if (!t) { deadPuppets.Add(kv.Key); continue; }
+                if (!t.gameObject.activeInHierarchy) { pp.placed = false; continue; } // in a backpack: re-place when it comes out
+                t.GetPositionAndRotation(out var pos, out var rot);
+                if ((pos - pp.pos).sqrMagnitude < SettledDistanceSq && Mathf.Abs(Quaternion.Dot(rot, pp.rot)) > SettledRotationDot) continue;
+                t.SetPositionAndRotation(Vector3.Lerp(pos, pp.pos, k), Quaternion.Slerp(rot, pp.rot, k));
             }
             foreach (var id in deadPuppets) puppets.Remove(id);
         }

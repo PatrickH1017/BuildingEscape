@@ -169,6 +169,7 @@ namespace BuildingEscape
             surface.BuildNavMesh();
 
             MakeHideZones();
+            BuildDoors(); // sliding doors in the room doorways (after the bake: the NavMesh is made with every doorway open)
             if (boss)
             {
                 info.lootCount = 0; info.lootValue = 0; info.quota = 0; // the boss floor is won by knocking the boss out
@@ -490,6 +491,7 @@ namespace BuildingEscape
 
             // four walls; the one facing `dir` has a gap with two sliding panels
             var door = room.AddComponent<ElevatorDoor>();
+            door.chimeOnOpen = true;   // the guest elevator rings when it opens for the backup guards
             for (int i = 0; i < 4; i++)
             {
                 var d = dirs[i];

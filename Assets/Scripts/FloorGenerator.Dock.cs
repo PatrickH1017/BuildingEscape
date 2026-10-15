@@ -165,6 +165,7 @@ namespace BuildingEscape
             // he greets whoever walks up to him
             var chat = zone.AddComponent<VendorChat>();
             chat.head = npc.transform;
+            chat.lines = new[] { CustodyRules.GreetingLine };   // "Glad you made it. Make it fast and make it a good deal."
 
             // a punching bag to whack, off to the side of the way through
             var cloth = Flat(new Color(0.78f, 0.66f, 0.45f), 0.1f);

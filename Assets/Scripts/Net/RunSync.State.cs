@@ -8,6 +8,7 @@ namespace BuildingEscape.Net
         // Mirror of HeistManager + elevator flags. The host writes, clients read.
         readonly NetworkVariable<int> vPhase = new(), vFloor = new(), vTotal = new(), vQuota = new(), vBanked = new(),
             vLost = new(), vCaught = new(), vRunTotal = new(), vCash = new(), vSurplusPaid = new(), vResume = new(), vTimeLeft = new();
+        readonly NetworkVariable<int> vBackupIn = new(-1);   // seconds until the next backup officer, -1 while none has been called
         readonly NetworkVariable<bool> vBackupCalled = new(), vAboard = new(), vSealing = new();
         // service elevator panel, floor 12 back door, guest (backup) elevator door
         readonly NetworkVariable<bool> vGoingUp = new(true), vBackOpen = new(), vGuestOpen = new();
@@ -38,6 +39,7 @@ namespace BuildingEscape.Net
             vSurplusPaid.Value = hm.SurplusPaid;
             vTimeLeft.Value = Mathf.CeilToInt(Mathf.Max(0f, hm.TimeLeft)); // changes once a second
             vBackupCalled.Value = hm.BackupCalled;
+            vBackupIn.Value = hm.BackupIn;
             vAboard.Value = ElevatorExtraction.EveryoneAboard;
             vSealing.Value = ElevatorExtraction.Sealing;
             vGoingUp.Value = ElevatorExtraction.GoingUp;
@@ -56,11 +58,11 @@ namespace BuildingEscape.Net
             if (hm == null || (tm != null && tm.Loading)) return; // a floor is being built; the next update is the right one
             if (vReadyEpoch.Value != Epoch) return;               // the host has not finished the same floor yet
             hm.ApplyNet((HeistPhase)vPhase.Value, vFloor.Value, vTotal.Value, vQuota.Value, vBanked.Value, vLost.Value,
-                        vCaught.Value, vRunTotal.Value, vCash.Value, vSurplusPaid.Value, vTimeLeft.Value, vBackupCalled.Value);
+                        vCaught.Value, vRunTotal.Value, vCash.Value, vSurplusPaid.Value, vTimeLeft.Value, vBackupCalled.Value, vBackupIn.Value);
             ElevatorExtraction.NetSetFlags(vAboard.Value, vSealing.Value);
             ElevatorExtraction.NetSetPanel(vGoingUp.Value, vDestination.Value, vBackOpen.Value);
             if (tm != null && tm.generator != null) tm.generator.NetGuestDoor(vGuestOpen.Value);
             if (tm != null) tm.NetSetResume(vResume.Value);
         }
     }
-}
+}

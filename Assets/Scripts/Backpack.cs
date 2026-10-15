@@ -26,18 +26,25 @@ namespace BuildingEscape
         string notice; float noticeUntil;
         Vector2 scroll;
         CameraFollow rig;
-        float nextNearby;
+        float nextNearby, nextRigLookup;
+        WobblyPlayer wobbly;
 
         public IReadOnlyList<Pickup> Items => items;
         /// <summary>The melee weapon shown in the right hand (must be an item in the pack).</summary>
         public Pickup Equipped { get; private set; }
         public float Weight { get { float w = 0; foreach (var p in items) if (p) w += p.weight; return w; } }
 
+        /// <summary>Is this the pack the camera follows (the one whose screens and keys this machine shows)? True while there is no camera.</summary>
         public bool Viewed
         {
             get
             {
-                if (!rig) rig = FindFirstObjectByType<CameraFollow>();
+                // looked up again (at most twice a second) when the camera rig is missing or was replaced
+                if (!rig && Time.unscaledTime >= nextRigLookup)
+                {
+                    rig = FindFirstObjectByType<CameraFollow>();
+                    nextRigLookup = Time.unscaledTime + 0.5f;
+                }
                 return !rig || !rig.target || rig.target == transform || rig.target.IsChildOf(transform);
             }
         }
@@ -46,6 +53,7 @@ namespace BuildingEscape
         {
             holder = new GameObject("BackpackItems").transform;
             holder.SetParent(transform, false);
+            TryGetComponent(out wobbly);
         }
 
         void OnDisable() { if (UiOpen && Viewed) UiOpen = false; }
@@ -171,6 +179,7 @@ namespace BuildingEscape
         void Update()
         {
             if (!Viewed) return;
+            if (wobbly && wobbly.InCustody) { UiOpen = false; target = null; return; } // pinned or busted: hands are full of officer
             CleanUp();
             bool talk = Vendor.ShopOpen || ElevatorPanel.Open || (Vendor.Nearby && Vendor.Nearby.CanTalk);
             if (Input.GetKeyDown(inventoryKey) && !Vendor.ShopOpen && !ElevatorPanel.Open) { UiOpen = !UiOpen; scroll = Vector2.zero; }
@@ -185,8 +194,7 @@ namespace BuildingEscape
             if (UiOpen && Time.time >= nextNearby)
             {
                 nextNearby = Time.time + 0.2f;
-                nearby.Clear();
-                Pickup.ScanNear(transform, reach + 0.8f, p => nearby.Add(p));
+                Pickup.ScanNear(transform, reach + 0.8f, nearby);
             }
         }
 
@@ -195,10 +203,16 @@ namespace BuildingEscape
         void OnGUI()
         {
             if (!Viewed) return;
-            var label = new GUIStyle(GUI.skin.label) { fontSize = 18 };
+            var label = HudStyles.Label(18);
             float w = Weight;
+            // the weight bar and the prompts only draw on Repaint; the inventory window (buttons) needs every event
+            if (Event.current.type == EventType.Repaint) DrawHud(label, w);
+            if (UiOpen) DrawInventory(label, w);
+        }
 
-            // weight bar (bottom left, above the controls line)
+        /// <summary>The weight bar (bottom left, above the controls line) and the pick-up prompt.</summary>
+        void DrawHud(GUIStyle label, float w)
+        {
             var bar = new Rect(12, Screen.height - 96, 260, 18);
             GUI.Box(bar, GUIContent.none);
             float f = Mathf.Clamp01(w / Mathf.Max(0.1f, capacity));
@@ -207,30 +221,21 @@ namespace BuildingEscape
             GUI.DrawTexture(new Rect(bar.x + 2, bar.y + 2, (bar.width - 4) * f, bar.height - 4), Texture2D.whiteTexture);
             GUI.color = old;
             HudText.Label(new Rect(bar.xMax + 8, bar.y - 6, 400, 28), $"Pack {w:0.#} / {capacity:0.#} kg   (Tab: inventory)", label);
+            if (UiOpen) return;
 
-            if (!UiOpen)
+            string prompt = null;
+            if (target)
             {
-                string prompt = null;
-                if (target)
-                {
-                    bool fits = w + target.weight <= capacity + 0.001f;
-                    prompt = fits
-                        ? $"[E] Pick up {target.Label}  ({target.weight:0.#} kg" + (target.Value > 0 ? $", ${target.Value}" : "") + ")"
-                        : $"{target.Label} ({target.weight:0.#} kg) is too heavy for your pack - [Q] carry it";
-                }
-                else if (Time.time < noticeUntil) prompt = notice;
-                if (prompt != null)
-                {
-                    var c = new GUIStyle(label) { alignment = TextAnchor.MiddleCenter, fontSize = 22 };
-                    HudText.Label(new Rect(0, Screen.height * 0.62f, Screen.width, 36), prompt, c);
-                }
-                if (target && Time.time < noticeUntil)
-                    HudText.Label(new Rect(0, Screen.height * 0.62f + 34, Screen.width, 30), notice,
-                        new GUIStyle(label) { alignment = TextAnchor.MiddleCenter });
-                return;
+                bool fits = w + target.weight <= capacity + 0.001f;
+                prompt = fits
+                    ? $"[E] Pick up {target.Label}  ({target.weight:0.#} kg" + (target.Value > 0 ? $", ${target.Value}" : "") + ")"
+                    : $"{target.Label} ({target.weight:0.#} kg) is too heavy for your pack - [Q] carry it";
             }
-
-            DrawInventory(label, w);
+            else if (Time.time < noticeUntil) prompt = notice;
+            if (prompt != null)
+                HudText.Label(new Rect(0, Screen.height * 0.62f, Screen.width, 36), prompt, HudStyles.Label(22, TextAnchor.MiddleCenter));
+            if (target && Time.time < noticeUntil)
+                HudText.Label(new Rect(0, Screen.height * 0.62f + 34, Screen.width, 30), notice, HudStyles.Label(18, TextAnchor.MiddleCenter));
         }
 
         void DrawInventory(GUIStyle label, float w)
@@ -263,7 +268,8 @@ namespace BuildingEscape
 
             GUILayout.Space(10);
             GUILayout.Label("On the ground nearby:", label);
-            nearby.RemoveAll(p => !p || p.IsHeld || !p.gameObject.activeInHierarchy);
+            // pruned on the Layout event only, so the controls drawn for the later events of this frame are the same ones
+            if (Event.current.type == EventType.Layout) nearby.RemoveAll(p => !p || p.IsHeld || !p.gameObject.activeInHierarchy);
             if (nearby.Count == 0) GUILayout.Label("  (nothing in reach)");
             Pickup toTake = null;
             foreach (var p in nearby)

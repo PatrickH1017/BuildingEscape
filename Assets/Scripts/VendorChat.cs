@@ -13,8 +13,8 @@ namespace BuildingEscape
     {
         [Tooltip("What the vendor is looking at / hangs the bubble above (his head).")]
         public Transform head;
-        [Tooltip("One line per visit, in order, then round again.")]
-        public string[] lines = { "Shocked you made it back" };
+        [Tooltip("One line per visit, in order, then round again. (While a teammate is under arrest he says the buy-back line instead.)")]
+        public string[] lines = { CustodyRules.GreetingLine };
         [Tooltip("How close a player has to be, in metres, for him to speak.")]
         public float range = 10f;
         public float showSeconds = 5f;
@@ -35,12 +35,19 @@ namespace BuildingEscape
             {
                 near = true;
                 shownAt = Time.time;
-                if (lines != null && lines.Length > 0) text = lines[next++ % lines.Length];
+                if (AnyoneBusted()) text = CustodyRules.BuyBackLine;   // "One of your friends got got..."
+                else if (lines != null && lines.Length > 0) text = lines[next++ % lines.Length];
             }
             else if (near && d > range + 2f) near = false;
 
             bool want = near && Time.time - shownAt < showSeconds && !Vendor.ShopOpen && !EscapeMenu.Open && !string.IsNullOrEmpty(text);
             alpha = Mathf.MoveTowards(alpha, want ? 1f : 0f, Time.deltaTime * 4f);
+        }
+
+        static bool AnyoneBusted()
+        {
+            foreach (var p in WobblyPlayerRegistry.All) if (p && p.Custody == CustodyState.Busted) return true;
+            return false;
         }
 
         float NearestLocalPlayer()
@@ -56,47 +63,11 @@ namespace BuildingEscape
             return best;
         }
 
-        GUIStyle style;
-        static Texture2D white;
-
         void OnGUI()
         {
-            if (alpha < 0.01f || !head) return;
-            var cam = Camera.main;
-            if (!cam) return;
-            var sp = cam.WorldToScreenPoint(head.position + Vector3.up * 0.75f);
-            if (sp.z <= 0.1f) return;
-
-            float s = Screen.height / 720f;
-            if (style == null)
-            {
-                style = new GUIStyle(GUI.skin.label) { alignment = TextAnchor.MiddleCenter, wordWrap = true, fontStyle = FontStyle.Bold };
-            }
-            if (!white) { white = new Texture2D(1, 1); white.SetPixel(0, 0, Color.white); white.Apply(); }
-            style.fontSize = Mathf.RoundToInt(20f * s);
-            style.normal.textColor = new Color(0.1f, 0.1f, 0.12f, alpha);
-
-            float maxW = 340f * s, padX = 16f * s, padY = 10f * s;
-            var content = new GUIContent(text);
-            float w = Mathf.Min(maxW, style.CalcSize(content).x + padX * 2f);
-            float h = style.CalcHeight(content, w - padX * 2f) + padY * 2f;
-            float x = sp.x - w / 2f, y = Screen.height - sp.y - h - 14f * s;
-            x = Mathf.Clamp(x, 6f * s, Screen.width - w - 6f * s);
-
-            var old = GUI.color;
-            var border = new Rect(x - 2f * s, y - 2f * s, w + 4f * s, h + 4f * s);
-            GUI.color = new Color(0.1f, 0.1f, 0.12f, alpha);
-            GUI.DrawTexture(border, white);
-            GUI.color = new Color(1f, 1f, 0.94f, alpha);
-            GUI.DrawTexture(new Rect(x, y, w, h), white);
-            // the little tail pointing at him
-            var m = GUI.matrix;
-            GUIUtility.RotateAroundPivot(45f, new Vector2(sp.x, y + h));
-            GUI.color = new Color(1f, 1f, 0.94f, alpha);
-            GUI.DrawTexture(new Rect(sp.x - 7f * s, y + h - 7f * s, 14f * s, 14f * s), white);
-            GUI.matrix = m;
-            GUI.color = old;
-            GUI.Label(new Rect(x, y, w, h), text, style);
+            if (Event.current.type != EventType.Repaint || alpha < 0.01f || !head) return;
+            if (SpeechBubble.ToGui(Camera.main, head.position + Vector3.up * 0.75f, out var gui))
+                SpeechBubble.Draw(gui, text, alpha);
         }
     }
 }

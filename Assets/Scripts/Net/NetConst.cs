@@ -9,7 +9,7 @@ namespace BuildingEscape.Net
         public const string GameTag = "overtime-escape";
 
         /// <summary>Bump when the wire format or gameplay rules change. Players on different versions cannot join each other.</summary>
-        public const string ProtocolVersion = "1";
+        public const string ProtocolVersion = "2";   // 2: custody (pinned / busted), repeating backup and the vendor buy-back
 
         public const string BootScene = "Boot";
         public const string MenuScene = "Menu";

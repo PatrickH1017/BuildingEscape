@@ -288,15 +288,22 @@ namespace BuildingEscape
             UpdateLights(cur, up, down, sealing);
         }
 
+        // The ray passes through the trigger buttons, the plate's air gap and everything behind them; the buffer is generous because
+        // RaycastNonAlloc keeps an arbitrary subset (not the nearest) once it is full.
+        readonly RaycastHit[] rayHits = new RaycastHit[128];
+
         void HandleMouse()
         {
             hovered = null;
             var cam = Camera.main;
             if (!cam) return;
-            var hitsAll = Physics.RaycastAll(cam.ScreenPointToRay(Input.mousePosition), 12f, ~0, QueryTriggerInteraction.Collide);
+            int n = Physics.RaycastNonAlloc(cam.ScreenPointToRay(Input.mousePosition), rayHits, 12f, ~0, QueryTriggerInteraction.Collide);
             float best = float.MaxValue;
-            foreach (var h in hitsAll)
-                if (byCollider.TryGetValue(h.collider, out var b) && h.distance < best) { best = h.distance; hovered = b; }
+            for (int i = 0; i < n; i++)
+            {
+                var h = rayHits[i];
+                if (h.distance < best && byCollider.TryGetValue(h.collider, out var b)) { best = h.distance; hovered = b; }
+            }
 
             if (hovered != null && Input.GetMouseButtonDown(0))
             {
@@ -363,8 +370,12 @@ namespace BuildingEscape
 
         // ================================================================== on screen
 
+        static GUIStyle tipStyle;
+        static readonly GUIContent tipContent = new GUIContent();
+
         void OnGUI()
         {
+            if (Event.current.type != EventType.Repaint) return;      // everything here is drawing only (the clicks are read in Update)
             if (!this || buttons.Count == 0) return;
             var hm = HeistManager.Instance;
             if (!hm) return;
@@ -372,18 +383,13 @@ namespace BuildingEscape
             if (!Open)
             {
                 if (nearLocal && !Blocked && !ElevatorExtraction.Sealing)
-                {
-                    var st = new GUIStyle(GUI.skin.label) { fontSize = 22, alignment = TextAnchor.MiddleCenter };
-                    st.normal.textColor = Color.white;
-                    HudText.Label(new Rect(0, Screen.height * 0.72f, Screen.width, 32), $"[{useKey}] Use the elevator panel", st);
-                }
+                    HudText.Label(new Rect(0, Screen.height * 0.72f, Screen.width, 32), $"[{useKey}] Use the elevator panel",
+                        HudStyles.Label(22, TextAnchor.MiddleCenter, FontStyle.Normal, Color.white));
                 return;
             }
 
-            var big = new GUIStyle(GUI.skin.label) { fontSize = 24, alignment = TextAnchor.MiddleCenter, fontStyle = FontStyle.Bold };
-            big.normal.textColor = Color.white;
-            var small = new GUIStyle(GUI.skin.label) { fontSize = 18, alignment = TextAnchor.MiddleCenter };
-            small.normal.textColor = new Color(0.85f, 0.85f, 0.85f);
+            var big = HudStyles.Label(24, TextAnchor.MiddleCenter, FontStyle.Bold, Color.white);
+            var small = HudStyles.Label(18, TextAnchor.MiddleCenter, FontStyle.Normal, new Color(0.85f, 0.85f, 0.85f));
 
             int dest = ElevatorExtraction.Destination;
             HudText.Label(new Rect(0, 24, Screen.width, 36), "ELEVATOR PANEL - click a floor, then click GO", big);
@@ -405,12 +411,16 @@ namespace BuildingEscape
                 else if (hovered.floor == up || hovered.floor == down) tip = $"{TowerRules.Label(hovered.floor)} - click to choose";
                 else tip = $"{TowerRules.Label(hovered.floor)} - " + ElevatorExtraction.WhyNot(hovered.floor, cur, up, down);
                 var m = Event.current.mousePosition;
-                var tipStyle = new GUIStyle(GUI.skin.box) { fontSize = 18, alignment = TextAnchor.MiddleLeft, wordWrap = false };
-                tipStyle.normal.textColor = Color.white;
-                var ts = tipStyle.CalcSize(new GUIContent(tip));
+                if (tipStyle == null)
+                {
+                    tipStyle = new GUIStyle(GUI.skin.box) { fontSize = 18, alignment = TextAnchor.MiddleLeft, wordWrap = false };
+                    tipStyle.normal.textColor = Color.white;
+                }
+                tipContent.text = tip;
+                var ts = tipStyle.CalcSize(tipContent);
                 float w = ts.x + 20f, th = ts.y + 10f;
                 GUI.Box(new Rect(Mathf.Clamp(m.x + 18f, 4f, Mathf.Max(4f, Screen.width - w - 4f)),
-                                 Mathf.Clamp(m.y + 18f, 4f, Mathf.Max(4f, Screen.height - th - 4f)), w, th), tip, tipStyle);
+                                 Mathf.Clamp(m.y + 18f, 4f, Mathf.Max(4f, Screen.height - th - 4f)), w, th), tipContent, tipStyle);
             }
         }
     }

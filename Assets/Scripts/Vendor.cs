@@ -107,6 +107,9 @@ namespace BuildingEscape
         readonly HashSet<HeavyLoot> loot = new();
         readonly HashSet<Backpack> packs = new();
         int playersInside, spawned;
+        Backpack buyer;                       // the pack whose owner is shopping on this machine (found every frame in Update)
+
+        static readonly Color CantAfford = new Color(1f, 0.5f, 0.5f);
 
         /// <summary>The shop on this floor (there is one, in the basement).</summary>
         public static Vendor Current { get; private set; }
@@ -148,13 +151,18 @@ namespace BuildingEscape
         {
             packs.RemoveWhere(b => !b);
             Backpack first = null;
-            foreach (var b in packs) { if (!first) first = b; if (b.Viewed) return b; }
+            foreach (var b in packs)
+            {
+                if (b.TryGetComponent(out WobblyPlayer wp) && wp.InCustody) continue;   // pinned or busted: no shopping
+                if (!first) first = b;
+                if (b.Viewed) return b;
+            }
             return Net.NetSession.Online ? null : first; // online, a teammate's pack never opens your shop
         }
 
         void Update()
         {
-            var buyer = playersInside > 0 ? Buyer() : null;
+            buyer = playersInside > 0 ? Buyer() : null;
             CanTalk = buyer && npc && Vector3.Distance(buyer.transform.position, npc.position) <= talkRange;
             if (!CanTalk) { if (ShopOpen) ShopOpen = false; return; }
             var hm = HeistManager.Instance;
@@ -173,12 +181,12 @@ namespace BuildingEscape
             if (Nearby != this || !CanTalk) return;
             var hm = HeistManager.Instance;
             if (!hm) return;
-            var label = new GUIStyle(GUI.skin.label) { fontSize = 18, wordWrap = true };
+            var label = HudStyles.Label(18);
 
             if (!ShopOpen)
             {
                 HudText.Label(new Rect(0, Screen.height * 0.62f, Screen.width, 36), "[E] Talk to the dealer",
-                    new GUIStyle(label) { alignment = TextAnchor.MiddleCenter, fontSize = 24 });
+                    HudStyles.Label(24, TextAnchor.MiddleCenter));
                 return;
             }
 
@@ -186,15 +194,18 @@ namespace BuildingEscape
             const float cw = 176f, ch = 130f, gap = 8f, pad = 14f;
             int rows = Mathf.CeilToInt(Catalog.Length / (float)cols);
             float pw = pad * 2 + cols * cw + (cols - 1) * gap;
-            float ph = 120f + rows * (ch + gap) + 70f;
+            var busted = BustedPlayers();
+            float ph = 120f + rows * (ch + gap) + 70f + (busted.Count > 0 ? 36f + busted.Count * 36f : 0f);
             var r = new Rect((Screen.width - pw) / 2f, (Screen.height - ph) / 2f, pw, ph);
             GUI.Box(r, "BLACK MARKET  -  no questions asked");
 
-            var buyer = Buyer();
             HudText.Label(new Rect(r.x + pad, r.y + 28, pw - pad * 2, 28),
                 $"Cash ${hm.Cash}      Pack {(buyer ? buyer.Weight : 0):0.#} / {(buyer ? buyer.capacity : 0):0.#} kg      Hover an item and left click to buy it.", label);
 
             var ev = Event.current;
+            var bold = HudStyles.Label(18, TextAnchor.UpperLeft, FontStyle.Bold);
+            var cantAfford = HudStyles.Label(18, TextAnchor.UpperLeft, FontStyle.Normal, CantAfford);
+            var small = HudStyles.Label(14);
             float y0 = r.y + 64f;
             for (int i = 0; i < Catalog.Length; i++)
             {
@@ -203,12 +214,11 @@ namespace BuildingEscape
                 bool hover = cr.Contains(ev.mousePosition);
                 bool afford = hm.Cash >= p.price;
                 var old = GUI.color;
-                GUI.color = hover ? (afford ? new Color(1f, 0.85f, 0.4f) : new Color(1f, 0.5f, 0.5f)) : Color.white;
+                GUI.color = hover ? (afford ? new Color(1f, 0.85f, 0.4f) : CantAfford) : Color.white;
                 GUI.Box(cr, GUIContent.none);
                 GUI.color = old;
-                var small = new GUIStyle(label) { fontSize = 14 };
-                HudText.Label(new Rect(cr.x + 8, cr.y + 4, cw - 16, 26), p.name, new GUIStyle(label) { fontStyle = FontStyle.Bold });
-                HudText.Label(new Rect(cr.x + 8, cr.y + 30, cw - 16, 24), $"${p.price}   {ItemWeight(p):0.#} kg", afford ? label : new GUIStyle(label) { normal = { textColor = new Color(1f, 0.5f, 0.5f) } });
+                HudText.Label(new Rect(cr.x + 8, cr.y + 4, cw - 16, 26), p.name, bold);
+                HudText.Label(new Rect(cr.x + 8, cr.y + 30, cw - 16, 24), $"${p.price}   {ItemWeight(p):0.#} kg", afford ? label : cantAfford);
                 GUI.Label(new Rect(cr.x + 8, cr.y + 56, cw - 16, ch - 60), p.blurb, small);
                 if (hover && ev.type == EventType.MouseDown && ev.button == 0)
                 {
@@ -218,12 +228,83 @@ namespace BuildingEscape
             }
 
             float by = y0 + rows * (ch + gap) + 4f;
-            string sell = LootCount > 0 ? $"Sell hot goods: {LootCount} item(s) for ${SellValue}  [F]" : "Nothing to sell (loot in your pack or on the counter)";
-            var was = GUI.enabled; GUI.enabled = LootCount > 0;
+            int lootCount = LootCount;
+            string sell = lootCount > 0 ? $"Sell hot goods: {lootCount} item(s) for ${SellValue}  [F]" : "Nothing to sell (loot in your pack or on the counter)";
+            var was = GUI.enabled; GUI.enabled = lootCount > 0;
             if (GUI.Button(new Rect(r.x + pad, by, 470, 32), sell)) Sell(hm);
             GUI.enabled = was;
             if (GUI.Button(new Rect(r.xMax - pad - 120, by, 120, 32), "Leave [E]")) ShopOpen = false;
-            if (Time.time < msgUntil) HudText.Label(new Rect(r.x + pad, by + 36, pw - pad * 2, 28), msg, label);
+            float my = by + 36f;
+            if (busted.Count > 0)
+            {
+                // getting friends out of custody: he knows someone on the inside
+                HudText.Label(new Rect(r.x + pad, my, pw - pad * 2, 28), "\"" + CustodyRules.BuyBackLine + "\"", HudStyles.Label(18, TextAnchor.UpperLeft, FontStyle.Italic));
+                my += 36f;
+                foreach (var bp in busted)
+                {
+                    int price = CustodyRules.BuyBackPrice(bp.BustedOnLevel);
+                    var enabled = GUI.enabled; GUI.enabled = CustodyRules.CanAffordBuyBack(hm.Cash, bp.BustedOnLevel);
+                    if (GUI.Button(new Rect(r.x + pad, my, 470, 32), $"Buy back {LabelOf(bp)}  -  ${price}")) BuyBackPlayer(hm, bp);
+                    GUI.enabled = enabled;
+                    my += 36f;
+                }
+            }
+            if (Time.time < msgUntil) HudText.Label(new Rect(r.x + pad, my, pw - pad * 2, 28), msg, label);
+        }
+
+        // ------------------------------------------------------------------ buy-back (busted teammates)
+
+        static readonly List<WobblyPlayer> bustedList = new();
+
+        /// <summary>The players currently under arrest.</summary>
+        public static List<WobblyPlayer> BustedPlayers()
+        {
+            bustedList.Clear();
+            foreach (var p in WobblyPlayerRegistry.All) if (p && p.Custody == CustodyState.Busted) bustedList.Add(p);
+            return bustedList;
+        }
+
+        static string LabelOf(WobblyPlayer p)
+        {
+            return p.TryGetComponent(out Net.NetPlayer np) && np.IsSpawned ? $"Player {np.Slot + 1}" : "your friend";
+        }
+
+        /// <summary>Pay the vendor to get a busted player out. A client only asks; the host / offline does it.</summary>
+        void BuyBackPlayer(HeistManager hm, WobblyPlayer p)
+        {
+            if (!p) return;
+            if (Net.NetRole.IsRemoteClient)
+            {
+                if (p.TryGetComponent(out Net.NetPlayer np) && Net.RunSync.Instance) Net.RunSync.Instance.RequestBuyBack(np.Slot);
+                return;
+            }
+            Say(BuyBackFor(hm, p));
+        }
+
+        /// <summary>Host: a client asked to buy a teammate back. The asking player must be at the counter.</summary>
+        public string HostBuyBack(Net.NetPlayer who, int slot)
+        {
+            var hm = HeistManager.Instance;
+            Backpack asker = null;
+            if (who) who.TryGetComponent(out asker);
+            packs.RemoveWhere(b => !b);
+            if (!hm || !asker) return null;
+            bool down = who.TryGetComponent(out WobblyPlayer wp) && wp.InCustody;
+            if (!packs.Contains(asker) || down) return "Stand at the counter to talk to the dealer";
+            var target = Net.NetPlayer.BySlot(slot);
+            WobblyPlayer friend = null;
+            if (target) target.TryGetComponent(out friend);
+            return BuyBackFor(hm, friend);
+        }
+
+        /// <summary>The buy-back rules (offline and host). Returns the message for the buyer.</summary>
+        string BuyBackFor(HeistManager hm, WobblyPlayer p)
+        {
+            if (!p || p.Custody != CustodyState.Busted) return "Nobody to buy back";
+            int price = CustodyRules.BuyBackPrice(p.BustedOnLevel);
+            if (!hm.TrySpend(price)) return $"Not enough cash (it costs ${price})";
+            hm.ReleaseBusted(p);
+            return "Done. Your friend walks out the back.";
         }
 
         static float ItemWeight(Product p) => p.isWeapon ? MeleeWeapon.Specs[(int)p.kind].weight : Mathf.Max(0.2f, p.mass);

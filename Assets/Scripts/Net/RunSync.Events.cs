@@ -160,7 +160,7 @@ namespace BuildingEscape.Net
         void SwungRpc(byte slot)
         {
             var np = NetPlayer.BySlot(slot);
-            if (np && !np.IsOwner) np.GetComponent<MeleeController>()?.PlayRemoteSwing();
+            if (np && !np.IsOwner && np.TryGetComponent(out MeleeController melee)) melee.PlayRemoteSwing();
         }
 
         // ------------------------------------------------------------------ floors

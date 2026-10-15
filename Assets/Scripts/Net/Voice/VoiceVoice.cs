@@ -27,6 +27,7 @@ namespace BuildingEscape.Net
         public float lastPacketTime;
 
         AudioSource source;
+        AudioClip keepAlive;
 
         public bool Playing => source != null && source.isPlaying;
 
@@ -35,9 +36,9 @@ namespace BuildingEscape.Net
             source = GetComponent<AudioSource>();
             outRate = AudioSettings.outputSampleRate;
             // a looping 1-sample clip keeps the source (and its filter callback) alive
-            var clip = AudioClip.Create("voice", 1, 1, outRate, false);
-            clip.SetData(new[] { 0f }, 0);
-            source.clip = clip;
+            keepAlive = AudioClip.Create("voice", 1, 1, outRate, false);
+            keepAlive.SetData(new[] { 0f }, 0);
+            source.clip = keepAlive;
             source.loop = true;
             source.playOnAwake = false;
             source.spatialBlend = 0f;
@@ -46,6 +47,8 @@ namespace BuildingEscape.Net
             source.rolloffMode = AudioRolloffMode.Linear;
             source.Play();
         }
+
+        void OnDestroy() { if (keepAlive) Destroy(keepAlive); }   // an AudioClip is not freed with the object that plays it
 
         public void SetSpatial(bool spatial, float volume)
         {

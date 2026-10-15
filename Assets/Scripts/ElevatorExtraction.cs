@@ -56,7 +56,7 @@ namespace BuildingEscape
         static string toast; static float toastUntil;
         readonly HashSet<Throwable> items = new();
         readonly HashSet<Backpack> packs = new();
-        int playersInside;
+        readonly HashSet<WobblyPlayer> aboard = new(); // players standing in the car (busted ones do not need to be)
 
         void Reset() { GetComponent<Collider>().isTrigger = true; }
 
@@ -76,7 +76,7 @@ namespace BuildingEscape
             var wp = o.GetComponentInParent<WobblyPlayer>();
             if (wp)
             {
-                playersInside++;
+                aboard.Add(wp);
                 if (Net.NetPlayer.IsLocalPlayer(wp)) LocalInside = true;
             }
         }
@@ -89,7 +89,7 @@ namespace BuildingEscape
             var wp = o.GetComponentInParent<WobblyPlayer>();
             if (wp)
             {
-                playersInside = Mathf.Max(0, playersInside - 1);
+                aboard.Remove(wp);
                 if (Net.NetPlayer.IsLocalPlayer(wp)) LocalInside = false;
             }
         }
@@ -162,7 +162,7 @@ namespace BuildingEscape
 
             // loot is only banked on office floors; the docks vendor buys it instead
             bool canBank = hm.Phase == HeistPhase.Heist || hm.Phase == HeistPhase.FloorComplete;
-            EveryoneAboard = playersInside > 0 && playersInside >= WobblyPlayerRegistry.All.Count;
+            EveryoneAboard = WobblyPlayerRegistry.AllAboard(aboard);
             if (canBank) AutoBank();
 
             RefreshPanel(hm, tm);
@@ -280,12 +280,19 @@ namespace BuildingEscape
 
         // ------------------------------------------------------------------ banking
 
+        // scratch copies, so banking can remove from the sets while it walks them (and so a quiet frame makes no garbage)
+        readonly List<Throwable> itemScratch = new();
+        readonly List<HeavyLoot> lootScratch = new();
+
         /// <summary>Banks loot that has been dropped in the car: set down (not held) and settled for a moment.</summary>
         void AutoBank()
         {
+            if (items.Count == 0 && inside.Count == 0) return;
+
             // small items (mugs, shop gadgets) count for their small bank value; weapons never do
             items.RemoveWhere(t => !t || !t.gameObject.activeInHierarchy);
-            foreach (var t in new List<Throwable>(items))
+            itemScratch.Clear(); itemScratch.AddRange(items);
+            foreach (var t in itemScratch)
             {
                 if (!t.TryGetComponent(out Pickup ip) || ip.bankValue <= 0 || ip.IsHeld) continue;
                 if (!itemSince.TryGetValue(t, out float s0)) { itemSince[t] = Time.time; continue; }
@@ -297,10 +304,12 @@ namespace BuildingEscape
                 Net.RunSync.Instance?.BroadcastConsumed(ip.NetId);
                 Destroy(t.gameObject);
             }
+            itemScratch.Clear();
 
             inside.RemoveWhere(l => !l || !l.gameObject.activeInHierarchy);
             if (inside.Count == 0) return;
-            foreach (var l in new List<HeavyLoot>(inside))
+            lootScratch.Clear(); lootScratch.AddRange(inside);
+            foreach (var l in lootScratch)
             {
                 if (!l || l.Broken) continue;
                 bool carried = l.Holders > 0 || (l.TryGetComponent(out Pickup p) && p.IsHeld);
@@ -315,27 +324,24 @@ namespace BuildingEscape
                 if (l.TryGetComponent(out Pickup lp)) Net.RunSync.Instance?.BroadcastConsumed(lp.NetId);
                 Destroy(l.gameObject);
             }
+            lootScratch.Clear();
         }
 
         // ------------------------------------------------------------------ prompts
 
+        static readonly Color ToastColour = new Color(0.5f, 1f, 0.5f);
+
         void OnGUI()
         {
-            var big = new GUIStyle(GUI.skin.label) { fontSize = 26, alignment = TextAnchor.MiddleCenter };
+            if (Event.current.type != EventType.Repaint) return;     // nothing here takes input
             if (Time.time < toastUntil && !string.IsNullOrEmpty(toast))
-            {
-                big.normal.textColor = new Color(0.5f, 1f, 0.5f);
-                HudText.Label(new Rect(0, Screen.height * 0.3f, Screen.width, 40), toast, big);
-            }
+                HudText.Label(new Rect(0, Screen.height * 0.3f, Screen.width, 40), toast,
+                    HudStyles.Label(26, TextAnchor.MiddleCenter, FontStyle.Normal, ToastColour));
 
             // the wall panel draws its own prompts (ElevatorPanel); this is only the locked back door on floor 12
-            var hm = HeistManager.Instance;
-            if (hm == null) return;
-            var st = new GUIStyle(GUI.skin.label) { fontSize = 20, alignment = TextAnchor.MiddleCenter };
-            st.normal.textColor = Color.white;
-            float y = Screen.height * 0.72f;
-            if (backDoor && !BackDoorOpen && NearBackDoorLocal())
-                HudText.Label(new Rect(0, y - 34, Screen.width, 30), $"Back door is locked - [{directionKey}] to use the key", st);
+            if (!backDoor || BackDoorOpen || !HeistManager.Instance || !NearBackDoorLocal()) return;
+            HudText.Label(new Rect(0, Screen.height * 0.72f - 34, Screen.width, 30), $"Back door is locked - [{directionKey}] to use the key",
+                HudStyles.Label(20, TextAnchor.MiddleCenter, FontStyle.Normal, Color.white));
         }
 
         // ------------------------------------------------------------------ cargo
@@ -379,7 +385,7 @@ namespace BuildingEscape
         public static bool LocalInside { get; private set; }
         public static bool EveryoneAboard { get; private set; }
 
-        int playersInside;
+        readonly HashSet<WobblyPlayer> aboard = new(); // players standing in the car (busted ones do not need to be)
         bool going;
 
         void Reset() { GetComponent<Collider>().isTrigger = true; }
@@ -390,7 +396,7 @@ namespace BuildingEscape
         {
             var wp = o.GetComponentInParent<WobblyPlayer>();
             if (!wp) return;
-            playersInside++;
+            aboard.Add(wp);
             if (Net.NetPlayer.IsLocalPlayer(wp)) LocalInside = true;
         }
 
@@ -398,7 +404,7 @@ namespace BuildingEscape
         {
             var wp = o.GetComponentInParent<WobblyPlayer>();
             if (!wp) return;
-            playersInside = Mathf.Max(0, playersInside - 1);
+            aboard.Remove(wp);
             if (Net.NetPlayer.IsLocalPlayer(wp)) LocalInside = false;
         }
 
@@ -411,7 +417,7 @@ namespace BuildingEscape
                 if (press) Net.RunSync.Instance?.RequestPanel(1);
                 return;
             }
-            EveryoneAboard = playersInside > 0 && playersInside >= WobblyPlayerRegistry.All.Count;
+            EveryoneAboard = WobblyPlayerRegistry.AllAboard(aboard);
             if (press)
             {
                 var me = Net.NetPlayer.Local ? Net.NetPlayer.Local.transform
@@ -434,11 +440,10 @@ namespace BuildingEscape
 
         void OnGUI()
         {
-            if (!LocalInside) return;
-            var st = new GUIStyle(GUI.skin.label) { fontSize = 22, alignment = TextAnchor.MiddleCenter };
-            st.normal.textColor = Color.white;
+            if (!LocalInside || Event.current.type != EventType.Repaint) return;
             HudText.Label(new Rect(0, Screen.height * 0.72f, Screen.width, 32),
-                $"Hidden elevator to {TowerRules.Label(TowerRules.BossFloor)}   [{confirmKey}] go" + (EveryoneAboard ? "" : "   (everyone must be inside)"), st);
+                $"Hidden elevator to {TowerRules.Label(TowerRules.BossFloor)}   [{confirmKey}] go" + (EveryoneAboard ? "" : "   (everyone must be inside)"),
+                HudStyles.Label(22, TextAnchor.MiddleCenter, FontStyle.Normal, Color.white));
         }
     }
 }

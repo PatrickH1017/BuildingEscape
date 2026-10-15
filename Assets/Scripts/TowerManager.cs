@@ -32,6 +32,8 @@ namespace BuildingEscape
             totalFloors = TowerRules.Levels; // 13 floors + the Loading Docks (overrides the value saved in the scene)
         }
 
+        void OnDestroy() { if (Instance == this) Instance = null; }
+
         void Start()
         {
             ResumeLevel = Mathf.Max(1, startLevel + 1);
@@ -115,21 +117,66 @@ namespace BuildingEscape
             else StartCoroutine(LoadFloor(level));
         }
 
-        /// <summary>Networked: the host named the level and what rides in the car.</summary>
+        /// <summary>
+        /// Networked: the host named the level and what rides in the car. A machine that is still building the last floor (a slow
+        /// one) finishes that first and then builds this one: two floors must never be generated at the same time.
+        /// </summary>
         public void NetLoadLevel(int level, ushort[] cargo, int resume)
         {
+            if (Loading) { pendingLoads.Enqueue(new PendingLoad(level, cargo, resume)); return; }
             ResumeLevel = resume;
             StartCoroutine(LoadFloor(level, cargo));
         }
 
+        readonly struct PendingLoad
+        {
+            public readonly int Level, Resume;
+            public readonly ushort[] Cargo;
+            public PendingLoad(int level, ushort[] cargo, int resume) { Level = level; Cargo = cargo; Resume = resume; }
+        }
+
+        readonly Queue<PendingLoad> pendingLoads = new Queue<PendingLoad>();
+
         /// <summary>Client: where the elevator goes from the basement (the host replicates it).</summary>
         public void NetSetResume(int level) { if (!Loading) ResumeLevel = level; }
 
+        /// <summary>Builds one level, and then any level the host asked for in the meantime.</summary>
         IEnumerator LoadFloor(int floor, ushort[] cargoIds = null)
         {
             Loading = true;
+            // Run the build by hand so that an exception in it cannot leave Loading set (the elevator would be dead for the rest of the
+            // run). A yield cannot sit inside a try that has a catch, so only the MoveNext is guarded.
+            var build = BuildFloor(floor, cargoIds);
+            while (true)
+            {
+                object step;
+                try
+                {
+                    if (!build.MoveNext()) break;
+                    step = build.Current;
+                }
+                catch (System.Exception e)
+                {
+                    Debug.LogError($"TowerManager: building level {floor} failed - the elevator works again, but this floor is not usable.");
+                    Debug.LogException(e);
+                    break;
+                }
+                yield return step;
+            }
+            Loading = false;
+
+            if (pendingLoads.Count > 0)
+            {
+                var next = pendingLoads.Dequeue();
+                ResumeLevel = next.Resume;
+                yield return LoadFloor(next.Level, next.Cargo);
+            }
+        }
+
+        IEnumerator BuildFloor(int floor, ushort[] cargoIds)
+        {
             foreach (var p in WobblyPlayerRegistry.All)
-                if (p) p.GetComponent<PlayerGrab>()?.Release(false);
+                if (p && p.TryGetComponent(out PlayerGrab grab)) grab.Release(false);
 
             // Anything inside the elevator car rides along: lift it out before the old floor goes.
             var cargo = new List<Rigidbody>();
@@ -137,7 +184,10 @@ namespace BuildingEscape
             {
                 // networked: the host named what is in the car, so every machine carries the same things
                 foreach (var id in cargoIds)
-                    if (Net.NetIds.Get<Pickup>(id) is Pickup cp && cp.TryGetComponent(out Rigidbody crb)) cargo.Add(crb);
+                {
+                    var cp = Net.NetIds.Get<Pickup>(id);
+                    if (cp && cp.TryGetComponent(out Rigidbody crb)) cargo.Add(crb);
+                }
                 foreach (var rb in cargo) rb.transform.SetParent(transform, true);
             }
             else if (generator.Current)
@@ -176,7 +226,6 @@ namespace BuildingEscape
                   $"{info.lootCount} loot (${info.lootValue}), quota ${info.quota}, {info.guards} guards, {cargo.Count} items carried in");
             Net.RunSync.Instance?.MarkFloorReady();
             Net.RunSync.Instance?.PublishChecksum();
-            Loading = false;
         }
 
         /// <summary>Sets carried loot/items down in two rows at the back of the new elevator car.</summary>

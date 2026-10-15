@@ -14,5 +14,26 @@ namespace BuildingEscape
         public AudioClip[] killBat, killCrowbar, killHatchet;
         [Tooltip("Played on top of a killing blow.")]
         public AudioClip[] layerBone, layerGore;
+
+        // ---- Placeholders. While these are empty the game plays sounds and music it generates in code (see SoundBank and
+        // ---- MusicDirector). Drop real clips in and they are used instead, with no other change.
+        [Header("Doors, elevator and officers (empty = generated placeholder)")]
+        public AudioClip[] doorOpen, doorClose;
+        [Tooltip("The elevator's arrival chime.")]
+        public AudioClip[] elevatorDing;
+        [Tooltip("An officer's key ring jingling as he walks.")]
+        public AudioClip[] keys;
+        [Tooltip("The same, faster, while an officer runs (empty: the walking clips are used).")]
+        public AudioClip[] keysRun;
+        [Tooltip("Walkie-talkie static that crackles from an officer every now and then.")]
+        public AudioClip[] radioStatic;
+        [Tooltip("An officer keying his radio to call for backup.")]
+        public AudioClip[] radioCall;
+
+        [Header("Music (empty = generated placeholder)")]
+        [Tooltip("Loops while the team is in the elevator.")]
+        public AudioClip[] elevatorMusic;
+        [Tooltip("Loops from the moment backup is called until the floor is over. A different clip on every floor of a run.")]
+        public AudioClip[] intenseMusic;
     }
 }
