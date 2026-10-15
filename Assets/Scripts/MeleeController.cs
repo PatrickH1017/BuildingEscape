@@ -126,7 +126,8 @@ namespace BuildingEscape
 
         void Hit(MeleeWeapon.Spec spec, MeleeWeapon.Kind kind)
         {
-            var centre = transform.position + transform.forward * 1.2f + Vector3.up * 0.3f;
+            // the hit zone sits in front of the player, towards where the crosshair points
+            var centre = transform.position + Crosshair.SwingForward(transform) * 1.2f + Vector3.up * 0.3f;
             var cols = Physics.OverlapSphere(centre, hitRadius, ~0, QueryTriggerInteraction.Ignore);
             var seen = new System.Collections.Generic.HashSet<Object>();
             bool hitSomething = false;

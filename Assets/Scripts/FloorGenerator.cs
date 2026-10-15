@@ -139,6 +139,7 @@ namespace BuildingEscape
             if (hub)
             {
                 BuildLoadingDock(new Vector2Int(cols - 1, rows - 1), seed);
+                BuildAfterHours(floor, seed, elevCell, elevCell, true); // ceiling, lights, night look (no NavMesh on the docks, so before is fine)
                 return info; // safe zone: no loot, mugs, hide spots, guards (so no NavMesh needed either)
             }
 
@@ -170,6 +171,7 @@ namespace BuildingEscape
 
             MakeHideZones();
             BuildDoors(); // sliding doors in the room doorways (after the bake: the NavMesh is made with every doorway open)
+            BuildAfterHours(floor, seed, elevCell, guestCell, false); // ceiling, light panels, night look (after the bake: a ceiling is not ground)
             if (boss)
             {
                 info.lootCount = 0; info.lootValue = 0; info.quota = 0; // the boss floor is won by knocking the boss out
@@ -372,7 +374,8 @@ namespace BuildingEscape
 
             // sliding door panels that fill each gap
             var door = room.AddComponent<ElevatorDoor>();
-            var dMat = elevatorMat ? elevatorMat : wallMat;
+            bool look = UseCarLook;       // wood, steel, carpet and a mirror inside (FloorGenerator.ElevatorInterior.cs); the doors are stainless steel
+            var dMat = look ? CarMaterial(ElevatorLook.Steel) : elevatorMat ? elevatorMat : wallMat;
             float dt = t * 0.8f, pw = doorHalf; // each panel covers half the gap
             if (doorEast)
             {
@@ -387,14 +390,15 @@ namespace BuildingEscape
                 door.Setup(pa.transform, pb.transform, new Vector3(-pw, 0, 0), new Vector3(pw, 0, 0));
             }
 
-            Box("ElevatorFloor", center + new Vector3(0, 0.02f, 0.5f), new Vector3(5, 0.1f, 4.5f), elevatorMat, room.transform, collider: false);
+            if (!look) Box("ElevatorFloor", center + new Vector3(0, 0.02f, 0.5f), new Vector3(5, 0.1f, 4.5f), elevatorMat, room.transform, collider: false);
 
             // the floor panel (a lit button for every floor) and its GO button on the wall by the front door,
             // in the corner where the player has room to stand in front of it
             Vector3 pPos, pView; int goSide;
-            if (doorEast) { pPos = center + new Vector3(2.9f, 1.7f, half - t / 2f); pView = Vector3.forward; goSide = -1; }
-            else { pPos = center + new Vector3(half - t / 2f, 1.7f, 2.9f); pView = Vector3.right; goSide = 1; }
+            if (doorEast) { pPos = center + new Vector3(ElevatorLook.PanelAlong, 1.7f, half - t / 2f); pView = Vector3.forward; goSide = -1; }
+            else { pPos = center + new Vector3(half - t / 2f, 1.7f, ElevatorLook.PanelAlong); pView = Vector3.right; goSide = 1; }
             var panel = ElevatorPanel.Build(room.transform, pPos, pView, goSide);
+            if (look) BuildElevatorInterior(room.transform, center, doorEast, hasBack ? (int)(backWest ? ElevatorLook.Side.West : ElevatorLook.Side.South) : -1, floor);
 
             // the whole inside of the car counts as "in the elevator" (loot dropped anywhere in it banks; everyone must be in it to go)
             var zone = new GameObject("DropZone");
@@ -415,7 +419,7 @@ namespace BuildingEscape
         void BuildHiddenHallway(Vector2Int cell, Vector3 center, Transform room, float half, float doorHalf, float t, bool west, ElevatorExtraction car)
         {
             var origin = new Vector3(cell.x * cellSize, 0f, cell.y * cellSize);
-            var dMat = elevatorMat ? elevatorMat : wallMat;
+            var dMat = UseCarLook ? CarMaterial(ElevatorLook.Steel) : elevatorMat ? elevatorMat : wallMat;
             float dt = t * 0.8f, pw = doorHalf;
 
             var backGo = new GameObject("BackDoor");

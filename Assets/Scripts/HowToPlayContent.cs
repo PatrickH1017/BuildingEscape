@@ -12,11 +12,12 @@ namespace BuildingEscape
         {
             ("W A S D", "Move"),
             ("Mouse", "Look / turn"),
+            ("Crosshair", "The dot in the middle of the screen is what you act on and where you swing: aim it at an item, a door or the dealer. It turns yellow when E works what it is on, and red over a guard you can hit"),
             ("Alt (or V) hold", "Look around your character"),
             ("Shift", "Sprint"),
             ("Ctrl (or C) hold", "Crouch: slower, but your footsteps are much quieter"),
             ("Space", "Jump"),
-            ("E", "Pick up into your backpack / talk to the vendor"),
+            ("E", "Aim the crosshair, then press E: pick an item up into your backpack / open and close a door / talk to the vendor"),
             ("Tab", "Open your inventory"),
             ("Q", "Grab or drop heavy loot (more people carry heavier things)"),
             ("Left mouse", "Throw what you hold / swing your weapon"),

@@ -11,8 +11,8 @@ namespace BuildingEscape
     [RequireComponent(typeof(GuardAI))]
     public sealed class GuardSounds : MonoBehaviour
     {
-        [Tooltip("Metres walked between key jingles, walking and running.")]
-        public float walkStride = 2.4f, runStride = 2.0f;
+        [Tooltip("Metres walked between key jingles, walking and running (about every 3 s when walking, 1.3 s when running).")]
+        public float walkStride = 7f, runStride = 6f;
         [Tooltip("Seconds between radio static bursts: the first burst comes after a shorter random wait.")]
         public Vector2 staticEvery = new Vector2(7f, 24f);
         public Vector2 firstStaticAfter = new Vector2(4f, 18f);

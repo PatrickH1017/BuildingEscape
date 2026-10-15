@@ -141,6 +141,26 @@ namespace BuildingEscape.Net
         [Rpc(SendTo.SpecifiedInParams)]
         void NoticeRpc(string text, RpcParams rp = default) => Backpack.NoticeToLocal(text);
 
+        // ------------------------------------------------------------------ doors
+
+        /// <summary>Host -> everyone: this door is now to be open / shut (a player worked it).</summary>
+        [Rpc(SendTo.ClientsAndHost)]
+        void DoorSetRpc(ushort door, bool open, byte epoch)
+        {
+            if (epoch != Epoch) return;
+            var doors = DoorManager.Active;
+            if (doors) doors.NetSet(door, open);
+        }
+
+        /// <summary>Host -> one client that asked: the doors players have opened on this floor.</summary>
+        [Rpc(SendTo.SpecifiedInParams)]
+        void DoorStatesRpc(ushort[] open, byte epoch, RpcParams rp = default)
+        {
+            if (epoch != Epoch) return;
+            var doors = DoorManager.Active;
+            if (doors) doors.NetSetStates(open);
+        }
+
         // ------------------------------------------------------------------ players
 
         /// <summary>Host: knock a player over. Only the player's own machine moves them, so it is routed there.</summary>

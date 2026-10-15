@@ -4,7 +4,7 @@ using UnityEngine;
 namespace BuildingEscape
 {
     /// <summary>
-    /// The player's backpack. E picks up the nearest item (if it fits in the weight limit),
+    /// The player's backpack. Point the crosshair at an item (within reach) and press E to pick it up if it fits in the weight limit,
     /// Tab opens the inventory where you can drop things or take nearby items back.
     /// Stored items are switched off and ride along with you, also in the elevator.
     /// Deposit loot with F in the elevator (banks it) or at the basement vendor (sells it).
@@ -30,6 +30,8 @@ namespace BuildingEscape
         WobblyPlayer wobbly;
 
         public IReadOnlyList<Pickup> Items => items;
+        /// <summary>Is the crosshair on an item within reach that E would pick up right now?</summary>
+        public bool HasPickupTarget => target != null;
         /// <summary>The melee weapon shown in the right hand (must be an item in the pack).</summary>
         public Pickup Equipped { get; private set; }
         public float Weight { get { float w = 0; foreach (var p in items) if (p) w += p.weight; return w; } }
@@ -181,14 +183,17 @@ namespace BuildingEscape
             if (!Viewed) return;
             if (wobbly && wobbly.InCustody) { UiOpen = false; target = null; return; } // pinned or busted: hands are full of officer
             CleanUp();
-            bool talk = Vendor.ShopOpen || ElevatorPanel.Open || (Vendor.Nearby && Vendor.Nearby.CanTalk);
+            bool talk = Vendor.ShopOpen || ElevatorPanel.Open;
             if (Input.GetKeyDown(inventoryKey) && !Vendor.ShopOpen && !ElevatorPanel.Open) { UiOpen = !UiOpen; scroll = Vector2.zero; }
 
-            target = (UiOpen || talk) ? null : Pickup.FindNearest(transform, reach);
+            // E works what the crosshair is on: an item here, a door in DoorManager, the dealer in Vendor
+            var aimed = (UiOpen || talk) ? AimTarget.Nothing : Crosshair.Aim;
+            target = aimed.Kind == AimKind.Pickup ? aimed.Pickup : null;
             if (!UiOpen && !talk && Input.GetKeyDown(pickupKey))
             {
                 if (target) TryStore(target);
-                else Say("Nothing to pick up here");
+                else if (aimed.Kind == AimKind.None)
+                    Say(aimed.TooFar ? "Too far away - get closer" : "Nothing there - aim the crosshair at an item");
             }
 
             if (UiOpen && Time.time >= nextNearby)

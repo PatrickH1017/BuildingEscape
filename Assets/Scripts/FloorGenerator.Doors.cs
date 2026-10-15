@@ -4,14 +4,15 @@ using UnityEngine.Rendering;
 namespace BuildingEscape
 {
     /// <summary>
-    /// The doors of an office floor: an automatic sliding door in every doorway of the room partitions (the doorways have a beam
-    /// over them, see OfficePlanner.WallRun). They are built after the NavMesh bake, so the bake sees every doorway open and the
-    /// guards' routes never depend on a door. The doors themselves live in <see cref="DoorManager"/>.
+    /// The doors of an office floor: a sliding door in every doorway of the room partitions (the doorways have a beam over them, see
+    /// OfficePlanner.WallRun). Players open and close them with E; officers open the ones they are about to walk through (patrolling, investigating or chasing). They are built after the
+    /// NavMesh bake, so the bake sees every doorway open and the guards' routes never depend on a door. The doors themselves live in
+    /// <see cref="DoorManager"/>.
     /// </summary>
     public partial class FloorGenerator
     {
         [Header("Doors")]
-        [Tooltip("Automatic sliding doors in the doorways between rooms: they open when somebody comes near and make door noises.")]
+        [Tooltip("Sliding doors in the doorways between rooms: a player opens one with E and closes it with E again; officers open the ones they are about to walk through (not the ones they merely walk past). They make door noises.")]
         public bool slidingDoors = true;
 
         Material doorMat;

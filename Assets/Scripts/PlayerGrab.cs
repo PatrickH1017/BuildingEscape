@@ -57,7 +57,8 @@ namespace BuildingEscape
         void TryGrab()
         {
             Rigidbody rb = null;
-            var p = Pickup.FindNearest(transform, reach);
+            var aimed = Crosshair.Aim;                       // what the crosshair is on first, then whatever is nearest
+            var p = aimed.Kind == AimKind.Pickup ? aimed.Pickup : Pickup.FindNearest(transform, reach);
             if (p) p.TryGetComponent(out rb);
             if (!rb)
             {

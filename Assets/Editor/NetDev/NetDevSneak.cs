@@ -54,6 +54,15 @@ namespace BuildingEscape.EditorTools
             hm.AddCash(2000);
             yield return new WaitForSeconds(1.0f);
             SneakCheck("dock: standing in the truck opens the shop", Vendor.Nearby == vendor && vendor.CanTalk, $"(nearby {(Vendor.Nearby == vendor)}, canTalk {vendor.CanTalk})");
+            // the crosshair on the dealer lets E talk to him; looking at the trailer wall does not
+            {
+                var aimEye = player.transform.position + Vector3.back * 2.0f + Vector3.up * 0.4f;     // behind the player (he is looking towards +z)
+                var aimHead = vendor.npc.position + Vector3.up * 0.6f;
+                var onHim = Crosshair.Resolve(aimEye, aimHead - aimEye, player);
+                SneakCheck("dock: the crosshair on the dealer targets him", onHim.Kind == AimKind.Dealer, $"({onHim.Kind})");
+                var side = Crosshair.Resolve(aimEye, Vector3.right + Vector3.up * 0.1f, player);
+                SneakCheck("dock: the crosshair on the trailer wall does not", side.Kind != AimKind.Dealer, $"({side.Kind})");
+            }
             var pack = player.GetComponent<Backpack>();
             int packBefore = pack.Items.Count, cashBefore = hm.Cash;
             var buy = typeof(Vendor).GetMethod("Buy", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);

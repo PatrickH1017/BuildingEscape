@@ -167,7 +167,8 @@ namespace BuildingEscape
             if (!CanTalk) { if (ShopOpen) ShopOpen = false; return; }
             var hm = HeistManager.Instance;
             if (!hm) return;
-            if (Input.GetKeyDown(talkKey)) ShopOpen = !ShopOpen;
+            // E talks to the dealer when the crosshair is on him (and shuts the shop again from inside it)
+            if (Input.GetKeyDown(talkKey) && (ShopOpen || (Nearby == this && Crosshair.Aim.Kind == AimKind.Dealer))) ShopOpen = !ShopOpen;
             if (ShopOpen && Input.GetKeyDown(KeyCode.Escape)) ShopOpen = false;
             if (ShopOpen && Input.GetKeyDown(sellKey)) Sell(hm);
         }
@@ -185,8 +186,13 @@ namespace BuildingEscape
 
             if (!ShopOpen)
             {
-                HudText.Label(new Rect(0, Screen.height * 0.62f, Screen.width, 36), "[E] Talk to the dealer",
-                    HudStyles.Label(24, TextAnchor.MiddleCenter));
+                var seen = Crosshair.Aim;
+                if (seen.Kind == AimKind.Dealer)
+                    HudText.Label(new Rect(0, Screen.height * 0.62f, Screen.width, 36), "[E] Talk to the dealer",
+                        HudStyles.Label(24, TextAnchor.MiddleCenter));
+                else if (seen.Kind == AimKind.None)    // (nothing else is under the crosshair to prompt for)
+                    HudText.Label(new Rect(0, Screen.height * 0.62f, Screen.width, 36), "Aim the crosshair at the dealer to talk",
+                        HudStyles.Label(20, TextAnchor.MiddleCenter));
                 return;
             }
 

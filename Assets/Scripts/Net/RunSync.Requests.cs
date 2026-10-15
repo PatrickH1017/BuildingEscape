@@ -280,5 +280,50 @@ namespace BuildingEscape.Net
             string msg = v.HostBuyBack(np, slot);
             if (!string.IsNullOrEmpty(msg)) Notice(who, msg);
         }
+
+        // ------------------------------------------------------------------ doors
+
+        const float DoorReachSlack = 1.3f;   // the asking player's position here is a moment old
+
+        /// <summary>
+        /// A player pressed E at a door: ask for it to be opened (<paramref name="open"/>) or shut. The player says what they want, not
+        /// "flip it", so two players pressing at the same moment cannot undo each other. The door is addressed by its place in
+        /// DoorManager.Doors (every machine builds the floor the same way).
+        /// </summary>
+        public void RequestDoor(int door, bool open)
+        {
+            if (door < 0 || door > ushort.MaxValue) return;
+            if (IsServer) HostDoor(Me, door, open, Epoch); else DoorRequestRpc((ushort)door, open, Epoch);
+        }
+
+        [Rpc(SendTo.Server)]
+        void DoorRequestRpc(ushort door, bool open, byte epoch, RpcParams rp = default) => HostDoor(rp.Receive.SenderClientId, door, open, epoch);
+
+        void HostDoor(ulong who, int door, bool open, byte epoch)
+        {
+            if (epoch != Epoch) return;                              // asked about the floor before this one
+            var np = PlayerOf(who);
+            var doors = DoorManager.Active;
+            if (np == null || doors == null) return;
+            if (np.TryGetComponent(out WobblyPlayer wp) && wp.InCustody) return;
+            if (!doors.InUseReach(door, np.transform.position, DoorReachSlack)) return;
+            DoorSetRpc((ushort)door, open, Epoch);
+        }
+
+        /// <summary>Client: this machine has just built the floor; ask which doors the host's players have opened since it was built.</summary>
+        public void RequestDoorStates()
+        {
+            if (!IsServer && IsSpawned) DoorStatesRequestRpc(Epoch);
+        }
+
+        [Rpc(SendTo.Server)]
+        void DoorStatesRequestRpc(byte epoch, RpcParams rp = default)
+        {
+            if (epoch != Epoch) return;
+            var doors = DoorManager.Active;
+            if (doors == null) return;
+            var open = doors.OpenByPlayers();
+            if (open.Length > 0) DoorStatesRpc(open, Epoch, RpcTarget.Single(rp.Receive.SenderClientId, RpcTargetUse.Temp));
+        }
     }
 }

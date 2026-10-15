@@ -43,7 +43,7 @@ namespace BuildingEscape
             }
             float ctrlW = Screen.width - 24f;
             HudText.Label(new Rect(12, Screen.height - 56, ctrlW, 28),
-                "WASD move   Mouse look   Hold Alt (or V) look around   Shift sprint   Space jump   E pick up   Tab inventory   Q grab/drop   LMB throw/swing weapon", style);
+                "WASD move   Mouse look   Hold Alt (or V) look around   Shift sprint   Space jump   E use what the crosshair is on (items, doors, dealer)   Tab inventory   Q grab/drop   LMB throw/swing weapon", style);
             HudText.Label(new Rect(12, Screen.height - 30, ctrlW, 28),
                 "H hide   F elevator panel / sell (loading docks)   Drop loot in the elevator to bank it   M mute   Esc cursor", style);
 

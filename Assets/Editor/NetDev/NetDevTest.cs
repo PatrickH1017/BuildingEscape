@@ -30,6 +30,11 @@ namespace BuildingEscape.EditorTools
             AppearanceTest();
             VoiceCurveTest();
             CustodyTest();
+            RoomNumberTest();
+            LightingTest();
+            ElevatorLookTest();
+            AimMathTest();
+            DoorOpenersTest();
             string v = NetConst.BuildVersion;
             Check("allow", JoinPolicy.Evaluate(false, 1, v, v, true) == JoinVerdict.Allow);
             Check("allow 4th (3 connected)", JoinPolicy.Evaluate(false, 3, v, v, true) == JoinVerdict.Allow);
@@ -146,6 +151,256 @@ namespace BuildingEscape.EditorTools
             Check("custody: a player goes free -> pinned -> busted -> free", pinned && busted && wp.Custody == CustodyState.Free && !wp.InCustody);
             Object.DestroyImmediate(go);
         }
+        /// <summary>The room numbers: floor digit first, 01-99 per round, a plate over every numbered room's doorway facing away from the room.</summary>
+        public static void RoomNumberTest()
+        {
+            Check("rooms: floor 1 starts at 101, floor 2 at 201, floor 12 at 1201",
+                RoomNumbers.Label(1, 1) == "101" && RoomNumbers.Label(2, 1) == "201" && RoomNumbers.Label(12, 5) == "1205");
+            Check("rooms: a big floor goes round again with a letter", RoomNumbers.Label(3, 99) == "399" && RoomNumbers.Label(3, 100) == "301A" && RoomNumbers.Label(3, 199) == "301B");
+            const int cols = 4, rows = 3;
+            var input = new PlanInput { seed = 7, floor = 2, cols = cols, rows = rows, openE = new bool[cols, rows], openN = new bool[cols, rows], guestC = cols - 1, guestR = rows - 1, guestDirX = 1 };
+            for (int c = 0; c < cols; c++)
+                for (int r = 0; r < rows; r++) { input.openE[c, r] = c < cols - 1; input.openN[c, r] = r < rows - 1; }
+            var layout = OfficePlanner.Build(input);
+            var plates = RoomNumbers.Plates(layout, 2);
+            bool allGood = plates.Count > 0;
+            foreach (var p in plates) allGood &= p.label.StartsWith("2") && Mathf.Abs(p.nx) + Mathf.Abs(p.nz) == 1f;
+            Check("rooms: every plate of floor 2 says 2xx and faces along an axis", allGood);
+            bool onBeams = plates.Count > 0;
+            foreach (var p in plates)
+            {
+                bool found = false;
+                foreach (var w in layout.walls)
+                {
+                    if (w.kind != "header") continue;
+                    float face = p.nx != 0f ? (p.nx > 0f ? w.rc.x1 : w.rc.x0) : (p.nz > 0f ? w.rc.z1 : w.rc.z0);
+                    float at = p.nx != 0f ? p.x : p.z, along = p.nx != 0f ? p.z : p.x;
+                    float lo = p.nx != 0f ? w.rc.z0 : w.rc.x0, hi = p.nx != 0f ? w.rc.z1 : w.rc.x1;
+                    if (Mathf.Abs(face - at) < 0.001f && along > lo && along < hi) { found = true; break; }
+                }
+                onBeams &= found;
+            }
+            Check("rooms: every plate hangs on the outer face of a doorway beam (not buried in it)", onBeams);
+            Check("rooms: the docks and the boss floor have no plates", RoomNumbers.Plates(layout, 0).Count == 0 && RoomNumbers.Plates(null, 2).Count == 0);
+        }
+        /// <summary>
+        /// The after-hours planner (ceiling light panels, which are lit, where the real lights stand) on realistic floors of several sizes:
+        /// deterministic, panels inside their room and clear of the elevator shafts, the lobby lit, light in every 18 m cell, a sensible
+        /// share on, and a panel mesh whose faces point the right way.
+        /// </summary>
+        public static void LightingTest()
+        {
+            bool all = true, deterministic = true, inside = true, clearOfShafts = true, noOverlap = true, carsLit = true, lobbyLit = true,
+                 everyCell = true, shareOk = true, sourcesOk = true;
+            int panelsTotal = 0;
+            foreach (var (cols, rows, floor) in new[] { (3, 2, 1), (5, 4, 2), (8, 5, 9), (8, 5, 12), (9, 6, 4) })
+            {
+                for (int s = 0; s < 3; s++)
+                {
+                    int seed = 1000 + floor * 7919 + s * 131;
+                    var pin = new PlanInput { seed = seed, floor = floor, cols = cols, rows = rows, openE = new bool[cols, rows], openN = new bool[cols, rows],
+                        elevC = 0, elevR = 0, elevDoorEast = true, hiddenHall = floor == 12, guestC = cols - 1, guestR = rows - 1, guestDirX = 1, cafe = floor == 1 };
+                    for (int c = 0; c < cols; c++)
+                        for (int r = 0; r < rows; r++) { pin.openE[c, r] = c < cols - 1; pin.openN[c, r] = r < rows - 1; }
+                    var layout = OfficePlanner.Build(pin);
+                    var input = new AfterHours.Input { layout = layout, floor = floor, seed = seed, footprint = new Rc(0f, 0f, cols * 18f, rows * 18f) };
+                    var shaft = new Rc(4.8f, 4.8f, 13.2f, 13.2f);
+                    input.solids.Add(shaft);
+                    if (floor == 12) input.solids.Add(new Rc(0f, 4.8f, 5.2f, 13.2f));
+                    float gx = (cols - 0.5f) * 18f, gz = (rows - 0.5f) * 18f;
+                    input.solids.Add(new Rc(gx - 2.8f, gz - 2.8f, gx + 2.8f, gz + 2.8f));
+                    input.cars.Add(new Rc(5.2f, 5.2f, 12.8f, 12.8f));
+                    input.cars.Add(new Rc(gx - 2.4f, gz - 2.4f, gx + 2.4f, gz + 2.4f));
+                    var plan = AfterHours.Build(input);
+                    var again = AfterHours.Build(input);
+                    panelsTotal += plan.panels.Count;
+
+                    deterministic &= plan.panels.Count == again.panels.Count && plan.sources.Count == again.sources.Count && plan.LitPanels == again.LitPanels;
+                    foreach (var p in plan.panels)
+                    {
+                        if (p.room < 0) continue;
+                        var b = layout.rooms[p.room].bounds;
+                        var f = AfterHours.FrameRect(p);
+                        inside &= f.x0 >= b.x0 + AfterHours.WallMargin - 1e-4f && f.x1 <= b.x1 - AfterHours.WallMargin + 1e-4f
+                               && f.z0 >= b.z0 + AfterHours.WallMargin - 1e-4f && f.z1 <= b.z1 - AfterHours.WallMargin + 1e-4f;
+                        foreach (var so in input.solids) clearOfShafts &= !f.Overlaps(so);
+                    }
+                    for (int i = 0; i < plan.panels.Count && noOverlap; i++)
+                        for (int j = i + 1; j < plan.panels.Count; j++)
+                            if (plan.panels[i].room != -2 && plan.panels[j].room != -2
+                                && AfterHours.FrameRect(plan.panels[i]).Overlaps(AfterHours.FrameRect(plan.panels[j]))) { noOverlap = false; break; }
+                    int litCars = 0, lobby = 0, lobbyOn = 0;
+                    var litCells = new System.Collections.Generic.HashSet<long>();
+                    foreach (var p in plan.panels)
+                    {
+                        if (p.room == -2 && p.lit) litCars++;
+                        if (p.room >= 0 && layout.rooms[p.room].theme == "lobby") { lobby++; if (p.lit) lobbyOn++; }
+                        if (p.lit && p.room >= 0) litCells.Add((long)(p.x / 18f) * 1000 + (long)(p.z / 18f));
+                    }
+                    carsLit &= litCars == input.cars.Count;
+                    lobbyLit &= lobby >= 8 && lobbyOn == lobby;
+                    for (int c = 0; c < cols; c++)
+                        for (int r = 0; r < rows; r++) everyCell &= litCells.Contains(c * 1000L + r);
+                    shareOk &= plan.LitShare >= 0.30f && plan.LitShare <= 0.80f;
+                    sourcesOk &= plan.sources.Count >= 6 && plan.sources.Count <= plan.LitPanels;
+                    foreach (var so in plan.sources)
+                    {
+                        bool onLit = false;
+                        foreach (var p in plan.panels) if (p.lit && p.x == so.x && p.z == so.z) { onLit = true; break; }
+                        sourcesOk &= onLit;
+                    }
+                }
+            }
+            all = deterministic && inside && clearOfShafts && noOverlap && carsLit && lobbyLit && everyCell && shareOk && sourcesOk;
+            Check($"lighting: planned {panelsTotal} panels over 15 floors", panelsTotal > 500);
+            Check("lighting: the same seed gives the same lights", deterministic);
+            Check("lighting: every panel lies inside its room, clear of the walls", inside);
+            Check("lighting: no panel is over an elevator shaft or the hidden hallway walls", clearOfShafts);
+            Check("lighting: no two panels overlap", noOverlap);
+            Check("lighting: every elevator car has a lit panel", carsLit);
+            Check("lighting: the lobby is lit all round", lobbyLit);
+            Check("lighting: every 18 m cell has a lit panel", everyCell);
+            Check("lighting: 30-80 % of the panels are on", shareOk);
+            Check("lighting: the real lights stand on lit panels, and are not more than the lit panels", sourcesOk);
+
+            // an open floor (the docks, the boss floor): everything lit
+            var open = new AfterHours.Input { layout = null, floor = 0, seed = 5, footprint = new Rc(0f, 0f, 36f, 18f), allLit = true };
+            open.solids.Add(new Rc(4.8f, 4.8f, 13.2f, 13.2f)); open.cars.Add(new Rc(5.2f, 5.2f, 12.8f, 12.8f));
+            var op = AfterHours.Build(open);
+            bool allOn = op.panels.Count >= 6;
+            foreach (var p in op.panels) allOn &= p.lit;
+            Check("lighting: an open floor is lit everywhere", allOn && op.sources.Count >= 4);
+
+            // litScale darkens and brightens
+            var lay = OfficePlanner.Build(new PlanInput { seed = 4242, floor = 5, cols = 8, rows = 5, openE = Open(8, 5, true), openN = Open(8, 5, false), guestC = 7, guestR = 4, guestDirX = 1 });
+            float Share(float k) { var i = new AfterHours.Input { layout = lay, floor = 5, seed = 4242, footprint = new Rc(0f, 0f, 144f, 90f), litScale = k }; return AfterHours.Build(i).LitShare; }
+            Check("lighting: litScale orders the lit share", Share(0.4f) <= Share(1f) && Share(1f) <= Share(1.8f));
+
+            // the panel mesh: right counts and every triangle faces along its normal
+            var g = new PanelGeometry();
+            foreach (var (alongX, lit, cool) in new[] { (true, false, false), (false, true, false), (true, true, true), (false, false, true) })
+                g.Add(new AfterHours.Panel { x = 3, z = -2, alongX = alongX, lit = lit, cool = cool }, 3.5f);
+            bool winding = g.VertexCount == 4 * 6 * 4;
+            int tris = 0;
+            for (int m = 0; m < 4; m++)
+            {
+                var t = g.triangles[m];
+                winding &= t.Count % 3 == 0;
+                for (int k = 0; k + 2 < t.Count; k += 3)
+                {
+                    tris++;
+                    int a = t[k], b = t[k + 1], c = t[k + 2];
+                    var A = new Vector3(g.vertices[a * 3], g.vertices[a * 3 + 1], g.vertices[a * 3 + 2]);
+                    var B = new Vector3(g.vertices[b * 3], g.vertices[b * 3 + 1], g.vertices[b * 3 + 2]);
+                    var C = new Vector3(g.vertices[c * 3], g.vertices[c * 3 + 1], g.vertices[c * 3 + 2]);
+                    var n = new Vector3(g.normals[a * 3], g.normals[a * 3 + 1], g.normals[a * 3 + 2]);
+                    var cross = Vector3.Cross(B - A, C - A);
+                    winding &= cross.sqrMagnitude > 1e-10f && Vector3.Dot(cross.normalized, n) > 0.999f;
+                }
+            }
+            winding &= tris == 4 * 6 * 2;
+            winding &= g.triangles[PanelGeometry.Off].Count == 12 && g.triangles[PanelGeometry.OnWarm].Count == 6 && g.triangles[PanelGeometry.OnCool].Count == 6;
+            Check("lighting: the panel mesh has whole, outward-facing triangles in the right materials", winding);
+        }
+
+        /// <summary>
+        /// The elevator's interior plan (wood panels, steel trim, mirror), its mesh, the wood texture and the mirror arithmetic, for all four
+        /// door layouts of the service elevator (front door east or north, with and without the floor-12 back door).
+        /// </summary>
+        public static void ElevatorLookTest()
+        {
+            const float H = ElevatorLook.Half, dh = ElevatorLook.DoorHalf, ceilB = ElevatorLook.Height - ElevatorLook.CeilingThickness;
+            var layouts = new[]
+            {
+                (ElevatorLook.Side.East, -1, ElevatorLook.Side.North), (ElevatorLook.Side.East, (int)ElevatorLook.Side.West, ElevatorLook.Side.North),
+                (ElevatorLook.Side.North, -1, ElevatorLook.Side.East), (ElevatorLook.Side.North, (int)ElevatorLook.Side.South, ElevatorLook.Side.East)
+            };
+            bool mirrorOk = true, doorwaysOk = true, railOk = true, shallowOk = true, meshOk = true, lampsOk = true, deterministic = true;
+            foreach (var (front, back, panel) in layouts)
+            {
+                var plan = ElevatorLook.Build(new ElevatorLook.Input { front = front, back = back, panelWall = panel, seed = 5 });
+                var again = ElevatorLook.Build(new ElevatorLook.Input { front = front, back = back, panelWall = panel, seed = 5 });
+                deterministic &= plan.boxes.Count == again.boxes.Count && plan.boxes.Count > 40;
+
+                var m = plan.mirror;
+                ElevatorLook.Inward(m != null ? m.wall : front, out float nx, out float nz);
+                mirrorOk &= m != null && m.wall == ElevatorLook.Opposite(panel) && m.wall != front && (int)m.wall != back && m.nx == nx && m.nz == nz && m.width > 6.5f;
+
+                // the doorways are open (only the sill is in them), and nothing but the rail stands more than 11 cm out of a wall
+                var doors = new System.Collections.Generic.List<ElevatorLook.Side> { front };
+                if (back >= 0) doors.Add((ElevatorLook.Side)back);
+                foreach (var b in plan.boxes)
+                {
+                    if (b.name == "Sill" || b.name == "Carpet" || b.name.StartsWith("Ceiling") || b.name == "DoorFrame") continue;
+                    foreach (var s in doors)
+                    {
+                        float x0 = s == ElevatorLook.Side.East ? H - 0.1f : s == ElevatorLook.Side.West ? -H - 0.4f : -dh;
+                        float x1 = s == ElevatorLook.Side.East ? H + 0.4f : s == ElevatorLook.Side.West ? -H + 0.1f : dh;
+                        float z0 = s == ElevatorLook.Side.North ? H - 0.1f : s == ElevatorLook.Side.South ? -H - 0.4f : -dh;
+                        float z1 = s == ElevatorLook.Side.North ? H + 0.4f : s == ElevatorLook.Side.South ? -H + 0.1f : dh;
+                        bool hit = b.x0 < x1 - 1e-4f && b.x1 > x0 + 1e-4f && b.z0 < z1 - 1e-4f && b.z1 > z0 + 1e-4f && b.y0 < ceilB && b.y1 > 0.06f;
+                        doorwaysOk &= !hit;
+                    }
+                    float depth = Mathf.Min(Mathf.Min(H - b.x0, b.x1 + H), Mathf.Min(H - b.z0, b.z1 + H));
+                    shallowOk &= depth <= 0.1101f;
+                    if (b.name == "Rail" || b.name == "Band")
+                    {
+                        bool onPanelWall = panel == ElevatorLook.Side.North ? b.z0 > H - 0.2f : b.x0 > H - 0.2f;
+                        float end = panel == ElevatorLook.Side.North ? b.x1 : b.z1;
+                        if (onPanelWall) railOk &= end <= Mathf.Min(ElevatorLook.PanelAlong - ElevatorLook.PanelHalfWidth, ElevatorLook.GoAlong - ElevatorLook.GoHalfWidth) - 0.05f;
+                    }
+                }
+
+                var parts = CarMesh.From(plan).parts;
+                int tris = 0;
+                for (int k = 0; k < parts.Length; k++)
+                {
+                    var p = parts[k];
+                    meshOk &= p.VertexCount > 0 && p.normals.Count == p.vertices.Count && p.uvs.Count == p.VertexCount * 2 && p.triangles.Count % 3 == 0;
+                    for (int t = 0; t + 2 < p.triangles.Count; t += 3)
+                    {
+                        tris++;
+                        int a = p.triangles[t], b2 = p.triangles[t + 1], c = p.triangles[t + 2];
+                        var A = new Vector3(p.vertices[a * 3], p.vertices[a * 3 + 1], p.vertices[a * 3 + 2]);
+                        var B = new Vector3(p.vertices[b2 * 3], p.vertices[b2 * 3 + 1], p.vertices[b2 * 3 + 2]);
+                        var C = new Vector3(p.vertices[c * 3], p.vertices[c * 3 + 1], p.vertices[c * 3 + 2]);
+                        var n = new Vector3(p.normals[a * 3], p.normals[a * 3 + 1], p.normals[a * 3 + 2]);
+                        var cross = Vector3.Cross(B - A, C - A);
+                        meshOk &= cross.sqrMagnitude > 1e-12f && Vector3.Dot(cross.normalized, n) > 0.999f;
+                    }
+                }
+                meshOk &= tris == plan.boxes.Count * 12 + plan.discs.Count * CarMesh.DiscSides;
+                lampsOk &= plan.lamps.Count == 4 && plan.discs.Count == 18;
+            }
+            Check("elevator: the plan is the same every time", deterministic);
+            Check("elevator: the mirror is on the wall opposite the floor panel, facing in, never over a door", mirrorOk);
+            Check("elevator: the doorways stay clear", doorwaysOk);
+            Check("elevator: the rail stops before the floor panel and the GO button", railOk);
+            Check("elevator: the trim stands no more than 11 cm out of the walls", shallowOk);
+            Check("elevator: the mesh has whole triangles that face outward, in every material", meshOk);
+            Check("elevator: nine downlights and four ceiling lamps", lampsOk);
+
+            var px = ProceduralWood.Pixels(ProceduralWood.Width, ProceduralWood.Height, 11);
+            double sum = 0;
+            for (int i = 0; i < px.Length; i += 4) sum += 0.30 * px[i] + 0.59 * px[i + 1] + 0.11 * px[i + 2];
+            double mean = sum / (px.Length / 4);
+            Check("elevator: the wood texture is orange-brown, neither black nor white", px.Length == ProceduralWood.Width * ProceduralWood.Height * 4 && mean > 90 && mean < 190);
+
+            var r = MirrorMath.Reflection(0f, 0f, 1f, -2f);                // the plane z = 2
+            MirrorMath.Transform(r, 1f, 3f, 5f, out float ox, out float oy, out float oz);
+            Check("elevator: reflecting in the mirror plane flips the distance", Mathf.Abs(ox - 1f) < 1e-4f && Mathf.Abs(oy - 3f) < 1e-4f && Mathf.Abs(oz - (-1f)) < 1e-4f);
+            MirrorMath.TextureSize(1920, 1080, 0.6f, out int tw, out int th);
+            Check("elevator: the mirror picture is a share of the screen", tw == 1152 && th == 648);
+        }
+
+        static bool[,] Open(int cols, int rows, bool east)
+        {
+            var a = new bool[cols, rows];
+            for (int c = 0; c < cols; c++)
+                for (int r = 0; r < rows; r++) a[c, r] = east ? c < cols - 1 : r < rows - 1;
+            return a;
+        }
+
         /// <summary>Builds the character catalog from the Tiny Toon pack and checks it (needs the pack imported).</summary>
         public static void ToonSetup()
         {
@@ -169,6 +424,94 @@ namespace BuildingEscape.EditorTools
                 if (clip) Debug.Log($"[NetTest] clip {clip.name}: length={clip.length:0.00}s humanMotion={clip.humanMotion} looping={clip.isLooping}");
         }
 
+        /// <summary>
+        /// Guards and doors: which officers walk through doors (and so open them), when a walk counts as going into a doorway, what a guard
+        /// sees (the cone) and how long a chase lasts. The same checks run outside Unity (scratchpad guard_test).
+        /// </summary>
+        public static void DoorOpenersTest()
+        {
+            // who walks about by himself
+            Check("doors: patrolling, investigating and chasing officers use doors", GuardAI.UsesDoors(GuardState.Patrol) && GuardAI.UsesDoors(GuardState.Investigate) && GuardAI.UsesDoors(GuardState.Chase));
+            Check("doors: officers who stand (calling, pinning, stunned) do not", !GuardAI.UsesDoors(GuardState.Calling) && !GuardAI.UsesDoors(GuardState.Pinning) && !GuardAI.UsesDoors(GuardState.Stunned));
+
+            // a doorway in a wall along x at z = 0, gap 2 m (HalfGap 1): the zone is the gap (+0.25) and 0.5 m each side of the wall's middle
+            const float reach = 1.25f, zone = SlidingDoor.WalkZone;
+            bool Enters(float px, float pz, float dx, float dz, float len) => DoorGeometry.WalkEnters(px, pz, dx, dz, len, 0f, 0f, true, reach, zone);
+            Check("doors: a walk straight at the doorway goes in", Enters(0f, -3f, 0f, 1f, 2.6f));
+            Check("doors: ...but not when the look-ahead is too short to get there", !Enters(0f, -3f, 0f, 1f, 2.0f));
+            Check("doors: walking away from the doorway does not", !Enters(0f, -1f, 0f, -1f, 6f));
+            Check("doors: walking along the wall, 2 m away, does not", !Enters(-4f, -2f, 1f, 0f, 8f));
+            Check("doors: walking along the wall as close as a guard can get (0.6 m) does not", !Enters(-4f, -0.6f, 1f, 0f, 8f));
+            Check("doors: an oblique walk through the gap goes in", Enters(-2f, -2f, 0.7071f, 0.7071f, 3.5f));
+            Check("doors: walking at the wall beside the doorway does not", !Enters(3f, -2f, 0f, 1f, 5f));
+            Check("doors: standing in the doorway and walking on counts", Enters(0.2f, 0.1f, 0f, 1f, 1f));
+
+            // a route that bends into the doorway after 4 m
+            var xs = new float[8]; var zs = new float[8];
+            xs[0] = -4f; zs[0] = -2f; xs[1] = 0.5f; zs[1] = -0.6f; xs[2] = 0.5f; zs[2] = 0.6f; xs[3] = 0.5f; zs[3] = 3f;
+            Check("doors: a route that turns into the doorway is seen in time", DoorGeometry.RouteEnters(xs, zs, 4, 5f, 0f, 0f, true, reach, zone));
+            Check("doors: ...and not before it is within the look-ahead", !DoorGeometry.RouteEnters(xs, zs, 4, 3f, 0f, 0f, true, reach, zone));
+            xs[0] = -4f; zs[0] = -2f; xs[1] = 4f; zs[1] = -2f;
+            Check("doors: a route straight past the doorway does not go in", !DoorGeometry.RouteEnters(xs, zs, 2, 20f, 0f, 0f, true, reach, zone));
+
+            // what a guard sees: the fan he shows on the floor (65 degrees each side, 14 m)
+            Check("guards: a player straight ahead is in the cone", GuardRules.InCone(0f, 1f, 0f, 5f, 65f, 14f));
+            Check("guards: a player 70 degrees off is not", !GuardRules.InCone(0f, 1f, Mathf.Sin(70f * Mathf.Deg2Rad) * 5f, Mathf.Cos(70f * Mathf.Deg2Rad) * 5f, 65f, 14f));
+            Check("guards: a player behind him is not", !GuardRules.InCone(0f, 1f, 0f, -5f, 65f, 14f));
+            Check("guards: a player past his range is not", !GuardRules.InCone(0f, 1f, 0f, 15f, 65f, 14f));
+            Check("guards: a player right on top of him is, whichever way he faces", GuardRules.InCone(0f, 1f, 0f, -0.3f, 65f, 14f));
+
+            // the chase: as long as somebody is in view he keeps after him; 5 s out of view in a row and he gives up
+            float unseen = 0f; bool over = false;
+            for (int i = 0; i < 3600 && !over; i++) over = GuardRules.PursuitOver(ref unseen, true, 1f / 60f, GuardRules.LoseSightSeconds);
+            Check("guards: a minute in view and the chase is still on", !over);
+            unseen = 0f; over = false;
+            for (int i = 0; i < 290; i++) over |= GuardRules.PursuitOver(ref unseen, false, 1f / 60f, GuardRules.LoseSightSeconds);
+            Check("guards: 4.8 s out of view is not enough to give up", !over);
+            over |= GuardRules.PursuitOver(ref unseen, true, 1f / 60f, GuardRules.LoseSightSeconds);
+            for (int i = 0; i < 290; i++) over |= GuardRules.PursuitOver(ref unseen, false, 1f / 60f, GuardRules.LoseSightSeconds);
+            Check("guards: a glimpse of the player starts the 5 s again", !over);
+            for (int i = 0; i < 20; i++) over |= GuardRules.PursuitOver(ref unseen, false, 1f / 60f, GuardRules.LoseSightSeconds);
+            Check("guards: 5 s out of view in a row and he gives up", over);
+            Check("guards: the limit is 5 s", Mathf.Approximately(GuardRules.LoseSightSeconds, 5f));
+        }
+
+        /// <summary>The crosshair's arithmetic: rays against doorways, items and the dealer, which one E means, and the swing direction.</summary>
+        public static void AimMathTest()
+        {
+            const float inf = float.PositiveInfinity;
+            bool Near(float a, float b) => Mathf.Abs(a - b) < 1e-3f;
+
+            // a door in a wall running along x at z = 10 (centre x = 4, gap 1.8, height 2.6, wall 0.3 thick)
+            bool front = AimMath.RayDoorway(4f, 1.5f, 6f, 0f, 0f, 1f, 4f, 10f, true, 0.9f, 2.6f, 0.3f, 20f, out float en, out float ex);
+            Check("aim: a ray through the middle of a doorway hits it", front && Near(en, 4f - 0.15f - AimMath.DoorPad) && ex > en);
+            Check("aim: the wall beside the doorway is not the door", !AimMath.RayDoorway(6f, 1.5f, 6f, 0f, 0f, 1f, 4f, 10f, true, 0.9f, 2.6f, 0.3f, 20f, out _, out _));
+            Check("aim: far over the door is not the door", !AimMath.RayDoorway(4f, 3.5f, 6f, 0f, 0f, 1f, 4f, 10f, true, 0.9f, 2.6f, 0.3f, 20f, out _, out _));
+            Check("aim: a doorway in a wall along z is hit from the side", AimMath.RayDoorway(0f, 1.5f, 10f, 1f, 0f, 0f, 4f, 10f, false, 0.9f, 2.6f, 0.3f, 20f, out float e2, out _) && Near(e2, 4f - 0.15f - AimMath.DoorPad));
+            Check("aim: a doorway farther than the ray is long is missed", !AimMath.RayDoorway(4f, 1.5f, -30f, 0f, 0f, 1f, 4f, 10f, true, 0.9f, 2.6f, 0.3f, 20f, out _, out _));
+
+            Check("aim: a small item is hit", AimMath.RayItem(0f, 1f, -5f, 0f, 0f, 1f, -0.1f, 0.9f, -0.1f, 0.1f, 1.1f, 0.1f, 20f, out float ti) && Near(ti, 5f - 0.1f - AimMath.ItemPad));
+            Check("aim: just beside a small item still hits it (padding)", AimMath.RayItem(0.15f, 1f, -5f, 0f, 0f, 1f, -0.1f, 0.9f, -0.1f, 0.1f, 1.1f, 0.1f, 20f, out _));
+            Check("aim: well beside it misses", !AimMath.RayItem(0.3f, 1f, -5f, 0f, 0f, 1f, -0.1f, 0.9f, -0.1f, 0.1f, 1.1f, 0.1f, 20f, out _));
+
+            Check("aim: the dealer (an upright cylinder) is hit head on", AimMath.RayCylinderY(0f, 1f, -5f, 0f, 0f, 1f, 0f, 0f, 0.5f, 0f, 2f, 20f, out float td) && Near(td, 4.5f));
+            Check("aim: beside or over the dealer misses",
+                !AimMath.RayCylinderY(0.6f, 1f, -5f, 0f, 0f, 1f, 0f, 0f, 0.5f, 0f, 2f, 20f, out _) && !AimMath.RayCylinderY(0f, 2.5f, -5f, 0f, 0f, 1f, 0f, 0f, 0.5f, 0f, 2f, 20f, out _));
+
+            Check("aim: nothing under the crosshair is nothing", AimMath.Choose(inf, inf, inf, inf) == AimMath.Pick.None);
+            Check("aim: an item in front of a door beats it", AimMath.Choose(2f, 3f, 3.3f, inf) == AimMath.Pick.Pickup);
+            Check("aim: an item inside the doorway beats the door (a crate that keeps it open can be picked up)", AimMath.Choose(3.1f, 3f, 3.3f, inf) == AimMath.Pick.Pickup);
+            Check("aim: an item far behind the door loses to it", AimMath.Choose(5f, 3f, 3.3f, inf) == AimMath.Pick.Door);
+            Check("aim: the nearer of the dealer and a door wins", AimMath.Choose(inf, 3f, 3.3f, 2f) == AimMath.Pick.Dealer && AimMath.Choose(inf, 3f, 3.3f, 4f) == AimMath.Pick.Door);
+
+            // the camera sits 2.6 behind and 0.45 to the right of the player, looking straight ahead: the swing leans a little right
+            bool ok = AimMath.SwingDirection(0.45f, 1.35f, -2.6f, 0f, 0f, 1f, 0f, 1f, 0f, 2.4f, out float sx, out float sz);
+            Check("aim: a swing leans towards the crosshair", ok && sx > 0.05f && sx < 0.4f && sz > 0.9f && Near(sx * sx + sz * sz, 1f));
+            ok = AimMath.SwingDirection(0f, 1.35f, -2.6f, 0f, 0f, 1f, 0f, 1f, 0f, 2.4f, out sx, out sz);
+            Check("aim: a swing along the player's own line goes straight ahead", ok && Near(sx, 0f) && Near(sz, 1f));
+            Check("aim: the aim ray starts at the player's depth and ends past his reach", Near(AimMath.StartT(2.6f), 2.35f) && AimMath.StartT(0.1f) == 0f && AimMath.EndT(2.6f, 2.2f) > 2.6f + 2.2f);
+        }
+
         static void Check(string name, bool ok) => Debug.Log($"[NetTest] policy {name}: {(ok ? "PASS" : "FAIL")}");
     }
-}
+}

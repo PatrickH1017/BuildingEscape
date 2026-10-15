@@ -102,6 +102,7 @@ namespace BuildingEscape
             beam.intensity = 2.2f;
             beam.color = new Color(1f, 0.93f, 0.7f);
             beam.shadows = LightShadows.None;
+            beam.renderMode = LightRenderMode.ForcePixel;   // always a real per-pixel light, even in the lit/dark night office
         }
 
         /// <summary>A cylinder lying along the torch's Z axis: centre at z, thickness in metres, length in metres.</summary>

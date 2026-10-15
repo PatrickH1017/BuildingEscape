@@ -6,10 +6,10 @@ namespace BuildingEscape
     public enum DoorEvent { None, Opening, Closing }
 
     /// <summary>
-    /// The brain of an automatic sliding door, free of Unity types so it can be tested outside Unity. It opens as soon as somebody is
-    /// near, stays open while anybody is near and for a moment after, then closes - unless something is in the doorway, in which case
-    /// it stays (or goes back) open. The caller only gives the door a collider once <see cref="IsShut"/>, so a door that is opening,
-    /// open or closing can never knock anybody over.
+    /// The brain of a sliding door, free of Unity types so it can be tested outside Unity. It opens as soon as it is told somebody wants
+    /// it (<c>occupied</c>: a player has opened it with E, or an officer is about to walk through it), stays open while that goes on and for a
+    /// moment after, then closes - unless something is in the doorway, in which case it stays (or goes back) open. The caller only gives
+    /// the door a collider once <see cref="IsShut"/>, so a door that is opening, open or closing can never knock anybody over.
     /// </summary>
     public struct DoorLogic
     {
@@ -32,6 +32,15 @@ namespace BuildingEscape
         public bool Moving => WantOpen ? Open < 1f : Open > 0f;
 
         /// <summary>
+        /// Somebody asked for the door to close: an open door does not wait out its linger time but starts closing as soon as nobody
+        /// holds it open any more (and nothing is in the doorway).
+        /// </summary>
+        public void CloseNow(float now)
+        {
+            if (CloseAfter > now) CloseAfter = now;
+        }
+
+        /// <summary>
         /// Whether the caller must find out if something is in the doorway before calling <see cref="Step"/>. That is a physics query,
         /// so it is only made when the answer matters: when the door is about to start closing, and in the last stretch of closing.
         /// </summary>
@@ -44,9 +53,9 @@ namespace BuildingEscape
 
         /// <summary>
         /// Moves the door on by <paramref name="dt"/> seconds and says if it just started to open or close.
-        /// <paramref name="occupied"/>: somebody is near the door. <paramref name="blocked"/>: something is in the doorway itself (it
-        /// only has to be right when <see cref="NeedsBlockCheck"/> says so). <paramref name="linger"/>: how long it stays open after
-        /// the last person went away.
+        /// <paramref name="occupied"/>: something holds the door open (a player opened it with E, or an officer is at it).
+        /// <paramref name="blocked"/>: something is in the doorway itself (it only has to be right when <see cref="NeedsBlockCheck"/>
+        /// says so). <paramref name="linger"/>: how long it stays open after the last thing that held it open stopped.
         /// </summary>
         public DoorEvent Step(float now, float dt, bool occupied, bool blocked, float openSeconds, float closeSeconds, float linger)
         {
@@ -105,6 +114,72 @@ namespace BuildingEscape
             float dx = Math.Abs(px - cx), dz = Math.Abs(pz - cz);
             float along = alongX ? dx : dz, across = alongX ? dz : dx;
             return along <= reachAlong && across <= reachAcross;
+        }
+
+        /// <summary>
+        /// Does a walk of <paramref name="length"/> metres from (<paramref name="px"/>, <paramref name="pz"/>) the way (<paramref name="dx"/>,
+        /// <paramref name="dz"/>) (a unit vector) go into the doorway's zone? The zone is the gap (<paramref name="reachAlong"/> each way from
+        /// the middle) and <paramref name="thickness"/> metres in front of and behind the wall's middle plane. A walk that starts inside
+        /// it counts. Walking along the wall further away than that, or away from the doorway, does not.
+        /// </summary>
+        public static bool WalkEnters(float px, float pz, float dx, float dz, float length, float cx, float cz, bool alongX, float reachAlong, float thickness)
+        {
+            float u0 = alongX ? px - cx : pz - cz, v0 = alongX ? pz - cz : px - cx;      // along the wall, across it
+            float du = alongX ? dx : dz, dv = alongX ? dz : dx;
+            float t0 = 0f, t1 = length;
+            return Clip(u0, du, -reachAlong, reachAlong, ref t0, ref t1) && Clip(v0, dv, -thickness, thickness, ref t0, ref t1);
+        }
+
+        /// <summary>Liang-Barsky: the part of t in [t0, t1] where p + d t is within [lo, hi]; false when there is none.</summary>
+        static bool Clip(float p, float d, float lo, float hi, ref float t0, ref float t1)
+        {
+            if (Math.Abs(d) < 1e-6f) return p >= lo && p <= hi;
+            float a = (lo - p) / d, b = (hi - p) / d;
+            if (a > b) { float s = a; a = b; b = s; }
+            if (a > t0) t0 = a;
+            if (b < t1) t1 = b;
+            return t0 <= t1;
+        }
+
+        /// <summary>
+        /// Does a walk along a route (the points <paramref name="xs"/> / <paramref name="zs"/>, <paramref name="count"/> of them, from
+        /// where he stands through the corners of his path) go into the doorway's zone within its first <paramref name="reach"/> metres?
+        /// (<see cref="WalkEnters"/> for each leg in turn.)
+        /// </summary>
+        public static bool RouteEnters(float[] xs, float[] zs, int count, float reach, float cx, float cz, bool alongX, float reachAlong, float thickness)
+        {
+            float left = reach;
+            for (int i = 0; i + 1 < count && left > 0f; i++)
+            {
+                float dx = xs[i + 1] - xs[i], dz = zs[i + 1] - zs[i];
+                float len = (float)Math.Sqrt(dx * dx + dz * dz);
+                if (len < 1e-4f) continue;
+                if (WalkEnters(xs[i], zs[i], dx / len, dz / len, Math.Min(len, left), cx, cz, alongX, reachAlong, thickness)) return true;
+                left -= len;
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// How good a choice a door is for a player who presses the use key, or <see cref="float.MaxValue"/> when it is out of reach (lower
+        /// is better). The reach is measured to the nearest point of the doorway; doors in front of the player beat doors behind them, so
+        /// in a corridor with doors on both sides the one he is looking at is the one that works.
+        /// </summary>
+        /// <param name="fx">Where the player faces (x, z; need not be normalised).</param>
+        public static float UseScore(float px, float pz, float fx, float fz, float cx, float cz, bool alongX, float halfGap, float reach)
+        {
+            // nearest point of the doorway (a line along the wall)
+            float qx = cx, qz = cz;
+            if (alongX) qx = Math.Min(cx + halfGap, Math.Max(cx - halfGap, px));
+            else qz = Math.Min(cz + halfGap, Math.Max(cz - halfGap, pz));
+            float vx = qx - px, vz = qz - pz;
+            float dist = (float)Math.Sqrt(vx * vx + vz * vz);
+            if (dist > reach) return float.MaxValue;
+
+            float facing = 1f;                                           // standing in the doorway: it is the one
+            float flen = (float)Math.Sqrt(fx * fx + fz * fz);
+            if (dist > 0.3f && flen > 0.0001f) facing = (fx * vx + fz * vz) / (flen * dist);
+            return dist - 0.6f * facing;
         }
     }
 }

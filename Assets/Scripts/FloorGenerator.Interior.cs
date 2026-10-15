@@ -62,6 +62,8 @@ namespace BuildingEscape
             if (partitionMat) Kill(partitionMat);
             if (panelMat) Kill(panelMat);
             DestroyDoorMaterial();
+            DestroyNightMaterials();
+            DestroyCarMaterials();
             if (protoHolder) Kill(protoHolder.gameObject);
         }
 
@@ -105,6 +107,7 @@ namespace BuildingEscape
                 cafe = floor == 1
             };
             layout = OfficePlanner.Build(input);
+            layoutFloor = floor;
             SelectLoot(floor, seed);
         }
 
@@ -221,6 +224,8 @@ namespace BuildingEscape
                 var go = Box("RoomFloor", new Vector3(r.Cx, 0.005f, r.Cz), new Vector3(r.W, 0.01f, r.D), TintMat(p.tint), floors, collider: false);
                 go.GetComponent<Renderer>().shadowCastingMode = ShadowCastingMode.Off;
             }
+
+            BuildRoomNumbers(interior);
 
             // furniture
             int made = 0, boxes = 0;

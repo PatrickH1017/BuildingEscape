@@ -74,10 +74,13 @@ namespace BuildingEscape
         }
 
         /// <summary>Fills <paramref name="into"/> (cleared first) with each free pickup within reach, each one once.</summary>
-        public static void ScanNear(Transform who, float radius, List<Pickup> into)
+        public static void ScanNear(Transform who, float radius, List<Pickup> into) =>
+            ScanAround(who.position + who.forward * 0.7f + Vector3.up * 0.2f, radius, into);
+
+        /// <summary>Fills <paramref name="into"/> (cleared first) with each free pickup within <paramref name="radius"/> of a point, each one once.</summary>
+        public static void ScanAround(Vector3 centre, float radius, List<Pickup> into)
         {
             into.Clear();
-            var centre = who.position + who.forward * 0.7f + Vector3.up * 0.2f;
             int n = Physics.OverlapSphereNonAlloc(centre, radius, overlap, ~0, QueryTriggerInteraction.Ignore);
             seen.Clear();
             for (int i = 0; i < n; i++)
@@ -89,6 +92,26 @@ namespace BuildingEscape
                 into.Add(p);
             }
             System.Array.Clear(overlap, 0, n);          // do not keep destroyed colliders alive
+        }
+
+        /// <summary>How far, in metres, the nearest point of this item's solid colliders is from <paramref name="pos"/>.</summary>
+        public float DistanceFrom(Vector3 pos) => Vector3.Distance(pos, ClosestPointTo(pos));
+
+        /// <summary>The world box around all of this item's solid colliders (what the crosshair aims at). False if it has none.</summary>
+        public bool TryGetBounds(out Bounds box)
+        {
+            box = default;
+            bool any = false;
+            GetComponentsInChildren(ownColliders);
+            for (int i = 0; i < ownColliders.Count; i++)
+            {
+                var c = ownColliders[i];
+                if (c.isTrigger || !c.enabled) continue;
+                if (!any) { box = c.bounds; any = true; }
+                else box.Encapsulate(c.bounds);
+            }
+            ownColliders.Clear();
+            return any;
         }
 
         /// <summary>The point of this item's solid colliders nearest to <paramref name="pos"/> (its centre when it has none).</summary>

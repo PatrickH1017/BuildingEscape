@@ -20,7 +20,8 @@ namespace BuildingEscape
         public float hearingMultiplier = 1f;
         public float catchRadius = 1.6f;
         public float investigateWait = 3f;
-        public float loseSightSeconds = 4f;
+        [Tooltip("A chasing guard keeps after a player for as long as the player is in his cone of vision. Out of it for this many seconds in a row and he gives up.")]
+        public float loseSightSeconds = GuardRules.LoseSightSeconds;
         public LayerMask sightBlockers = ~0;
         [Tooltip("Melee hits it takes to knock a guard out for good.")]
         public int hitsToKill = 10;
@@ -38,7 +39,9 @@ namespace BuildingEscape
         /// <summary>All live guards (the backup indicator draws one ring per calling guard).</summary>
         public static readonly System.Collections.Generic.List<GuardAI> All = new();
 
-        public GuardState State { get; private set; } = GuardState.Patrol;
+        GuardState state = GuardState.Patrol;
+        public GuardState State { get => state; private set => state = value; }
+
         /// <summary>True while the guard is radioing for backup. Only a weapon hit stops it.</summary>
         public bool IsCalling => calling;
         /// <summary>0..1: how far the backup call has got.</summary>
@@ -59,6 +62,80 @@ namespace BuildingEscape
 
         /// <summary>Metres per second, for the walk animation (the host reads its agent, a puppet the streamed value).</summary>
         public float CurrentSpeed => IsPuppet ? netSpeed : (agent && agent.enabled && agent.isOnNavMesh ? agent.velocity.magnitude : 0f);
+
+        /// <summary>
+        /// Does a guard in this state walk about by himself, so that the doors open for him when he walks into one? (Calling, pinning
+        /// somebody, knocked out: no, he stands still.) Whatever the reason he is walking: on patrol, going to look at a noise or at
+        /// the place he lost the player, running at the player as backup, or chasing.
+        /// </summary>
+        public static bool UsesDoors(GuardState state) =>
+            state == GuardState.Patrol || state == GuardState.Investigate || state == GuardState.Chase;
+
+        /// <summary>
+        /// Where he is walking, for the doors (a door opens for a guard who is about to go through it): fills <paramref name="xs"/> /
+        /// <paramref name="zs"/> with his position followed by the corners of the rest of his path, and returns how many points that is,
+        /// or 0 when he is standing still, knocked out or busy standing (calling, pinning). <paramref name="speed"/> is how fast he goes.
+        /// The host reads its agent's path (so a door opens even for a guard about to turn into it); a remote client's puppet has
+        /// only the way it faces and the speed the host streamed, and is taken to keep walking straight on.
+        /// </summary>
+        public int GetRoute(float[] xs, float[] zs, out float speed)
+        {
+            speed = 0f;
+            if (Dead || !UsesDoors(state)) return 0;
+            var pos = transform.position;
+            xs[0] = pos.x; zs[0] = pos.z;
+            if (IsPuppet)
+            {
+                if (netSpeed < 0.3f) return 0;
+                var f = transform.forward; f.y = 0f;
+                if (f.sqrMagnitude < 0.0025f) return 0;
+                f.Normalize();
+                speed = Mathf.Max(netSpeed, MinLookSpeed);                    // (a puppet that has only just set off is still slow)
+                xs[1] = pos.x + f.x * StraightAhead; zs[1] = pos.z + f.z * StraightAhead;
+                return 2;
+            }
+            if (!agent || !agent.enabled || !agent.isOnNavMesh || agent.isStopped) return 0;
+            var want = agent.desiredVelocity; want.y = 0f;
+            if (want.sqrMagnitude < 0.0025f) return 0;                          // not going anywhere right now
+            speed = agent.speed;                                                // (the speed he is going to have, not the one he has yet)
+            int n = 1;
+            if (agent.hasPath)
+            {
+                if (cornerBuffer == null) cornerBuffer = new Vector3[xs.Length];
+                int c = agent.path.GetCornersNonAlloc(cornerBuffer);            // (the doors ask about ten times a second, only for guards on the move)
+                int leg = NearestLeg(cornerBuffer, c, pos);                     // (the list may still hold corners he has passed)
+                for (int i = leg + 1; i < c && n < xs.Length; i++) { xs[n] = cornerBuffer[i].x; zs[n] = cornerBuffer[i].z; n++; }
+            }
+            if (n == 1)
+            {
+                want.Normalize();                                               // no path to go by: straight on the way he wants to go
+                xs[1] = pos.x + want.x * StraightAhead; zs[1] = pos.z + want.z * StraightAhead;
+                n = 2;
+            }
+            return n;
+        }
+
+        /// <summary>The slowest a walking puppet is taken to walk, for looking ahead to a door (m/s).</summary>
+        const float MinLookSpeed = 1.5f;
+        /// <summary>How far a guard whose path is not known is taken to keep walking straight on (m).</summary>
+        const float StraightAhead = 12f;
+        Vector3[] cornerBuffer;
+
+        /// <summary>The leg (from corner i to i + 1) of a path that is nearest to p (flat); -1 if the path has fewer than two corners.</summary>
+        static int NearestLeg(Vector3[] c, int count, Vector3 p)
+        {
+            int best = -1; float bestSq = float.MaxValue;
+            for (int i = 0; i + 1 < count; i++)
+            {
+                float ax = c[i].x, az = c[i].z, bx = c[i + 1].x - ax, bz = c[i + 1].z - az;
+                float len2 = bx * bx + bz * bz;
+                float t = len2 > 1e-6f ? Mathf.Clamp01(((p.x - ax) * bx + (p.z - az) * bz) / len2) : 0f;
+                float qx = ax + bx * t - p.x, qz = az + bz * t - p.z;
+                float sq = qx * qx + qz * qz;
+                if (sq < bestSq - 1e-4f) { bestSq = sq; best = i; }
+            }
+            return best;
+        }
 
         /// <summary>Client: take the state the host sent.</summary>
         public void NetApply(GuardState state, bool dead, bool isCalling, float progress, float speed)
@@ -261,21 +338,31 @@ namespace BuildingEscape
             return d.magnitude;
         }
 
-        /// <summary>The chase (after the backup call): run at the player; touching them pins them to the ground. Lose them for a while and he gives up.</summary>
+        /// <summary>
+        /// The chase (after the backup call): run at the player; touching them pins them to the ground. He keeps after somebody for as long
+        /// as a free player is in his cone of vision. Lose them for <see cref="loseSightSeconds"/> in a row and he gives up
+        /// (<see cref="GuardRules.PursuitOver"/>).
+        /// </summary>
         void UpdateChase()
         {
             // the player he was after got pinned by someone else, or arrested: go for another free player in view
             if (target && target.Custody != CustodyState.Free) target = FindVisibleFreePlayer();
             if (!target) { LoseChase(); return; }
+
+            // in view: the target, or (if he got away from the cone) any other free player who is in it
+            bool seen = CanSee(target);
+            if (!seen)
+            {
+                var other = FindVisibleFreePlayer();
+                if (other) { target = other; seen = true; }
+            }
+            if (seen) lastSeenPos = target.transform.position;
+            if (GuardRules.PursuitOver(ref unseenFor, seen, Time.deltaTime, loseSightSeconds)) { LoseChase(); return; }
+
+            // (out of view he still runs at where the player is until the time is up)
             agent.isStopped = false;
             agent.speed = chaseSpeed;
             agent.SetDestination(target.transform.position);
-            if (CanSee(target)) { lastSeenPos = target.transform.position; unseenFor = 0f; }
-            else
-            {
-                unseenFor += Time.deltaTime;
-                if (unseenFor >= loseSightSeconds) { LoseChase(); return; }
-            }
             if (FlatDistance(target.transform) <= catchRadius && HeistManager.Instance != null && HeistManager.Instance.Pin(target, this))
                 BeginHold(target);
         }
@@ -396,8 +483,10 @@ namespace BuildingEscape
             var eye = transform.position + Vector3.up * 1.6f;
             var to = p.transform.position + Vector3.up * 0.9f - eye;
             float range = p.IsHidden ? hiddenSightRange : sightRange;
-            if (to.magnitude > range) return false;
-            if (Vector3.Angle(transform.forward, to) > sightAngle) return false;
+            // the cone is the fan he shows on the floor (GuardVision): flat, so standing close to him does not hide you from him
+            var flat = p.transform.position - transform.position;
+            var fwd = transform.forward;
+            if (!GuardRules.InCone(fwd.x, fwd.z, flat.x, flat.z, sightAngle, range)) return false;
             // trigger volumes (hide spots, the elevator zone...) must not block the view, or standing in one would make you invisible
             if (Physics.Raycast(eye, to.normalized, out var hit, range, sightBlockers, QueryTriggerInteraction.Ignore))
                 return hit.collider.GetComponentInParent<WobblyPlayer>() == p;
