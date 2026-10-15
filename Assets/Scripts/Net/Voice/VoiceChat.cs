@@ -47,6 +47,8 @@ namespace BuildingEscape.Net
         public bool Muted { get; set; }
         public bool Speaking { get; private set; }
         public float MicLevel { get; private set; }
+        /// <summary>How far, in metres, a guard hears you right now (0 when you are quiet). Louder voice = further.</summary>
+        public float HearingRadius { get; private set; }
 
         // test / diagnostics
         public int PacketsSent, PacketsReceived, PacketsRelayed;
@@ -163,7 +165,9 @@ namespace BuildingEscape.Net
         {
             var me = NetPlayer.Local;
             var vn = me ? me.GetComponent<VoiceNoise>() : null;
-            if (vn) vn.SetLevel(Speaking ? Mathf.Clamp01(MicLevel * 8f) : 0f);
+            float level = Speaking ? VoiceNoise.LevelFromRms(MicLevel, gate) : 0f;
+            if (vn) vn.SetLevel(level);
+            HearingRadius = vn && level > 0f ? vn.RadiusFor(level) : 0f;
         }
 
         void SendPacket(NetworkManager nm, byte codec, int length)
@@ -300,7 +304,7 @@ namespace BuildingEscape.Net
             string state = CurrentMode == Mode.Off ? "voice off"
                 : Muted ? $"MIC MUTED ({muteKey})"
                 : CurrentMode == Mode.PushToTalk ? $"hold {talkKey} to talk"
-                : Speaking ? "MIC: talking" : $"mic open ({muteKey} mutes)";
+                : Speaking ? $"MIC: talking - guards hear you up to {HearingRadius:0} m" : $"mic open ({muteKey} mutes)";
             var style = new GUIStyle(GUI.skin.label) { alignment = TextAnchor.MiddleRight, fontSize = 14 };
             style.normal.textColor = Muted || CurrentMode == Mode.Off ? new Color(1f, 0.5f, 0.4f) : (Speaking ? new Color(0.5f, 1f, 0.5f) : Color.white);
             GUI.Label(new Rect(Screen.width - 260f, 30f, 250f, 22f), state, style);

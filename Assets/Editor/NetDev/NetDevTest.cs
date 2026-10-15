@@ -28,6 +28,7 @@ namespace BuildingEscape.EditorTools
         {
             RulesTest();
             AppearanceTest();
+            VoiceCurveTest();
             string v = NetConst.BuildVersion;
             Check("allow", JoinPolicy.Evaluate(false, 1, v, v, true) == JoinVerdict.Allow);
             Check("allow 4th (3 connected)", JoinPolicy.Evaluate(false, 3, v, v, true) == JoinVerdict.Allow);
@@ -88,6 +89,28 @@ namespace BuildingEscape.EditorTools
             Check("ids", CharacterCatalog.ValidId("male_a") && !CharacterCatalog.ValidId("Male") && !CharacterCatalog.ValidId("a-b") && !CharacterCatalog.ValidId(""));
         }
 
+        /// <summary>The voice loudness -> guard hearing distance curve.</summary>
+        public static void VoiceCurveTest()
+        {
+            const float gate = 0.012f;
+            Check("voice: silence and the gate are level 0", VoiceNoise.LevelFromRms(0f, gate) == 0f && VoiceNoise.LevelFromRms(gate, gate) == 0f && VoiceNoise.LevelFromRms(gate * 0.5f, gate) == 0f);
+            float shoutRms = Mathf.Pow(10f, VoiceNoise.ShoutDb / 20f);
+            Check("voice: a shout is level 1, louder stays 1", Mathf.Approximately(VoiceNoise.LevelFromRms(shoutRms, gate), 1f) && VoiceNoise.LevelFromRms(1f, gate) == 1f);
+            bool rising = true; float prev = -1f;
+            for (float rms = gate * 1.1f; rms < shoutRms * 0.95f; rms *= 1.25f)
+            {
+                float l = VoiceNoise.LevelFromRms(rms, gate);
+                rising &= l > prev; prev = l;
+            }
+            Check("voice: every step louder is a higher level", rising);
+            // 6 dB (twice the amplitude) is always the same step of the range
+            float a = VoiceNoise.LevelFromRms(0.02f, gate), b = VoiceNoise.LevelFromRms(0.04f, gate), c = VoiceNoise.LevelFromRms(0.08f, gate);
+            Check("voice: doubling the volume adds the same distance each time", Mathf.Abs((b - a) - (c - b)) < 0.001f);
+            var go = new GameObject("vn"); var vn = go.AddComponent<VoiceNoise>();
+            float r0 = vn.RadiusFor(0f), r1 = vn.RadiusFor(0.25f), r2 = vn.RadiusFor(0.5f), r3 = vn.RadiusFor(1f);
+            Check("voice: the louder you speak the further guards hear (3 m ... 30 m)", r0 < r1 && r1 < r2 && r2 < r3 && Mathf.Approximately(r0, 3f) && Mathf.Approximately(r3, 30f));
+            Object.DestroyImmediate(go);
+        }
         /// <summary>Builds the character catalog from the Tiny Toon pack and checks it (needs the pack imported).</summary>
         public static void ToonSetup()
         {

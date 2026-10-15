@@ -239,7 +239,7 @@ namespace BuildingEscape.EditorTools
             yield return new WaitForSeconds(1f);
             var vn = player.GetComponent<VoiceNoise>();
             SneakCheck("the player carries a VoiceNoise", vn != null);
-            SneakCheck("a normal voice carries a long way", vn.RadiusFor(0.5f) >= 12f && vn.RadiusFor(1f) >= 20f && vn.RadiusFor(0.1f) >= 6f,
+            SneakCheck("a normal voice carries a long way", vn.RadiusFor(0.5f) >= 12f && vn.RadiusFor(1f) >= 25f && vn.RadiusFor(0.1f) >= 5f,
                 $"(0.1 -> {vn.RadiusFor(0.1f):0} m, 0.5 -> {vn.RadiusFor(0.5f):0} m, 1 -> {vn.RadiusFor(1f):0} m)");
 
             var guards = GuardAI.All.Where(g => g && !g.IsPuppet && !g.Dead).ToList();
@@ -274,7 +274,28 @@ namespace BuildingEscape.EditorTools
                 SneakCheck("talking at 9 m attracts the guard", target.State == GuardState.Investigate || target.State == GuardState.Calling,
                     $"(state {target.State}, distance {dist:0.0} m, radius {vn.RadiusFor(0.5f):0} m)");
                 vn.SetLevel(0f);
-            }
+                yield return new WaitForSeconds(0.5f);
+
+                // loudness decides the distance: what VoiceNoise puts on the noise channel for a murmur and a loud voice
+                var heard = new List<float>();
+                void OnVoice(NoiseEvent n) { if (n.Source == player.gameObject) heard.Add(n.Loudness); }
+                NoiseBus.OnNoise += OnVoice;
+                float murmur = VoiceNoise.LevelFromRms(0.02f, 0.012f);   // a low murmur
+                float loud = VoiceNoise.LevelFromRms(0.16f, 0.012f);     // talking loudly
+                float shout = VoiceNoise.LevelFromRms(0.30f, 0.012f);    // a shout
+                var radii = new List<float>();
+                foreach (var lvl in new[] { murmur, loud, shout })
+                {
+                    heard.Clear();
+                    vn.SetLevel(lvl);
+                    yield return new WaitForSeconds(0.7f);
+                    radii.Add(heard.Count > 0 ? heard.Max() : -1f);
+                }
+                vn.SetLevel(0f);
+                NoiseBus.OnNoise -= OnVoice;
+                SneakCheck("the louder the voice, the further the noise carries", radii[0] > 0f && radii[0] < radii[1] && radii[1] < radii[2]
+                    && Mathf.Approximately(radii[0], vn.RadiusFor(murmur)) && Mathf.Approximately(radii[2], vn.RadiusFor(shout)),
+                    $"(murmur {radii[0]:0.0} m, loud {radii[1]:0.0} m, shout {radii[2]:0.0} m)");            }
 
             Log($"[Sneak] DONE fails={sneakFails}");
             Quit(sneakFails == 0 ? 0 : 1);
