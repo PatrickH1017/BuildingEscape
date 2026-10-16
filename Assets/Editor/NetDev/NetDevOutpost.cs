@@ -112,7 +112,7 @@ namespace BuildingEscape.EditorTools
 
             // ================= the hack
             var at = new Vector3(ctl.KeypadPosition.x, 1.1f, ctl.KeypadPosition.z) + outward * 1.0f;
-            void GoTo(Vector3 p) { player.transform.position = p; rb.linearVelocity = Vector3.zero; }
+            void GoTo(Vector3 p) { player.TeleportTo(p, player.transform.rotation); rb.linearVelocity = Vector3.zero; }
             GoTo(at);
             yield return new WaitForSeconds(0.3f);
             int guardsBefore = GuardAI.All.Count;

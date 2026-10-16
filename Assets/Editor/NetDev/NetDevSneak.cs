@@ -49,7 +49,7 @@ namespace BuildingEscape.EditorTools
             SneakCheck("dock: nothing stacked in front of the open bay", bayClear, bayClear ? "" : $"(blocked by {bhit.collider.name})");
 
             // stand at the counter and buy something
-            player.transform.position = new Vector3(ent.x, 1.1f, counter.z - 2.0f);
+            player.TeleportTo(new Vector3(ent.x, 1.1f, counter.z - 2.0f), player.transform.rotation);
             rb.linearVelocity = Vector3.zero;
             hm.AddCash(2000);
             yield return new WaitForSeconds(1.0f);
@@ -104,15 +104,15 @@ namespace BuildingEscape.EditorTools
             // ---- the vendor's greeting
             var chat = vendor.GetComponent<VendorChat>();
             SneakCheck("dock: the vendor has a chat bubble", chat != null && chat.lines != null && chat.lines.Length > 0 && chat.lines[0] == "Shocked you made it back");
-            player.transform.position = new Vector3(ent.x, 1.1f, counter.z - 3.0f); rb.linearVelocity = Vector3.zero;
+            player.TeleportTo(new Vector3(ent.x, 1.1f, counter.z - 3.0f), player.transform.rotation); rb.linearVelocity = Vector3.zero;
             yield return new WaitForSeconds(0.9f);
             SneakCheck("dock: walking up to him opens the bubble", chat && chat.Visible && chat.Text == "Shocked you made it back", chat ? $"(visible {chat.Visible}, \"{chat.Text}\")" : "");
             // a real screen capture (the bubble is drawn by the GUI, not by a camera)
             yield return new WaitForSeconds(chat.showSeconds + 1.0f);
             SneakCheck("dock: it fades after a few seconds", chat && !chat.Visible);
-            player.transform.position = new Vector3(gen.CellCentre(Vector2Int.zero).x + 1f, 1.1f, gen.CellCentre(Vector2Int.zero).z + 6f); rb.linearVelocity = Vector3.zero;
+            player.TeleportTo(new Vector3(gen.CellCentre(Vector2Int.zero).x + 1f, 1.1f, gen.CellCentre(Vector2Int.zero).z + 6f), player.transform.rotation); rb.linearVelocity = Vector3.zero;
             yield return new WaitForSeconds(0.6f);
-            player.transform.position = new Vector3(ent.x, 1.1f, counter.z - 3.0f); rb.linearVelocity = Vector3.zero;
+            player.TeleportTo(new Vector3(ent.x, 1.1f, counter.z - 3.0f), player.transform.rotation); rb.linearVelocity = Vector3.zero;
             yield return new WaitForSeconds(0.9f);
             SneakCheck("dock: it pops up again on the next visit", chat && chat.Visible);
 
@@ -128,7 +128,7 @@ namespace BuildingEscape.EditorTools
                 void Swing()
                 {
                     var to2 = dummy.transform.position - player.transform.position; to2.y = 0f;
-                    player.transform.position = dummy.transform.position - to2.normalized * 1.2f + Vector3.up * 1.0f;
+                    player.TeleportTo(dummy.transform.position - to2.normalized * 1.2f + Vector3.up * 1.0f, player.transform.rotation);
                     player.transform.rotation = Quaternion.LookRotation(to2.normalized);
                     Physics.SyncTransforms();
                     meleeHit.Invoke(ctrl, new object[] { spec, MeleeWeapon.Kind.Crowbar });
@@ -177,7 +177,7 @@ namespace BuildingEscape.EditorTools
             ShotCam(eye, "dock_overview");
 
             // ================= crouching
-            player.transform.position = new Vector3(bay.x - 4f, 1.1f, bay.z - 4f);
+            player.TeleportTo(new Vector3(bay.x - 4f, 1.1f, bay.z - 4f), player.transform.rotation);
             rb.linearVelocity = Vector3.zero;
             yield return new WaitForSeconds(0.6f);
             float standH = cap.height, bottomStand = cap.center.y - cap.height / 2f;
@@ -193,7 +193,7 @@ namespace BuildingEscape.EditorTools
             // walking
             // (the dock is full of boxes now, so take the fastest the body got to rather than its speed at the end)
             var corridorStart = new Vector3(gen.CellCentre(Vector2Int.zero).x + 5.5f, 1.1f, bay.z - 2.6f);
-            player.transform.position = corridorStart; rb.linearVelocity = Vector3.zero;
+            player.TeleportTo(corridorStart, player.transform.rotation); rb.linearVelocity = Vector3.zero;
             player.testMove = new Vector3(0f, 0f, 1f);
             noises.Clear();
             float walkSpeed = 0f;
@@ -206,7 +206,7 @@ namespace BuildingEscape.EditorTools
             SneakCheck("walking footsteps carry the normal radius", Mathf.Approximately(walkNoise, player.footstepNoise), $"({walkNoise} m, {noises.Count} steps)");
 
             // crouched
-            player.transform.position = corridorStart; rb.linearVelocity = Vector3.zero;
+            player.TeleportTo(corridorStart, player.transform.rotation); rb.linearVelocity = Vector3.zero;
             player.testCrouch = true;
             noises.Clear();
             float crouchSpeed = 0f;
@@ -267,7 +267,7 @@ namespace BuildingEscape.EditorTools
             SneakCheck("found a spot 9 m from a guard", placed);
             if (placed)
             {
-                player.transform.position = at + Vector3.up * 1.1f; rb.linearVelocity = Vector3.zero;
+                player.TeleportTo(at + Vector3.up * 1.1f, player.transform.rotation); rb.linearVelocity = Vector3.zero;
                 // far from the second guard so it cannot be the one that hears
                 yield return new WaitForSeconds(0.5f);
                 var before0 = target.State;

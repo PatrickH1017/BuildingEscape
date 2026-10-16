@@ -13,13 +13,30 @@ namespace BuildingEscape.Net
         const float ReachCheck = 4.5f;     // generous: the requester's view of the world is a moment old
         const float GuardHitReach = 3.6f;
 
-        static NetPlayer PlayerOf(ulong clientId)
+        // A client may ask for at most a burst of 60 things, then 40 a second (a player acts a few times a second at most). Faster
+        // than that is a modified client or a bug: the requests are dropped, so nobody can flood the host or, through it, the others.
+        static readonly RateLimiter requestBudget = new RateLimiter(60f, 40f);
+        float nextFloodLog;
+
+        /// <summary>The player a request came from, or null if there is none or the sender is asking too fast.</summary>
+        NetPlayer PlayerOf(ulong clientId)
         {
+            if (IsServer && clientId != Me && !requestBudget.Allow(clientId, Time.unscaledTime))
+            {
+                if (Time.unscaledTime >= nextFloodLog)
+                {
+                    nextFloodLog = Time.unscaledTime + 5f;
+                    Debug.LogWarning($"[NetSync] client {clientId} is sending requests too fast; ignoring the excess ({requestBudget.Refused} so far).");
+                }
+                return null;
+            }
             foreach (var p in NetPlayer.All) if (p.OwnerClientId == clientId) return p;
             return null;
         }
 
         static bool Near(Transform a, Transform b, float d) => (a.position - b.position).sqrMagnitude <= d * d;
+
+        static bool IsFinite(Vector3 v) => !(float.IsNaN(v.x) || float.IsNaN(v.y) || float.IsNaN(v.z) || float.IsInfinity(v.x) || float.IsInfinity(v.y) || float.IsInfinity(v.z));
 
         ulong Me => NetworkManager.LocalClientId;
 
@@ -204,7 +221,9 @@ namespace BuildingEscape.Net
         void NoiseRequestRpc(Vector3 pos, float loudness, RpcParams rp = default)
         {
             var np = PlayerOf(rp.Receive.SenderClientId);
-            if (np == null || loudness <= 0f) return;
+            if (np == null || !(loudness > 0f) || float.IsInfinity(loudness)) return;
+            // (NaN and infinity would make a guard walk to nowhere; the comparisons below are false for NaN, so it is refused here)
+            if (!IsFinite(pos)) return;
             // a player cannot make noise far from where they are, and cannot be louder than the loudest real sound
             if ((np.transform.position - pos).sqrMagnitude > 8f * 8f) return;
             NoiseBus.EmitLocal(pos, Mathf.Min(loudness, 40f));

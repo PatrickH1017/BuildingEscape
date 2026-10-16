@@ -35,12 +35,13 @@ namespace BuildingEscape.Net
         readonly NetworkVariable<byte> bustedLevel = new(0);
 
         int pendingSlot = -1;
+        bool held;
         Rigidbody rb;
         WobblyPlayer wobbly;
         NetworkTransform netTransform;
         Vector3 lastPos, smoothVelocity;
 
-        /// <summary>Join order (0..3); also picks the character look so it matches on every machine.</summary>
+        /// <summary>Join order (0 .. MaxPlayers - 1); also picks the character look so it matches on every machine.</summary>
         public int Slot => slot.Value;
 
         /// <summary>Host only, before spawning.</summary>
@@ -63,6 +64,11 @@ namespace BuildingEscape.Net
 
             bool mine = IsOwner;
             rb.isKinematic = !mine;
+            // Until the floor is built and this player has been put in the elevator, the body is held still: it would only fall into
+            // the void (and the capsules, all spawned at one spot, would fling each other about).
+            var tower = TowerManager.Instance;
+            held = mine && !(tower != null && tower.HasFloor && !tower.Loading);
+            if (held) wobbly.HoldStill(true);
             // Only the movement and voice scripts are owner-only. Backpack, PlayerGrab and MeleeController keep
             // running on puppets because they hold the shared state (what is in a pack, what is carried); they
             // read input only for the player the camera follows (Viewed / IsLocalPlayer).
@@ -78,8 +84,30 @@ namespace BuildingEscape.Net
 
         public override void OnNetworkDespawn()
         {
+            DropPackWhereTheyStood();
             All.Remove(this);
             if (wobbly) wobbly.VelocityOverride = null;
+        }
+
+        /// <summary>
+        /// A player who drops out mid-run (a disconnect) puts their pack down where they stood, so the team keeps the loot and the
+        /// weapons instead of losing them with the player. Every machine does the same thing; the host's physics settles it.
+        /// </summary>
+        void DropPackWhereTheyStood()
+        {
+            var nm = NetworkManager;
+            if (nm == null || nm.ShutdownInProgress) return;           // the whole session is ending: nothing to save
+            var tower = TowerManager.Instance;
+            if (tower == null || !tower.HasFloor || tower.Loading) return;
+            if (!TryGetComponent(out Backpack pack)) return;
+            int i = 0;
+            foreach (var item in pack.Snapshot())
+            {
+                if (!item) continue;
+                var spot = transform.position + new Vector3((i % 3 - 1) * 0.35f, 0.6f + (i / 9) * 0.3f, (i / 3 % 3 - 1) * 0.35f);
+                pack.ApplyDropped(item, spot);
+                i++;
+            }
         }
 
         void ApplyLook(string s)
@@ -119,11 +147,35 @@ namespace BuildingEscape.Net
             wobbly.VelocityOverride = smoothVelocity;
         }
 
+        /// <summary>True while the owner's body is held still, waiting to be put in the elevator.</summary>
+        public bool IsHeld => held;
+
+        /// <summary>Hold this body still (only the machine that drives it): the floor under it is about to be rebuilt.</summary>
+        public void Hold()
+        {
+            if (!IsOwner || !wobbly) return;
+            held = true;
+            wobbly.HoldStill(true);
+        }
+
+        /// <summary>Let a held body go (it was placed, or the floor could not be built).</summary>
+        public void Release()
+        {
+            if (!held) return;
+            held = false;
+            if (wobbly) wobbly.HoldStill(false);
+        }
+
         /// <summary>Moves the player without it sliding across the map on other machines (teleport).</summary>
         public void PlaceAt(Vector3 pos, Quaternion rot)
         {
-            if (IsSpawned && IsOwner && netTransform) netTransform.Teleport(pos, rot, transform.localScale);
-            else if (!IsSpawned) { transform.position = pos; transform.rotation = rot; }
+            if (IsSpawned && IsOwner && netTransform)
+            {
+                netTransform.Teleport(pos, rot, transform.localScale);   // tells the other machines it is a jump, not a run
+                wobbly.TeleportTo(pos, rot);                              // and moves the rigidbody, which interpolation would otherwise put back
+                Release();
+            }
+            else if (!IsSpawned) { if (wobbly) wobbly.TeleportTo(pos, rot); else transform.SetPositionAndRotation(pos, rot); }
             // Non-owners: the owner's own teleport arrives over the network.
         }
 

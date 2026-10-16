@@ -2,7 +2,7 @@ namespace BuildingEscape.Net
 {
     public enum JoinVerdict { Allow, RunStarted, Full, WrongVersion, NotInLobby }
 
-    /// <summary>The host's join rules as one pure function, so the "max 4 players" rule is unit-testable.</summary>
+    /// <summary>The host's join rules as one pure function, so the player limit (NetConst.MaxPlayers) is unit-testable.</summary>
     public static class JoinPolicy
     {
         public static JoinVerdict Evaluate(bool runStarted, int playersConnected, string clientVersion,
@@ -18,7 +18,7 @@ namespace BuildingEscape.Net
         public static string Message(JoinVerdict v) => v switch
         {
             JoinVerdict.RunStarted => "The run has already started.",
-            JoinVerdict.Full => "The lobby is full (4/4).",
+            JoinVerdict.Full => $"The lobby is full ({NetConst.MaxPlayers}/{NetConst.MaxPlayers}).",
             JoinVerdict.WrongVersion => "Game version mismatch. Update the game.",
             JoinVerdict.NotInLobby => "You are not in this lobby.",
             _ => ""

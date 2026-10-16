@@ -37,11 +37,47 @@ namespace BuildingEscape.EditorTools
             DoorOpenersTest();
             string v = NetConst.BuildVersion;
             Check("allow", JoinPolicy.Evaluate(false, 1, v, v, true) == JoinVerdict.Allow);
+            Check("five players is the limit", NetConst.MaxPlayers == 5);
             Check("allow 4th (3 connected)", JoinPolicy.Evaluate(false, 3, v, v, true) == JoinVerdict.Allow);
-            Check("full at 4", JoinPolicy.Evaluate(false, 4, v, v, true) == JoinVerdict.Full);
+            Check("allow 5th (4 connected)", JoinPolicy.Evaluate(false, 4, v, v, true) == JoinVerdict.Allow);
+            Check("full at 5", JoinPolicy.Evaluate(false, 5, v, v, true) == JoinVerdict.Full);
+            Check("the full message names the limit", JoinPolicy.Message(JoinVerdict.Full).Contains("5/5"));
+            Check("every one of the five players has a look of their own", PartyCharacterFactory.PlayerLooks.Length >= NetConst.MaxPlayers);
+            RateLimiterTest();
             Check("run started", JoinPolicy.Evaluate(true, 1, v, v, true) == JoinVerdict.RunStarted);
             Check("version", JoinPolicy.Evaluate(false, 1, "x", v, true) == JoinVerdict.WrongVersion);
             Check("not member", JoinPolicy.Evaluate(false, 1, v, v, false) == JoinVerdict.NotInLobby);
+        }
+
+        /// <summary>The per-client request / voice limiter: a burst is allowed, a flood is refused, and it refills with time.</summary>
+        public static void RateLimiterTest()
+        {
+            var rl = new RateLimiter(10f, 5f);
+            int ok = 0;
+            for (int i = 0; i < 25; i++) if (rl.Allow(7, 0f)) ok++;
+            Check($"a burst up to the capacity is allowed, the rest refused (allowed {ok})", ok == 10 && rl.Refused == 15);
+            Check("another sender has a bucket of their own", rl.Allow(8, 0f));
+            Check("half a second later 2 or 3 more calls fit", CountAllowed(rl, 7, 0.5f) is >= 2 and <= 3);
+            Check("it refills to the capacity and no further", CountAllowed(rl, 7, 60f) == 10);
+            // ten players' worth of normal play never trips it: 20 calls a second for a minute
+            var normal = new RateLimiter(60f, 40f);
+            int refused = 0; float t = 0f;
+            for (int i = 0; i < 1200; i++) { t += 0.05f; if (!normal.Allow(1, t)) refused++; }
+            Check($"normal play (20 requests a second) is never refused (refused {refused})", refused == 0);
+            // a flood of 500 a second is cut to about the refill rate
+            var flood = new RateLimiter(60f, 40f);
+            int passed = 0; t = 0f;
+            for (int i = 0; i < 5000; i++) { t += 0.002f; if (flood.Allow(1, t)) passed++; }
+            Check($"a flood of 500 a second is cut down to the allowed rate (passed {passed} of 5000 in 10 s)", passed < 60 + 40 * 10.5f && passed > 40 * 9f);
+            rl.Forget(7);
+            Check("a forgotten sender starts again with a full bucket", CountAllowed(rl, 7, 61f) == 10);
+        }
+
+        static int CountAllowed(RateLimiter rl, ulong who, float now)
+        {
+            int n = 0;
+            while (rl.Allow(who, now) && n < 1000) n++;
+            return n;
         }
 
         public static void RulesTest()

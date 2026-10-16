@@ -78,6 +78,9 @@ namespace BuildingEscape.Net
         bool registered;
 
         readonly Dictionary<ulong, VoiceVoice> voices = new();
+        // Host: a talker sends about 50 packets a second; a burst of 100 then 70 a second is far more than speech needs, so a client
+        // that sends faster (to flood the others through the host's relay) is simply not relayed.
+        readonly RateLimiter voiceBudget = new RateLimiter(100f, 70f);
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         static void Boot()
@@ -225,6 +228,7 @@ namespace BuildingEscape.Net
 
             // On the host the real sender is known; on a client the host vouches for who it relayed.
             ulong speaker = nm.IsServer ? sender : claimed;
+            if (nm.IsServer && sender != nm.LocalClientId && !voiceBudget.Allow(sender, Time.unscaledTime)) return;
             if (speaker == nm.LocalClientId) return; // never play my own voice back
 
             PacketsReceived++;

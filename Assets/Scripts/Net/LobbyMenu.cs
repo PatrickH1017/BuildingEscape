@@ -131,7 +131,7 @@ namespace BuildingEscape.Net
             }
 
             GUI.enabled = ready;
-            GUILayout.Label("Host a lobby (up to 4 players)");
+            GUILayout.Label($"Host a lobby (up to {NetConst.MaxPlayers} players)");
             GUILayout.BeginHorizontal();
             if (GUILayout.Button("Public", GUILayout.Height(34f))) net.HostSteam(LobbyVisibility.Public);
             if (GUILayout.Button("Code only", GUILayout.Height(34f))) net.HostSteam(LobbyVisibility.CodeOnly);

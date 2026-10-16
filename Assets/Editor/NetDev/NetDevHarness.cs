@@ -37,6 +37,7 @@ namespace BuildingEscape.EditorTools
         public static void WorldHost() => Start("worldhost");
         public static void WorldClient() => Start("worldclient");
         public static void Qa() => Start("qa");
+        public static void Spawn() => Start("spawn");
         public static void Social() => Start("social");
         public static void Shots() => Start("shots");
         public static void Toon() => Start("toon");
@@ -108,6 +109,7 @@ namespace BuildingEscape.EditorTools
                 case "voiceclient": yield return VoiceScenario(false); break;
                 case "social": yield return SocialScenario(); break;
                 case "qa": yield return QaScenario(System.Environment.GetEnvironmentVariable("BE_QA_ROLE")); break;
+                case "spawn": yield return SpawnScenario(System.Environment.GetEnvironmentVariable("BE_QA_ROLE")); break;
                 case "worldhost": yield return WorldHostScenario(); break;
                 case "worldclient": yield return WorldClientScenario(); break;
                 case "steamclient": yield return SteamClientScenario(); break;
@@ -303,9 +305,9 @@ namespace BuildingEscape.EditorTools
             yield return new WaitForSeconds(1.5f);
             var panel = ElevatorExtraction.Current;
             Log($"[Solo] panel before: up={ElevatorExtraction.GoingUp} destination={ElevatorExtraction.Destination} aboard={ElevatorExtraction.EveryoneAboard}");
-            panel.HostPress(player.transform, pack, 0);
+            panel.HostPress(player.transform, pack, ElevatorExtraction.SelectBase + 0);   // the wall panel: choose the Loading Docks, then GO
             yield return new WaitForSeconds(0.3f);
-            Log($"[Solo] panel after direction: up={ElevatorExtraction.GoingUp} destination={ElevatorExtraction.Destination}");
+            Log($"[Solo] panel after choosing the docks: up={ElevatorExtraction.GoingUp} destination={ElevatorExtraction.Destination}");
             panel.HostPress(player.transform, pack, 1);
             yield return new WaitUntil(() => TowerManager.Instance.Loading || hm.Floor == 0);
             yield return WaitFor(() => !TowerManager.Instance.Loading && hm.Floor == 0, 60, "back down");
@@ -739,6 +741,9 @@ namespace BuildingEscape.EditorTools
             stage.DebugShow(4);
             yield return new WaitForSeconds(2.5f);
             Shot("four");
+            stage.DebugShow(5);
+            yield return new WaitForSeconds(2.5f);
+            Shot("five");
             stage.Customizing = true;
             stage.SetLocalAppearance(PlayerAppearance.Random(new System.Random(3)));
             yield return new WaitForSeconds(3f);

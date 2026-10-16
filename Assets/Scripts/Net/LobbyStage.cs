@@ -20,8 +20,9 @@ namespace BuildingEscape.Net
         public int CharacterCount => slots.Count;
 
         const float Spacing = 1.9f;
-        // Pulled back and shifted left so all four characters sit in the part of the screen the menu panel leaves free.
-        static readonly Vector3 OverviewCam = new(-1.8f, 2.2f, -9.5f);
+        // Pulled back and shifted left so the characters sit in the part of the screen the menu panel leaves free (five need to be pulled back further).
+        static readonly Vector3 OverviewCam = new(-1.8f, 2.2f, -9.5f), OverviewCamFive = new(-1.8f, 2.3f, -10.8f);
+        const float TightSpacing = 1.7f;   // five characters stand a little closer together
 
         sealed class Slot
         {
@@ -180,7 +181,7 @@ namespace BuildingEscape.Net
                 s.name = e.name;
                 s.isLocal = e.isLocal;
                 s.marker.SetActive(e.isLocal && entries.Count > 1);
-                s.target = new Vector3((i - (entries.Count - 1) / 2f) * Spacing, 0f, 0f);
+                s.target = new Vector3((i - (entries.Count - 1) / 2f) * (entries.Count > 4 ? TightSpacing : Spacing), 0f, 0f);
                 if (!s.placed) { s.root.transform.position = s.target; s.placed = true; } // arrivals appear in place
 
                 // Unknown or invalid looks fall back to the slot's default so nobody is ever missing.
@@ -239,7 +240,7 @@ namespace BuildingEscape.Net
 
         void MoveCamera(Slot mine)
         {
-            Vector3 pos = OverviewCam;
+            Vector3 pos = entries.Count > 4 ? OverviewCamFive : OverviewCam;
             if (Customizing && mine != null)
             {
                 // close-up: slightly left of the character so it sits to the right of the menu panel

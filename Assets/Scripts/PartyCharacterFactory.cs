@@ -51,6 +51,7 @@ namespace BuildingEscape
             new CharacterLook("Sunny",  new Color(1.000f, 1.000f, 0.000f), 1, null),
             new CharacterLook("Bubble", new Color(1.000f, 0.400f, 0.700f), 1, "chef hat"),
             new CharacterLook("Splash", new Color(0.000f, 1.000f, 1.000f), 1, null),
+            new CharacterLook("Ember",  new Color(1.000f, 0.480f, 0.200f), 1, "orange fedora"),
         };
 
         // Guards: dark colours, angry or manic faces, different builds and hats.

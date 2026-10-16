@@ -160,8 +160,8 @@ namespace BuildingEscape
 
         static void TeleportTo(Backpack pack, Vector3 position)
         {
-            pack.transform.position = position;
-            if (pack.TryGetComponent(out Rigidbody rb)) rb.linearVelocity = Vector3.zero;
+            if (pack.TryGetComponent(out WobblyPlayer body)) body.TeleportTo(position, pack.transform.rotation);
+            else pack.transform.position = position;
         }
 
         // ------------------------------------------------------------------ direction signs

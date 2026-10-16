@@ -28,6 +28,19 @@ namespace BuildingEscape
 
         public FloorInfo CurrentInfo { get; private set; }
         public bool Loading { get; private set; }
+        /// <summary>True from the moment a floor has been built (and the team put in its elevator) until the next one starts building.</summary>
+        public bool HasFloor { get; private set; }
+
+        /// <summary>
+        /// Where a player stands before any floor exists: in the middle of the elevator car of the first floor (the car is always in the
+        /// first cell), spread out by seat. Players spawn here, held still, so nobody appears outside the map.
+        /// </summary>
+        public Vector3 PreFloorSpawn(int seat, int count)
+        {
+            float cell = generator ? generator.cellSize : 18f;
+            var car = new Vector3(cell * 0.5f, 0f, cell * 0.5f + 0.5f);
+            return car + new Vector3((seat - (count - 1) / 2f) * 1.2f, 1.1f, 0f);
+        }
         /// <summary>The level the elevator goes to when it rides up from the basement.</summary>
         public int ResumeLevel { get; private set; } = 1;
 
@@ -38,6 +51,27 @@ namespace BuildingEscape
         }
 
         void OnDestroy() { if (Instance == this) Instance = null; }
+
+        const float StartWaitSeconds = 150f;     // longer than the host's own wait for slow loaders (NetworkManager.LoadSceneTimeOut is 120 s)
+        const float OutOfWorldY = -30f;          // nothing is ever built this low: a player down here fell through or off the map
+        float nextRescue;
+
+        /// <summary>A player of this machine that is somewhere far below every floor is put back in the elevator (it fell out of the world).</summary>
+        void Update()
+        {
+            if (!HasFloor || Loading || Time.unscaledTime < nextRescue) return;
+            nextRescue = Time.unscaledTime + 0.5f;
+            var all = WobblyPlayerRegistry.All;
+            for (int i = 0; i < all.Count; i++)
+            {
+                var p = all[i];
+                if (!p || p.transform.position.y > OutOfWorldY || !Net.NetPlayer.IsLocalPlayer(p)) continue;
+                Debug.LogWarning($"TowerManager: {p.name} fell out of the world (y={p.transform.position.y:0}); putting them back in the elevator.");
+                int seat = p.TryGetComponent(out Net.NetPlayer np) && np.IsSpawned ? Mathf.Max(0, np.Slot) : 0;
+                var spot = CurrentInfo.spawn + new Vector3((seat - 2f) * 1.2f, 1.1f, 0f);
+                if (np) np.PlaceAt(spot, Quaternion.identity); else p.TeleportTo(spot, Quaternion.identity);
+            }
+        }
 
         void Start()
         {
@@ -50,17 +84,24 @@ namespace BuildingEscape
         /// <summary>Networked run: wait for the host's seed and every player, then build the same floor on every machine.</summary>
         IEnumerator StartNetworked()
         {
+            // (the host only starts the run once every machine has loaded the scene, which can take a while on a slow one)
             float waited = 0f;
-            while ((Net.RunSync.Instance == null || !Net.RunSync.Instance.EveryoneHere) && waited < 30f)
+            while ((Net.RunSync.Instance == null || !Net.RunSync.Instance.EveryoneHere) && waited < StartWaitSeconds)
             {
                 waited += Time.unscaledDeltaTime;
                 yield return null;
             }
-            if (Net.RunSync.Instance != null)
+            if (Net.RunSync.Instance == null)
             {
-                baseSeed = Net.RunSync.Instance.Seed;
-                IntelSeed = baseSeed ^ 0x2D5AFE1;      // (the same on every machine: the host's seed)
+                // without the host's seed this machine would build a different floor from everybody else's
+                Debug.LogError("TowerManager: the host never started the run; leaving.");
+                Net.NetSession.Instance?.Leave("The run did not start (the host did not answer).");
+                yield break;
             }
+            if (!Net.RunSync.Instance.EveryoneHere)
+                Debug.LogWarning($"TowerManager: {Net.NetPlayer.All.Count} players arrived of {Net.RunSync.Instance.ExpectedPlayers} expected; starting without the rest.");
+            baseSeed = Net.RunSync.Instance.Seed;
+            IntelSeed = baseSeed ^ 0x2D5AFE1;      // (the same on every machine: the host's seed)
             yield return LoadFloor(startLevel);
         }
 
@@ -195,6 +236,7 @@ namespace BuildingEscape
                 yield return step;
             }
             Loading = false;
+            if (pendingLoads.Count == 0) ReleaseTeam();   // (another floor already waiting: keep them held until that one is built)
 
             if (pendingLoads.Count > 0)
             {
@@ -228,6 +270,8 @@ namespace BuildingEscape
                 foreach (var rb in cargo) rb.transform.SetParent(transform, true);
             }
 
+            HasFloor = false;
+            HoldTeam();        // nobody falls while there is no floor under them
             generator.Clear();
             yield return null; // let the old floor and its NavMesh go before baking the new one
 
@@ -235,18 +279,8 @@ namespace BuildingEscape
             CurrentInfo = info;
 
             // The team arrives inside the elevator car, spread out around its middle.
-            int count = WobblyPlayerRegistry.All.Count, i = 0;
-            foreach (var p in Net.NetPlayer.Ordered())
-            {
-                var rb = p.GetComponent<Rigidbody>();
-                if (!rb.isKinematic) { rb.linearVelocity = Vector3.zero; rb.angularVelocity = Vector3.zero; }
-                float x = (i - (count - 1) / 2f) * 1.2f;
-                var pos = info.spawn + new Vector3(x, 1.1f, 0);
-                var np = p.GetComponent<Net.NetPlayer>();
-                if (np) np.PlaceAt(pos, Quaternion.identity);
-                else { p.transform.position = pos; p.transform.rotation = Quaternion.identity; }
-                i++;
-            }
+            PlaceTeam(info.spawn);
+            HasFloor = true;
 
             PlaceCargo(cargo, info);
 
@@ -257,6 +291,41 @@ namespace BuildingEscape
                   $"{info.lootCount} loot (${info.lootValue}), quota ${info.quota}, {info.guards} guards, {cargo.Count} items carried in");
             Net.RunSync.Instance?.MarkFloorReady();
             Net.RunSync.Instance?.PublishChecksum();
+        }
+
+        /// <summary>Holds every body this machine drives still (the floor under them is gone); the other machines' bodies follow over the network.</summary>
+        void HoldTeam()
+        {
+            foreach (var p in WobblyPlayerRegistry.All)
+            {
+                if (!p) continue;
+                if (p.TryGetComponent(out Net.NetPlayer np)) np.Hold();
+                else p.HoldStill(true);
+            }
+        }
+
+        /// <summary>Puts every player in the elevator car, spread out around its middle, and lets them go.</summary>
+        void PlaceTeam(Vector3 carSpawn)
+        {
+            int count = WobblyPlayerRegistry.All.Count, i = 0;
+            foreach (var p in Net.NetPlayer.Ordered())
+            {
+                var pos = carSpawn + new Vector3((i - (count - 1) / 2f) * 1.2f, 1.1f, 0f);
+                i++;
+                if (p.TryGetComponent(out Net.NetPlayer np)) np.PlaceAt(pos, Quaternion.identity);
+                else { p.TeleportTo(pos, Quaternion.identity); p.HoldStill(false); }
+            }
+        }
+
+        /// <summary>The build ended (well or not): nobody stays held.</summary>
+        void ReleaseTeam()
+        {
+            foreach (var p in WobblyPlayerRegistry.All)
+            {
+                if (!p) continue;
+                if (p.TryGetComponent(out Net.NetPlayer np)) np.Release();
+                else p.HoldStill(false);
+            }
         }
 
         /// <summary>Sets carried loot/items down in two rows at the back of the new elevator car.</summary>

@@ -66,7 +66,7 @@ namespace BuildingEscape.EditorTools
             DoorCheck("officers: a guard cursed within 30 s, in symbols only", symbolsOnly, $"(\"{said}\" after {waited:0.0} s)");
 
             // ================= music: backup starts the intense track and the next floor changes it
-            player.transform.position = gen.CellCentre(Vector2Int.zero) + new Vector3(0f, 1.1f, 7f); rb.linearVelocity = Vector3.zero;   // out of the elevator
+            player.TeleportTo(gen.CellCentre(Vector2Int.zero) + new Vector3(0f, 1.1f, 7f), player.transform.rotation); rb.linearVelocity = Vector3.zero;   // out of the elevator
             yield return new WaitForSeconds(6.5f);                                                                                       // (the ride grace time)
             DoorCheck("music: no intense music before backup is called", md.Current == MusicDirector.Mood.None && !md.IntensePlaying, $"({md.Current})");
             hm.CallBackup(GuardAI.All.Count > 0 ? GuardAI.All[0] : null);
@@ -74,6 +74,7 @@ namespace BuildingEscape.EditorTools
             DoorCheck("music: calling backup starts the intense track", md.Current == MusicDirector.Mood.Intense && md.IntensePlaying, $"({md.Current}, playing {md.IntensePlaying})");
             yield return LoadLevel(hm, 2);
             yield return WaitFor(() => md.IntenseReady, 60, "the intense track of floor 2");
+            for (float fade = 0f; md.IntensePlaying && fade < 6f; fade += Time.unscaledDeltaTime) yield return null;   // (arriving in the car, the old track fades out)
             DoorCheck("music: the new floor starts without it", md.Current != MusicDirector.Mood.Intense && !md.IntensePlaying, $"({md.Current})");
             DoorCheck("music: floor 2 has a different track", md.TrackName != track1 && md.TrackName == MusicPlan.TrackFor(seed, 2).Name, $"({track1} -> {md.TrackName})");
 
@@ -173,7 +174,7 @@ namespace BuildingEscape.EditorTools
             // walking up to a door does not open it any more: a player has to press E
             var atDoor = door.Centre + across * 1.8f + Vector3.up * 1.1f;
             var away = gen.CellCentre(Vector2Int.zero) + new Vector3(0f, 1.1f, 7f);
-            player.transform.position = atDoor; rb.linearVelocity = Vector3.zero;
+            player.TeleportTo(atDoor, player.transform.rotation); rb.linearVelocity = Vector3.zero;
             yield return new WaitForSeconds(1.2f);
             DoorCheck("doors: somebody walking up does not open it", door.IsShut && door.BlockerEnabled && Blocks(), $"(open {door.Logic.Open:0.00})");
             DoorCheck("doors: standing at it and facing it, the player means that door", door.UseScore(atDoor, -across, DoorManager.UseReach) < float.MaxValue);
@@ -186,12 +187,12 @@ namespace BuildingEscape.EditorTools
             DoorCheck("doors: an open door lets a ray through", !Blocks());
 
             // and it stays open when he walks away
-            player.transform.position = away; rb.linearVelocity = Vector3.zero;
+            player.TeleportTo(away, player.transform.rotation); rb.linearVelocity = Vector3.zero;
             yield return new WaitForSeconds(SlidingDoor.Linger + SlidingDoor.WideCloseSeconds + 1.0f);
             DoorCheck("doors: it stays open after he has gone", !door.IsShut && door.Logic.Open > 0.99f && door.Latched, $"(open {door.Logic.Open:0.00})");
 
             // E again closes it
-            player.transform.position = atDoor; rb.linearVelocity = Vector3.zero;
+            player.TeleportTo(atDoor, player.transform.rotation); rb.linearVelocity = Vector3.zero;
             yield return new WaitForSeconds(0.3f);
             dm.Use(0, !door.Logic.WantOpen);
             yield return new WaitForSeconds(SlidingDoor.WideCloseSeconds + 0.4f);
@@ -200,7 +201,7 @@ namespace BuildingEscape.EditorTools
             // standing right beside the door (not in it) does not hold it open: E closes it at once
             dm.Use(0, true);
             yield return new WaitForSeconds(0.9f);
-            player.transform.position = door.Centre + across * 0.8f + Vector3.up * 1.1f; rb.linearVelocity = Vector3.zero;
+            player.TeleportTo(door.Centre + across * 0.8f + Vector3.up * 1.1f, player.transform.rotation); rb.linearVelocity = Vector3.zero;
             yield return new WaitForSeconds(0.2f);
             dm.Use(0, false);
             yield return new WaitForSeconds(SlidingDoor.WideCloseSeconds + 0.4f);
@@ -209,12 +210,12 @@ namespace BuildingEscape.EditorTools
             // he can stand in the doorway and ask: it does not shut on him, it closes when he has stepped out
             dm.Use(0, true);
             yield return new WaitForSeconds(0.9f);
-            player.transform.position = door.Centre + Vector3.up * 1.1f; rb.linearVelocity = Vector3.zero;
+            player.TeleportTo(door.Centre + Vector3.up * 1.1f, player.transform.rotation); rb.linearVelocity = Vector3.zero;
             yield return new WaitForSeconds(0.2f);
             dm.Use(0, false);
             yield return new WaitForSeconds(SlidingDoor.WideCloseSeconds + 1.0f);
             DoorCheck("doors: a door asked to close does not shut on the player in the doorway", !door.IsShut && !door.BlockerEnabled, $"(open {door.Logic.Open:0.00})");
-            player.transform.position = away; rb.linearVelocity = Vector3.zero;
+            player.TeleportTo(away, player.transform.rotation); rb.linearVelocity = Vector3.zero;
             yield return new WaitForSeconds(SlidingDoor.WideCloseSeconds + 1.0f);
             DoorCheck("doors: it closes once he has stepped out", door.IsShut && door.BlockerEnabled, $"(open {door.Logic.Open:0.00})");
 
@@ -238,7 +239,7 @@ namespace BuildingEscape.EditorTools
                 dm.Use(0, false);
                 yield return new WaitForSeconds(SlidingDoor.WideCloseSeconds + 0.6f);
                 var along = door.AlongX ? Vector3.right : Vector3.forward;
-                player.transform.position = door.Centre + across * 1.2f + Vector3.up * 1.1f; rb.linearVelocity = Vector3.zero;
+                player.TeleportTo(door.Centre + across * 1.2f + Vector3.up * 1.1f, player.transform.rotation); rb.linearVelocity = Vector3.zero;
                 yield return new WaitForFixedUpdate();
                 Physics.SyncTransforms();
                 // the camera sits behind and above the player, as CameraFollow puts it; "Look" is the crosshair on a point of the world
@@ -297,7 +298,7 @@ namespace BuildingEscape.EditorTools
                 Destroy(nut);
 
                 // too far away to work the door
-                player.transform.position = door.Centre + across * 5.5f + Vector3.up * 1.1f; rb.linearVelocity = Vector3.zero;
+                player.TeleportTo(door.Centre + across * 5.5f + Vector3.up * 1.1f, player.transform.rotation); rb.linearVelocity = Vector3.zero;
                 yield return new WaitForFixedUpdate();
                 Physics.SyncTransforms();
                 a = Look(doorMid);
@@ -307,7 +308,7 @@ namespace BuildingEscape.EditorTools
                 var sw = Crosshair.SwingForward(player.transform);
                 DoorCheck("aim: the swing direction is flat, one metre long, and in front of the player",
                     Mathf.Abs(sw.y) < 1e-3f && Mathf.Abs(sw.magnitude - 1f) < 1e-3f && Vector3.Dot(sw, player.transform.forward) > 0.5f, $"({sw}, facing {player.transform.forward})");
-                player.transform.position = away; rb.linearVelocity = Vector3.zero;
+                player.TeleportTo(away, player.transform.rotation); rb.linearVelocity = Vector3.zero;
                 yield return new WaitForSeconds(0.3f);
             }
 
@@ -435,7 +436,7 @@ namespace BuildingEscape.EditorTools
             var savedBlockers = guard.sightBlockers;
             guard.sightRange = 0.01f;                                   // he sees nothing: only the state under test drives him
             guard.catchRadius = 0.1f;                                   // and catches nobody
-            player.transform.position = away; rb.linearVelocity = Vector3.zero;
+            player.TeleportTo(away, player.transform.rotation); rb.linearVelocity = Vector3.zero;
             guard.gameObject.SetActive(true);
 
             // ---- through a doorway, four ways
@@ -444,7 +445,7 @@ namespace BuildingEscape.EditorTools
                 ("on patrol", () => { fState.SetValue(guard, GuardState.Patrol); agent.speed = guard.walkSpeed; agent.SetDestination(to); }),
                 ("going to look at a noise", () => NoiseBus.Emit(to, 400f)),
                 ("sent as backup", () => guard.Dispatch(to)),
-                ("chasing the player", () => { player.transform.position = to + Vector3.up * 1.1f; rb.linearVelocity = Vector3.zero; fTarget.SetValue(guard, player); fUnseen.SetValue(guard, 0f); fState.SetValue(guard, GuardState.Chase); agent.speed = guard.chaseSpeed; }),
+                ("chasing the player", () => { player.TeleportTo(to + Vector3.up * 1.1f, player.transform.rotation); rb.linearVelocity = Vector3.zero; fTarget.SetValue(guard, player); fUnseen.SetValue(guard, 0f); fState.SetValue(guard, GuardState.Chase); agent.speed = guard.chaseSpeed; }),
             };
             foreach (var m in modes)
             {
@@ -454,7 +455,7 @@ namespace BuildingEscape.EditorTools
                 DoorCheck($"guards: an officer {m.label} gets through the doorway", w.Crossed && w.Arrived, $"(crossed {w.Crossed}, arrived {w.Arrived}, {w.Seconds:0.0} s)");
                 DoorCheck($"guards: the door is wide open before an officer {m.label} reaches it", gap >= 1.2f,
                     $"(gap {gap:0.00} m of {2f * door.HalfGap:0.0} m, he walked at {w.SpeedAtTouch:0.0} m/s)");
-                player.transform.position = away; rb.linearVelocity = Vector3.zero;
+                player.TeleportTo(away, player.transform.rotation); rb.linearVelocity = Vector3.zero;
                 yield return new WaitForSeconds(SlidingDoor.Linger + SlidingDoor.WideCloseSeconds + 1.0f);
                 DoorCheck($"guards: the door shuts behind him ({m.label})", door.IsShut && door.BlockerEnabled, $"(open {door.Logic.Open:0.00})");
             }
@@ -469,7 +470,7 @@ namespace BuildingEscape.EditorTools
                     ("on patrol", () => { fState.SetValue(guard, GuardState.Patrol); agent.speed = guard.walkSpeed; agent.SetDestination(passTo); }),
                     ("going to look at a noise", () => NoiseBus.Emit(passTo, 400f)),
                     ("sent as backup", () => guard.Dispatch(passTo)),
-                    ("chasing the player", () => { player.transform.position = passTo + Vector3.up * 1.1f; rb.linearVelocity = Vector3.zero; fTarget.SetValue(guard, player); fUnseen.SetValue(guard, 0f); fState.SetValue(guard, GuardState.Chase); agent.speed = guard.chaseSpeed; }),
+                    ("chasing the player", () => { player.TeleportTo(passTo + Vector3.up * 1.1f, player.transform.rotation); rb.linearVelocity = Vector3.zero; fTarget.SetValue(guard, player); fUnseen.SetValue(guard, 0f); fState.SetValue(guard, GuardState.Chase); agent.speed = guard.chaseSpeed; }),
                 };
                 foreach (var m in passModes)
                 {
@@ -477,7 +478,7 @@ namespace BuildingEscape.EditorTools
                     yield return WalkOfficer(w, guard, agent, pdoor, dm, passIdx, passFrom, passTo, pacross, m.start);
                     DoorCheck($"guards: an officer {m.label} who walks past a doorway does not open it", w.Arrived && w.MaxOpen <= 0f,
                         $"(arrived {w.Arrived} after {w.Seconds:0.0} s, the door opened up to {w.MaxOpen:0.00})");
-                    player.transform.position = away; rb.linearVelocity = Vector3.zero;
+                    player.TeleportTo(away, player.transform.rotation); rb.linearVelocity = Vector3.zero;
                 }
             }
 
@@ -491,7 +492,7 @@ namespace BuildingEscape.EditorTools
             while (inView < 7f)
             {
                 var ahead = guard.transform.forward; ahead.y = 0f;
-                player.transform.position = guard.transform.position + ahead.normalized * 8f + Vector3.up * 1.1f; rb.linearVelocity = Vector3.zero;
+                player.TeleportTo(guard.transform.position + ahead.normalized * 8f + Vector3.up * 1.1f, player.transform.rotation); rb.linearVelocity = Vector3.zero;
                 yield return null; inView += Time.deltaTime;
                 if (guard.State != GuardState.Chase) { stillChasing = false; break; }
             }
@@ -505,7 +506,7 @@ namespace BuildingEscape.EditorTools
             for (int i = 0; i < 3; i++)
             {
                 var ahead = guard.transform.forward; ahead.y = 0f;
-                player.transform.position = guard.transform.position + ahead.normalized * 8f + Vector3.up * 1.1f; rb.linearVelocity = Vector3.zero;
+                player.TeleportTo(guard.transform.position + ahead.normalized * 8f + Vector3.up * 1.1f, player.transform.rotation); rb.linearVelocity = Vector3.zero;
                 yield return null;
             }
             guard.sightRange = 0.01f;                                   // ...and out of it again
@@ -518,7 +519,7 @@ namespace BuildingEscape.EditorTools
             guard.gameObject.SetActive(false);
             fState.SetValue(guard, GuardState.Patrol);
             guard.sightRange = savedSight; guard.catchRadius = savedCatch; guard.sightBlockers = savedBlockers;
-            player.transform.position = away; rb.linearVelocity = Vector3.zero;
+            player.TeleportTo(away, player.transform.rotation); rb.linearVelocity = Vector3.zero;
             Log("[Doors] guard QA finished");
         }
 

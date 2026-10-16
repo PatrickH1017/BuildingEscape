@@ -15,7 +15,7 @@ namespace BuildingEscape.EditorTools
     {
         string qaRole, qaPrefix;
         int qaPass, qaFail;
-        static readonly string[] Players = { "host", "c1", "c2", "c3" };
+        static readonly string[] Players = { "host", "c1", "c2", "c3", "c4" };
 
         void Check(string name, bool ok, string detail = null)
         {
@@ -52,6 +52,23 @@ namespace BuildingEscape.EditorTools
         }
 
         static ulong MyId => NetworkManager.Singleton.LocalClientId;
+
+        /// <summary>A place in the elevator car right in front of its wall panel (the panel only answers to someone this close).</summary>
+        static Vector3 NearPanel()
+        {
+            var car = ElevatorExtraction.Current;
+            var toCar = car.transform.position - car.panelPosition; toCar.y = 0f;
+            var at = car.panelPosition + toCar.normalized * 1.0f;
+            return new Vector3(at.x, 1.1f, at.z);
+        }
+
+        /// <summary>A place in the vendor's trailer in front of the counter (where the shop opens), sideways by <paramref name="sideways"/> metres.</summary>
+        static Vector3 CounterSpot(float sideways)
+        {
+            var gen = FindFirstObjectByType<FloorGenerator>();
+            var entrance = gen.DockTrailerEntrance;
+            return new Vector3(entrance.x + sideways, 1.1f, gen.DockCounter.z - 2.0f);
+        }
 
         static NetPlayer PlayerByClient(ulong id)
         {
@@ -133,7 +150,14 @@ namespace BuildingEscape.EditorTools
             qaPrefix = "qa" + (System.Environment.GetEnvironmentVariable("BE_QA_RUN") ?? "0") + "_";
             var net = NetSession.Instance;
             bool host = role == "host";
-            bool player = host || role == "c1" || role == "c2" || role == "c3";
+            bool player = host || role == "c1" || role == "c2" || role == "c3" || role == "c4";
+            string qaSim = System.Environment.GetEnvironmentVariable("BE_SIM");   // "delay,jitter,loss%": run the whole suite on a bad network
+            if (!string.IsNullOrEmpty(qaSim))
+            {
+                var sp = qaSim.Split(',');
+                net.GetComponent<Unity.Netcode.Transports.UTP.UnityTransport>().SetDebugSimulatorParameters(int.Parse(sp[0]), int.Parse(sp[1]), int.Parse(sp[2]));
+                Log($"[QA] {role}: simulated network {qaSim} (ms delay, ms jitter, % loss)");
+            }
 
             // ---------------- 1. lobby: join, cap of four, a fifth is refused
             if (host)
@@ -144,41 +168,35 @@ namespace BuildingEscape.EditorTools
             }
             else yield return QaWait("lobby_up", 200);
 
-            if (role == "late5")
-            {
-                yield return QaWait("bar_lobby4_host");
-                yield return QaWait("bar_lobby4_c1");
-                yield return QaWait("bar_lobby4_c2");
-                yield return QaWait("bar_lobby4_c3");
-                yield return new WaitForSeconds(1.5f);
-                net.JoinLocal("127.0.0.1");
-                yield return WaitFor(() => net.State != NetSessionState.Connecting, 30, "fifth player result");
-                Check("a fifth player is refused", net.State == NetSessionState.Offline, $"state={net.State}");
-                Check("the refusal says the lobby is full", (net.Status ?? "").ToLowerInvariant().Contains("full"), $"status='{net.Status}'");
-                QaSignal("bar_late5_done_late5");
-                QaFinish();
-                yield break;
-            }
-
             if (role == "late6")
             {
+                // a sixth player: refused while the lobby is full ...
+                foreach (var r in Players) yield return QaWait($"bar_lobby5_{r}");
+                yield return new WaitForSeconds(1.5f);
+                net.JoinLocal("127.0.0.1");
+                yield return WaitFor(() => net.State != NetSessionState.Connecting, 30, "sixth player result");
+                Check("a sixth player is refused", net.State == NetSessionState.Offline, $"state={net.State}");
+                Check("the refusal says the lobby is full", (net.Status ?? "").ToLowerInvariant().Contains("full"), $"status='{net.Status}'");
+                Check("and names the limit", (net.Status ?? "").Contains("5/5"), $"status='{net.Status}'");
+                QaSignal("bar_late6_done_late6");
+
+                // ... and a late joiner is refused once the run started
                 yield return QaWait("run_started", 400);
                 yield return new WaitForSeconds(2f);
                 net.JoinLocal("127.0.0.1");
                 yield return WaitFor(() => net.State != NetSessionState.Connecting, 30, "late join result");
                 Check("a late joiner is refused once the run started", net.State == NetSessionState.Offline, $"state={net.State}");
                 Check("the refusal says the run has started", (net.Status ?? "").ToLowerInvariant().Contains("started"), $"status='{net.Status}'");
-                QaSignal("bar_late6_done_late6");
                 QaFinish();
                 yield break;
             }
             if (!host) { yield return JoinLoop(net); Check("joined the lobby", net.State == NetSessionState.InLobby); }
             QaSignal($"id_{role}", MyId.ToString());
-            yield return Barrier("lobby4", Players);
-            yield return WaitFor(() => net.Roster.Count == 4, 20, "4 players in the roster");
-            Check("all four players are in the lobby", net.Roster.Count == 4, $"roster={net.Roster.Count}");
+            yield return Barrier("lobby5", Players);
+            yield return WaitFor(() => net.Roster.Count == 5, 20, "5 players in the roster");
+            Check("all five players are in the lobby", net.Roster.Count == 5, $"roster={net.Roster.Count}");
 
-            yield return QaWait("bar_late5_done_late5");
+            yield return QaWait("bar_late6_done_late6");
 
             // ---------------- 2. a player leaves the lobby and comes back
             if (role == "c3")
@@ -194,12 +212,12 @@ namespace BuildingEscape.EditorTools
             else if (host)
             {
                 yield return QaWait("c3_left");
-                yield return WaitFor(() => net.Roster.Count == 3, 20, "roster drops to 3");
-                Check("the roster drops when a player leaves", net.Roster.Count == 3, $"roster={net.Roster.Count}");
+                yield return WaitFor(() => net.Roster.Count == 4, 20, "roster drops to 4");
+                Check("the roster drops when a player leaves", net.Roster.Count == 4, $"roster={net.Roster.Count}");
                 QaSignal("c3_back_ok");
                 yield return QaWait("id_c3_2", 60);
-                yield return WaitFor(() => net.Roster.Count == 4, 20, "roster back to 4");
-                Check("the roster is back to four", net.Roster.Count == 4);
+                yield return WaitFor(() => net.Roster.Count == 5, 20, "roster back to 5");
+                Check("the roster is back to five", net.Roster.Count == 5);
             }
             else
             {
@@ -222,9 +240,10 @@ namespace BuildingEscape.EditorTools
             if (host) { hm.godMode = true; hm.freezeTimer = true; hm.AddCash(5000); }
             yield return Barrier("run_up", Players);
 
-            Check("four players spawned", NetPlayer.All.Count == 4, $"players={NetPlayer.All.Count}");
+            Check("five players spawned", NetPlayer.All.Count == 5, $"players={NetPlayer.All.Count}");
             int puppets = 0; foreach (var p in NetPlayer.All) if (p.GetComponent<Rigidbody>().isKinematic) puppets++;
-            Check("exactly three puppets on each machine", puppets == 3, $"puppets={puppets}");
+            Check("exactly four puppets on each machine", puppets == 4, $"puppets={puppets}");
+            Check("my own body is standing in the elevator, not in the void", Mine != null && Mine.transform.position.y > -1f && Mine.transform.position.y < 3f, $"y={Mine?.transform.position.y}");
             Check("I control my own player", Mine != null && Mine.IsOwner);
             QaSignal($"slot_{role}", Mine.Slot.ToString());
             Check("the camera follows my player", FindFirstObjectByType<CameraFollow>()?.target == Mine.transform);
@@ -232,12 +251,12 @@ namespace BuildingEscape.EditorTools
             {
                 var slots = new HashSet<string>();
                 foreach (var r in Players) { yield return QaWait($"slot_{r}", 30); slots.Add(QaRead($"slot_{r}")); }
-                Check("every player has its own slot", slots.Count == 4, string.Join(",", slots));
+                Check("every player has its own slot", slots.Count == 5, string.Join(",", slots));
             }
 
             // ---------------- 4. voice between four players (a tone stands in for each microphone)
             var vc = VoiceChat.Instance;
-            float freq = host ? 440f : role == "c1" ? 550f : role == "c2" ? 660f : 770f;
+            float freq = host ? 440f : role == "c1" ? 550f : role == "c2" ? 660f : role == "c3" ? 770f : 880f;
             vc.UseTestInput(new ToneVoiceInput(freq));
             yield return Barrier("tones_on", Players);
             yield return new WaitForSeconds(4f);
@@ -248,7 +267,7 @@ namespace BuildingEscape.EditorTools
                 var v = vc.VoiceOf(p.OwnerClientId);
                 if (v != null && v.packets > 20 && v.samplesPlayed > 1000) heardFrom++;
             }
-            Check("I can hear all three teammates", heardFrom == 3, $"heard={heardFrom}");
+            Check("I can hear all four teammates", heardFrom == 4, $"heard={heardFrom}");
             if (host) Check("the host relayed voice packets", vc.PacketsRelayed > 100, $"relayed={vc.PacketsRelayed}");
             yield return Barrier("voice_done", Players);
             vc.Muted = true;
@@ -257,7 +276,7 @@ namespace BuildingEscape.EditorTools
             if (role == "c1" || role == "c2")
             {
                 var vendor = Vendor.Current;
-                Teleport(vendor.transform.position + new Vector3(role == "c1" ? -2f : 2f, 1.1f, 0f)); // apart: overlapping capsules fling each other out
+                Teleport(CounterSpot(role == "c1" ? -1.0f : 1.0f)); // in the trailer in front of the counter, apart: overlapping capsules fling each other out
                 yield return Settle(1.5f);
                 var pack = MyPack;
                 if (role == "c1") { RunSync.Instance.RequestBuy(0); yield return WaitFor(() => pack.Items.Count >= 1, 30, "mug bought"); }
@@ -286,12 +305,17 @@ namespace BuildingEscape.EditorTools
             yield return Barrier("shopped", Players);
 
             // everyone into the car, then c1 presses Go (Up is the only direction at the docks)
-            Teleport(tm.CurrentInfo.spawn + new Vector3((Mine.Slot - 1.5f) * 1.25f, 1.1f, 0f));
+            Teleport(tm.CurrentInfo.spawn + new Vector3((Mine.Slot - 2f) * 1.25f, 1.1f, 0f));
             yield return WaitFor(() => ElevatorExtraction.EveryoneAboard, 30, "everyone aboard");
             Check("the elevator knows everyone is aboard", ElevatorExtraction.EveryoneAboard);
-            Check("at the docks the only way is up", ElevatorExtraction.GoingUp && ElevatorExtraction.Destination == 1, $"dest={ElevatorExtraction.Destination}");
+            Check("the panel has nothing chosen yet", ElevatorExtraction.Destination == -1, $"dest={ElevatorExtraction.Destination}");
             RunSync.SyncChecked = false;
             yield return Barrier("aboard", Players);
+            // the wall panel: choose the floor, then GO (c1 stands at the panel)
+            if (role == "c1") { Teleport(NearPanel()); yield return Settle(0.8f); RunSync.Instance.RequestPanel(ElevatorExtraction.SelectBase + 1); }
+            yield return WaitFor(() => ElevatorExtraction.Destination == 1, 20, "floor 1 chosen on the panel");
+            Check("at the docks the only way is up: floor 1 can be chosen, on every machine", ElevatorExtraction.GoingUp && ElevatorExtraction.Destination == 1, $"dest={ElevatorExtraction.Destination}");
+            yield return Barrier("chosen1", Players);
             if (role == "c1") RunSync.Instance.RequestPanel(1);
             yield return new WaitUntil(() => tm.Loading || hm.Floor == 1);
             yield return FloorReady(1, 120);
@@ -302,7 +326,7 @@ namespace BuildingEscape.EditorTools
             {
                 var sums = new HashSet<string>();
                 foreach (var r in Players) sums.Add(QaRead($"sum_{r}"));
-                Check("all four machines built the identical floor", sums.Count == 1, string.Join(" | ", sums));
+                Check("all five machines built the identical floor", sums.Count == 1, string.Join(" | ", sums));
             }
             Check("the guards are puppets on clients", host || System.Linq.Enumerable.All(GuardAI.All, g => g.IsPuppet));
             Check("quota is the same everywhere", true, $"quota={hm.Quota}");
@@ -487,13 +511,15 @@ namespace BuildingEscape.EditorTools
             yield return QaWait("completed", 60);
             yield return Settle(1.5f);
             Check("floor 1 is complete here too", hm.Phase == HeistPhase.FloorComplete, $"phase={hm.Phase}");
-            Teleport(tm.CurrentInfo.spawn + new Vector3((Mine.Slot - 1.5f) * 1.25f, 1.1f, 0f));
+            Teleport(tm.CurrentInfo.spawn + new Vector3((Mine.Slot - 2f) * 1.25f, 1.1f, 0f));
             yield return WaitFor(() => ElevatorExtraction.EveryoneAboard, 30, "everyone aboard (floor 1)");
-            Check("with the quota met, Up goes to floor 2", ElevatorExtraction.GoingUp && ElevatorExtraction.Destination == 2, $"up={ElevatorExtraction.GoingUp} dest={ElevatorExtraction.Destination}");
+            if (role == "c1") { Teleport(NearPanel()); yield return Settle(0.8f); RunSync.Instance.RequestPanel(ElevatorExtraction.SelectBase + 2); }
+            yield return WaitFor(() => ElevatorExtraction.Destination == 2, 20, "floor 2 chosen on the panel");
+            Check("with the quota met, the panel takes you up to floor 2", ElevatorExtraction.GoingUp && ElevatorExtraction.Destination == 2, $"up={ElevatorExtraction.GoingUp} dest={ElevatorExtraction.Destination}");
             yield return Barrier("aboard1", Players);
-            if (role == "c1") { RunSync.Instance.RequestPanel(0); yield return Settle(0.8f); }
-            yield return Settle(1.0f);
-            Check("the direction button flipped to Down (docks)", !ElevatorExtraction.GoingUp && ElevatorExtraction.Destination == 0, $"dest={ElevatorExtraction.Destination}");
+            if (role == "c1") { RunSync.Instance.RequestPanel(ElevatorExtraction.SelectBase + 0); yield return Settle(0.8f); }   // the docks instead
+            yield return WaitFor(() => ElevatorExtraction.Destination == 0, 20, "the docks chosen on the panel");
+            Check("choosing the Loading Docks instead turns the choice to Down", !ElevatorExtraction.GoingUp && ElevatorExtraction.Destination == 0, $"dest={ElevatorExtraction.Destination}");
             yield return Barrier("dir_down", Players);
             if (role == "c1") RunSync.Instance.RequestPanel(1);
             yield return new WaitUntil(() => tm.Loading || hm.Floor == 0);
@@ -508,10 +534,15 @@ namespace BuildingEscape.EditorTools
             yield return FloorReady(3, 120);
             if (host) { hm.DebugCompleteFloor(); QaSignal("f3_complete"); }
             yield return QaWait("f3_complete", 60);
-            Teleport(tm.CurrentInfo.spawn + new Vector3((Mine.Slot - 1.5f) * 1.25f, 1.1f, 0f));
+            Teleport(tm.CurrentInfo.spawn + new Vector3((Mine.Slot - 2f) * 1.25f, 1.1f, 0f));
             yield return WaitFor(() => ElevatorExtraction.EveryoneAboard, 30, "everyone aboard (floor 3)");
             yield return Settle(1.5f);
-            Check("floor 3 ends the group: up is locked, only the docks remain", !ElevatorExtraction.GoingUp && ElevatorExtraction.Destination == 0, $"up={ElevatorExtraction.GoingUp} dest={ElevatorExtraction.Destination}");
+            if (role == "c1") { Teleport(NearPanel()); yield return Settle(0.8f); RunSync.Instance.RequestPanel(ElevatorExtraction.SelectBase + 4); yield return Settle(1.0f); }   // up is refused
+            yield return Settle(1.0f);
+            Check("floor 3 ends the group: the panel refuses going up", ElevatorExtraction.Destination == -1, $"dest={ElevatorExtraction.Destination}");
+            if (role == "c1") { RunSync.Instance.RequestPanel(ElevatorExtraction.SelectBase + 0); yield return Settle(0.8f); }
+            yield return WaitFor(() => ElevatorExtraction.Destination == 0, 20, "the docks chosen (floor 3)");
+            Check("only the docks remain", !ElevatorExtraction.GoingUp && ElevatorExtraction.Destination == 0, $"up={ElevatorExtraction.GoingUp} dest={ElevatorExtraction.Destination}");
             yield return Barrier("f3_panel", Players);
             if (role == "c1") RunSync.Instance.RequestPanel(1);
             yield return new WaitUntil(() => tm.Loading || hm.Floor == 0);
@@ -522,6 +553,15 @@ namespace BuildingEscape.EditorTools
             // ---------------- 8. a player drops out mid-run
             if (role == "c2")
             {
+                // buy something so there is a pack to lose, then drop out
+                Teleport(CounterSpot(1.0f));
+                yield return Settle(1.5f);
+                int packBefore = MyPack.Items.Count;
+                RunSync.Instance.RequestBuy(0);
+                yield return WaitFor(() => MyPack.Items.Count == packBefore + 1, 30, "bought something to leave behind");
+                var leftBehind = MyPack.Items[MyPack.Items.Count - 1];
+                QaSignal("c2_item", leftBehind.NetId.ToString());
+                yield return Settle(1.0f);
                 net.Leave("qa dropout");
                 yield return WaitFor(() => net.State == NetSessionState.Offline && SceneManager.GetActiveScene().name == NetConst.MenuScene, 30, "back at the menu");
                 Check("the dropped player is back at the menu", true);
@@ -530,9 +570,12 @@ namespace BuildingEscape.EditorTools
                 yield break;
             }
             yield return QaWait("c2_gone", 90);
-            yield return WaitFor(() => NetPlayer.All.Count == 3, 30, "three players left");
-            Check("the run continues with three players", NetPlayer.All.Count == 3 && WobblyPlayerRegistry.All.Count == 3, $"players={NetPlayer.All.Count} registry={WobblyPlayerRegistry.All.Count}");
-            var remaining = new[] { "host", "c1", "c3" };
+            yield return WaitFor(() => NetPlayer.All.Count == 4, 30, "four players left");
+            yield return Settle(1.5f);
+            var dropped = NetIds.Get<Pickup>(int.Parse(QaRead("c2_item")));
+            Check("what the dropped player carried is on the floor, not lost", dropped != null && dropped.gameObject.activeInHierarchy, dropped == null ? "gone" : $"active={dropped.gameObject.activeInHierarchy}");
+            Check("the run continues with four players", NetPlayer.All.Count == 4 && WobblyPlayerRegistry.All.Count == 4, $"players={NetPlayer.All.Count} registry={WobblyPlayerRegistry.All.Count}");
+            var remaining = new[] { "host", "c1", "c3", "c4" };
             yield return Barrier("three", remaining);
 
             // ---------------- 9. floor 12: the key, the back door, the hidden elevator, the boss
@@ -578,7 +621,7 @@ namespace BuildingEscape.EditorTools
 
             var hidden = BossElevator.Current;
             Check("the hidden elevator exists behind the back door", hidden != null);
-            Teleport(hidden.transform.position + new Vector3((role == "host" ? -1.3f : role == "c1" ? 0f : 1.3f), 0.4f, 0f));
+            Teleport(hidden.transform.position + new Vector3((role == "host" ? -1.5f : role == "c1" ? -0.5f : role == "c3" ? 0.5f : 1.5f), 0.4f, 0f));
             yield return Settle(2f);
             yield return Barrier("hidden_in", remaining);
             if (role == "c1") RunSync.Instance.RequestPanel(1);

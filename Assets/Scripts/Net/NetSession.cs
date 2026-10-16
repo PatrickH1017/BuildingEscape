@@ -53,6 +53,8 @@ namespace BuildingEscape.Net
         public string LobbyCode => lobby != null && lobby.InLobby ? lobby.Code : "";
         public bool LocalReady { get; private set; }
         public SteamService Steam => steam;
+        /// <summary>The Steam transport (traffic counters, connection limit); for diagnostics and the QA tests.</summary>
+        public SteamNetworkTransport SteamTransport => steamTransport;
         public event Action RosterChanged;
 
         NetworkManager nm;
@@ -85,6 +87,7 @@ namespace BuildingEscape.Net
             steamTransport = GetComponent<SteamNetworkTransport>();
             steam = GetComponent<SteamService>();
             nm.ConnectionApprovalCallback = OnApproval;
+            if (steamTransport != null) steamTransport.MaxConnections = NetConst.MaxPlayers;   // the other players (MaxPlayers - 1) and one more being checked
             nm.OnClientConnectedCallback += OnClientConnected;
             nm.OnClientDisconnectCallback += OnClientDisconnected;
         }
@@ -152,6 +155,7 @@ namespace BuildingEscape.Net
                 { Leave(JoinPolicy.Message(JoinVerdict.WrongVersion)); return; }
 
                 hostAtJoin = lobby.Owner;
+                connectDeadline = Time.unscaledTime + ConnectSeconds;   // the lobby took its share; the relay connection gets its own
                 steamTransport.PrepareClient(hostAtJoin.m_SteamID);
                 if (!StartNetcode(false, steamTransport, Payload())) { Leave("Could not start the connection."); return; }
                 UsingSteam = true; IsHost = false;
@@ -285,10 +289,14 @@ namespace BuildingEscape.Net
             nm.SceneManager.OnLoadEventCompleted -= OnRunSceneLoaded;
             foreach (var id in timedOut) nm.DisconnectClient(id, "Timed out while loading the run.");
 
-            int slot = 0;
+            // Everybody starts in the middle of the first elevator car, held still until the floor is built (a player spawned at the
+            // origin stood outside the map and fell).
+            int slot = 0, count = completed.Count;
+            var tower = TowerManager.Instance;
             foreach (var id in completed)
             {
-                var go = Instantiate(playerPrefab);
+                var at = tower != null ? tower.PreFloorSpawn(slot, count) : Vector3.zero;
+                var go = Instantiate(playerPrefab, at, Quaternion.identity);
                 go.GetComponent<NetPlayer>().AssignSlot(slot++);
                 go.GetComponent<NetworkObject>().SpawnAsPlayerObject(id, true);
             }
@@ -340,8 +348,11 @@ namespace BuildingEscape.Net
             State = NetSessionState.Connecting;
             Status = status;
             LocalReady = false;
-            connectDeadline = Time.unscaledTime + connectTimeoutSeconds;
+            connectDeadline = Time.unscaledTime + ConnectSeconds;
         }
+
+        /// <summary>How long a connection attempt may take: the first Steam relay connection can need several seconds to set up.</summary>
+        float ConnectSeconds => Mathf.Max(connectTimeoutSeconds, 30f);
 
         bool EnsureSteam()
         {

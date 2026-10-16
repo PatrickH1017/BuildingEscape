@@ -20,6 +20,8 @@ namespace BuildingEscape.Net
 
         public int Seed => seed.Value;
         public bool Started => started.Value;
+        /// <summary>How many players the host says are in the run (the connected clients).</summary>
+        public int ExpectedPlayers => expected.Value;
         /// <summary>Started, and every player object has arrived on this machine.</summary>
         public bool EveryoneHere => started.Value && NetPlayer.All.Count >= expected.Value;
 
@@ -46,7 +48,13 @@ namespace BuildingEscape.Net
         void Update()
         {
             if (!IsSpawned) return;
-            if (IsServer) { HostPublishState(); HostSendSnapshots(); }
+            if (IsServer)
+            {
+                // somebody who drops out while the others are still arriving must not leave them waiting for a player who is gone
+                if (started.Value && expected.Value != NetworkManager.ConnectedClientsIds.Count) expected.Value = NetworkManager.ConnectedClientsIds.Count;
+                HostPublishState();
+                HostSendSnapshots();
+            }
             else { ClientApplyState(); }
         }
 

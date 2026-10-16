@@ -94,6 +94,32 @@ namespace BuildingEscape
         void OnEnable() { if (rb) rb.interpolation = RigidbodyInterpolation.Interpolate; }
         void OnDisable() { if (rb) rb.interpolation = RigidbodyInterpolation.None; }
 
+        /// <summary>
+        /// Puts the body somewhere else at once. With interpolation on, writing <c>transform.position</c> alone is undone by the next
+        /// physics step (the body is drawn back where the rigidbody still is): that is how a player placed in the elevator used to snap
+        /// back to where they spawned and fall out of the world. So the rigidbody itself is moved, and its smoothing starts over.
+        /// </summary>
+        public void TeleportTo(Vector3 position, Quaternion rotation)
+        {
+            if (!rb) rb = GetComponent<Rigidbody>();
+            var mode = rb.interpolation;
+            rb.interpolation = RigidbodyInterpolation.None;
+            transform.SetPositionAndRotation(position, rotation);
+            rb.position = position;
+            rb.rotation = rotation;
+            if (!rb.isKinematic) { rb.linearVelocity = Vector3.zero; rb.angularVelocity = Vector3.zero; }
+            Physics.SyncTransforms();
+            rb.interpolation = mode;
+        }
+
+        /// <summary>Hold the body still (no gravity, no forces) while the floor it will stand on is being built; false lets it go.</summary>
+        public void HoldStill(bool hold)
+        {
+            if (!rb) rb = GetComponent<Rigidbody>();
+            if (hold && !rb.isKinematic) { rb.linearVelocity = Vector3.zero; rb.angularVelocity = Vector3.zero; }
+            rb.isKinematic = hold;
+        }
+
         void Update()
         {
             var raw = new Vector3(Input.GetAxisRaw("Horizontal"), 0, Input.GetAxisRaw("Vertical"));
@@ -139,6 +165,7 @@ namespace BuildingEscape
         void FixedUpdate()
         {
             grounded = CheckGrounded();
+            if (rb.isKinematic) return;                // held still while the floor is built: nothing to push
             if (InCustody) { HoldDown(); return; }
             if (!IsStumbling)
             {
