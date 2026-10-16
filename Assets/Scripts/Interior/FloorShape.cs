@@ -118,14 +118,60 @@ namespace BuildingEscape
             return dist;
         }
 
-        /// <summary>The cell farthest from the elevator (the first one found, going column by column).</summary>
-        public void FarthestCell(int[,] dist, out int fc, out int fr)
+        /// <summary>The cell farthest from the elevator (the first one found, going column by column), not counting the cell (exceptC, exceptR).</summary>
+        public void FarthestCell(int[,] dist, out int fc, out int fr, int exceptC = -1, int exceptR = -1)
         {
             fc = 0; fr = 0;
             int best = -1;
             for (int c = 0; c < cols; c++)
                 for (int r = 0; r < rows; r++)
+                {
+                    if (c == exceptC && r == exceptR) continue;
                     if (dist[c, r] > best) { best = dist[c, r]; fc = c; fr = r; }
+                }
+        }
+
+        /// <summary>
+        /// The cell of the guards' own elevator: the corner opposite the service elevator's (which is cell 0, 0), the same cell on every floor,
+        /// so the shaft lines up from floor to floor like a real one. The backup arrives from it.
+        /// </summary>
+        public void ShaftCell(out int sc, out int sr)
+        {
+            sc = cols - 1; sr = rows - 1;
+        }
+
+        /// <summary>
+        /// The cells of the two stairwells: the corners that are neither elevator's (north-west and south-east: opposite sides of the floor), the
+        /// same cells on every floor. A corner that is the same cell as an elevator's (a floor of one row or column) gets none.
+        /// </summary>
+        public void StairCells(out int[] sc, out int[] sr)
+        {
+            var cs = new List<int>(); var rs = new List<int>();
+            ShaftCell(out int gc, out int gr);
+            int[] tc = { 0, cols - 1 }, tr = { rows - 1, 0 };
+            for (int i = 0; i < 2; i++)
+            {
+                bool elevator = tc[i] == 0 && tr[i] == 0, shaft = tc[i] == gc && tr[i] == gr;
+                bool twice = cs.Count > 0 && cs[0] == tc[i] && rs[0] == tr[i];
+                if (elevator || shaft || twice) continue;
+                cs.Add(tc[i]); rs.Add(tr[i]);
+            }
+            sc = cs.ToArray(); sr = rs.ToArray();
+        }
+
+        /// <summary>The cell farthest from the elevator, not counting any of the cells in (exceptC[i], exceptR[i]).</summary>
+        public void FarthestCellExcept(int[,] dist, out int fc, out int fr, int[] exceptC, int[] exceptR)
+        {
+            fc = 0; fr = 0;
+            int best = -1;
+            for (int c = 0; c < cols; c++)
+                for (int r = 0; r < rows; r++)
+                {
+                    bool skip = false;
+                    for (int i = 0; i < exceptC.Length; i++) if (exceptC[i] == c && exceptR[i] == r) skip = true;
+                    if (skip) continue;
+                    if (dist[c, r] > best) { best = dist[c, r]; fc = c; fr = r; }
+                }
         }
 
         /// <summary>Which neighbour a cell's guard car faces: the first open side going west, south, east, north (west if none).</summary>
@@ -150,14 +196,22 @@ namespace BuildingEscape
 
         /// <summary>
         /// The input the room planner needs for this floor. <paramref name="intelSeed"/> is the run's seed for the safes (see <see cref="SafeRules"/>).
-        /// Every floor gets a guard outpost in its farthest cell; whether it also has a safe, and the number that picks the safe's room, follow
-        /// from the seed and the floor alone.
+        /// Every floor gets the guards' own elevator in the corner opposite the players' (the backup arrives in it) and a guard outpost in the
+        /// farthest other cell; whether it also has a safe, and the number that picks the safe's room, follow from the seed and the floor alone.
         /// </summary>
         public PlanInput PlanFor(int floor, int seed, float cell, float wallHeight, int intelSeed)
         {
             var dist = Distances();
-            FarthestCell(dist, out int gc, out int gr);
+            ShaftCell(out int gc, out int gr);                         // the guards' elevator: the corner opposite the players'
             GuestDoorDir(gc, gr, out int gdx, out int gdy);
+            StairCells(out int[] stc, out int[] str);                  // the two stairwells: the other two corners
+            var stdx = new int[stc.Length]; var stdy = new int[stc.Length];
+            for (int i = 0; i < stc.Length; i++) GuestDoorDir(stc[i], str[i], out stdx[i], out stdy[i]);
+            var exC = new int[stc.Length + 1]; var exR = new int[stc.Length + 1];
+            exC[0] = gc; exR[0] = gr;
+            for (int i = 0; i < stc.Length; i++) { exC[i + 1] = stc[i]; exR[i + 1] = str[i]; }
+            FarthestCellExcept(dist, out int oc, out int orow, exC, exR);   // the outpost: the farthest cell that is none of the three
+            GuestDoorDir(oc, orow, out int odx, out int ody);
             return new PlanInput
             {
                 seed = seed, floor = floor, cols = cols, rows = rows, cell = cell, wallH = wallHeight,
@@ -165,6 +219,8 @@ namespace BuildingEscape
                 elevC = 0, elevR = 0, elevDoorEast = ElevatorDoorEast(),
                 hiddenHall = floor == TowerRules.KeyFloor,
                 guestC = gc, guestR = gr, guestDirX = gdx, guestDirY = gdy,
+                outpostC = oc, outpostR = orow, outpostDirX = odx, outpostDirY = ody,
+                stairC = stc, stairR = str, stairDirX = stdx, stairDirY = stdy,
                 cafe = floor == 1,
                 outpost = true,
                 hasSafe = SafeRules.HasSafe(intelSeed, floor),

@@ -203,6 +203,7 @@ namespace BuildingEscape
         {
             if (IsPuppet) return;
             if (State == GuardState.Stunned || State == GuardState.Chase || State == GuardState.Calling || State == GuardState.Pinning) return;
+            if (noticeGate != null && !noticeGate(n.Position)) return;      // deaf to anything outside the room he guards
             float dist = Vector3.Distance(transform.position, n.Position);
             if (dist > n.Loudness * hearingMultiplier) return;
             noiseTarget = n.Position;
@@ -463,11 +464,33 @@ namespace BuildingEscape
             transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(to), 8f * Time.deltaTime);
         }
 
+        // ------------------------------------------------------------------ a guard on duty (the outpost's)
+
+        /// <summary>
+        /// Set for a guard who is blind and deaf to anything the gate says no to (a position outside the room he guards): he sees and hears
+        /// only what is inside it. A player who steps out of the room drops the call he was making (the guard no longer sees them) and a
+        /// chase that leaves the room runs out after <see cref="loseSightSeconds"/>, like any other that loses its target.
+        /// </summary>
+        public System.Func<Vector3, bool> noticeGate;
+        /// <summary>A guard on duty at one spot: after any excursion he walks back to it and stands there looking the way <see cref="postForward"/> says.</summary>
+        public bool stationary;
+        public Vector3 postForward = Vector3.forward;
+
+        /// <summary>Puts the guard on duty where he stands, facing <paramref name="forward"/> (a flat direction).</summary>
+        public void StandGuard(Vector3 forward)
+        {
+            forward.y = 0f;
+            postForward = forward.sqrMagnitude > 0.01f ? forward.normalized : transform.forward;
+            stationary = true;
+            transform.rotation = Quaternion.LookRotation(postForward);
+        }
+
         void UpdatePatrol()
         {
             if (roam == null && (patrolPoints == null || patrolPoints.Length == 0)) return;
             if (!agent.pathPending && agent.remainingDistance <= agent.stoppingDistance + 0.2f)
             {
+                if (stationary) transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(postForward), 3f * Time.deltaTime);
                 if (waitUntil == 0) waitUntil = Time.time + 1.2f;
                 if (Time.time >= waitUntil) { waitUntil = 0; GoNextPatrol(); }
             }
@@ -507,6 +530,7 @@ namespace BuildingEscape
         bool CanSee(WobblyPlayer p)
         {
             if (p.Custody != CustodyState.Free) return false; // pinned or arrested players are not what he is looking for
+            if (noticeGate != null && !noticeGate(p.transform.position)) return false;      // outside the room he guards: he does not see it
             var eye = transform.position + Vector3.up * 1.6f;
             var to = p.transform.position + Vector3.up * 0.9f - eye;
             float range = p.IsHidden ? hiddenSightRange : sightRange;

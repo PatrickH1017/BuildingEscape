@@ -145,6 +145,9 @@ namespace BuildingEscape
         /// <summary>The card everything sits on.</summary>
         public static void Panel(Rect r, float radius = 18f) => Body(r, Card, radius, 4f, 5f, true, 2.2f);
 
+        /// <summary>The small card of the in-run HUD (status, pack, ammunition): the same look as <see cref="Panel"/> with thinner lines, so it takes less room.</summary>
+        public static void Plate(Rect r, float radius = 13f) => Body(r, Card, radius, 3f, 4f, true, 1.6f);
+
         /// <summary>A chunky progress bar: a dark track, <paramref name="fraction"/> of it filled in <paramref name="fill"/>.</summary>
         public static void Bar(Rect r, float fraction, Color fill, float outline = 3f)
         {
@@ -218,6 +221,10 @@ namespace BuildingEscape
                 return face;
             }
         }
+
+        /// <summary>The HUD font, and the font style that goes with it (bold for the plain system faces): for the menus' text boxes and wrapped text, which Unity draws itself.</summary>
+        public static Font TextFont => Face;
+        public static FontStyle TextStyle { get { var f = Face; return faceBold ? FontStyle.Bold : FontStyle.Normal; } }
 
         static GUIStyle Style(int px, TextAnchor anchor)
         {

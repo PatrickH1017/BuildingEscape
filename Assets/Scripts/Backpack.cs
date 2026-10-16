@@ -91,7 +91,7 @@ namespace BuildingEscape
         {
             why = null;
             if (Weight + p.weight <= capacity + 0.001f) return true;
-            why = $"Too heavy for your pack ({p.weight:0.#} kg, {Mathf.Max(0, capacity - Weight):0.#} kg free)" +
+            why = $"Too heavy for your pack ({WeightUnits.Lbs(p.weight)}, {WeightUnits.Lbs(Mathf.Max(0, capacity - Weight))} free)" +
                   (p.Loot && p.Loot.lifters > 1 ? " - carry it with friends (Q)" : "");
             return false;
         }
@@ -105,7 +105,7 @@ namespace BuildingEscape
             p.transform.SetParent(holder, true);
             if (p.TryGetComponent(out Rigidbody rb) && !rb.isKinematic) { rb.linearVelocity = Vector3.zero; rb.angularVelocity = Vector3.zero; }
             p.gameObject.SetActive(false);
-            if (Viewed) Say($"Picked up {p.Label} ({p.weight:0.#} kg)");
+            if (Viewed) Say($"Picked up {p.Label} ({WeightUnits.Lbs(p.weight)})");
         }
 
         public void Drop(Pickup p)
@@ -230,14 +230,14 @@ namespace BuildingEscape
             {
                 bool fits = w + target.weight <= capacity + 0.001f;
                 prompt = fits
-                    ? $"[E] Pick up {target.Label}  ({target.weight:0.#} kg" + (target.Value > 0 ? $", ${target.Value}" : "") + ")"
-                    : $"{target.Label} ({target.weight:0.#} kg) is too heavy for your pack - [Q] carry it";
+                    ? $"[E] Pick up {target.Label}  ({WeightUnits.Lbs(target.weight)}" + (target.Value > 0 ? $", ${target.Value}" : "") + ")"
+                    : $"{target.Label} ({WeightUnits.Lbs(target.weight)}) is too heavy for your pack - [Q] carry it";
                 warn = !fits;
             }
             else if (Time.time < noticeUntil) prompt = notice;
             float y = Screen.height * 0.62f;
             if (prompt != null) HudWidgets.Prompt(prompt, y, warn);
-            if (target && Time.time < noticeUntil) HudWidgets.Prompt(notice, y + HudTheme.Px(62f), false, 17f, 1);
+            if (target && Time.time < noticeUntil) HudWidgets.Prompt(notice, y + HudTheme.Px(HudWidgets.PromptStep), false, 17f, 1);
         }
 
         void DrawInventory(GUIStyle label, float w)
@@ -247,7 +247,7 @@ namespace BuildingEscape
             var r = new Rect((Screen.width - pw) / 2f, (Screen.height - ph) / 2f, pw, ph);
             GUI.Box(r, "BACKPACK");
             GUILayout.BeginArea(new Rect(r.x + 14, r.y + 30, pw - 28, ph - 40));
-            GUILayout.Label($"Weight {w:0.#} / {capacity:0.#} kg    (Tab to close)", label);
+            GUILayout.Label($"Weight {WeightUnits.Num(w)} / {WeightUnits.Lbs(capacity)}    (Tab to close)", label);
             scroll = GUILayout.BeginScrollView(scroll);
 
             GUILayout.Label("In your pack:", label);
@@ -287,16 +287,16 @@ namespace BuildingEscape
             if (toTake) { TryStore(toTake); nearby.Remove(toTake); }
 
             GUILayout.Space(8);
-            GUILayout.Label("Tip: compare $ per kg - bring the best value for the space. The vendor pays 70% of value.");
+            GUILayout.Label("Tip: compare $ per lb - bring the best value for the space. The vendor pays 70% of value.");
             GUILayout.EndScrollView();
             GUILayout.EndArea();
         }
 
         static string Describe(Pickup p)
         {
-            string s = $"{p.Label}   {p.weight:0.#} kg";
+            string s = $"{p.Label}   {WeightUnits.Lbs(p.weight)}";
             if (p.TryGetComponent(out RangedWeapon gun)) s += $"   {gun.Magazine.Rounds}/{gun.Magazine.Capacity} rounds";
-            if (p.Value > 0) s += $"   ${p.Value}   (${p.Value / p.weight:0}/kg)";
+            if (p.Value > 0) s += $"   ${p.Value}   (${WeightUnits.PerLb(p.Value, p.weight):0}/lb)";
             return s;
         }
     }

@@ -26,7 +26,7 @@ namespace BuildingEscape
             float s = HudTheme.S;
 
             if (Time.time < hm.BackupMessageUntil && !string.IsNullOrEmpty(hm.BackupMessage))
-                HudWidgets.Notice(hm.BackupMessage, 292f * s, HudTheme.Danger, 24f, HudAnim.Id.Notice);
+                HudWidgets.Notice(hm.BackupMessage, 200f * s, HudTheme.Danger, 24f, HudAnim.Id.Notice);
             if (hm.Phase != HeistPhase.Heist && hm.Phase != HeistPhase.FloorComplete) return;
 
             float best = 0f; GuardAI bestGuard = null;
@@ -43,9 +43,9 @@ namespace BuildingEscape
             }
             if (!bestGuard) return;
             // the big ring sits at the top; under a quota-met banner it moves below it
-            float y = (hm.Phase == HeistPhase.FloorComplete ? 380f : 142f) * s;
-            HudWidgets.CallRing(new Vector2(Screen.width * 0.5f, y), 62f, best, true);
-            HudWidgets.Notice("He is checking it out - get out of his view before he calls backup!", y + 86f * s, HudTheme.Warning, 19f, HudAnim.Id.Checking);
+            float y = (hm.Phase == HeistPhase.FloorComplete ? 200f : 96f) * s;
+            HudWidgets.CallRing(new Vector2(Screen.width * 0.5f, y), 46f, best, true);
+            HudWidgets.Notice("He is checking it out - get out of his view before he calls backup!", y + 66f * s, HudTheme.Warning, 19f, HudAnim.Id.Checking);
         }
     }
 }

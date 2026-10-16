@@ -219,6 +219,24 @@ namespace BuildingEscape
             return y;
         }
 
+        /// <summary>
+        /// A guard who only notices what is inside his room (<see cref="GuardAI.noticeGate"/>) shows a cone that ends at the room's edge: what
+        /// lies beyond it (the corridor, past an open door) is not seen, so it is not drawn as seen. The room is a rectangle, so a ray from
+        /// inside that ends outside crosses its edge exactly once, which a few halvings find.
+        /// </summary>
+        float ClipToGate(Vector3 from, Vector3 dir, float d)
+        {
+            var gate = ai.noticeGate;
+            if (gate == null || !gate(from) || gate(from + dir * d)) return d;
+            float lo = 0f, hi = d;
+            for (int i = 0; i < 6; i++)
+            {
+                float mid = (lo + hi) * 0.5f;
+                if (gate(from + dir * mid)) lo = mid; else hi = mid;
+            }
+            return lo;
+        }
+
         Color StateColor()
         {
             if (ai.IsCalling) return Color.Lerp(new Color(1f, 0.55f, 0.15f), new Color(1f, 0.1f, 0.08f), ai.CallProgress);
@@ -257,7 +275,7 @@ namespace BuildingEscape
             {
                 float ang = Mathf.Lerp(-half, half, i / (float)n);
                 var dir = Quaternion.AngleAxis(ang, Vector3.up) * fwd;
-                float d = Clip(rayOrigin, dir, range);
+                float d = ClipToGate(origin, dir, Clip(rayOrigin, dir, range));
                 var rim = origin + dir * d;
                 var inner = origin + dir * Mathf.Max(0.3f, d - EdgeWidth);
                 verts[1 + i] = new Vector3(inner.x, floorY, inner.z);

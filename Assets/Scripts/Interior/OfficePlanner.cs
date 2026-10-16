@@ -15,12 +15,17 @@ namespace BuildingEscape
         public bool elevDoorEast = true;
         /// <summary>Floor 12: the hidden back-door hallway behind the shaft (west side if the door is east, else south).</summary>
         public bool hiddenHall;
+        /// <summary>The cell of the guards' own elevator (the corner opposite the players' elevator, the same cell on every floor), and which neighbouring cell its door faces (-1,0 = west ...).</summary>
         public int guestC, guestR;
-        /// <summary>Which neighbouring cell the guest car's door faces (-1,0 = west ...).</summary>
         public int guestDirX = -1, guestDirY;
+        /// <summary>The cells of the stairwells (the corners that are neither elevator's; none on a floor too small for them) and which neighbouring cell each door faces.</summary>
+        public int[] stairC, stairR, stairDirX, stairDirY;
+        /// <summary>The cell of the guard outpost (the farthest cell that is not the elevators' or a stairwell's), and which neighbouring cell its front faces.</summary>
+        public int outpostC, outpostR;
+        public int outpostDirX = -1, outpostDirY;
         /// <summary>First floor: the lobby next to the elevator is a coffee shop.</summary>
         public bool cafe;
-        /// <summary>The guest cell holds the guard outpost (every office floor) instead of an empty car in the middle of a service area.</summary>
+        /// <summary>This floor has a guard outpost (every office floor), in its own cell (<see cref="outpostC"/>, <see cref="outpostR"/>).</summary>
         public bool outpost;
         /// <summary>This floor has a floor safe (see <see cref="SafeRules"/>), and the number that picks the room it stands in.</summary>
         public bool hasSafe;
@@ -227,8 +232,13 @@ namespace BuildingEscape
 
             bool isElev = c == inp.elevC && r == inp.elevR;
             bool isGuest = c == inp.guestC && r == inp.guestR && !isElev;
+            int stair = StairIndex(c, r);
+            bool isStair = stair >= 0 && !isElev && !isGuest;
+            bool isOutpost = inp.outpost && c == inp.outpostC && r == inp.outpostR && !isElev && !isGuest && !isStair;
             if (isElev) PlanRing(cell, true);
             else if (isGuest) PlanRing(cell, false);
+            else if (isStair) PlanStairRing(cell, stair);
+            else if (isOutpost) PlanOutpostCell(cell);
             else if (inp.cafe && c == 1 && r == 0) PlanHall(cell, "cafe");
             else if ((c == 0 && r == 1) || (c == 1 && r == 0)) PlanHall(cell, "lobby");
             else
@@ -436,13 +446,9 @@ namespace BuildingEscape
                     cell.keeps.Add(WR(cell, hall.x0, hall.z0, hall.x1, hall.z1));
                 }
             }
-            else if (inp.outpost)
-            {
-                PlanOutpost(cell, ring);
-            }
             else
             {
-                const float s = 2.8f;                                           // outside face of the guest car
+                const float s = 2.8f;                                           // outside face of the guards' car
                 ring.blocks.Add(new Rc(-s, -s, s, s));
                 // the car's door and the straight run from it to the doorway of the cell
                 int dx = inp.guestDirX, dz = inp.guestDirY;
@@ -451,6 +457,46 @@ namespace BuildingEscape
                     : new Rc(-1.9f, dz > 0 ? s - 0.1f : -half, 1.9f, dz > 0 ? half : -s + 0.1f);
                 cell.keeps.Add(WR(cell, lane.x0, lane.z0, lane.x1, lane.z1));
             }
+            ring.endGap = false;
+        }
+
+        /// <summary>Which stairwell is in cell (c, r): 0 or 1, or -1.</summary>
+        int StairIndex(int c, int r)
+        {
+            if (inp.stairC == null) return -1;
+            for (int i = 0; i < inp.stairC.Length; i++) if (inp.stairC[i] == c && inp.stairR[i] == r) return i;
+            return -1;
+        }
+
+        /// <summary>
+        /// A stairwell's cell: the same kind of ring as the guards' car round a smaller solid block (the landing with its walls, 4.8 m), and the
+        /// straight run from its door to the doorway of the cell kept free of furniture.
+        /// </summary>
+        void PlanStairRing(CellCtx cell, int i)
+        {
+            cell.plan = "service";
+            var ring = NewRoom(cell, "service", 2, 0f, 0f, 0, 2 * Inner, 2 * Inner);
+            ring.isRing = true;
+            const float s = StairHalf;                                      // outside face of the landing's walls
+            ring.blocks.Add(new Rc(-s, -s, s, s));
+            int dx = inp.stairDirX[i], dz = inp.stairDirY[i];
+            Rc lane = dx != 0
+                ? new Rc(dx > 0 ? s - 0.1f : -half, -1.7f, dx > 0 ? half : -s + 0.1f, 1.7f)
+                : new Rc(-1.7f, dz > 0 ? s - 0.1f : -half, 1.7f, dz > 0 ? half : -s + 0.1f);
+            cell.keeps.Add(WR(cell, lane.x0, lane.z0, lane.x1, lane.z1));
+            ring.endGap = false;
+        }
+
+        /// <summary>Half the outside size of a stairwell's walls (m); FloorGenerator builds the landing to this size.</summary>
+        public const float StairHalf = 2.4f;
+
+        /// <summary>The cell of the guard outpost: the big room round a solid block (the outpost with its walls).</summary>
+        void PlanOutpostCell(CellCtx cell)
+        {
+            cell.plan = "service";
+            var ring = NewRoom(cell, "service", 2, 0f, 0f, 0, 2 * Inner, 2 * Inner);
+            ring.isRing = true;
+            PlanOutpost(cell, ring);
             ring.endGap = false;
         }
 

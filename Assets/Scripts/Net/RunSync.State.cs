@@ -10,8 +10,10 @@ namespace BuildingEscape.Net
             vLost = new(), vCaught = new(), vRunTotal = new(), vCash = new(), vSurplusPaid = new(), vResume = new(), vTimeLeft = new();
         readonly NetworkVariable<int> vBackupIn = new(-1);   // seconds until the next backup officer, -1 while none has been called
         readonly NetworkVariable<bool> vBackupCalled = new(), vAboard = new(), vSealing = new();
-        // service elevator panel, floor 12 back door, guest (backup) elevator door
-        readonly NetworkVariable<bool> vGoingUp = new(true), vBackOpen = new(), vGuestOpen = new();
+        // service elevator panel, floor 12 back door
+        readonly NetworkVariable<bool> vGoingUp = new(true), vBackOpen = new();
+        // the doors backup comes out of: bit 0 the guards' elevator, bit 1 and 2 the two stairwells
+        readonly NetworkVariable<byte> vEntriesOpen = new();
         readonly NetworkVariable<int> vDestination = new(-1);
         // The epoch of the floor the host has finished building. Until it matches this machine's epoch the
         // mirrored values still belong to the previous floor, so they are not applied.
@@ -46,7 +48,7 @@ namespace BuildingEscape.Net
             vDestination.Value = ElevatorExtraction.Destination;
             vBackOpen.Value = ElevatorExtraction.BackDoorOpen;
             var gen0 = TowerManager.Instance != null ? TowerManager.Instance.generator : null;
-            vGuestOpen.Value = gen0 != null && gen0.GuestDoorOpen;
+            vEntriesOpen.Value = gen0 != null ? gen0.EntryDoorMask : (byte)0;
             var tm = TowerManager.Instance;
             if (tm != null) vResume.Value = tm.ResumeLevel;
             HostPublishOutpost();
@@ -62,7 +64,7 @@ namespace BuildingEscape.Net
                         vCaught.Value, vRunTotal.Value, vCash.Value, vSurplusPaid.Value, vTimeLeft.Value, vBackupCalled.Value, vBackupIn.Value);
             ElevatorExtraction.NetSetFlags(vAboard.Value, vSealing.Value);
             ElevatorExtraction.NetSetPanel(vGoingUp.Value, vDestination.Value, vBackOpen.Value);
-            if (tm != null && tm.generator != null) tm.generator.NetGuestDoor(vGuestOpen.Value);
+            if (tm != null && tm.generator != null) tm.generator.NetEntryDoors(vEntriesOpen.Value);
             if (tm != null) tm.NetSetResume(vResume.Value);
             ClientApplyOutpost();
         }

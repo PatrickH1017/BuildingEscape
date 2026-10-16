@@ -71,6 +71,21 @@ namespace BuildingEscape.EditorTools
             EditorSceneManager.OpenScene("Assets/Scenes/Greybox.unity");
             EditorApplication.isPlaying = true;
         }
+        public static void MenusLobby() => Start("menuslobby");
+        public static void MenusRun() => Start("menusrun");
+        public static void Menus()
+        {
+            SessionState.SetString("netdev.mode", "menus");
+            EditorSceneManager.OpenScene("Assets/Scenes/Greybox.unity");
+            EditorApplication.isPlaying = true;
+        }
+        public static void Shaft()
+        {
+            SessionState.SetString("netdev.mode", "shaft");
+            EditorSceneManager.OpenScene("Assets/Scenes/Greybox.unity");
+            EditorApplication.isPlaying = true;
+        }
+        public static void ShaftNet() => Start("shaftnet");
         public static void Ui()
         {
             SessionState.SetString("netdev.mode", "ui");
@@ -111,7 +126,7 @@ namespace BuildingEscape.EditorTools
         {
             DontDestroyOnLoad(gameObject);
             started = Time.realtimeSinceStartup;
-            if (mode != "offline" && mode != "sneak" && mode != "floors" && mode != "doors" && mode != "outpost" && mode != "pew" && mode != "pewlook" && mode != "ui")
+            if (mode != "offline" && mode != "sneak" && mode != "floors" && mode != "doors" && mode != "outpost" && mode != "pew" && mode != "pewlook" && mode != "ui" && mode != "menus" && mode != "shaft")
                 yield return WaitFor(() => NetSession.Instance != null && SceneManager.GetActiveScene().name == NetConst.MenuScene, 30, "menu");
             switch (mode)
             {
@@ -128,6 +143,11 @@ namespace BuildingEscape.EditorTools
                 case "pew": yield return PewScenario(); break;
                 case "pewlook": yield return PewLookScenario(); break;
                 case "ui": yield return UiScenario(); break;
+                case "shaft": yield return ShaftScenario(); break;
+                case "shaftnet": yield return System.Environment.GetEnvironmentVariable("BE_QA_ROLE") == "host" ? ShaftHostScenario() : ShaftClientScenario(); break;
+                case "menus": yield return MenusScenario(); break;
+                case "menuslobby": yield return MenusLobbyScenario(); break;
+                case "menusrun": yield return MenusRunScenario(); break;
                 case "armed": yield return System.Environment.GetEnvironmentVariable("BE_QA_ROLE") == "host" ? ArmedHostScenario() : ArmedClientScenario(); break;
                 case "armedhost": yield return ArmedHostScenario(); break;
                 case "armedclient": yield return ArmedClientScenario(); break;

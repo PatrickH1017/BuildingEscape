@@ -339,7 +339,7 @@ namespace BuildingEscape
 
             // the wall panel draws its own prompts (ElevatorPanel); this is only the locked back door on floor 12
             if (!backDoor || BackDoorOpen || !HeistManager.Instance || !NearBackDoorLocal()) return;
-            HudWidgets.Prompt($"Back door is locked - [{directionKey}] to use the key", Screen.height * 0.72f - HudTheme.Px(64f), true, 19f, 1);
+            HudWidgets.Prompt($"Back door is locked - [{directionKey}] to use the key", Screen.height * 0.72f - HudTheme.Px(HudWidgets.PromptStep), true, 19f, 1);
         }
 
         // ------------------------------------------------------------------ cargo

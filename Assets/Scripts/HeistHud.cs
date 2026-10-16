@@ -3,9 +3,10 @@ using UnityEngine;
 namespace BuildingEscape
 {
     /// <summary>
-    /// The in-run HUD in the toon style: the status card (floor, cash, quota, lost, run total, how the team stands with the police), the key
-    /// hints along the bottom, the banner for the moments that matter and the way out of the end screen. It only reads the game's numbers and
-    /// hands them to <see cref="HudWidgets"/>, which draws them (the look itself lives in <see cref="HudTheme"/>).
+    /// The in-run HUD in the toon style: the status card (cash, floor, quota, with the lost / run total / team chips under it), the banner for
+    /// the moments that matter and the way out of the end screen. It only reads the game's numbers and hands them to <see cref="HudWidgets"/>,
+    /// which draws them (the look itself lives in <see cref="HudTheme"/>). There are no key hints on screen: they are in the Keybinds screen
+    /// (<see cref="KeybindScreen"/>, from Settings and the Esc menu).
     /// </summary>
     public class HeistHud : MonoBehaviour
     {
@@ -57,7 +58,6 @@ namespace BuildingEscape
                 pinned = pinned,
                 busted = busted,
             });
-            HudWidgets.Controls();
             DrawBanner(m, hub, next);
         }
 
@@ -90,8 +90,8 @@ namespace BuildingEscape
         {
             bool online = Net.NetSession.Online;
             float s = HudTheme.S;
-            var r = new Rect((Screen.width - 250f * s) * 0.5f, Mathf.Max(340f * s, Screen.height * 0.46f), 250f * s, 62f * s);
-            if (!HudWidgets.Button(r, online ? "Back to menu" : "Restart", HudTheme.Info)) return;
+            var r = new Rect((Screen.width - 210f * s) * 0.5f, Mathf.Max(300f * s, Screen.height * 0.46f), 210f * s, 52f * s);
+            if (!HudWidgets.Button(r, online ? "Back to menu" : "Restart", HudTheme.Info, 22f)) return;
             if (online) Net.NetSession.Instance.Leave();
             else UnityEngine.SceneManagement.SceneManager.LoadScene(UnityEngine.SceneManagement.SceneManager.GetActiveScene().buildIndex);
         }

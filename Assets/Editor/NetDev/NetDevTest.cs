@@ -5,7 +5,7 @@ using UnityEngine;
 namespace BuildingEscape.EditorTools
 {
     /// <summary>Batch-mode entry points used to verify the networking work.</summary>
-    public static class NetDevTest
+    public static partial class NetDevTest
     {
         public static void BuildAll()
         {
@@ -36,6 +36,9 @@ namespace BuildingEscape.EditorTools
             AimMathTest();
             DoorOpenersTest();
             GunTest();
+            GuardShaftTest();
+            HudUnitsTest();
+            KeybindTest();
             string v = NetConst.BuildVersion;
             Check("allow", JoinPolicy.Evaluate(false, 1, v, v, true) == JoinVerdict.Allow);
             Check("five players is the limit", NetConst.MaxPlayers == 5);
@@ -616,6 +619,47 @@ namespace BuildingEscape.EditorTools
             ok = AimMath.SwingDirection(0f, 1.35f, -2.6f, 0f, 0f, 1f, 0f, 1f, 0f, 2.4f, out sx, out sz);
             Check("aim: a swing along the player's own line goes straight ahead", ok && Near(sx, 0f) && Near(sz, 1f));
             Check("aim: the aim ray starts at the player's depth and ends past his reach", Near(AimMath.StartT(2.6f), 2.35f) && AimMath.StartT(0.1f) == 0f && AimMath.EndT(2.6f, 2.2f) > 2.6f + 2.2f);
+        }
+
+        /// <summary>Weights are shown in pounds, "lbs" in lower case, and everything is converted from the kilograms the game keeps.</summary>
+        public static void HudUnitsTest()
+        {
+            Check("units: one kilogram is 2.2 lbs", WeightUnits.Lbs(1f) == "2.2 lbs");
+            Check("units: the default pack of 20 kg is 44 lbs, with no '.0'", WeightUnits.Lbs(20f) == "44.1 lbs" || WeightUnits.Lbs(20f) == "44 lbs");
+            Check("units: a pew (1.2 kg) is 2.6 lbs", WeightUnits.Lbs(1.2f) == "2.6 lbs");
+            Check("units: a crowbar (3 kg) is 6.6 lbs", WeightUnits.Lbs(3f) == "6.6 lbs");
+            Check("units: nothing is 0 lbs", WeightUnits.Lbs(0f) == "0 lbs");
+            Check("units: from 100 lbs up the number is whole", WeightUnits.Num(50f) == "110" && WeightUnits.Num(45.36f) == "100");
+            Check("units: below that one decimal", WeightUnits.Num(4.536f) == "10" && WeightUnits.Num(0.4f) == "0.9");
+            Check("units: the unit is always 'lbs', all lower case", WeightUnits.Lbs(7.7f).EndsWith(" lbs") && !WeightUnits.Lbs(7.7f).Contains("Lbs") && !WeightUnits.Lbs(7.7f).Contains("LBS"));
+            Check("units: money per pound", Mathf.Abs(WeightUnits.PerLb(220.46f, 1f) - 100f) < 0.1f && WeightUnits.PerLb(100f, 0f) == 0f);
+            Check("units: back and forth", Mathf.Abs(WeightUnits.ToLb(2.5f) / WeightUnits.PoundsPerKg - 2.5f) < 1e-4f);
+        }
+
+        /// <summary>The Keybinds screen lists the controls: every row has a key and a words, no key is listed twice in one column, and the keys the game really uses are there.</summary>
+        public static void KeybindTest()
+        {
+            int groups = KeybindScreen.GroupCount;
+            Check("keybinds: three columns with a title each", groups == 3 && KeybindScreen.GroupTitle(0).Length > 0 && KeybindScreen.GroupTitle(1).Length > 0 && KeybindScreen.GroupTitle(2).Length > 0);
+            bool filled = true, noDuplicate = true;
+            var all = new System.Collections.Generic.HashSet<string>();
+            for (int g = 0; g < groups; g++)
+            {
+                var inColumn = new System.Collections.Generic.HashSet<string>();
+                for (int i = 0; i < KeybindScreen.EntryCount(g); i++)
+                {
+                    string k = KeybindScreen.KeyAt(g, i), l = KeybindScreen.LabelAt(g, i);
+                    filled &= !string.IsNullOrWhiteSpace(k) && !string.IsNullOrWhiteSpace(l);
+                    noDuplicate &= inColumn.Add(k);
+                    all.Add(k);
+                }
+            }
+            Check("keybinds: every row has a key and a description", filled);
+            Check("keybinds: no key is listed twice in one column", noDuplicate);
+            Check("keybinds: the controls the HUD used to print are all there (E, TAB, Q, LMB, H, F, M, ESC, WASD, SHIFT, SPACE)",
+                all.Contains("E") && all.Contains("TAB") && all.Contains("Q") && all.Contains("LMB") && all.Contains("H") && all.Contains("F")
+                && all.Contains("M") && all.Contains("ESC") && all.Contains("WASD") && all.Contains("SHIFT") && all.Contains("SPACE"));
+            Check("keybinds: the pew's reload key is listed", all.Contains("R"));
         }
 
         /// <summary>The pew: its magazine and reload, its numbers against the melee weapons, the spread of a shot, which guards are armed.</summary>

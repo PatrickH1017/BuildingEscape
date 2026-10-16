@@ -4,10 +4,11 @@ using System.Collections.Generic;
 namespace BuildingEscape
 {
     /// <summary>
-    /// The guard outpost and the floor safe. The outpost takes the place of the old red elevator room in the farthest cell of the floor:
+    /// The guard outpost and the floor safe. The outpost takes the farthest cell of the floor that is not the guards' elevator's:
     /// a room of 9 x 6.6 m with a long one-way window and a locked door in its front wall (which faces the corridor the cell opens to),
-    /// desks with monitors under the window, lockers, a table for the things lying about, and a small elevator alcove in a back corner
-    /// that the backup officers arrive in. The safe is a small prop against a wall of one of the numbered rooms. Everything is pure data
+    /// desks with monitors under the window, lockers, a table for the things lying about, and one guard on duty at his post. The backup does
+    /// not arrive here: it comes out of the guards' own elevator in the corner opposite the players' (FloorShape.ShaftCell). The safe is a
+    /// small prop against a wall of one of the numbered rooms. Everything is pure data
     /// (no Unity types) and a function of the seed, so every machine builds the same one.
     ///
     /// The outpost's own frame is the usual room frame: local +z points from the front wall into the room, local +x is to the right
@@ -21,8 +22,6 @@ namespace BuildingEscape
         public const float OutpostWindowX0 = -4.1f, OutpostWindowX1 = 1.5f, OutpostSill = 1.0f, OutpostWindowTop = 2.5f;
         /// <summary>The door in the front wall: its middle along the wall and its width (the beam over it starts at <see cref="OutpostBeamY"/>).</summary>
         public const float OutpostDoorX = 2.9f, OutpostDoorW = 2.0f, OutpostBeamY = 2.45f;
-        /// <summary>The elevator alcove: the outside size of its (square) walls, and half the width of its door's gap.</summary>
-        public const float OutpostCar = 3.4f, OutpostCarDoorHalf = 0.85f;
         /// <summary>How deep the strip in front of the front wall is that nothing may stand in (the window needs a view, the lock needs room to stand).</summary>
         public const float OutpostFrontStrip = 3.2f;
         /// <summary>The height of the keypad's middle.</summary>
@@ -32,10 +31,10 @@ namespace BuildingEscape
 
         // ------------------------------------------------------------------ the room
 
-        /// <summary>Plans the outpost in the guest cell: walls, window, door, the alcove, and the block that the surrounding area works round.</summary>
+        /// <summary>Plans the outpost in its cell: walls, window, door, and the block that the surrounding area works round.</summary>
         void PlanOutpost(CellCtx cell, RoomCtx ring)
         {
-            int gx = inp.guestDirX, gz = inp.guestDirY;
+            int gx = inp.outpostDirX, gz = inp.outpostDirY;
             if (gx != 0 && gz != 0) gz = 0;
             if (gx == 0 && gz == 0) gx = -1;
             // local +z (from the front wall into the room) points away from the open side the front faces
@@ -64,18 +63,10 @@ namespace BuildingEscape
 
             RoomDoor(cell, room, OutpostDoorX, OutpostDoorW);
 
-            // the elevator alcove in the back corner on the west side; its door faces +x, into the room
-            var carLocal = new Rc(-hx, hz - OutpostCar, -hx + OutpostCar, hz);
-            room.blocks.Add(carLocal);
-            room.keep.Add(new Rc(carLocal.x1, carLocal.Cz - 1.1f, carLocal.x1 + 1.8f, carLocal.Cz + 1.1f));
-            RoomCtx.RotQ(room.turns, 1f, 0f, out var carFaceX, out var carFaceZ);
-            room.ToWorld(carLocal.x1, carLocal.Cz, out var carDoorX, out var carDoorZ);
-
             // the block the surrounding area (the ring) works round: the whole outpost with its walls
             var outer = room.ToWorldRect(new Rc(-hx - t, -hz - t, hx + t, hz + t));
             ring.blocks.Add(ring.ToLocalRect(outer));
             ring.info.blocks.Add(outer);
-            room.info.blocks.Add(room.ToWorldRect(carLocal));
 
             // nothing stands in the strip in front of the front wall: the window needs a view and the lock needs room to stand
             cell.keeps.Add(room.ToWorldRect(new Rc(-hx - t - 0.4f, -hz - t - OutpostFrontStrip, hx + t + 0.4f, -hz - t)));
@@ -93,11 +84,6 @@ namespace BuildingEscape
                 panelX = panelX, panelY = OutpostPanelY, panelZ = panelZ,
                 window = room.ToWorldRect(new Rc(OutpostWindowX0, fz0, OutpostWindowX1, fz1)),
                 windowY0 = OutpostSill, windowY1 = OutpostWindowTop,
-                car = room.ToWorldRect(carLocal),
-                carInner = room.ToWorldRect(carLocal.Grow(-t)),
-                carDoorX = (int)Math.Round(carFaceX), carDoorZ = (int)Math.Round(carFaceZ),
-                carDoorHalf = OutpostCarDoorHalf,
-                carDoorCx = carDoorX, carDoorCz = carDoorZ
             };
         }
 
@@ -159,12 +145,12 @@ namespace BuildingEscape
             if (op != null && desks.Count > 0)
                 op.itemSlots.Insert(0, TopSlot(r, desks[desks.Count - 1], 0.5f, 0.02f, "note", 12f));
 
-            // lockers along the back wall (to the right of the alcove) and the west wall
-            for (int i = 0; i < 4; i++) r.Wall('N', "locker2", 0.05f + 1.2f * i);
+            // lockers along the whole back wall and the west wall
+            for (int i = 0; i < 7; i++) r.Wall('N', "locker2", -3.9f + 1.2f * i);
             r.Wall('W', "locker2", -1.5f);
 
             // monitors on the wall above them, a clock, a bin
-            for (int i = 0; i < 4; i++) r.Mount('N', "wall_tv", 0.05f + 1.2f * i, 2.2f);
+            for (int i = 0; i < 7; i++) r.Mount('N', "wall_tv", -3.9f + 1.2f * i, 2.2f);
             r.Mount('W', "wall_tv", -1.5f, 2.2f);
             MountAt(r, 'E', "clock", 2.1f, 2.4f, -2.2f);
             r.Wall('E', "trash_bin", 2.2f);

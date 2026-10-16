@@ -94,7 +94,7 @@ namespace BuildingEscape
             GunTools(pack);
 
             Header("Pack");
-            GUILayout.Label($"Capacity {capacity:0} kg   (using {(pack ? pack.Weight : 0):0.#})");
+            GUILayout.Label($"Capacity {WeightUnits.Lbs(capacity)}   (using {WeightUnits.Num(pack ? pack.Weight : 0)})");
             float nc = GUILayout.HorizontalSlider(capacity, 5f, 300f);
             if (!Mathf.Approximately(nc, capacity)) { capacity = Mathf.Round(nc); if (pack) pack.capacity = capacity; }
             if (pack && GUILayout.Button("Empty pack (drop everything)")) pack.DropAll();

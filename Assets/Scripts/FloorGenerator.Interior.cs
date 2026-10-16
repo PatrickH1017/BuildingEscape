@@ -548,6 +548,7 @@ namespace BuildingEscape
             {
                 int c = (int)w[2], r = (int)w[3];
                 if (c < 0 || r < 0 || c >= cols || r >= rows) continue;
+                if (InOutpost(new Vector3(w[0], 0f, w[1]))) continue;          // the outpost has its own guard: the patrols do not go in
                 if (spots[c, r] == null) spots[c, r] = new List<Vector3>();
                 spots[c, r].Add(new Vector3(w[0], 0f, w[1]));
             }

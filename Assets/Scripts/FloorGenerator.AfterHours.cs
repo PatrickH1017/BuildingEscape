@@ -152,18 +152,17 @@ namespace BuildingEscape
             input.cars.Add(new Rc(c.x - 3.8f, c.z - 3.8f, c.x + 3.8f, c.z + 3.8f));
             if (!hub)
             {
-                var outpost = layout != null && !boss ? layout.outpost : null;
-                if (outpost != null)
-                {
-                    // the elevator alcove in the guard outpost that brings the backup: one panel inside (the outpost itself is lit like a room)
-                    input.cars.Add(outpost.carInner);
-                }
-                else
-                {
-                    var g = CellCenter(guestCell);              // the guest elevator that brings the backup
-                    input.solids.Add(new Rc(g.x - 2.8f, g.z - 2.8f, g.x + 2.8f, g.z + 2.8f));
-                    input.cars.Add(new Rc(g.x - 2.4f, g.z - 2.4f, g.x + 2.4f, g.z + 2.4f));
-                }
+                var g = CellCenter(guestCell);                  // the guards' own elevator (the backup arrives in it): its walls and one panel inside
+                input.solids.Add(new Rc(g.x - 2.8f, g.z - 2.8f, g.x + 2.8f, g.z + 2.8f));
+                input.cars.Add(new Rc(g.x - 2.4f, g.z - 2.4f, g.x + 2.4f, g.z + 2.4f));
+                // the two stairwells: the walls (no panels over them) and one panel inside each landing
+                if (!boss && layout != null && layout.input != null && layout.input.stairC != null)
+                    for (int i = 0; i < layout.input.stairC.Length; i++)
+                    {
+                        var st = CellCenter(new Vector2Int(layout.input.stairC[i], layout.input.stairR[i]));
+                        input.solids.Add(new Rc(st.x - OfficePlanner.StairHalf, st.z - OfficePlanner.StairHalf, st.x + OfficePlanner.StairHalf, st.z + OfficePlanner.StairHalf));
+                        input.cars.Add(new Rc(st.x - 2.0f, st.z - 2.0f, st.x + 2.0f, st.z + 2.0f));
+                    }
             }
             if (floor == TowerRules.KeyFloor)
             {

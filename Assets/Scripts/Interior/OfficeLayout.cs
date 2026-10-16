@@ -75,7 +75,7 @@ namespace BuildingEscape
         public float wx, wz;             // a free standing spot (guard waypoint)
         public int hideCount, pieceCount;
         public readonly List<Rc> doors = new List<Rc>();   // world rectangles of the doorway openings
-        /// <summary>World rectangles inside the room that nobody can stand in (the block in the middle of a ring, the alcove of the elevator in the outpost); no ceiling panel hangs over them.</summary>
+        /// <summary>World rectangles inside the room that nobody can stand in (the block in the middle of a ring); no ceiling panel hangs over them.</summary>
         public readonly List<Rc> blocks = new List<Rc>();
     }
 
@@ -93,7 +93,7 @@ namespace BuildingEscape
         public readonly List<float[]> waypoints = new List<float[]>();
         /// <summary>World rectangles that must stay walkable (doorways, gaps); used by the tests.</summary>
         public readonly List<Rc> clear = new List<Rc>();
-        /// <summary>The guard outpost (the room where the backup arrives); null on a floor without one.</summary>
+        /// <summary>The guard outpost (the room with the guard on duty, in a cell of its own); null on a floor without one.</summary>
         public OutpostInfo outpost;
         /// <summary>The floor safe of this floor; null when this floor has none.</summary>
         public SafeSpot safe;
@@ -103,7 +103,7 @@ namespace BuildingEscape
 
     /// <summary>
     /// The guard outpost: a room with a long one-way window and a locked door on its front wall, desks and monitors, lockers, a table for
-    /// the things lying about (a note, weapons, valuables) and a small elevator alcove that the backup arrives in. All rectangles are
+    /// the things lying about (a note, weapons, valuables) and one guard on duty (the backup does not arrive here: see FloorShape.ShaftCell). All rectangles are
     /// world rectangles; directions are unit steps along x or z.
     /// </summary>
     public sealed class OutpostInfo
@@ -122,11 +122,6 @@ namespace BuildingEscape
         /// <summary>The window in the front wall: a thin rectangle through the wall, and the heights of its sill and top.</summary>
         public Rc window;
         public float windowY0, windowY1;
-        /// <summary>The elevator alcove: the outside of its walls, the inside, which way its door faces, and the middle of the doorway.</summary>
-        public Rc car, carInner;
-        public int carDoorX, carDoorZ;
-        public float carDoorHalf;
-        public float carDoorCx, carDoorCz;
         /// <summary>Places on the table for a note, weapons and valuables, in the order to fill them (the first is the note's).</summary>
         public readonly List<Slot> itemSlots = new List<Slot>();
     }

@@ -204,7 +204,7 @@ namespace BuildingEscape
             GUI.Box(r, "BLACK MARKET  -  no questions asked");
 
             HudText.Label(new Rect(r.x + pad, r.y + 28, pw - pad * 2, 28),
-                $"Cash ${hm.Cash}      Pack {(buyer ? buyer.Weight : 0):0.#} / {(buyer ? buyer.capacity : 0):0.#} kg      Hover an item and left click to buy it.", label);
+                $"Cash ${hm.Cash}      Pack {WeightUnits.Num(buyer ? buyer.Weight : 0)} / {WeightUnits.Lbs(buyer ? buyer.capacity : 0)}      Hover an item and left click to buy it.", label);
 
             var ev = Event.current;
             var bold = HudStyles.Label(18, TextAnchor.UpperLeft, FontStyle.Bold);
@@ -222,7 +222,7 @@ namespace BuildingEscape
                 GUI.Box(cr, GUIContent.none);
                 GUI.color = old;
                 HudText.Label(new Rect(cr.x + 8, cr.y + 4, cw - 16, 26), p.name, bold);
-                HudText.Label(new Rect(cr.x + 8, cr.y + 30, cw - 16, 24), $"${p.price}   {ItemWeight(p):0.#} kg", afford ? label : cantAfford);
+                HudText.Label(new Rect(cr.x + 8, cr.y + 30, cw - 16, 24), $"${p.price}   {WeightUnits.Lbs(ItemWeight(p))}", afford ? label : cantAfford);
                 GUI.Label(new Rect(cr.x + 8, cr.y + 56, cw - 16, ch - 60), p.blurb, small);
                 if (hover && ev.type == EventType.MouseDown && ev.button == 0)
                 {
@@ -379,7 +379,7 @@ namespace BuildingEscape
             var p = Catalog[index];
             if (p.isWeapon && !MeleeWeapon.Available) return "Weapons aren't set up: run Overtime Escape > Setup Weapons";
             float wgt = ItemWeight(p);
-            if (buyer.Weight + wgt > buyer.capacity + 0.001f) return $"No room in your pack for the {p.name} ({wgt:0.#} kg)";
+            if (buyer.Weight + wgt > buyer.capacity + 0.001f) return $"No room in your pack for the {p.name} ({WeightUnits.Lbs(wgt)})";
             if (!hm.TrySpend(p.price)) return "Not enough cash";
             var item = Spawn(p, index);
             if (!item) return $"Bought {p.name}";

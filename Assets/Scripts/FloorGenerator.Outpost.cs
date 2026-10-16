@@ -1,18 +1,19 @@
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.AI;
 using UnityEngine.Rendering;
 
 namespace BuildingEscape
 {
     /// <summary>
-    /// The guard outpost. The red room that used to stand in the farthest corner of every floor (the elevator the backup guards arrive in)
-    /// is now a whole guard outpost: a room with a locked steel door and a keypad outside, a long one-way window (a mirror from the
-    /// corridor, an ordinary window from inside), desks with monitors, lockers, a table with whatever the guards keep lying about (a note
-    /// about a safe, weapons, valuables) and, in the back corner, the small red elevator that the backup arrives in. The room, the furniture
+    /// The guard outpost: a room with a locked steel door and a keypad outside, a long one-way window (a mirror from the corridor, an
+    /// ordinary window from inside), desks with monitors, lockers, a table with whatever the guards keep lying about (a note about a safe,
+    /// weapons, valuables) and one guard on duty (<see cref="PlaceOutpostGuard"/>). The backup does not arrive here: it comes out of the
+    /// guards' own elevator, in the corner cell opposite the players' elevator (<see cref="BuildGuestElevator"/>). The room, the furniture
     /// and the places for the things are planned by <see cref="OfficePlanner"/> (<c>OfficePlanner.Outpost.cs</c>); this file builds them:
-    ///  - before the NavMesh bake: the alcove (<see cref="BuildOutpostCar"/>), the dark walls and the lockers (FloorGenerator.Interior.cs);
+    ///  - before the NavMesh bake: the dark walls and the lockers (FloorGenerator.Interior.cs);
     ///  - after it: the lock door (FloorGenerator.Doors.cs), the window, the keypad, the alarm lamp and the controller
-    ///    (<see cref="BuildOutpostExtras"/>), and, last of all, the things lying about and the cash in the floor's safe (<see cref="FillOutpost"/>).
+    ///    (<see cref="BuildOutpostExtras"/>), and, last of all, the guard on duty, the things lying about and the cash in the floor's safe (<see cref="FillOutpost"/>).
     /// What the outpost holds follows from the run's seed and the floor alone (<see cref="OutpostLoot.Roll"/>), never from the floor's random
     /// numbers, so the loot, the guards and the maze are the same as they would be without it.
     /// </summary>
@@ -244,74 +245,34 @@ namespace BuildingEscape
             return go;
         }
 
-        // ------------------------------------------------------------------ the elevator alcove (before the NavMesh bake)
+        // ------------------------------------------------------------------ the guard on duty
 
         /// <summary>
-        /// The small red elevator that the backup arrives in, in the back corner of the outpost: three solid walls and a fourth with a gap
-        /// and two sliding panels. Its door opens into the room; the officers walk out through the room and the (locked) front door, which
-        /// opens for them. It stands open while the NavMesh is baked (the way out is part of the mesh) and shuts afterwards.
+        /// The one guard who works in the outpost: he stands at his post facing the window, and he is blind and deaf to everything outside the
+        /// room (<see cref="GuardAI.noticeGate"/>): a player is only noticed once they are inside it, which takes the door open. A player who gets in has
+        /// to knock him out (melee, the pew, thrown things) before his two seconds of watching are up (backup) or he catches them (a pin).
+        /// Made after the other guards and without the floor's random numbers, so the patrols, the loot and the maze stay what they were.
+        /// Returns false when there was nowhere for him to stand.
         /// </summary>
-        void BuildOutpostCar(OutpostInfo op)
+        bool PlaceOutpostGuard(int floor)
         {
-            outpostArea = op.outer;
-            hasOutpostArea = true;
-
-            var car = op.car;
-            var inner = op.carInner;
-            float t = (car.W - inner.W) * 0.5f;                  // the thickness of the walls
-            int dx = op.carDoorX, dz = op.carDoorZ;              // the way the door faces: one step along x or z
-            float half = op.carDoorHalf;                         // half the width of the doorway
-            float h = wallHeight;
-
-            var root = new GameObject("GuestElevator");
-            root.transform.SetParent(current, false);
-            var panelMat = guardMat ? guardMat : wallMat;
-            var door = root.AddComponent<ElevatorDoor>();
-            door.chimeOnOpen = true;                             // it rings when it opens for the backup officers
-
-            void Wall(string name, Rc rc, bool hasDoor, bool alongZ)
-            {
-                if (!hasDoor)
-                {
-                    Box(name, new Vector3(rc.Cx, h * 0.5f, rc.Cz), new Vector3(rc.W, h, rc.D), wallMat, root.transform);
-                    return;
-                }
-                float dt = t * 0.8f;
-                if (alongZ)
-                {
-                    float c = rc.Cz;
-                    Box(name + "_A", new Vector3(rc.Cx, h * 0.5f, (rc.z0 + c - half) * 0.5f), new Vector3(rc.W, h, c - half - rc.z0), wallMat, root.transform);
-                    Box(name + "_B", new Vector3(rc.Cx, h * 0.5f, (rc.z1 + c + half) * 0.5f), new Vector3(rc.W, h, rc.z1 - c - half), wallMat, root.transform);
-                    var pa = Box("GuestPanel_A", new Vector3(rc.Cx, h * 0.5f, c - half * 0.5f), new Vector3(dt, h, half), panelMat, root.transform);
-                    var pb = Box("GuestPanel_B", new Vector3(rc.Cx, h * 0.5f, c + half * 0.5f), new Vector3(dt, h, half), panelMat, root.transform);
-                    door.Setup(pa.transform, pb.transform, new Vector3(0f, 0f, -half), new Vector3(0f, 0f, half));
-                }
-                else
-                {
-                    float c = rc.Cx;
-                    Box(name + "_A", new Vector3((rc.x0 + c - half) * 0.5f, h * 0.5f, rc.Cz), new Vector3(c - half - rc.x0, h, rc.D), wallMat, root.transform);
-                    Box(name + "_B", new Vector3((rc.x1 + c + half) * 0.5f, h * 0.5f, rc.Cz), new Vector3(rc.x1 - c - half, h, rc.D), wallMat, root.transform);
-                    var pa = Box("GuestPanel_A", new Vector3(c - half * 0.5f, h * 0.5f, rc.Cz), new Vector3(half, h, dt), panelMat, root.transform);
-                    var pb = Box("GuestPanel_B", new Vector3(c + half * 0.5f, h * 0.5f, rc.Cz), new Vector3(half, h, dt), panelMat, root.transform);
-                    door.Setup(pa.transform, pb.transform, new Vector3(-half, 0f, 0f), new Vector3(half, 0f, 0f));
-                }
-            }
-
-            // west and east own the corners; south and north fill in between
-            Wall("GuestWall_W", new Rc(car.x0, car.z0, car.x0 + t, car.z1), dx < 0, true);
-            Wall("GuestWall_E", new Rc(car.x1 - t, car.z0, car.x1, car.z1), dx > 0, true);
-            Wall("GuestWall_S", new Rc(car.x0 + t, car.z0, car.x1 - t, car.z0 + t), dz < 0, false);
-            Wall("GuestWall_N", new Rc(car.x0 + t, car.z1 - t, car.x1 - t, car.z1), dz > 0, false);
-
-            Box("GuestFloor", new Vector3(inner.Cx, 0.03f, inner.Cz), new Vector3(inner.W, 0.1f, inner.D), panelMat, root.transform, collider: false);
-
-            guestDoor = door;
-            guestSpawn = new Vector3(inner.Cx, 0f, inner.Cz);
-            guestSide = dx != 0 ? Vector3.forward : Vector3.right;       // along the wall the door is in
-            guestOut = new Vector3(dx, 0f, dz);
-            GuestDoorOpen = false;
+            var op = layout != null ? layout.outpost : null;
+            if (op == null) return false;
+            if (!NavMesh.SamplePosition(new Vector3(op.room.wx, 0f, op.room.wz), out var hit, 3f, NavMesh.AllAreas)) return false;
+            var ai = SpawnGuard("Guard_Outpost", new List<Vector3> { hit.position }, floor * 5 + 2);
+            var room = op.bounds;
+            ai.noticeGate = p => room.Contains(p.x, p.z);
+            ai.StandGuard(new Vector3(op.frontX, 0f, op.frontZ));       // looking out of the window
+            return true;
         }
 
+        /// <summary>The inside of the guard outpost on the floor on show (world rectangle), for tests and tools.</summary>
+        public bool TryGetOutpostRoom(out Rc room)
+        {
+            var op = layout != null ? layout.outpost : null;
+            room = op != null ? op.bounds : default(Rc);
+            return op != null;
+        }
         // ------------------------------------------------------------------ the lock door (called from BuildDoors)
 
         /// <summary>

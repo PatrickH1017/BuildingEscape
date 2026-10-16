@@ -330,7 +330,7 @@ namespace BuildingEscape.Net
                 : mode == Mode.PushToTalk ? $"hold {talkKey} to talk"
                 : Speaking ? $"MIC: talking - guards hear you up to {HearingRadius:0} m" : $"mic open ({muteKey} mutes)";
             bool off = Muted || mode == Mode.Off;
-            float y = HudTheme.Px(52f);
+            float y = HudTheme.Px(42f);
             HudWidgets.VoicePill(ref y, state, off ? HudTheme.Warning : (Speaking ? HudTheme.Good : HudTheme.Muted), true, off);
             foreach (var kv in voices)
             {

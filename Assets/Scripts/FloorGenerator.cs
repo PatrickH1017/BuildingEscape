@@ -76,6 +76,7 @@ namespace BuildingEscape
         {
             if (current) Kill(current.gameObject);
             current = null;
+            stairs.Clear();
         }
 
         /// <param name="floor">Level index: 0 = Basement (safe zone), 1..10 = office floors.</param>
@@ -86,6 +87,8 @@ namespace BuildingEscape
             Net.NetIds.Reset(); // a new floor: ids start again from 0, in creation order (same on every machine)
             NoteBaseSeed(floor, seed);
             ResetOutpost();
+            stairs.Clear();
+            lastEntry = -1;
             var rng = new System.Random(seed);
             current = new GameObject($"Floor_{floor}").transform;
             current.SetParent(transform, false);
@@ -138,7 +141,7 @@ namespace BuildingEscape
                 return info; // safe zone: no loot, mugs, hide spots, guards (so no NavMesh needed either)
             }
 
-            var guestCell = FarthestCell(dist);
+            var guestCell = ShaftCell();      // the guards' own elevator: the corner opposite the players', the same cell on every floor
             if (!boss)
             {
                 // corridors, offices, break rooms...: partitions, floors and furniture, all in place before the bake
@@ -156,13 +159,12 @@ namespace BuildingEscape
                     if (unfinished) { unfinished.gameObject.SetActive(false); Kill(unfinished.gameObject); }
                 }
             }
-            // where backup arrives (not in the docks: there are no guards there): the small elevator in the back corner of the guard outpost,
-            // or - on the boss floor, or when the floor could not be furnished - the old red car in the middle of the farthest cell
-            if (layout != null && layout.outpost != null)
-            {
-                if (!OutpostStep("the backup's elevator", floor, () => BuildOutpostCar(layout.outpost))) BuildGuestElevator(guestCell);
-            }
-            else BuildGuestElevator(guestCell);
+            // the guard outpost keeps random spots and patrol stops out of itself
+            if (layout != null && layout.outpost != null) { outpostArea = layout.outpost.outer; hasOutpostArea = true; }
+            // where backup arrives (not in the docks: there are no guards there): the guards' own elevator, a car in the middle of the corner cell
+            // opposite the players' elevator - in the same place on every floor, like a real shaft. Its doors open onto the cell's corridor.
+            BuildGuestElevator(guestCell);
+            BuildStairwells();                // the two stairwells in the other corners (office floors only)
 
             // ---- bake before adding dynamic things
             var surface = current.gameObject.AddComponent<NavMeshSurface>();
@@ -185,10 +187,14 @@ namespace BuildingEscape
                 PlaceMugs(rng);
                 info.guards = PlaceGuards(rng, floor, dist, elevCell);
                 if (floor == TowerRules.KeyFloor && firstGuard) MarkKeyHolder(firstGuard);
+                bool onDuty = false;
+                OutpostStep("the guard on duty in the outpost", floor, () => onDuty = PlaceOutpostGuard(floor));      // (after the others, never uses `rng`)
+                if (onDuty) info.guards++;
                 OutpostStep("the outpost's things and the safe's cash", floor, () => FillOutpost(floor)); // what the guards keep in their outpost, and the cash in the floor's safe (never uses `rng`)
                 OutpostStep("the small valuables on the desks", floor, () => PlaceLooseLoot(floor));     // (never uses `rng` either)
             }
             guestDoor?.Snap(false); // the NavMesh was baked with the doors open; now the car is shut
+            foreach (var st in stairs) if (st.door != null) st.door.Snap(false);     // (and the stairwells' doors)
             return info;
         }
 
@@ -241,6 +247,19 @@ namespace BuildingEscape
             Shape().FarthestCell(dist, out int c, out int r);
             return new Vector2Int(c, r);
         }
+
+        /// <summary>The cell of the guards' own elevator: the corner opposite the players' (see <see cref="FloorShape.ShaftCell"/>).</summary>
+        Vector2Int ShaftCell()
+        {
+            Shape().ShaftCell(out int c, out int r);
+            return new Vector2Int(c, r);
+        }
+
+        /// <summary>Is there a guards' elevator on the floor on show, and where is the middle of its car (the same corner cell on every floor)?</summary>
+        public bool HasGuardShaft => guestDoor != null;
+        public Vector3 GuardShaftCentre => guestSpawn;
+        /// <summary>The way the guards' elevator door faces (a flat unit step along x or z).</summary>
+        public Vector3 GuardShaftOut => guestOut;
 
         Vector3 CellCenter(Vector2Int c) => new Vector3((c.x + 0.5f) * cellSize, 0f, (c.y + 0.5f) * cellSize);
 
@@ -438,8 +457,8 @@ namespace BuildingEscape
         // ------------------------------------------------------------------ guest elevator (backup)
 
         /// <summary>
-        /// The normal elevator: backup guards arrive in it, its doors open and they walk out. A small walled car in
-        /// the cell farthest from the service elevator with one door facing an open neighbour.
+        /// The guards' own elevator: backup guards arrive in it, its doors open and they walk out. A small walled car in the
+        /// corner cell opposite the service elevator - the same cell on every floor, like a real shaft - with one door facing an open neighbour.
         /// </summary>
         void BuildGuestElevator(Vector2Int cell)
         {
@@ -503,6 +522,135 @@ namespace BuildingEscape
             yield return new WaitForSeconds(seconds);
             SetGuestDoor(false);
             guestCloseRoutine = null;
+        }
+
+        // ------------------------------------------------------------------ the stairwells (backup comes out of these too)
+
+        /// <summary>One stairwell: a small walled landing in a corner cell, with a steel double door onto the cell's corridor.</summary>
+        sealed class Stairwell
+        {
+            public ElevatorDoor door;
+            public Vector3 centre, side, outDir;
+            public bool open;
+            public Coroutine closing;
+        }
+
+        readonly List<Stairwell> stairs = new List<Stairwell>();
+        /// <summary>How many stairwells the floor on show has (0 on the docks and the boss floor, 2 on an office floor), where each one's landing is, which way its door faces and whether it is open.</summary>
+        public int StairCount => stairs.Count;
+        public Vector3 StairCentre(int i) => stairs[i].centre;
+        public Vector3 StairOut(int i) => stairs[i].outDir;
+        public bool StairDoorOpen(int i) => stairs[i].open;
+        /// <summary>The next-to-last door a backup call used (0 = the guards' elevator, 1 and 2 = the stairwells); the next call tries another one first.</summary>
+        int lastEntry = -1;
+
+        /// <summary>
+        /// Which doors are open, as one byte for the network: bit 0 the guards' elevator, bit 1 the first stairwell, bit 2 the second. The host
+        /// publishes it, clients apply it (<see cref="NetEntryDoors"/>).
+        /// </summary>
+        public byte EntryDoorMask
+        {
+            get
+            {
+                int m = GuestDoorOpen ? 1 : 0;
+                for (int i = 0; i < stairs.Count && i < 2; i++) if (stairs[i].open) m |= 2 << i;
+                return (byte)m;
+            }
+        }
+
+        /// <summary>Client: mirror the host's doors (the guards' elevator and the two stairwells).</summary>
+        public void NetEntryDoors(byte mask)
+        {
+            NetGuestDoor((mask & 1) != 0);
+            for (int i = 0; i < stairs.Count && i < 2; i++) SetStairDoor(i, (mask & (2 << i)) != 0);
+        }
+
+        void SetStairDoor(int i, bool open)
+        {
+            var st = stairs[i];
+            if (st.open == open) return;
+            st.open = open;
+            if (st.door) st.door.SetOpen(open);
+        }
+
+        System.Collections.IEnumerator CloseStairLater(int i, float seconds)
+        {
+            yield return new WaitForSeconds(seconds);
+            if (i < stairs.Count) { SetStairDoor(i, false); stairs[i].closing = null; }
+        }
+
+        /// <summary>The stairwells of the floor that was just planned (none on the boss floor or without a plan).</summary>
+        void BuildStairwells()
+        {
+            stairs.Clear();
+            if (layout == null || layout.input == null || layout.input.stairC == null) return;
+            var inp = layout.input;
+            for (int i = 0; i < inp.stairC.Length; i++)
+                BuildStairwell(new Vector2Int(inp.stairC[i], inp.stairR[i]), new Vector2Int(inp.stairDirX[i], inp.stairDirY[i]), i);
+        }
+
+        /// <summary>
+        /// A stairwell: four walls round a 4.2 m landing (the one facing <paramref name="dir"/> has a 2 m gap with two sliding steel panels),
+        /// a dark floor, three steps up along the back wall, a red exit lamp and, beside the door, the word STAIRS. Like the guards' car it is
+        /// built before the NavMesh bake (the doors start open, so the bake sees the doorway) and shut afterwards; its steps and signs have no colliders.
+        /// </summary>
+        void BuildStairwell(Vector2Int cell, Vector2Int dir, int index)
+        {
+            var center = CellCenter(cell);
+            const float h = OfficePlanner.StairHalf - 0.15f, t = 0.3f, doorHalf = 1.0f;     // wall centre line, wall thickness, half the gap
+            var dirs = new[] { Vector2Int.left, Vector2Int.down, Vector2Int.right, Vector2Int.up };
+            var room = new GameObject("Stairwell_" + index);
+            room.transform.SetParent(current); room.transform.position = center;
+            var steel = OMat("door");
+            var door = room.AddComponent<ElevatorDoor>();
+            door.chimeOnOpen = false;                       // (the elevator rings; a stairwell door just thuds)
+            var st = new Stairwell { door = door, centre = center, outDir = new Vector3(dir.x, 0f, dir.y) };
+            bool doorAlongX = dir.x != 0;                   // the door's wall is an east / west wall (it runs along z)
+            Vector3 axis = doorAlongX ? Vector3.forward : Vector3.right;
+            st.side = axis;
+            float seg = h - doorHalf;
+            for (int i = 0; i < 4; i++)
+            {
+                var d = dirs[i];
+                bool along = d.x != 0;
+                Vector3 wallPos = new Vector3(d.x * h, wallHeight / 2f, d.y * h);
+                if (d != dir)
+                {
+                    Box("StairWall", center + wallPos, along ? new Vector3(t, wallHeight, h * 2 + t) : new Vector3(h * 2 + t, wallHeight, t), wallMat, room.transform);
+                    continue;
+                }
+                Vector3 sizeSeg = along ? new Vector3(t, wallHeight, seg) : new Vector3(seg, wallHeight, t);
+                Box("StairWall_A", center + wallPos - axis * (doorHalf + seg / 2f), sizeSeg, wallMat, room.transform);
+                Box("StairWall_B", center + wallPos + axis * (doorHalf + seg / 2f), sizeSeg, wallMat, room.transform);
+                Vector3 pSize = along ? new Vector3(t * 0.8f, wallHeight, doorHalf) : new Vector3(doorHalf, wallHeight, t * 0.8f);
+                var pa = Box("StairDoor_A", center + wallPos - axis * (doorHalf / 2f), pSize, steel, room.transform);
+                var pb = Box("StairDoor_B", center + wallPos + axis * (doorHalf / 2f), pSize, steel, room.transform);
+                door.Setup(pa.transform, pb.transform, -axis * doorHalf, axis * doorHalf);
+                // the sign on the outside of the wall segment on the left of the door (seen from the corridor), the lamp inside on the right
+                BuildStairSign(room.transform, center + wallPos + st.outDir * (t * 0.5f + 0.02f) - axis * (doorHalf + seg / 2f) + Vector3.up * (2.35f - wallHeight / 2f), st.outDir);
+                Box("StairExitLamp", center + wallPos - st.outDir * (t * 0.5f + 0.03f) + axis * (doorHalf + 0.35f) + Vector3.up * (2.6f - wallHeight / 2f),
+                               along ? new Vector3(0.05f, 0.16f, 0.5f) : new Vector3(0.5f, 0.16f, 0.05f), OMat("led"), room.transform, collider: false);
+            }
+            // the inside: a floor and three steps going up along the back wall (no colliders: nobody is in their way)
+            Box("StairFloor", center + new Vector3(0, 0.03f, 0), new Vector3(h * 2 - 0.3f, 0.1f, h * 2 - 0.3f), OMat("dark"), room.transform, collider: false);
+            var back = -st.outDir;
+            for (int k = 0; k < 3; k++)
+            {
+                float height = 0.17f * (k + 1), depth = 0.5f, width = h * 2 - 0.5f;
+                var pos = center + back * (h - t * 0.5f - 0.25f - depth * (2 - k) - 0.05f) + Vector3.up * (height * 0.5f);
+                Box("StairStep", pos, doorAlongX ? new Vector3(depth, height, width) : new Vector3(width, height, depth), steel, room.transform, collider: false);
+            }
+            stairs.Add(st);
+        }
+
+        /// <summary>The word STAIRS on a small dark plate, facing <paramref name="outDir"/> (away from the wall, into the corridor).</summary>
+        void BuildStairSign(Transform parent, Vector3 pos, Vector3 outDir)
+        {
+            var root = new GameObject("StairSign");
+            root.transform.SetParent(parent, false);
+            root.transform.SetPositionAndRotation(pos, Quaternion.LookRotation(outDir, Vector3.up));       // (its +z points into the corridor)
+            Part(root.transform, "Plate", new Vector3(0f, 0f, 0.015f), new Vector3(1.08f, 0.34f, 0.03f), OMat("dark"));
+            DotLabel(root.transform, "Label", "STAIRS", 0.042f, new Vector3(0f, 0f, 0.034f), OMat("label"));
         }
 
         // ------------------------------------------------------------------ key, boss
@@ -729,26 +877,107 @@ namespace BuildingEscape
                 var cell = new Vector2Int(Random.Range(0, cols), Random.Range(0, rows));
                 if (cell == Vector2Int.zero) continue;
                 var p = CellCenter(cell) + new Vector3(Random.Range(-7f, 7f), 0f, Random.Range(-7f, 7f));
-                if (NavMesh.SamplePosition(p, out var hit, 6f, NavMesh.AllAreas) && !InOutpost(hit.position)) return hit.position;     // (not inside the guard outpost)
+                if (NavMesh.SamplePosition(p, out var hit, 6f, NavMesh.AllAreas) && !InOutpost(hit.position) && !InGuardShaft(hit.position)) return hit.position;     // (not inside the guard outpost or the guards' elevator)
             }
-            return CellCenter(new Vector2Int(cols - 1, rows - 1));
+            // (nothing found in 20 tries: the clear run in front of the guards' elevator door)
+            return guestDoor != null ? guestSpawn + guestOut * 4.2f : CellCenter(new Vector2Int(cols - 1, rows - 1));
+        }
+
+        /// <summary>Is p inside the guards' elevator (the car and its walls)? Nobody wanders into a shut car.</summary>
+        bool InGuardShaft(Vector3 p)
+        {
+            if (guestDoor != null && Mathf.Abs(p.x - guestSpawn.x) < 2.8f && Mathf.Abs(p.z - guestSpawn.z) < 2.8f) return true;
+            foreach (var st in stairs)
+                if (st.door != null && Mathf.Abs(p.x - st.centre.x) < OfficePlanner.StairHalf && Mathf.Abs(p.z - st.centre.z) < OfficePlanner.StairHalf) return true;
+            return false;
+        }
+
+        /// <summary>A door backup can come out of: 0 = the guards' elevator, 1 and 2 = the stairwells.</summary>
+        sealed class GuardEntry { public int index; public Vector3 centre, side, outDir; }
+
+        /// <summary>Doors at least this far (m) from every free player come first: standing at one door must not stop the backup.</summary>
+        const float EntrySafeDistance = 12f;
+
+        List<GuardEntry> GuardEntries()
+        {
+            var l = new List<GuardEntry>();
+            if (guestDoor != null) l.Add(new GuardEntry { index = 0, centre = guestSpawn, side = guestSide, outDir = guestOut });
+            for (int i = 0; i < stairs.Count; i++)
+                if (stairs[i].door != null) l.Add(new GuardEntry { index = i + 1, centre = stairs[i].centre, side = stairs[i].side, outDir = stairs[i].outDir });
+            return l;
+        }
+
+        /// <summary>The flat distance from a point to the nearest player who is free (a pinned or busted one does not count); a huge number if there is none.</summary>
+        static float NearestFreePlayer(Vector3 p)
+        {
+            float best = float.MaxValue;
+            foreach (var pl in WobblyPlayerRegistry.All)
+            {
+                if (!pl || pl.Custody != CustodyState.Free) continue;
+                var d = pl.transform.position - p; d.y = 0f;
+                best = Mathf.Min(best, d.magnitude);
+            }
+            return best;
         }
 
         /// <summary>
-        /// Backup: spawns guards well away from <paramref name="target"/> (out of sight, across the floor)
-        /// and sends them running to it. Returns how many were spawned.
+        /// The doors in the order a backup call uses them: the doors more than <see cref="EntrySafeDistance"/> from every free player first, in a
+        /// random order, the door the last call began with at the back of them; then the doors that are closer, the farthest first.
+        /// </summary>
+        List<GuardEntry> OrderEntries(List<GuardEntry> all)
+        {
+            var far = new List<GuardEntry>(); var near = new List<GuardEntry>();
+            foreach (var e in all) (NearestFreePlayer(e.centre) >= EntrySafeDistance ? far : near).Add(e);
+            for (int i = far.Count - 1; i > 0; i--) { int j = Random.Range(0, i + 1); var tmp = far[i]; far[i] = far[j]; far[j] = tmp; }
+            if (far.Count > 1 && far[0].index == lastEntry) { var f = far[0]; far.RemoveAt(0); far.Add(f); }
+            near.Sort((a, b) => NearestFreePlayer(b.centre).CompareTo(NearestFreePlayer(a.centre)));
+            far.AddRange(near);
+            return far;
+        }
+
+        void SetEntryDoor(int index, bool open)
+        {
+            if (index == 0) SetGuestDoor(open);
+            else if (index - 1 < stairs.Count) SetStairDoor(index - 1, open);
+        }
+
+        void CloseEntryLater(int index, float seconds)
+        {
+            if (index == 0)
+            {
+                if (guestCloseRoutine != null) StopCoroutine(guestCloseRoutine);
+                guestCloseRoutine = StartCoroutine(CloseGuestDoorLater(seconds));
+            }
+            else if (index - 1 < stairs.Count)
+            {
+                var st = stairs[index - 1];
+                if (st.closing != null) StopCoroutine(st.closing);
+                st.closing = StartCoroutine(CloseStairLater(index - 1, seconds));
+            }
+        }
+
+        /// <summary>
+        /// Backup: the guards come out of the guards' elevator and the two stairwells, never the outpost. Each call orders the doors
+        /// (<see cref="OrderEntries"/>: away from the players first) and gives the guards the doors one after the other, so two guards come out of
+        /// two different doors when there are two to choose from; the door opens with its sound, they walk out and wander. Returns how many were spawned.
         /// </summary>
         public int SpawnReinforcements(Vector3 target, int n)
         {
             if (!current) return 0;
-            if (guestDoor == null) return SpawnReinforcementsAnywhere(target, n);
+            var entries = GuardEntries();
+            if (entries.Count == 0) return SpawnReinforcementsAnywhere(target, n);
 
-            // the guest elevator: the guards appear inside the car, its doors open and they walk out
-            SetGuestDoor(true);
+            var order = OrderEntries(entries);
+            lastEntry = order[0].index;
+            var perDoor = new Dictionary<int, int>();
             int made = 0;
             for (int i = 0; i < n; i++)
             {
-                var p = guestSpawn + guestSide * ((i % 2 == 0 ? 0.8f : -0.8f)) - guestOut * (0.6f * (i / 2));
+                var e = order[i % order.Count];
+                perDoor.TryGetValue(e.index, out int k);
+                perDoor[e.index] = k + 1;
+                SetEntryDoor(e.index, true);
+                var p = e.centre + e.side * ((k % 2 == 0 ? 0.8f : -0.8f)) - e.outDir * (0.6f * (k / 2));
                 if (NavMesh.SamplePosition(p, out var hit, 3f, NavMesh.AllAreas)) p = hit.position;
                 int look = Random.Range(0, 100);
                 var ai = SpawnGuard($"Backup_{reinforcementCount++}", new List<Vector3> { p }, look);
@@ -757,8 +986,7 @@ namespace BuildingEscape
                 Net.RunSync.Instance?.BroadcastSpawnGuard(ai.NetId, p, look, target);
                 made++;
             }
-            if (guestCloseRoutine != null) StopCoroutine(guestCloseRoutine);
-            guestCloseRoutine = StartCoroutine(CloseGuestDoorLater(7f));
+            foreach (var kv in perDoor) CloseEntryLater(kv.Key, 7f);
             return made;
         }
 
