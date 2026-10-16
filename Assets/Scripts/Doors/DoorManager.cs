@@ -274,7 +274,7 @@ namespace BuildingEscape
             var d = doors[promptDoor];
             string text = d.Locked ? (OutpostController.Active != null ? OutpostController.Active.LockPrompt : "Locked")
                         : d.Obstructed(Time.time) ? "Something is in the doorway" : d.Logic.WantOpen ? "[E] Close door" : "[E] Open door";
-            HudText.Label(new Rect(0, Screen.height * 0.62f, Screen.width, 36), text, HudStyles.Label(22, TextAnchor.MiddleCenter));
+            HudWidgets.Prompt(text, Screen.height * 0.62f, !text.StartsWith("["));
         }
     }
 }

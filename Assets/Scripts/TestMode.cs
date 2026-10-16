@@ -60,7 +60,7 @@ namespace BuildingEscape
             if (Net.NetSession.Online) return;
             if (!open)
             {
-                GUI.Label(new Rect(Screen.width - 230, 6, 224, 22), "TEST MODE  (F1: cheats)");
+                if (Event.current.type == EventType.Repaint) HudWidgets.TestTag();
                 return;
             }
 
@@ -85,7 +85,13 @@ namespace BuildingEscape
             GUILayout.BeginHorizontal();
             foreach (MeleeWeapon.Kind k in System.Enum.GetValues(typeof(MeleeWeapon.Kind)))
                 if (GUILayout.Button(MeleeWeapon.Specs[(int)k].name) && pack && MeleeWeapon.Available) GiveWeapon(pack, k);
+            if (GUILayout.Button("Pew (gun)"))
+            {
+                if (pack && RangedWeapon.Available) GivePew(pack);
+                else Say("The Guns pack is not set up: run Overtime Escape > Setup Weapons");
+            }
             GUILayout.EndHorizontal();
+            GunTools(pack);
 
             Header("Pack");
             GUILayout.Label($"Capacity {capacity:0} kg   (using {(pack ? pack.Weight : 0):0.#})");
@@ -271,7 +277,53 @@ namespace BuildingEscape
             var floor = FindFirstObjectByType<FloorGenerator>();
             if (floor && floor.Current) go.transform.SetParent(floor.Current, true);
             var p = go.GetComponent<Pickup>();
-            if (!pack.TryStore(p)) Say("Pack too full - dropped it in front of you (raise capacity)");
+            if (!pack.TryStore(p)) { Say("Pack too full - dropped it in front of you (raise capacity)"); return; }
+            pack.SetEquipped(p);
+        }
+
+        // ------------------------------------------------------------------ the pew and armed guards
+
+        void GivePew(Backpack pack)
+        {
+            var go = RangedWeapon.Create(RangedWeapon.Kind.Pew, SpawnPoint(pack), null);
+            var floor = FindFirstObjectByType<FloorGenerator>();
+            if (floor && floor.Current) go.transform.SetParent(floor.Current, true);
+            var p = go.GetComponent<Pickup>();
+            if (!pack.TryStore(p)) { Say("Pack too full - dropped it in front of you (raise capacity)"); return; }
+            pack.SetEquipped(p);
+            Say("Pew in your hand: LMB fires, R reloads");
+        }
+
+        void GunTools(Backpack pack)
+        {
+            Header("Pew & armed guards");
+            var gun = pack && pack.Equipped ? pack.Equipped.GetComponent<RangedWeapon>() : null;
+            if (gun != null)
+            {
+                var m = gun.Magazine;
+                GUILayout.Label(m.Reloading ? "Pew: reloading ..." : $"Pew: {m.Rounds} / {m.Capacity} rounds (LMB fires, R reloads)");
+                if (GUILayout.Button("Refill the magazine")) m.Fill();
+            }
+            else GUILayout.Label("Equip the Pew (inventory) to shoot: 10 rounds, then a reload");
+
+            bool every = GUILayout.Toggle(ArmedGuards.Everywhere, "Every guard carries a pew (now and on new floors)");
+            if (every != ArmedGuards.Everywhere)
+            {
+                ArmedGuards.Everywhere = every;
+                Say(every ? $"{ArmedGuards.ArmAllNow()} guard(s) armed" : $"{ArmedGuards.DisarmAll()} guard(s) disarmed");
+            }
+            int alive = 0, armed = 0;
+            foreach (var g in GuardAI.All) { if (!g || g.Dead) continue; alive++; if (g.Armed) armed++; }
+            GUILayout.Label($"Guards on this floor: {alive}, with a pew: {armed}");
+
+            GUILayout.BeginHorizontal();
+            int first = ArmedGuards.FirstArmedFloor;
+            GUILayout.Label(first == ArmedRules.Never ? "Guards are armed from floor: none" : $"Guards are armed from floor: {first}");
+            if (GUILayout.Button("-", GUILayout.Width(28))) ArmedGuards.FirstArmedFloor = first == ArmedRules.Never ? 1 : Mathf.Max(1, first - 1);
+            if (GUILayout.Button("+", GUILayout.Width(28))) ArmedGuards.FirstArmedFloor = first == ArmedRules.Never ? 1 : first + 1;
+            if (GUILayout.Button("none", GUILayout.Width(48))) ArmedGuards.FirstArmedFloor = ArmedRules.Never;
+            GUILayout.EndHorizontal();
+            GUILayout.Label("(the floor rule applies to floors you enter from now on)");
         }
     }
 }

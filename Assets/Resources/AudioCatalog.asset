@@ -54,3 +54,31 @@ MonoBehaviour:
   layerGore:
   - {fileID: 8300000, guid: 2ee71cfc2c8d7334abb8ad72203c0068, type: 3}
   - {fileID: 8300000, guid: 2b202aff8c946d745a2ab81e2cd60819, type: 3}
+  gunShot:
+  - {fileID: 8300000, guid: 99348524f0ef5b3469b6d1976f17370c, type: 3}
+  - {fileID: 8300000, guid: 0910b552636052c42a5d5fb6d168dc27, type: 3}
+  - {fileID: 8300000, guid: 8115c336b0fa59f41b1cb0af599a2271, type: 3}
+  gunTail:
+  - {fileID: 8300000, guid: cfbfd56219291e849a6a163cb5fc3004, type: 3}
+  - {fileID: 8300000, guid: d22916c763b7929458cfdf209d67f0be, type: 3}
+  gunReload:
+  - {fileID: 8300000, guid: 3de7713f7dd4a144fb85bdf1efdc1ead, type: 3}
+  - {fileID: 8300000, guid: 6e95c1f9872c66348afdabf419de6f7a, type: 3}
+  - {fileID: 8300000, guid: d715b7c425963954b8732277063971ee, type: 3}
+  - {fileID: 8300000, guid: 8a6916b0948e95a458df68134a4ec9ae, type: 3}
+  - {fileID: 8300000, guid: 0691163014aba1549afecc26fec14ab4, type: 3}
+  gunEquip:
+  - {fileID: 8300000, guid: 2b0c5653779f53f47bdfef4344b73cd6, type: 3}
+  - {fileID: 8300000, guid: 1adebd98321258449a4307c51780352e, type: 3}
+  gunAim:
+  - {fileID: 8300000, guid: a79f72cbd7279be42bd74394ccfbf31e, type: 3}
+  - {fileID: 8300000, guid: 508fb02395d1ece479c427664be238dd, type: 3}
+  doorOpen: []
+  doorClose: []
+  elevatorDing: []
+  keys: []
+  keysRun: []
+  radioStatic: []
+  radioCall: []
+  elevatorMusic: []
+  intenseMusic: []

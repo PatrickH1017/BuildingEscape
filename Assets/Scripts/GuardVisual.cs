@@ -17,6 +17,9 @@ namespace BuildingEscape
         NavMeshAgent agent;
         CharacterAnimator anim;
 
+        /// <summary>The guard's animation driver (his model), or null while there is none.</summary>
+        public CharacterAnimator Anim => anim;
+
         void Start()
         {
             if (!GetComponent<FootstepPlayer>()) gameObject.AddComponent<FootstepPlayer>();
@@ -36,6 +39,9 @@ namespace BuildingEscape
             var vision = GetComponent<GuardVision>();
             if (!vision) vision = gameObject.AddComponent<GuardVision>();
             vision.Init(anim);
+            // armed guards (the floor rule, or the test menu): the pew in his hand
+            var hm = HeistManager.Instance;
+            if (!GetComponent<GuardGun>() && ArmedGuards.ShouldArm(hm ? hm.Floor : 0)) gameObject.AddComponent<GuardGun>();
         }
 
         void Update()

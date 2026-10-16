@@ -125,7 +125,7 @@ namespace BuildingEscape.Net
             if (id >= 0)
             {
                 var p = NetIds.Get<Pickup>(id);
-                if (p == null || !bp.Contains(p) || !p.GetComponent<MeleeWeapon>()) return;
+                if (p == null || !bp.Contains(p) || !RangedWeapon.IsWeapon(p)) return;
             }
             EquippedRpc((short)id, (byte)np.Slot);
         }

@@ -62,6 +62,7 @@ namespace BuildingEscape
         public static Layout Build(PlanInput p)
         {
             var pl = new OfficePlanner(p);
+            pl.layout.input = p;
             pl.Run();
             return pl.layout;
         }

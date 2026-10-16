@@ -85,6 +85,7 @@ namespace BuildingEscape
             if (!GetComponent<Backpack>()) gameObject.AddComponent<Backpack>();
             if (!GetComponent<FootstepPlayer>()) gameObject.AddComponent<FootstepPlayer>();
             if (!GetComponent<MeleeController>()) gameObject.AddComponent<MeleeController>();
+            if (!GetComponent<GunController>()) gameObject.AddComponent<GunController>();
             if (usePartyCharacter && !GetComponent<PlayerVisual>()) gameObject.AddComponent<PlayerVisual>();
         }
 

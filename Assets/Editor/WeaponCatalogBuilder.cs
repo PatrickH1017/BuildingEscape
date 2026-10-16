@@ -16,13 +16,26 @@ namespace BuildingEscape.EditorTools
         const string SlashSrc = "Assets/EEJANAI_Team/FreeSwordAnimations/Animations/slash1.anim";
         const string ClipPath = "Assets/Resources/Slash1_Party.anim";
         const string CatalogPath = "Assets/Resources/WeaponCatalog.asset";
+        const string GunPack = "Assets/GunsAssetPack/guns/Prefabs/";
 
         static WeaponCatalogBuilder()
         {
             EditorApplication.delayCall += () =>
             {
-                if (!AssetDatabase.LoadAssetAtPath<WeaponCatalog>(CatalogPath)) Build(false);
+                var cat = AssetDatabase.LoadAssetAtPath<WeaponCatalog>(CatalogPath);
+                if (!cat) Build(false);
+                else if (!cat.pew || !cat.pewBullet) FillGuns(cat, false);
             };
+        }
+
+        /// <summary>The pew and its cartridge from the Guns pack (only what is missing is filled).</summary>
+        static void FillGuns(WeaponCatalog cat, bool log)
+        {
+            if (!cat.pew) cat.pew = Load<GameObject>(GunPack + "pew.prefab");
+            if (!cat.pewBullet) cat.pewBullet = Load<GameObject>(GunPack + "bulletPEW.prefab");
+            EditorUtility.SetDirty(cat);
+            AssetDatabase.SaveAssets();
+            if (log) Debug.Log(cat.pew ? "Pew set in the weapon catalog." : "Guns pack not found where expected (Assets/GunsAssetPack/guns/Prefabs/pew.prefab).");
         }
 
         [MenuItem("Overtime Escape/Setup Weapons", priority = 31)]
@@ -67,6 +80,7 @@ namespace BuildingEscape.EditorTools
             var cat = Load<WeaponCatalog>(CatalogPath);
             if (!cat) { cat = ScriptableObject.CreateInstance<WeaponCatalog>(); AssetDatabase.CreateAsset(cat, CatalogPath); }
             cat.crowbar = crowbar; cat.bat = bat; cat.hatchet = hatchet; cat.slash = dst;
+            FillGuns(cat, false);
             EditorUtility.SetDirty(cat);
             AssetDatabase.SaveAssets();
             if (log) Debug.Log($"Weapon catalog ready ({kept} slash curves retargeted).");

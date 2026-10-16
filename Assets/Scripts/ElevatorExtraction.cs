@@ -335,13 +335,11 @@ namespace BuildingEscape
         {
             if (Event.current.type != EventType.Repaint) return;     // nothing here takes input
             if (Time.time < toastUntil && !string.IsNullOrEmpty(toast))
-                HudText.Label(new Rect(0, Screen.height * 0.3f, Screen.width, 40), toast,
-                    HudStyles.Label(26, TextAnchor.MiddleCenter, FontStyle.Normal, ToastColour));
+                HudWidgets.Notice(toast, Screen.height * 0.37f, HudTheme.Good, 24f, HudAnim.Id.Notice2);
 
             // the wall panel draws its own prompts (ElevatorPanel); this is only the locked back door on floor 12
             if (!backDoor || BackDoorOpen || !HeistManager.Instance || !NearBackDoorLocal()) return;
-            HudText.Label(new Rect(0, Screen.height * 0.72f - 34, Screen.width, 30), $"Back door is locked - [{directionKey}] to use the key",
-                HudStyles.Label(20, TextAnchor.MiddleCenter, FontStyle.Normal, Color.white));
+            HudWidgets.Prompt($"Back door is locked - [{directionKey}] to use the key", Screen.height * 0.72f - HudTheme.Px(64f), true, 19f, 1);
         }
 
         // ------------------------------------------------------------------ cargo
@@ -441,9 +439,8 @@ namespace BuildingEscape
         void OnGUI()
         {
             if (!LocalInside || Event.current.type != EventType.Repaint) return;
-            HudText.Label(new Rect(0, Screen.height * 0.72f, Screen.width, 32),
-                $"Hidden elevator to {TowerRules.Label(TowerRules.BossFloor)}   [{confirmKey}] go" + (EveryoneAboard ? "" : "   (everyone must be inside)"),
-                HudStyles.Label(22, TextAnchor.MiddleCenter, FontStyle.Normal, Color.white));
+            HudWidgets.Prompt($"Hidden elevator to {TowerRules.Label(TowerRules.BossFloor)}   [{confirmKey}] go" + (EveryoneAboard ? "" : "   (everyone must be inside)"),
+                Screen.height * 0.72f, !EveryoneAboard);
         }
     }
 }

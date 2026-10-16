@@ -37,6 +37,7 @@ namespace BuildingEscape
             if (!vis) vis = GetComponent<PlayerVisual>();
             var eq = pack.Equipped;
             if (!eq) eq = null;
+            if (eq && !eq.TryGetComponent(out MeleeWeapon _)) eq = null;   // a gun in the hand is the GunController's
             if (eq != shown) Show(eq);
 
             if (!eq || !pack.Viewed || Backpack.UiOpen || Vendor.ShopOpen || EscapeMenu.Open || TestMode.PanelOpen || ElevatorPanel.Open || OutpostUi.Open || swinging || Time.time < nextSwing) return;

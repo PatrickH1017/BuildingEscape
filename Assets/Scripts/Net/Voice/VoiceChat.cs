@@ -317,7 +317,7 @@ namespace BuildingEscape.Net
 
         // ------------------------------------------------------------------ HUD
 
-        static readonly Color Warning = new Color(1f, 0.5f, 0.4f), Talking = new Color(0.5f, 1f, 0.5f), Heard = new Color(0.6f, 0.9f, 1f);
+
 
         void OnGUI()
         {
@@ -329,18 +329,15 @@ namespace BuildingEscape.Net
                 : Muted ? $"MIC MUTED ({muteKey})"
                 : mode == Mode.PushToTalk ? $"hold {talkKey} to talk"
                 : Speaking ? $"MIC: talking - guards hear you up to {HearingRadius:0} m" : $"mic open ({muteKey} mutes)";
-            var colour = Muted || mode == Mode.Off ? Warning : (Speaking ? Talking : Color.white);
-            HudText.Label(new Rect(Screen.width - 260f, 30f, 250f, 22f), state, HudStyles.Label(14, TextAnchor.MiddleRight, FontStyle.Normal, colour));
-
-            float y = 52f;
-            var heard = HudStyles.Label(14, TextAnchor.MiddleRight, FontStyle.Normal, Heard);
+            bool off = Muted || mode == Mode.Off;
+            float y = HudTheme.Px(52f);
+            HudWidgets.VoicePill(ref y, state, off ? HudTheme.Warning : (Speaking ? HudTheme.Good : HudTheme.Muted), true, off);
             foreach (var kv in voices)
             {
                 if (!kv.Value || Time.unscaledTime - kv.Value.lastPacketTime >= 0.5f) continue;   // (the speakers heard in the last half second)
                 string who = "teammate";
                 foreach (var p in NetPlayer.All) if (p.OwnerClientId == kv.Key) { who = $"Player {p.Slot + 1}"; break; }
-                HudText.Label(new Rect(Screen.width - 260f, y, 250f, 20f), $"{who} is talking", heard);
-                y += 20f;
+                HudWidgets.VoicePill(ref y, $"{who} is talking", HudTheme.Info);
             }
         }
     }

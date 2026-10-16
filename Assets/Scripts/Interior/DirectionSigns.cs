@@ -74,15 +74,18 @@ namespace BuildingEscape
             public readonly List<int> cells = new List<int>();
         }
 
-        /// <summary>Groups the numbered rooms of a floor into blocks of ten, round by round (a round is 99 rooms, see <see cref="RoomNumbers"/>).</summary>
+        /// <summary>Groups the numbered rooms of a floor into blocks of ten, round by round (a round is up to 99 rooms, see <see cref="RoomNumbers"/>); the rooms are in the order of their numbers, which follows the corridors, so a block is a stretch of corridor.</summary>
         public static List<Block> MakeBlocks(Layout layout, int floor, int columns)
         {
             var blocks = new List<Block>();
-            var rooms = new List<RoomInfo>();
-            foreach (var r in layout.rooms) if (RoomNumbers.IsNumbered(r)) rooms.Add(r);
-            for (int roundStart = 0; roundStart < rooms.Count; roundStart += RoomNumbers.RoomsPerRound)
+            var numbering = RoomNumbers.Of(layout, floor);
+            var rooms = numbering.rooms;
+            int roundStart = 0;
+            while (roundStart < rooms.Count)
             {
-                int inRound = Math.Min(RoomNumbers.RoomsPerRound, rooms.Count - roundStart);
+                int round = numbering.rounds[roundStart], roundEnd = roundStart;
+                while (roundEnd < rooms.Count && numbering.rounds[roundEnd] == round) roundEnd++;
+                int inRound = roundEnd - roundStart;
                 var spans = new List<int[]>();                                   // first and last index (1-based) of each block
                 for (int at = 0; at < inRound; at += BlockSize)
                     spans.Add(new[] { roundStart + at + 1, roundStart + Math.Min(inRound, at + BlockSize) });
@@ -98,7 +101,7 @@ namespace BuildingEscape
                     var b = new Block
                     {
                         first = span[0], last = span[1], title = one ? TitleOne : Title,
-                        range = one ? RoomNumbers.Label(floor, span[0]) : RoomNumbers.Label(floor, span[0]) + "-" + RoomNumbers.Label(floor, span[1])
+                        range = one ? numbering.labels[span[0] - 1] : numbering.labels[span[0] - 1] + "-" + numbering.labels[span[1] - 1]
                     };
                     for (int i = b.first - 1; i < b.last; i++)
                     {
@@ -107,6 +110,7 @@ namespace BuildingEscape
                     }
                     blocks.Add(b);
                 }
+                roundStart = roundEnd;
             }
             return blocks;
         }

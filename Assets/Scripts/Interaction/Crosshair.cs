@@ -272,7 +272,7 @@ namespace BuildingEscape
         static readonly Color Usable = new Color(1f, 0.9f, 0.25f, 1f);
         static readonly Color Hostile = new Color(1f, 0.3f, 0.25f, 1f);
         static readonly Color Far = new Color(0.7f, 0.7f, 0.7f, 0.6f);
-        static readonly Color Shadow = new Color(0f, 0f, 0f, 0.55f);
+
 
         bool Visible()
         {
@@ -288,34 +288,16 @@ namespace BuildingEscape
             if (a.Foe && TryGetView(out _, out var me) && me.TryGetComponent(out Backpack pack) && pack.Equipped != null)
                 armed = pack.Equipped.GetComponent<MeleeWeapon>() != null;
 
-            Color c = armed && a.Foe ? Hostile : a.Kind != AimKind.None ? Usable : a.TooFar ? Far : Idle;
-            bool locked = a.Kind != AimKind.None || (armed && a.Foe);
+            bool gunOnFoe = GunController.LocalAimsAtFoe;      // a gun in the hand: red whenever a bullet would hit a guard, however far
+            Color c = (armed && a.Foe) || gunOnFoe ? Hostile : a.Kind != AimKind.None ? Usable : a.TooFar ? Far : Idle;
+            bool locked = a.Kind != AimKind.None || (armed && a.Foe) || gunOnFoe;
 
-            float s = Mathf.Clamp(Screen.height / 1080f, 0.8f, 2f) * size;
-            float cx = Screen.width * 0.5f, cy = Screen.height * 0.5f;
-            float dot = Mathf.Round(3f * s), thick = Mathf.Max(2f, Mathf.Round(2f * s));
-            float gap = Mathf.Round((locked ? 4f : 7f) * s), arm = Mathf.Round(9f * s);
-
-            var old = GUI.color;
-            Draw(cx, cy, dot, thick, gap, arm, 1f, Shadow);
-            Draw(cx, cy, dot, thick, gap, arm, 0f, c);
-            GUI.color = old;
+            // a dot with four ticks, ink-outlined (HudWidgets.Reticle); it gives a little punch when what is under it changes
+            int kind = (armed && a.Foe) || gunOnFoe ? 2 : a.Kind != AimKind.None ? 1 : 0;
+            HudWidgets.Reticle(Screen.width * 0.5f, Screen.height * 0.5f, c, locked, kind, size);
 
             if (a.Kind == AimKind.Interact && a.Interactable != null)
-                HudText.Label(new Rect(0, Screen.height * 0.62f, Screen.width, 36), a.Interactable.Prompt, HudStyles.Label(22, TextAnchor.MiddleCenter));
-        }
-
-        /// <summary>A dot with four ticks round it; <paramref name="grow"/> makes the shadow a pixel bigger on every side.</summary>
-        static void Draw(float cx, float cy, float dot, float thick, float gap, float arm, float grow, Color colour)
-        {
-            GUI.color = colour;
-            var t = Texture2D.whiteTexture;
-            float g = grow;
-            GUI.DrawTexture(new Rect(cx - dot * 0.5f - g, cy - dot * 0.5f - g, dot + 2f * g, dot + 2f * g), t);
-            GUI.DrawTexture(new Rect(cx - thick * 0.5f - g, cy - gap - arm - g, thick + 2f * g, arm + 2f * g), t);   // up
-            GUI.DrawTexture(new Rect(cx - thick * 0.5f - g, cy + gap - g, thick + 2f * g, arm + 2f * g), t);         // down
-            GUI.DrawTexture(new Rect(cx - gap - arm - g, cy - thick * 0.5f - g, arm + 2f * g, thick + 2f * g), t);   // left
-            GUI.DrawTexture(new Rect(cx + gap - g, cy - thick * 0.5f - g, arm + 2f * g, thick + 2f * g), t);         // right
+                HudWidgets.Prompt(a.Interactable.Prompt, Screen.height * 0.62f);
         }
     }
 }

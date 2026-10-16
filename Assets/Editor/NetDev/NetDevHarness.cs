@@ -65,6 +65,27 @@ namespace BuildingEscape.EditorTools
             EditorSceneManager.OpenScene("Assets/Scenes/Greybox.unity");
             EditorApplication.isPlaying = true;
         }
+        public static void Pew()
+        {
+            SessionState.SetString("netdev.mode", "pew");
+            EditorSceneManager.OpenScene("Assets/Scenes/Greybox.unity");
+            EditorApplication.isPlaying = true;
+        }
+        public static void Ui()
+        {
+            SessionState.SetString("netdev.mode", "ui");
+            EditorSceneManager.OpenScene("Assets/Scenes/Greybox.unity");
+            EditorApplication.isPlaying = true;
+        }
+        public static void PewLook()
+        {
+            SessionState.SetString("netdev.mode", "pewlook");
+            EditorSceneManager.OpenScene("Assets/Scenes/Greybox.unity");
+            EditorApplication.isPlaying = true;
+        }
+        public static void Armed() => Start("armed");
+        public static void ArmedHost() => Start("armedhost");
+        public static void ArmedClient() => Start("armedclient");
         public static void VoiceHost() => Start("voicehost");
         public static void VoiceClient() => Start("voiceclient");
         public static void Offline()
@@ -90,7 +111,7 @@ namespace BuildingEscape.EditorTools
         {
             DontDestroyOnLoad(gameObject);
             started = Time.realtimeSinceStartup;
-            if (mode != "offline" && mode != "sneak" && mode != "floors" && mode != "doors" && mode != "outpost")
+            if (mode != "offline" && mode != "sneak" && mode != "floors" && mode != "doors" && mode != "outpost" && mode != "pew" && mode != "pewlook" && mode != "ui")
                 yield return WaitFor(() => NetSession.Instance != null && SceneManager.GetActiveScene().name == NetConst.MenuScene, 30, "menu");
             switch (mode)
             {
@@ -104,6 +125,12 @@ namespace BuildingEscape.EditorTools
                 case "floors": yield return FloorsScenario(); break;
                 case "doors": yield return DoorsScenario(); break;
                 case "outpost": yield return OutpostScenario(); break;
+                case "pew": yield return PewScenario(); break;
+                case "pewlook": yield return PewLookScenario(); break;
+                case "ui": yield return UiScenario(); break;
+                case "armed": yield return System.Environment.GetEnvironmentVariable("BE_QA_ROLE") == "host" ? ArmedHostScenario() : ArmedClientScenario(); break;
+                case "armedhost": yield return ArmedHostScenario(); break;
+                case "armedclient": yield return ArmedClientScenario(); break;
                 case "offline": yield return OfflineScenario(); break;
                 case "voicehost": yield return VoiceScenario(true); break;
                 case "voiceclient": yield return VoiceScenario(false); break;

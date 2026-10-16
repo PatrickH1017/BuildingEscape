@@ -15,4 +15,6 @@ MonoBehaviour:
   crowbar: {fileID: 1407685842587593660, guid: 8b95b986c9de53d4eacd57ca1da289a3, type: 3}
   bat: {fileID: 3912897093167930676, guid: d3886c829ecbf3642a034705a1d72d92, type: 3}
   hatchet: {fileID: 2986953607660640097, guid: 3f4d63254a0cc204c83bd869d0e57da5, type: 3}
+  pew: {fileID: 5973596693163739273, guid: f064258b88c57f149a76c4cd4dc53cfb, type: 3}
+  pewBullet: {fileID: 2519548448613115332, guid: 94a62e5f1e3f92448886305a62b54eb4, type: 3}
   slash: {fileID: 7400000, guid: 1e17815a8d3d5574cb14f3cefd383fe4, type: 2}

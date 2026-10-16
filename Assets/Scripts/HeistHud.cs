@@ -2,95 +2,98 @@ using UnityEngine;
 
 namespace BuildingEscape
 {
-    /// <summary>Placeholder IMGUI HUD: floor, quota, cash, custody count, controls and the end screens.</summary>
+    /// <summary>
+    /// The in-run HUD in the toon style: the status card (floor, cash, quota, lost, run total, how the team stands with the police), the key
+    /// hints along the bottom, the banner for the moments that matter and the way out of the end screen. It only reads the game's numbers and
+    /// hands them to <see cref="HudWidgets"/>, which draws them (the look itself lives in <see cref="HudTheme"/>).
+    /// </summary>
     public class HeistHud : MonoBehaviour
     {
+        int lastCash, lastBanked;
+        bool primed;
+
         void OnGUI()
         {
             var m = HeistManager.Instance;
             if (!m) return;
-            // The text only draws on Repaint (HudText skips the other events anyway, but the strings below are not free);
-            // the end-screen button needs every event.
-            if (Event.current.type == EventType.Repaint) DrawLabels(m);
+            // everything draws only on Repaint (the strings below are not free); the end-screen button needs every event
+            if (Event.current.type == EventType.Repaint) Draw(m);
             if (m.Phase == HeistPhase.Won || m.Phase == HeistPhase.Failed) DrawEndButton();
         }
 
-        static void DrawLabels(HeistManager m)
+        void Draw(HeistManager m)
         {
-            var style = HudStyles.Label(18);
             bool hub = m.Phase == HeistPhase.Hub;
+            bool boss = !hub && TowerRules.IsBoss(m.Floor);
+            var tm = TowerManager.Instance;
+            int next = tm ? tm.ResumeLevel : 1;
+            m.CountCustody(out int free, out int pinned, out int busted);
 
-            if (hub)
+            // money that came in: a "+$250" floats up beside the card
+            if (primed)
             {
-                var tm0 = TowerManager.Instance;
-                int nextQuota = TowerRules.QuotaFor(tm0 ? tm0.ResumeLevel : 1);
-                string nextInfo = nextQuota > 0 ? $"   Next quota ${nextQuota}" : "";
-                HudText.Label(new Rect(12, 8, 900, 28), $"{m.FloorLabel}   Cash ${m.Cash}{nextInfo}   Run total ${m.RunTotal}", style);
+                if (m.Cash > lastCash) HudAnim.Float("+" + HudTheme.Money(m.Cash - lastCash), HudTheme.Cash);
+                if (m.Banked > lastBanked && !hub) HudAnim.Float("+" + HudTheme.Money(m.Banked - lastBanked), HudTheme.Quota);
             }
-            else if (TowerRules.IsBoss(m.Floor))
-            {
-                HudText.Label(new Rect(12, 8, 900, 28),
-                    $"{m.FloorLabel} ({m.Floor + 1}/{m.TotalFloors})   Knock out the boss to escape   Cash ${m.Cash}", style);
-                HudText.Label(new Rect(12, 34, 900, 28), $"{CustodyLine(m)}   Run total ${m.RunTotal}", style);
-            }
-            else
-            {
-                // Quota: loot value you have dropped in the elevator so far / the quota total. Cash: your spendable money.
-                HudText.Label(new Rect(12, 8, 900, 28),
-                    $"{m.FloorLabel} ({m.Floor + 1}/{m.TotalFloors})   Quota ${m.Banked} / ${m.Quota}   Cash ${m.Cash}", style);
-                HudText.Label(new Rect(12, 34, 900, 28),
-                    $"Lost ${m.Lost}   {CustodyLine(m)}   Run total ${m.RunTotal}", style);
-            }
-            float ctrlW = Screen.width - 24f;
-            HudText.Label(new Rect(12, Screen.height - 56, ctrlW, 28),
-                "WASD move   Mouse look   Hold Alt (or V) look around   Shift sprint   Space jump   E use what the crosshair is on (items, doors, dealer)   Tab inventory   Q grab/drop   LMB throw/swing weapon", style);
-            HudText.Label(new Rect(12, Screen.height - 30, ctrlW, 28),
-                "H hide   F elevator panel / sell (loading docks)   Drop loot in the elevator to bank it   M mute   Esc cursor", style);
+            primed = true;
+            lastCash = m.Cash;
+            lastBanked = m.Banked;
 
-            var big = HudStyles.Label(40, TextAnchor.MiddleCenter);
-            var sub = HudStyles.Label(22, TextAnchor.MiddleCenter);
+            HudWidgets.StatusCard(new HudWidgets.StatusModel
+            {
+                place = m.FloorLabel,
+                level = m.Floor,
+                stops = m.TotalFloors,
+                docks = hub,
+                boss = boss,
+                met = m.Phase == HeistPhase.FloorComplete,
+                cash = m.Cash,
+                banked = m.Banked,
+                quota = m.Quota,
+                lost = m.Lost,
+                runTotal = m.RunTotal,
+                nextQuota = hub ? TowerRules.QuotaFor(next) : 0,
+                free = free,
+                pinned = pinned,
+                busted = busted,
+            });
+            HudWidgets.Controls();
+            DrawBanner(m, hub, next);
+        }
+
+        /// <summary>The ribbon for the moments that matter: quota met, the docks, the end screens.</summary>
+        static void DrawBanner(HeistManager m, bool hub, int next)
+        {
             if (m.Phase == HeistPhase.FloorComplete)
             {
                 bool groupEnd = TowerRules.IsGroupEnd(m.Floor);
-                string msg = groupEnd
-                    ? "Quota met - return to the Loading Docks (elevator panel: choose a floor, then GO)"
-                    : "Quota met - use the elevator panel to go up (choose a floor, then GO)";
-                HudText.Label(new Rect(0, 80, Screen.width, 60), msg, big);
-                HudText.Label(new Rect(0, 135, Screen.width, 32), $"Surplus ${m.Surplus} over the quota becomes your cash to spend at the vendor", sub);
+                HudWidgets.Banner("QUOTA MET!",
+                    groupEnd ? "Return to the Loading Docks (elevator panel: choose a floor, then GO)" : "Use the elevator panel to go up (choose a floor, then GO)",
+                    HudTheme.Cash, $"Surplus {HudTheme.Money(m.Surplus)} over the quota becomes your cash to spend at the vendor");
             }
             else if (hub)
             {
-                var tm = TowerManager.Instance;
-                int next = tm ? tm.ResumeLevel : 1;
                 string nextLabel = TowerRules.Label(next);
                 string msg = ElevatorExtraction.EveryoneAboard
                     ? $"Use the elevator panel (F): choose {nextLabel}, then GO (finished floors are closed)"
-                    : $"Loading Docks - everyone into the elevator, then use the panel (F) to go up to {nextLabel}";
-                HudText.Label(new Rect(0, 80, Screen.width, 60), msg, big);
-                if (m.SurplusPaid > 0)
-                    HudText.Label(new Rect(0, 135, Screen.width, 32), $"+${m.SurplusPaid} surplus from the last floor added to your cash", sub);
+                    : $"Everyone into the elevator, then use the panel (F) to go up to {nextLabel}";
+                HudWidgets.Banner("LOADING DOCKS", msg, HudTheme.Info,
+                    m.SurplusPaid > 0 ? $"+{HudTheme.Money(m.SurplusPaid)} surplus from the last floor added to your cash" : null);
             }
-            else if (m.Phase == HeistPhase.Won || m.Phase == HeistPhase.Failed)
-            {
-                string msg = m.Phase == HeistPhase.Won ? "ESCAPED THE TOWER" : (m.BackupCalled ? $"BACKUP CALLED - BUSTED on {m.FloorLabel}" : $"BUSTED on {m.FloorLabel}");
-                HudText.Label(new Rect(0, 0, Screen.width, Screen.height), msg, big);
-            }
+            else if (m.Phase == HeistPhase.Won) HudWidgets.Banner("ESCAPED THE TOWER", null, HudTheme.Cash);
+            else if (m.Phase == HeistPhase.Failed)
+                HudWidgets.Banner("BUSTED", m.BackupCalled ? $"Backup was called - busted on {m.FloorLabel}" : $"Busted on {m.FloorLabel}", HudTheme.Danger);
         }
 
         /// <summary>The way out of the end screen: back to the menu online, restart the scene offline.</summary>
         static void DrawEndButton()
         {
             bool online = Net.NetSession.Online;
-            if (!GUI.Button(new Rect(Screen.width / 2 - 70, Screen.height / 2 + 50, 140, 36), online ? "Back to menu" : "Restart")) return;
+            float s = HudTheme.S;
+            var r = new Rect((Screen.width - 250f * s) * 0.5f, Mathf.Max(340f * s, Screen.height * 0.46f), 250f * s, 62f * s);
+            if (!HudWidgets.Button(r, online ? "Back to menu" : "Restart", HudTheme.Info)) return;
             if (online) Net.NetSession.Instance.Leave();
             else UnityEngine.SceneManagement.SceneManager.LoadScene(UnityEngine.SceneManagement.SceneManager.GetActiveScene().buildIndex);
-        }
-
-        /// <summary>"Free 2  Pinned 1  Busted 0": how the team stands with the police.</summary>
-        static string CustodyLine(HeistManager m)
-        {
-            m.CountCustody(out int free, out int pinned, out int busted);
-            return $"Free {free}   Pinned {pinned}   Busted {busted}";
         }
     }
 }

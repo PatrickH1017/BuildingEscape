@@ -132,6 +132,20 @@ namespace BuildingEscape.Net
         [Rpc(SendTo.NotServer)]
         void BackupMessageRpc(string text) => HeistManager.Instance?.NetBackupMessage(text);
 
+        /// <summary>Host: an armed guard fired. Where the bullet went and what it hit was decided here; clients only show the flash, the tracer and the sound.</summary>
+        public void BroadcastGuardShot(int guardId, Vector3 hit, bool impact)
+        {
+            if (IsServer && guardId >= 0 && NetworkManager.ConnectedClientsIds.Count > 1) GuardShotRpc((ushort)guardId, hit, impact);
+        }
+
+        [Rpc(SendTo.NotServer)]
+        void GuardShotRpc(ushort id, Vector3 hit, bool impact)
+        {
+            if (!float.IsFinite(hit.x) || !float.IsFinite(hit.y) || !float.IsFinite(hit.z)) return;
+            var g = NetIds.Get<GuardAI>(id);
+            if (g != null && g.Gun != null) g.Gun.ShowShot(hit, impact);
+        }
+
         /// <summary>Host: a shop item went straight into a player's pack.</summary>
         public void AnnounceStored(int id, int slot)
         {

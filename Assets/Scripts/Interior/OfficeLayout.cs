@@ -97,6 +97,8 @@ namespace BuildingEscape
         public OutpostInfo outpost;
         /// <summary>The floor safe of this floor; null when this floor has none.</summary>
         public SafeSpot safe;
+        /// <summary>What this layout was planned from (the maze, the elevator's cell, the cell size); the room numbers follow the maze.</summary>
+        public PlanInput input;
     }
 
     /// <summary>

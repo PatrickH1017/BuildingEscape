@@ -92,6 +92,15 @@ namespace BuildingEscape
             Play(Pick(kind == MeleeWeapon.Kind.Hatchet ? c.layerGore : c.layerBone), pos, 0.9f, 1f);
         }
 
+        /// <summary>A bullet landing on a guard, the training dummy or a player: a body hit, and a killing shot is heavier (finisher plus a bone layer).</summary>
+        public static void BulletHit(bool killed, Vector3 pos)
+        {
+            var c = Catalog; if (c == null) return;
+            if (!killed) { Play(Pick(c.hitCrowbar), pos, 1f, Random.Range(0.95f, 1.05f)); return; }
+            Play(Pick(c.killCrowbar), pos, 1f, 0.95f);
+            Play(Pick(c.layerBone), pos, 0.9f, 1f);
+        }
+
         // ------------------------------------------------------------------ pool
 
         /// <summary>A source that is free; else the one that has been playing longest (unless it only just started).</summary>

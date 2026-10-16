@@ -12,6 +12,7 @@ namespace BuildingEscape
     /// Added to every guard by GuardVisual.
     /// </summary>
     [RequireComponent(typeof(GuardAI))]
+    [DefaultExecutionOrder(200)]     // after HeldGun (100): an armed guard's flashlight sits on the muzzle of the gun as it was posed this frame
     public class GuardVision : MonoBehaviour
     {
         const string HandPath = "Armature/Hips/Spine/Spine1/Spine2/RightShoulder/RightArm/RightForeArm/RightHand";
@@ -122,8 +123,25 @@ namespace BuildingEscape
             r.receiveShadows = false;
         }
 
+        Renderer[] torchBody;
+        bool torchBodyShown = true;
+
         void PlaceTorch()
         {
+            // an armed guard has no flashlight in his hand: the light sits on the front of his gun and shines where it points
+            var gunMuzzle = ai.Gun != null ? ai.Gun.Muzzle : null;
+            if (torchBody == null) torchBody = torch.GetComponentsInChildren<Renderer>(true);
+            bool showBody = gunMuzzle == null;
+            if (showBody != torchBodyShown)
+            {
+                torchBodyShown = showBody;
+                foreach (var r in torchBody) if (r) r.enabled = showBody;
+            }
+            if (gunMuzzle != null)
+            {
+                torch.SetPositionAndRotation(gunMuzzle.position, gunMuzzle.rotation);
+                return;
+            }
             var fwd = transform.forward;
             Vector3 pos = hand
                 ? hand.position

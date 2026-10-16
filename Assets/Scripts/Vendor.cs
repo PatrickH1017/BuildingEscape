@@ -188,11 +188,9 @@ namespace BuildingEscape
             {
                 var seen = Crosshair.Aim;
                 if (seen.Kind == AimKind.Dealer)
-                    HudText.Label(new Rect(0, Screen.height * 0.62f, Screen.width, 36), "[E] Talk to the dealer",
-                        HudStyles.Label(24, TextAnchor.MiddleCenter));
+                    HudWidgets.Prompt("[E] Talk to the dealer", Screen.height * 0.62f);
                 else if (seen.Kind == AimKind.None)    // (nothing else is under the crosshair to prompt for)
-                    HudText.Label(new Rect(0, Screen.height * 0.62f, Screen.width, 36), "Aim the crosshair at the dealer to talk",
-                        HudStyles.Label(20, TextAnchor.MiddleCenter));
+                    HudWidgets.Prompt("Aim the crosshair at the dealer to talk", Screen.height * 0.62f, false, 18f);
                 return;
             }
 

@@ -15,6 +15,14 @@ namespace BuildingEscape
         [Tooltip("Played on top of a killing blow.")]
         public AudioClip[] layerBone, layerGore;
 
+        [Header("Guns (Free Weapon SFX pack, Handgun)")]
+        [Tooltip("The pew's gunshots; a tail of the same number is played under each.")]
+        public AudioClip[] gunShot, gunTail;
+        [Tooltip("The reload in order: slide lock, magazine out, magazine drawn, magazine in, charge.")]
+        public AudioClip[] gunReload;
+        [Tooltip("Drawing the gun (equipping it), and the rustle of a guard bringing his up to aim.")]
+        public AudioClip[] gunEquip, gunAim;
+
         // ---- Placeholders. While these are empty the game plays sounds and music it generates in code (see SoundBank and
         // ---- MusicDirector). Drop real clips in and they are used instead, with no other change.
         [Header("Doors, elevator and officers (empty = generated placeholder)")]

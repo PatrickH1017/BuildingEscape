@@ -14,8 +14,21 @@ namespace BuildingEscape.EditorTools
         {
             EditorApplication.delayCall += () =>
             {
-                if (!AssetDatabase.LoadAssetAtPath<AudioCatalog>(CatalogPath)) Build(false);
+                var cat = AssetDatabase.LoadAssetAtPath<AudioCatalog>(CatalogPath);
+                if (!cat) Build(false);
+                else if (cat.gunShot == null || cat.gunShot.Length == 0) { FillGuns(cat); EditorUtility.SetDirty(cat); AssetDatabase.SaveAssets(); }
             };
+        }
+
+        /// <summary>The pew's sounds from the Free Weapon SFX pack (Handgun): shots with their tails, the five steps of a reload, the draw.</summary>
+        static void FillGuns(AudioCatalog cat)
+        {
+            cat.gunShot = Clips("sfx_wpn_hgn_gunshot_01", "sfx_wpn_hgn_gunshot_02", "sfx_wpn_hgn_gunshot_03");
+            cat.gunTail = Clips("sfx_wpn_hgn_tail_01", "sfx_wpn_hgn_tail_02");
+            cat.gunReload = Clips("sfx_wpn_hgn_reload_01_slideLock", "sfx_wpn_hgn_reload_02_magOut", "sfx_wpn_hgn_reload_03_magDraw",
+                                  "sfx_wpn_hgn_reload_04_magIn", "sfx_wpn_hgn_reload_05_charge");
+            cat.gunEquip = Clips("sfx_wpn_hgn_foley_equip_01", "sfx_wpn_hgn_foley_equip_02");
+            cat.gunAim = Clips("sfx_wpn_hgn_foley_aim_01", "sfx_wpn_hgn_foley_aim_02");
         }
 
         [MenuItem("Overtime Escape/Setup Audio", priority = 32)]
@@ -55,6 +68,7 @@ namespace BuildingEscape.EditorTools
             cat.killHatchet = Clips("blade_hit_08", "body_hit_finisher_42");
             cat.layerBone = Clips("bone_breaking_03", "bone_breaking_53");
             cat.layerGore = Clips("guts_and_gore_59", "guts_and_gore_68");
+            FillGuns(cat);
             EditorUtility.SetDirty(cat);
             AssetDatabase.SaveAssets();
             if (log) Debug.Log($"Audio catalog ready: {cat.stepsPlayer.Length} player steps, {cat.stepsGuard.Length} guard steps, " +

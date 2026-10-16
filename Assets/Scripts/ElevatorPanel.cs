@@ -383,8 +383,7 @@ namespace BuildingEscape
             if (!Open)
             {
                 if (nearLocal && !Blocked && !ElevatorExtraction.Sealing)
-                    HudText.Label(new Rect(0, Screen.height * 0.72f, Screen.width, 32), $"[{useKey}] Use the elevator panel",
-                        HudStyles.Label(22, TextAnchor.MiddleCenter, FontStyle.Normal, Color.white));
+                    HudWidgets.Prompt($"[{useKey}] Use the elevator panel", Screen.height * 0.72f);
                 return;
             }
 

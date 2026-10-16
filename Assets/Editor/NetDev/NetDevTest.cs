@@ -35,6 +35,7 @@ namespace BuildingEscape.EditorTools
             ElevatorLookTest();
             AimMathTest();
             DoorOpenersTest();
+            GunTest();
             string v = NetConst.BuildVersion;
             Check("allow", JoinPolicy.Evaluate(false, 1, v, v, true) == JoinVerdict.Allow);
             Check("five players is the limit", NetConst.MaxPlayers == 5);
@@ -187,7 +188,14 @@ namespace BuildingEscape.EditorTools
             Check("custody: a player goes free -> pinned -> busted -> free", pinned && busted && wp.Custody == CustodyState.Free && !wp.InCustody);
             Object.DestroyImmediate(go);
         }
-        /// <summary>The room numbers: floor digit first, 01-99 per round, a plate over every numbered room's doorway facing away from the room.</summary>
+        static int CountRoomsInCell(RoomNumbers.Numbering num, int cell, int cols)
+        {
+            int n = 0;
+            foreach (var r in num.rooms) if (r.cellX + r.cellY * cols == cell) n++;
+            return n;
+        }
+
+        /// <summary>The room numbers: floor digit first, 01-99 per round, a plate over every numbered room's doorway facing away from the room; and their order (it follows the corridors).</summary>
         public static void RoomNumberTest()
         {
             Check("rooms: floor 1 starts at 101, floor 2 at 201, floor 12 at 1201",
@@ -218,6 +226,68 @@ namespace BuildingEscape.EditorTools
             }
             Check("rooms: every plate hangs on the outer face of a doorway beam (not buried in it)", onBeams);
             Check("rooms: the docks and the boss floor have no plates", RoomNumbers.Plates(layout, 0).Count == 0 && RoomNumbers.Plates(null, 2).Count == 0);
+
+            // ---- the ORDER of the numbers follows the corridors (real 8 x 5 floors, the mazes the generator makes)
+            bool everyRoomOnce = true, unique = true, wellFormed = true, same = true, walkRising = true, startsAtElevator = true, cellsTogether = true;
+            int ancestorPairs = 0;
+            foreach (var (fl, sd) in new[] { (1, 4101), (2, 777), (4, 9172), (6, 31337), (9, 2288), (12, 515) })
+            {
+                var shape = FloorShape.Maze(new System.Random(sd), 8, 5, 0.12);
+                var lay = OfficePlanner.Build(shape.PlanFor(fl, sd, 18f, 3.5f, 777));
+                var num = RoomNumbers.Of(lay, fl);
+                var num2 = RoomNumbers.Of(OfficePlanner.Build(shape.PlanFor(fl, sd, 18f, 3.5f, 777)), fl);
+                int numbered = 0;
+                foreach (var r in lay.rooms) if (RoomNumbers.IsNumbered(r)) numbered++;
+                everyRoomOnce &= num.rooms.Count == numbered;
+                var seen = new System.Collections.Generic.HashSet<string>();
+                for (int i = 0; i < num.labels.Count; i++)
+                {
+                    unique &= seen.Add(num.labels[i]);
+                    wellFormed &= num.labels[i].StartsWith(fl.ToString()) && num.labels[i].Length >= (fl * 100 + 1).ToString().Length;
+                    same &= num2.labels.Count == num.labels.Count && num2.labels[i] == num.labels[i];
+                }
+                // the walk: a cell hangs off the first neighbour (west, south, east, north) one step nearer the elevator
+                int fcols = 8, frows = 5, cellsN = fcols * frows;
+                var dist = shape.Distances();
+                var minAt = new int[cellsN]; var maxAt = new int[cellsN];
+                for (int i = 0; i < cellsN; i++) { minAt[i] = int.MaxValue; maxAt[i] = -1; }
+                for (int i = 0; i < num.rooms.Count; i++)
+                {
+                    int cell = num.rooms[i].cellX + num.rooms[i].cellY * fcols;
+                    if (i < minAt[cell]) minAt[cell] = i;
+                    if (i > maxAt[cell]) maxAt[cell] = i;
+                }
+                for (int cell = 0; cell < cellsN; cell++)
+                {
+                    if (maxAt[cell] < 0) continue;
+                    cellsTogether &= maxAt[cell] - minAt[cell] + 1 == CountRoomsInCell(num, cell, fcols);        // a cell's rooms have consecutive numbers
+                    int at = cell;
+                    while (dist[at % fcols, at / fcols] > 0)
+                    {
+                        int cx = at % fcols, cy = at / fcols, up = -1;
+                        int[] sx = { -1, 0, 1, 0 }, sy = { 0, -1, 0, 1 };
+                        for (int k = 0; k < 4 && up < 0; k++)
+                        {
+                            int nx = cx + sx[k], ny = cy + sy[k];
+                            if (nx < 0 || ny < 0 || nx >= fcols || ny >= frows || !shape.IsOpen(cx, cy, nx, ny)) continue;
+                            if (dist[nx, ny] == dist[cx, cy] - 1) up = nx + ny * fcols;
+                        }
+                        if (up < 0) break;
+                        at = up;
+                        if (maxAt[at] >= 0) { ancestorPairs++; walkRising &= maxAt[at] < minAt[cell]; }        // everything nearer the elevator on the way has a lower number
+                    }
+                }
+                int firstCell = num.rooms.Count > 0 ? num.rooms[0].cellX + num.rooms[0].cellY * fcols : -1;
+                int nearest = int.MaxValue;
+                for (int cell = 0; cell < cellsN; cell++) if (maxAt[cell] >= 0) nearest = Mathf.Min(nearest, dist[cell % fcols, cell / fcols]);
+                startsAtElevator &= firstCell >= 0 && dist[firstCell % fcols, firstCell / fcols] <= nearest + 1;   // 101 is in the nearest cell with rooms, or the next one out
+            }
+            Check("rooms: every numbered room has exactly one number", everyRoomOnce);
+            Check("rooms: no two rooms of a floor share a number, and every number starts with the floor", unique && wellFormed);
+            Check("rooms: the numbers are the same every time (every machine builds the same floor)", same);
+            Check("rooms: the rooms of one cell have consecutive numbers (a cell is never split)", cellsTogether);
+            Check($"rooms: walking away from the elevator the numbers only go up (checked over {ancestorPairs} cell pairs on six floors)", walkRising && ancestorPairs > 100);
+            Check("rooms: 101 is in the cell nearest the elevator that has rooms (or the next one out)", startsAtElevator);
         }
         /// <summary>
         /// The after-hours planner (ceiling light panels, which are lit, where the real lights stand) on realistic floors of several sizes:
@@ -546,6 +616,94 @@ namespace BuildingEscape.EditorTools
             ok = AimMath.SwingDirection(0f, 1.35f, -2.6f, 0f, 0f, 1f, 0f, 1f, 0f, 2.4f, out sx, out sz);
             Check("aim: a swing along the player's own line goes straight ahead", ok && Near(sx, 0f) && Near(sz, 1f));
             Check("aim: the aim ray starts at the player's depth and ends past his reach", Near(AimMath.StartT(2.6f), 2.35f) && AimMath.StartT(0.1f) == 0f && AimMath.EndT(2.6f, 2.2f) > 2.6f + 2.2f);
+        }
+
+        /// <summary>The pew: its magazine and reload, its numbers against the melee weapons, the spread of a shot, which guards are armed.</summary>
+        public static void GunTest()
+        {
+            var pew = RangedWeapon.Specs[(int)RangedWeapon.Kind.Pew];
+            Check("gun: the pew holds ten rounds and is reloaded after every ten shots", pew.magazine == 10);
+
+            // ten shots 0.3 s apart, then the click and the reload
+            var m = RangedWeapon.NewMagazine(pew);
+            Check("gun: a new pew is full", m.Rounds == 10 && !m.Reloading && m.Capacity == 10);
+            float t = 0f; bool ok = true; int fired = 0;
+            for (int i = 0; i < 10; i++)
+            {
+                var s = m.TryFire(t);
+                ok &= i < 9 ? s == GunMagazine.Shot.Fired : s == GunMagazine.Shot.FiredLast;
+                if (s == GunMagazine.Shot.Fired || s == GunMagazine.Shot.FiredLast) fired++;
+                t += pew.fireInterval;
+            }
+            Check("gun: ten shots in a row are ten bullets, the tenth is the last one", ok && fired == 10 && m.Rounds == 0 && m.Fired == 10);
+            Check("gun: the eleventh pull is only a click", m.TryFire(t + 0.1f) == GunMagazine.Shot.Empty && m.Fired == 10);
+            Check("gun: the reload does not start in the instant of the last shot", m.Tick(t - pew.fireInterval + 0.1f) == GunMagazine.Event.None && !m.Reloading);
+            float reloadAt = t - pew.fireInterval + m.AutoReloadDelay;
+            Check("gun: an empty magazine starts the reload by itself", m.Tick(reloadAt) == GunMagazine.Event.ReloadStarted && m.Reloading);
+            Check("gun: nothing is fired while it reloads", m.TryFire(reloadAt + 1f) == GunMagazine.Shot.Reloading && m.Rounds == 0);
+            Check("gun: the reload is not done early", m.Tick(reloadAt + pew.reloadSeconds - 0.05f) == GunMagazine.Event.None && m.Reloading);
+            Check("gun: the reload ends after its time with a full magazine", m.Tick(reloadAt + pew.reloadSeconds + 0.01f) == GunMagazine.Event.ReloadFinished && m.Rounds == 10 && !m.Reloading && m.Reloads == 1);
+            Check("gun: the progress of a reload runs from 0 to 1", Mathf.Approximately(m.ReloadProgress(reloadAt + pew.reloadSeconds + 1f), 0f)
+                  && Mathf.Approximately(RangedWeapon.NewMagazine(pew).ReloadProgress(5f), 0f));
+            var half = RangedWeapon.NewMagazine(pew); half.TryFire(0f); half.StartReload(1f);
+            Check("gun: half way through the reload the bar is at one half", Mathf.Abs(half.ReloadProgress(1f + pew.reloadSeconds * 0.5f) - 0.5f) < 1e-4f
+                  && Mathf.Approximately(half.ReloadProgress(1f + pew.reloadSeconds * 3f), 1f));
+
+            // the pause between two shots
+            m = RangedWeapon.NewMagazine(pew);
+            Check("gun: the first shot is never too soon", m.TryFire(0f) == GunMagazine.Shot.Fired);
+            Check("gun: a second pull 0.1 s later is too soon (no round used)", m.TryFire(0.1f) == GunMagazine.Shot.TooSoon && m.Rounds == 9);
+            Check("gun: the fire interval is respected exactly", m.TryFire(pew.fireInterval - 0.01f) == GunMagazine.Shot.TooSoon && m.TryFire(pew.fireInterval) == GunMagazine.Shot.Fired && m.Rounds == 8);
+
+            // reloading by hand (R)
+            m = RangedWeapon.NewMagazine(pew);
+            Check("gun: a full gun cannot be reloaded", !m.StartReload(0f));
+            m.TryFire(0f); m.TryFire(1f); m.TryFire(2f);
+            Check("gun: a part-used gun can be reloaded by hand", m.StartReload(2.1f) && m.Reloading);
+            Check("gun: it cannot be reloaded twice at once", !m.StartReload(2.2f));
+            m.CancelReload();
+            Check("gun: putting the gun away stops the reload (the rounds stay as they were)", !m.Reloading && m.Rounds == 7);
+            m.Fill();
+            Check("gun: refill (test menu) gives ten again", m.Rounds == 10);
+
+            // numbers: the pew is stronger than every melee weapon in every way that matters
+            bool strongest = true;
+            foreach (var mw in MeleeWeapon.Specs)
+                strongest &= pew.damage > mw.damage && pew.stun > mw.stun && pew.knock > mw.knock && pew.noise > mw.noise && pew.fireInterval < mw.cooldown;
+            Check("gun: the pew beats the crowbar, the bat and the hatchet in damage, stun, knock-back, noise and speed", strongest);
+            Check("gun: a bullet counts as several hits on a guard", pew.guardHits >= 2);
+            Check("gun: two bullets knock a guard out (a melee weapon needs ten hits)", GunRules.BulletsToKill(10, pew.guardHits) == 2);
+            Check("gun: the boss takes more bullets", GunRules.BulletsToKill(30, pew.guardHits) == 6 && GunRules.BulletsToKill(10, 1) == 10 && GunRules.BulletsToKill(0, 0) == 1);
+
+            // spread: inside the cone, even over it, and repeatable
+            float maxR = 0f, sumX = 0f, sumY = 0f; int n = 4000; bool inside = true;
+            for (int i = 1; i <= n; i++)
+            {
+                GunRules.Spread(i * 7919, pew.spread, out float yaw, out float pitch);
+                float r = Mathf.Sqrt(yaw * yaw + pitch * pitch);
+                inside &= r <= pew.spread + 1e-3f;
+                maxR = Mathf.Max(maxR, r); sumX += yaw; sumY += pitch;
+            }
+            Check("gun: every shot lands inside the cone", inside);
+            Check("gun: the cone is used to its edge, and the shots are centred on the aim", maxR > pew.spread * 0.95f && Mathf.Abs(sumX / n) < pew.spread * 0.05f && Mathf.Abs(sumY / n) < pew.spread * 0.05f);
+            GunRules.Spread(123, 2f, out float a1, out float b1); GunRules.Spread(123, 2f, out float a2, out float b2);
+            Check("gun: the same seed gives the same shot", a1 == a2 && b1 == b2);
+            GunRules.Spread(1, 0f, out float z1, out float z2);
+            Check("gun: a cone of 0 degrees is a perfect shot", z1 == 0f && z2 == 0f);
+
+            // guards
+            Check("gun: a guard shoots worse the further away you are", GunRules.GuardCone(2.5f, 0.28f, 20f) > GunRules.GuardCone(2.5f, 0.28f, 5f)
+                  && Mathf.Approximately(GunRules.GuardCone(2.5f, 0.28f, 0f), 2.5f) && Mathf.Approximately(GunRules.GuardCone(2.5f, 0.28f, -3f), 2.5f));
+            Check("gun: a guard stands and shoots at a player he sees at a middle distance", GunRules.ShouldStandAndShoot(true, 10f, 3f, 22f, false));
+            Check("gun: he runs at a player who is too far, or does not see him", !GunRules.ShouldStandAndShoot(true, 30f, 3f, 22f, false) && !GunRules.ShouldStandAndShoot(false, 10f, 3f, 22f, false));
+            Check("gun: within arm's reach he grabs instead of shooting", !GunRules.ShouldStandAndShoot(true, 1.5f, 3f, 22f, false));
+            Check("gun: while he reloads he stays where he is", GunRules.ShouldStandAndShoot(false, 40f, 3f, 22f, true));
+
+            // which guards carry a pew
+            Check("armed: nobody is armed in the game as it is today", !ArmedRules.IsArmed(1, ArmedRules.Never, false) && !ArmedRules.IsArmed(13, ArmedRules.Never, false));
+            Check("armed: from the chosen floor up", !ArmedRules.IsArmed(2, 3, false) && ArmedRules.IsArmed(3, 3, false) && ArmedRules.IsArmed(9, 3, false));
+            Check("armed: test mode arms every floor", ArmedRules.IsArmed(1, ArmedRules.Never, true) && ArmedRules.IsArmed(13, ArmedRules.Never, true));
+            Check("armed: the docks have no guards to arm", !ArmedRules.IsArmed(0, 1, true) && !ArmedRules.IsArmed(0, ArmedRules.Never, true));
         }
 
         static void Check(string name, bool ok) => Debug.Log($"[NetTest] policy {name}: {(ok ? "PASS" : "FAIL")}");

@@ -138,10 +138,22 @@ namespace BuildingEscape
         }
 
         /// <summary>Client: take the state the host sent.</summary>
-        public void NetApply(GuardState state, bool dead, bool isCalling, float progress, float speed)
+        public void NetApply(GuardState state, bool dead, bool isCalling, float progress, float speed, bool armed = false)
         {
             State = state; Dead = dead; calling = isCalling; netProgress = progress; netSpeed = speed;
+            // the host says whether he carries a gun: this machine shows it (and plays the shots the host announces)
+            if (armed && gun == null) gameObject.AddComponent<GuardGun>();
+            else if (!armed && gun != null) gun.Remove();
         }
+
+        // ---- the gun (see GuardGun and ArmedGuards)
+        GuardGun gun;
+        /// <summary>His gun, or null when he is not armed.</summary>
+        public GuardGun Gun => gun;
+        /// <summary>He carries a gun.</summary>
+        public bool Armed => gun != null && gun.Armed;
+        internal void AttachGun(GuardGun g) { gun = g; }
+        internal void DetachGun(GuardGun g) { if (gun == g) gun = null; }
 
         /// <summary>The player this officer is holding down (host only), or null.</summary>
         public WobblyPlayer Holding => holding;
@@ -200,20 +212,23 @@ namespace BuildingEscape
             waitUntil = 0;
         }
 
-        /// <summary>A weapon hit: stuns like Stun, and the hitsToKill-th hit leaves the guard down for good.</summary>
-        public void WeaponHit(float stunSeconds, GameObject by = null)
+        /// <summary>
+        /// A weapon hit: stuns like Stun, and the hitsToKill-th hit leaves the guard down for good. A melee hit counts as one hit; a bullet
+        /// counts as <paramref name="weight"/> (the pew: five of the ten).
+        /// </summary>
+        public void WeaponHit(float stunSeconds, GameObject by = null, int weight = 1)
         {
             if (IsPuppet) { Net.RunSync.Instance?.RequestGuardHit(this); return; } // the host decides what a hit does
-            WeaponHitHost(stunSeconds, by);
+            WeaponHitHost(stunSeconds, by, weight);
         }
 
         /// <summary>The real effect of a weapon hit: offline, or on the host (after it checked a client's request).</summary>
-        public void WeaponHitHost(float stunSeconds, GameObject by = null)
+        public void WeaponHitHost(float stunSeconds, GameObject by = null, int weight = 1)
         {
             if (Dead) return;
             calling = false; callTimer = 0f; // a weapon hit cuts the radio call
             ReleaseHold(true);               // hit while holding someone down: they get free
-            Hits++;
+            Hits += Mathf.Max(1, weight);
             if (Hits >= hitsToKill)
             {
                 Dead = true;
@@ -358,6 +373,18 @@ namespace BuildingEscape
             }
             if (seen) lastSeenPos = target.transform.position;
             if (GuardRules.PursuitOver(ref unseenFor, seen, Time.deltaTime, loseSightSeconds)) { LoseChase(); return; }
+
+            // an armed guard stops and shoots while he sees a free player who is in range and not within arm's reach (then he grabs him)
+            if (gun != null && gun.Armed)
+            {
+                float flat = FlatDistance(target.transform);
+                if (flat > catchRadius * 1.3f && gun.Engage(target, seen, flat))
+                {
+                    agent.isStopped = true;
+                    FaceTarget();
+                    return;
+                }
+            }
 
             // (out of view he still runs at where the player is until the time is up)
             agent.isStopped = false;

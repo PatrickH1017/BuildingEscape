@@ -92,7 +92,7 @@ namespace BuildingEscape.Net
                     kind = 1;
                     state = (byte)g.State;
                     call = (byte)Mathf.RoundToInt(Mathf.Clamp01(g.CallProgress) * 255f);
-                    flags = (byte)((g.Dead ? 1 : 0) | (g.IsCalling ? 2 : 0));
+                    flags = (byte)((g.Dead ? 1 : 0) | (g.IsCalling ? 2 : 0) | (g.Armed ? 4 : 0));
                     speed = (byte)Mathf.Clamp(Mathf.RoundToInt(g.CurrentSpeed * 20f), 0, 255);
                 }
                 else continue;
@@ -157,7 +157,7 @@ namespace BuildingEscape.Net
                     pp.placed = true;
                     pp.t.SetPositionAndRotation(pp.pos, pp.rot);
                 }
-                if (c is GuardAI g) g.NetApply((GuardState)state, (flags & 1) != 0, (flags & 2) != 0, call / 255f, speed / 20f);
+                if (c is GuardAI g) g.NetApply((GuardState)state, (flags & 1) != 0, (flags & 2) != 0, call / 255f, speed / 20f, (flags & 4) != 0);
             }
         }
 

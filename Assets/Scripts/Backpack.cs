@@ -32,7 +32,7 @@ namespace BuildingEscape
         public IReadOnlyList<Pickup> Items => items;
         /// <summary>Is the crosshair on an item within reach that E would pick up right now?</summary>
         public bool HasPickupTarget => target != null;
-        /// <summary>The melee weapon shown in the right hand (must be an item in the pack).</summary>
+        /// <summary>The weapon (a melee weapon or the pew) shown in the right hand (must be an item in the pack).</summary>
         public Pickup Equipped { get; private set; }
         public float Weight { get { float w = 0; foreach (var p in items) if (p) w += p.weight; return w; } }
 
@@ -101,7 +101,7 @@ namespace BuildingEscape
         {
             if (!p || items.Contains(p)) return;
             items.Add(p);
-            if (!Equipped && p.GetComponent<MeleeWeapon>()) Equipped = p;
+            if (!Equipped && RangedWeapon.IsWeapon(p)) Equipped = p;
             p.transform.SetParent(holder, true);
             if (p.TryGetComponent(out Rigidbody rb) && !rb.isKinematic) { rb.linearVelocity = Vector3.zero; rb.angularVelocity = Vector3.zero; }
             p.gameObject.SetActive(false);
@@ -215,32 +215,29 @@ namespace BuildingEscape
             if (UiOpen) DrawInventory(label, w);
         }
 
-        /// <summary>The weight bar (bottom left, above the controls line) and the pick-up prompt.</summary>
+        /// <summary>The pack card (bottom left: the weight, the loot in the pack, what is in hand) and the pick-up prompt.</summary>
         void DrawHud(GUIStyle label, float w)
         {
-            var bar = new Rect(12, Screen.height - 96, 260, 18);
-            GUI.Box(bar, GUIContent.none);
-            float f = Mathf.Clamp01(w / Mathf.Max(0.1f, capacity));
-            var old = GUI.color;
-            GUI.color = f > 0.9f ? Color.red : f > 0.65f ? Color.yellow : Color.green;
-            GUI.DrawTexture(new Rect(bar.x + 2, bar.y + 2, (bar.width - 4) * f, bar.height - 4), Texture2D.whiteTexture);
-            GUI.color = old;
-            HudText.Label(new Rect(bar.xMax + 8, bar.y - 6, 400, 28), $"Pack {w:0.#} / {capacity:0.#} kg   (Tab: inventory)", label);
+            HudWidgets.PackCard(new HudWidgets.PackModel
+            {
+                weight = w, capacity = capacity, lootCount = LootCount, lootValue = LootValue(), inHand = Equipped ? Equipped.Label : null,
+            });
             if (UiOpen) return;
 
             string prompt = null;
+            bool warn = false;
             if (target)
             {
                 bool fits = w + target.weight <= capacity + 0.001f;
                 prompt = fits
                     ? $"[E] Pick up {target.Label}  ({target.weight:0.#} kg" + (target.Value > 0 ? $", ${target.Value}" : "") + ")"
                     : $"{target.Label} ({target.weight:0.#} kg) is too heavy for your pack - [Q] carry it";
+                warn = !fits;
             }
             else if (Time.time < noticeUntil) prompt = notice;
-            if (prompt != null)
-                HudText.Label(new Rect(0, Screen.height * 0.62f, Screen.width, 36), prompt, HudStyles.Label(22, TextAnchor.MiddleCenter));
-            if (target && Time.time < noticeUntil)
-                HudText.Label(new Rect(0, Screen.height * 0.62f + 34, Screen.width, 30), notice, HudStyles.Label(18, TextAnchor.MiddleCenter));
+            float y = Screen.height * 0.62f;
+            if (prompt != null) HudWidgets.Prompt(prompt, y, warn);
+            if (target && Time.time < noticeUntil) HudWidgets.Prompt(notice, y + HudTheme.Px(62f), false, 17f, 1);
         }
 
         void DrawInventory(GUIStyle label, float w)
@@ -260,7 +257,7 @@ namespace BuildingEscape
             {
                 GUILayout.BeginHorizontal();
                 GUILayout.Label(Describe(p) + (p == Equipped ? "   [in hand]" : ""), GUILayout.Width(380));
-                if (p.GetComponent<MeleeWeapon>())
+                if (RangedWeapon.IsWeapon(p))
                 {
                     if (GUILayout.Button(p == Equipped ? "Unequip" : "Equip", GUILayout.Width(80))) SetEquipped(p == Equipped ? null : p);
                 }
@@ -298,6 +295,7 @@ namespace BuildingEscape
         static string Describe(Pickup p)
         {
             string s = $"{p.Label}   {p.weight:0.#} kg";
+            if (p.TryGetComponent(out RangedWeapon gun)) s += $"   {gun.Magazine.Rounds}/{gun.Magazine.Capacity} rounds";
             if (p.Value > 0) s += $"   ${p.Value}   (${p.Value / p.weight:0}/kg)";
             return s;
         }
