@@ -52,6 +52,36 @@ namespace BuildingEscape.Net
             c.HostHackResult(success);                                  // the new state reaches everybody with the run state
         }
 
+        // ------------------------------------------------------------------ the alarm panel
+
+        /// <summary>A player pressed the button on the alarm panel inside the outpost: the siren stops and the backup is called off.</summary>
+        public void RequestStandDown()
+        {
+            if (IsServer) HostStandDown(Me, Epoch); else StandDownRequestRpc(Epoch);
+        }
+
+        [Rpc(SendTo.Server)]
+        void StandDownRequestRpc(byte epoch, RpcParams rp = default) => HostStandDown(rp.Receive.SenderClientId, epoch);
+
+        void HostStandDown(ulong who, byte epoch)
+        {
+            if (epoch != Epoch) return;                                  // about the floor before this one
+            var np = PlayerOf(who);
+            var c = OutpostController.Active;
+            if (np == null || c == null) return;
+            if (np.TryGetComponent(out WobblyPlayer wp) && wp.InCustody) return;
+            if (!c.InPanelReach(np.transform.position)) return;        // not even near the panel
+            if (c.HostStandDown()) StandDownRpc(Epoch);                  // (the new state reaches everybody with the run state)
+        }
+
+        /// <summary>Host -> everyone: the alarm panel was used (the relay clack and the lamps).</summary>
+        [Rpc(SendTo.ClientsAndHost)]
+        void StandDownRpc(byte epoch)
+        {
+            if (epoch != Epoch) return;
+            OutpostController.Active?.PlayStandDown();
+        }
+
         // ------------------------------------------------------------------ the safe
 
         /// <summary>A player tries the floor safe: with a code (<paramref name="pry"/> false) or with a crowbar from his backpack.</summary>

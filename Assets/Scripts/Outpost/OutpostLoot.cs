@@ -60,6 +60,20 @@ namespace BuildingEscape
         public static string ValuableName(int kind) =>
             kind == (int)OutpostValuable.Watch ? "Gold Watch" : kind == (int)OutpostValuable.Chips ? "Casino Chips" : "Cash Envelope";
 
+        const int SaltLooseKind = 41, SaltLooseValue = 42;
+
+        /// <summary>
+        /// A small valuable left lying on a desk somewhere on the floor (not in an outpost): what it is and what it is worth. The same as an
+        /// outpost's valuables (<see cref="Roll"/>), with a bit more spread. <paramref name="index"/> counts them on the floor.
+        /// </summary>
+        public static void Loose(int runSeed, int floor, int index, out int kind, out int value)
+        {
+            kind = (int)(SafeRules.Hash(runSeed, floor, SaltLooseKind + index * 100) % 3U);
+            float spread = 0.6f + 0.8f * SafeRules.Unit(SafeRules.Hash(runSeed, floor, SaltLooseValue + index * 100));
+            float kindFactor = kind == (int)OutpostValuable.Watch ? 1.4f : kind == (int)OutpostValuable.Envelope ? 0.8f : 1f;
+            value = Math.Max(25, (int)(Math.Round(ValuableUnit(floor) * spread * kindFactor / 5.0) * 5.0));
+        }
+
         public static string WeaponName(int kind) => kind == BatKind ? "Baseball Bat" : kind == HatchetKind ? "Hatchet" : "Crowbar";
 
         /// <summary>What the outpost on this floor holds.</summary>

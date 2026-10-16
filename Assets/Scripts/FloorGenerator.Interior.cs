@@ -97,6 +97,7 @@ namespace BuildingEscape
             // (the same input FloorShape makes for a floor that is only being looked at: SafeRoomLabel)
             layout = OfficePlanner.Build(Shape().PlanFor(floor, seed, cellSize, wallHeight, IntelSeedFor(floor, seed)));
             layoutFloor = floor;
+            layoutSeed = seed;
             SelectLoot(floor, seed);
         }
 
@@ -107,34 +108,12 @@ namespace BuildingEscape
         }
 
         /// <summary>
-        /// The themes flag far more things as stealable than a floor should hold. Pick a spread of them (at most two
-        /// per cell, shuffled with the floor seed); the rest stay as plain furniture.
+        /// The themes flag far more things as stealable than a floor should hold. Pick a share of them (<see cref="LootPlan"/>: one in as many
+        /// rooms as possible first, then more, at most four to a cell, shuffled with the floor seed); the rest stay as plain furniture.
         /// </summary>
         void SelectLoot(int floor, int seed)
         {
-            var r = new System.Random(seed ^ 0x2F6E2B1);
-            var cand = new List<Piece>();
-            foreach (var p in layout.pieces)
-            {
-                p.picked = false;
-                if (p.loot && p.def.Lootable && !p.mount) cand.Add(p);
-            }
-            for (int i = cand.Count - 1; i > 0; i--)
-            {
-                int j = r.Next(i + 1);
-                var t = cand[i]; cand[i] = cand[j]; cand[j] = t;
-            }
-            int target = 40 + 4 * floor, got = 0;
-            var perCell = new Dictionary<int, int>();
-            foreach (var p in cand)
-            {
-                if (got >= target) break;
-                int c = CellIndex(p.x, p.z);
-                perCell.TryGetValue(c, out int n);
-                if (n >= 2) continue;
-                perCell[c] = n + 1;
-                p.picked = true; got++;
-            }
+            LootPlan.SelectSmall(layout, new System.Random(seed ^ 0x2F6E2B1), floor, cellSize, cols, rows);
         }
 
         // ------------------------------------------------------------------ building
@@ -220,6 +199,7 @@ namespace BuildingEscape
             }
 
             BuildRoomNumbers(interior);
+            BuildDirectionSigns(interior);
 
             // furniture
             int made = 0, boxes = 0;
@@ -392,12 +372,14 @@ namespace BuildingEscape
                 int j = rng.Next(i + 1);
                 var t = slots[i]; slots[i] = slots[j]; slots[j] = t;
             }
-            int want = 8 + floor;
+            int want = LootPlan.TreasureCount(floor);
+            treasureSpots.Clear();
             for (int i = 0; i < slots.Count && i < want; i++)
             {
                 try
                 {
                     var s = slots[i];
+                    treasureSpots.Add(new[] { s.x, s.z });
                     int idx = LootIndex(s.kind);
                     var t = LootTable[idx];
                     var pos = new Vector3(s.x, s.y + t.size.y * 0.5f + 0.03f, s.z);
@@ -510,6 +492,26 @@ namespace BuildingEscape
             return go;
         }
 
+        readonly List<float[]> treasureSpots = new List<float[]>();     // where the big treasures went (x, z)
+        readonly List<Slot> spareMugSlots = new List<Slot>();            // desks and counters that got no mug
+
+        /// <summary>
+        /// A few small valuables (a cash envelope, a gold watch, casino chips) lie on desks in numbered rooms that hold nothing else, so that more
+        /// of the doors on a floor lead to something. Where and what follows from the floor's seed alone (<see cref="LootPlan.LooseSpots"/>,
+        /// <see cref="OutpostLoot.Loose"/>); it never uses the floor's own random numbers, and it runs after everything else is placed.
+        /// </summary>
+        void PlaceLooseLoot(int floor)
+        {
+            if (layout == null || !Application.isPlaying) return;
+            var spots = LootPlan.LooseSpots(layout, spareMugSlots, treasureSpots, new System.Random(layoutSeed ^ 0x5A17E3), floor);
+            for (int i = 0; i < spots.Count; i++)
+            {
+                var s = spots[i];
+                OutpostLoot.Loose(intelNow, floor, i, out int kind, out int value);
+                MakeValuable(kind, value, new Vector3(s.x, s.y + 0.03f, s.z), (i * 97 + floor * 31) % 360, current);
+            }
+        }
+
         /// <summary>Mugs (something to throw to lure guards) sit on desks and counters.</summary>
         void PlaceMugsOnSurfaces(System.Random rng)
         {
@@ -520,6 +522,8 @@ namespace BuildingEscape
                 var t = slots[i]; slots[i] = slots[j]; slots[j] = t;
             }
             int n = Mathf.Min(slots.Count, cols * rows * 3 / 2);
+            spareMugSlots.Clear();
+            for (int i = n; i < slots.Count; i++) spareMugSlots.Add(slots[i]);
             for (int i = 0; i < n; i++)
             {
                 var s = slots[i];

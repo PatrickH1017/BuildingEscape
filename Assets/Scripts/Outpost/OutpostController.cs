@@ -9,7 +9,9 @@ namespace BuildingEscape
     ///
     /// The host (or the offline game) decides: a finished hack is a request (<see cref="SubmitHack"/>); a won one opens the lock, a lost
     /// one sets the alarm off, which calls backup exactly as a guard who spots a player does (<see cref="HeistManager.CallBackupAt"/>):
-    /// two officers at once and another every half minute until the floor ends. The state travels to the other machines as three bits
+    /// two officers at once and another every half minute until the floor ends. Inside the room, beside the door, hangs the alarm panel
+    /// (<see cref="AlarmPanelProp"/>): its button switches the siren off and calls the backup off (<see cref="HostStandDown"/>), whether the
+    /// alarm or an officer who spotted somebody started it. The state travels to the other machines as three bits
     /// (<see cref="Bits"/>, mirrored by RunSync), so everyone sees the same lock, hears the same siren and finds the same safe open.
     /// </summary>
     public sealed class OutpostController : MonoBehaviour
@@ -20,6 +22,8 @@ namespace BuildingEscape
         public const float HackReach = 4.2f;
         /// <summary>The host accepts a hack result from a player this close to the keypad (the player's position is a moment old).</summary>
         public const float HostReach = 6.5f;
+        /// <summary>The host accepts a press on the alarm panel from a player this close to it (the player's position is a moment old).</summary>
+        public const float PanelHostReach = 5.5f;
 
         const int UnlockedBit = 1, AlarmBit = 2, SafeBit = 4;
 
@@ -41,6 +45,9 @@ namespace BuildingEscape
         public Renderer[] LedRenderers;
         public Renderer BeaconRenderer;
         public Light BeaconLight;
+        /// <summary>The middle of the alarm panel inside the room, and its lamps (green: all quiet, red: alarm or backup going).</summary>
+        public Vector3 PanelPosition;
+        public Renderer[] PanelLamps;
 
         /// <summary>The epoch of the floor this belongs to (the network state is tagged with it, so a floor never takes the last floor's state).</summary>
         public byte BuiltEpoch { get; private set; }
@@ -51,11 +58,13 @@ namespace BuildingEscape
         /// <summary>The lock is jammed for as long as the alarm sounds.</summary>
         public bool Jammed => AlarmOn;
 
-        float bornAt, alarmUntil, nextSiren;
+        float bornAt, alarmUntil, nextSiren, panelFlashUntil;
+        int panelKey = -1;
         MaterialPropertyBlock block;
         static readonly int ColorId = Shader.PropertyToID("_Color"), EmissionId = Shader.PropertyToID("_EmissionColor");
 
         static readonly Color LedLocked = new Color(1f, 0.12f, 0.08f), LedOpen = new Color(0.15f, 1f, 0.25f), LedOff = new Color(0.12f, 0.02f, 0.02f);
+        static readonly Color PanelQuiet = new Color(0.12f, 0.75f, 0.2f), PanelAlert = new Color(1f, 0.12f, 0.06f), PanelDone = new Color(0.45f, 1f, 0.55f);
 
         /// <summary>The state as three bits (lock open, alarm going, safe open) for the other machines.</summary>
         public byte Bits => (byte)((Unlocked ? UnlockedBit : 0) | (AlarmOn ? AlarmBit : 0) | (Safe != null && Safe.IsOpen ? SafeBit : 0));
@@ -81,6 +90,7 @@ namespace BuildingEscape
             block = new MaterialPropertyBlock();
             if (Door != null) Door.Locked = true;
             UpdateVisuals(0f);
+            UpdatePanel(0f);
         }
 
         // ------------------------------------------------------------------ the local player works the lock
@@ -113,6 +123,69 @@ namespace BuildingEscape
             alarmUntil = Time.time + AlarmSeconds;
             SetAlarm(true);
             HeistManager.Instance?.CallBackupAt(KeypadPosition, "ALARM TRIPPED - BACKUP CALLED");
+        }
+
+        // ------------------------------------------------------------------ the alarm panel inside the room
+
+        /// <summary>Is there anything for the alarm panel to switch off: the siren, or the backup that is on its way (called by the siren or by an officer)?</summary>
+        public bool AlertOn
+        {
+            get
+            {
+                if (AlarmOn) return true;
+                var hm = HeistManager.Instance;
+                return hm != null && hm.Phase == HeistPhase.Heist && hm.BackupActive;
+            }
+        }
+
+        /// <summary>The line under the reticle when the crosshair is on the panel.</summary>
+        public string PanelPrompt => AlertOn ? "[E] Shut off the alarm and call off the backup" : "Alarm panel - all quiet";
+
+        /// <summary>The local player pressed E on the panel's button.</summary>
+        public void UsePanel(WobblyPlayer who)
+        {
+            if (!who) return;
+            if (!AlertOn) { Backpack.NoticeToLocal("Nothing to switch off - the alarm is quiet"); return; }
+            if (Net.NetRole.Synced) Net.RunSync.Instance.RequestStandDown();
+            else if (HostStandDown()) PlayStandDown();
+        }
+
+        /// <summary>Host check: is this player close enough to the panel to have pressed it?</summary>
+        public bool InPanelReach(Vector3 playerPosition) =>
+            (playerPosition - PanelPosition).sqrMagnitude <= PanelHostReach * PanelHostReach;
+
+        /// <summary>
+        /// Host (or offline): the button was pressed. The siren stops and the lock is free again, and the backup is called off
+        /// (<see cref="HeistManager.StandDown"/>: no more officers are called, whoever started it). Returns false when there was nothing going.
+        /// </summary>
+        public bool HostStandDown()
+        {
+            if (!Net.NetRole.Simulates) return false;
+            bool hadAlarm = AlarmOn;
+            var hm = HeistManager.Instance;
+            bool hadBackup = hm != null && hm.StandDown();
+            if (hadAlarm) { alarmUntil = 0f; SetAlarm(false); }
+            return hadAlarm || hadBackup;
+        }
+
+        /// <summary>On every machine, when the button was pressed: a relay clack and the siren dying away, and the panel's lamps flash.</summary>
+        public void PlayStandDown()
+        {
+            panelFlashUntil = Time.time + 1.5f;
+            GameAudio.PlaySound(SoundId.AlarmOff, PanelPosition, 1f, 1f, true, 32f, 3f);
+            UpdatePanel(Time.time);
+        }
+
+        /// <summary>The panel's lamps: green while all is quiet, flashing red while the alarm or the backup is going, bright green a moment after it was switched off.</summary>
+        void UpdatePanel(float now)
+        {
+            if (PanelLamps == null || PanelLamps.Length == 0) return;
+            int state = now < panelFlashUntil ? 2 : AlertOn ? 1 : 0;
+            int key = state == 1 ? 10 + ((int)(now * 6f) & 1) : state;
+            if (key == panelKey) return;
+            panelKey = key;
+            Color c = state == 0 ? PanelQuiet : state == 2 ? PanelDone : (key & 1) == 0 ? PanelAlert : LedOff;
+            for (int i = 0; i < PanelLamps.Length; i++) SetEmission(PanelLamps[i], c);
         }
 
         // ------------------------------------------------------------------ state
@@ -166,6 +239,7 @@ namespace BuildingEscape
                 }
             }
             if (AlarmOn) UpdateVisuals(now);
+            UpdatePanel(now);
         }
 
         void UpdateBeacon()

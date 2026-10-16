@@ -46,6 +46,10 @@ namespace BuildingEscape
         public int BackupIn => Net.NetRole.Simulates ? backupClock.ShownSeconds : netBackupIn;
         /// <summary>Where the last backup call came from (the next officers are sent towards the team).</summary>
         Vector3 lastBackupPos;
+        /// <summary>Until this time the officers' radios are jammed (the alarm panel in a guard outpost was just used): they call no backup.</summary>
+        float radiosJammedUntil;
+        /// <summary>True while the radios are jammed after the alarm panel was used.</summary>
+        public bool RadiosJammed => CustodyRules.RadioJammed(Time.time, radiosJammedUntil);
 
         [Header("Test mode")]
         public bool godMode;
@@ -64,6 +68,7 @@ namespace BuildingEscape
             Banked = Lost = Caught = 0;
             BackupCalled = false;
             backupClock.Reset();
+            radiosJammedUntil = 0f;
             if (Net.NetRole.Simulates) ClearPins();   // a new floor: nobody is held down any more (busted players stay busted)
             if (floor > 0) SurplusPaid = 0;
             TimeLeft = timeLimitSeconds;
@@ -276,6 +281,12 @@ namespace BuildingEscape
         public void CallBackup(GuardAI by)
         {
             if (Phase != HeistPhase.Heist) return;
+            if (by && Net.NetRole.Simulates && RadiosJammed)
+            {
+                // the alarm panel was just used: his radio is dead, so he chases without calling anybody
+                Announce("RADIOS JAMMED - the officer cannot call for backup");
+                return;
+            }
             lastBackupPos = by ? by.transform.position : Vector3.zero;
             BackupCalled = true;
             backupClock.Start();
@@ -294,6 +305,25 @@ namespace BuildingEscape
             BackupCalled = true;
             backupClock.Start();
             SendOfficers(2, where, headline);
+        }
+
+        /// <summary>
+        /// The alarm panel in a guard outpost was used (host or offline only): the backup is called off, whatever started it - a lock that
+        /// shorted out or an officer who spotted somebody. No more officers are called (the ones already on the floor stay and keep
+        /// chasing), and for <see cref="CustodyRules.StandDownJamSeconds"/> the officers' radios are jammed, so an officer who was in the
+        /// middle of keying his radio cannot start it all over again. A later sighting calls backup as usual. Returns false when there
+        /// was nothing to call off.
+        /// </summary>
+        public bool StandDown()
+        {
+            if (Phase != HeistPhase.Heist || !Net.NetRole.Simulates) return false;
+            bool wasOn = backupClock.Active || BackupCalled;
+            if (!wasOn) return false;
+            backupClock.Reset();
+            BackupCalled = false;
+            radiosJammedUntil = Time.time + CustodyRules.StandDownJamSeconds;
+            Announce("ALL QUIET - the alarm is off and no more officers are coming");
+            return true;
         }
 
         void TickBackup(float dt)

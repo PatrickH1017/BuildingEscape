@@ -7,7 +7,7 @@ namespace BuildingEscape
     /// guard outpost's and the safes' sounds, which are always generated.
     /// </summary>
     public enum SoundId { DoorOpen, DoorClose, ElevatorDing, Keys, KeysRun, RadioStatic, RadioCall,
-                          KeypadBeep, HackWin, HackFail, Alarm, SafeOpen, SafeWrong, Pry, CrowbarSnap, Paper }
+                          KeypadBeep, HackWin, HackFail, Alarm, SafeOpen, SafeWrong, Pry, CrowbarSnap, Paper, AlarmOff }
 
     /// <summary>
     /// Finds the clip for a <see cref="SoundId"/>. A real clip assigned in the AudioCatalog wins; while there is none, a placeholder is
@@ -22,7 +22,7 @@ namespace BuildingEscape
             ProceduralSound.DoorVariants, ProceduralSound.DoorVariants, 1,
             ProceduralSound.KeyVariants, ProceduralSound.KeyVariants,
             ProceduralSound.RadioVariants, ProceduralSound.CallVariants,
-            OutpostSound.KeypadVariants, 1, 1, 1, 1, 1, OutpostSound.PryVariants, 1, 1,
+            OutpostSound.KeypadVariants, 1, 1, 1, 1, 1, OutpostSound.PryVariants, 1, 1, 1,
         };
 
         static AudioClip[][] made = new AudioClip[GeneratedVariants.Length][];
@@ -114,6 +114,7 @@ namespace BuildingEscape
                 case SoundId.Pry: return OutpostSound.Pry(variant);
                 case SoundId.CrowbarSnap: return OutpostSound.CrowbarSnap();
                 case SoundId.Paper: return OutpostSound.Paper();
+                case SoundId.AlarmOff: return OutpostSound.AlarmOff();
                 default: return ProceduralSound.RadioCall(variant);
             }
         }

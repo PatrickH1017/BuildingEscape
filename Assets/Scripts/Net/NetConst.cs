@@ -9,7 +9,7 @@ namespace BuildingEscape.Net
         public const string GameTag = "overtime-escape";
 
         /// <summary>Bump when the wire format or gameplay rules change. Players on different versions cannot join each other.</summary>
-        public const string ProtocolVersion = "4";   // 4: the guard outpost's lock hack, alarm and the floor safes. 3: players open and close doors with E. 2: custody (pinned / busted), repeating backup and the vendor buy-back
+        public const string ProtocolVersion = "5";   // 5: the alarm panel in the outpost, direction signs and more loot on the floors (a floor is built differently, so old and new cannot share a run). 4: the guard outpost's lock hack, alarm and the floor safes. 3: players open and close doors with E. 2: custody (pinned / busted), repeating backup and the vendor buy-back
 
         public const string BootScene = "Boot";
         public const string MenuScene = "Menu";

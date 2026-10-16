@@ -148,6 +148,44 @@ namespace BuildingEscape.EditorTools
             yield return new WaitForSeconds(OutpostController.AlarmSeconds + 1f);
             OutpostCheck("hack: the alarm stops by itself", !ctl.AlarmOn && ctl.LockPrompt != null && ctl.LockPrompt.Contains("Hack"));
 
+            // ================= the alarm panel inside the room
+            {
+                int panels = 0;
+                foreach (var i in Interactable.All) if (i is AlarmPanelProp && i.Available) panels++;
+                OutpostCheck("panel: one alarm panel can be worked", panels == 1, $"({panels})");
+                OutpostCheck("panel: it hangs on the inside of the front wall, beside the door", Vector3.Dot(ctl.PanelPosition - ctl.KeypadPosition, outward) < -0.1f && ctl.PanelLamps != null && ctl.PanelLamps.Length == 2);
+                OutpostCheck("panel: the siren has stopped but the backup is still coming, so the panel has something to switch off", !ctl.AlarmOn && ctl.AlertOn && hm.BackupActive);
+                OutpostCheck("panel: it offers to shut the alarm off", ctl.PanelPrompt.Contains("Shut off"));
+                OutpostCheck("panel: far from it (the host's reach) it does not work", !ctl.InPanelReach(ctl.PanelPosition + outward * (OutpostController.PanelHostReach + 1f)) && ctl.InPanelReach(ctl.PanelPosition + Vector3.up));
+
+                ctl.UsePanel(player);
+                yield return null; yield return null;
+                OutpostCheck("panel: pressing it calls the backup off", !hm.BackupActive && !hm.BackupCalled && !ctl.AlertOn);
+                OutpostCheck("panel: ...and the radios are jammed for a while", hm.RadiosJammed);
+                OutpostCheck("panel: it now says all is quiet", ctl.PanelPrompt.Contains("quiet"));
+                int guardsNow = GuardAI.All.Count;
+                var spotter = GuardAI.All.Count > 0 ? GuardAI.All[0] : null;
+                if (spotter != null)
+                {
+                    hm.CallBackup(spotter);
+                    OutpostCheck("panel: an officer who spots somebody now cannot call backup (jammed)", !hm.BackupCalled && !hm.BackupActive);
+                }
+                OutpostCheck("panel: pressing it again with nothing going on changes nothing", !ctl.HostStandDown() && !hm.BackupActive);
+                yield return new WaitForSeconds(1.5f);
+                OutpostCheck("panel: no new officers came", GuardAI.All.Count == guardsNow, $"({guardsNow} -> {GuardAI.All.Count})");
+                yield return new WaitForSeconds(CustodyRules.StandDownJamSeconds + 0.5f);
+                OutpostCheck("panel: after the jam a sighting calls backup again", !hm.RadiosJammed);
+                if (spotter != null)
+                {
+                    hm.CallBackup(spotter);
+                    OutpostCheck("panel: ...it does, and the panel can call it off again", hm.BackupActive && ctl.AlertOn);
+                    ctl.UsePanel(player);
+                    yield return null;
+                    OutpostCheck("panel: ...and it does", !hm.BackupActive && !ctl.AlertOn);
+                    yield return new WaitForSeconds(CustodyRules.StandDownJamSeconds + 0.5f);
+                }
+            }
+
             // too slow loses too
             GoTo(at);
             HackPanel.Begin(ctl, player);

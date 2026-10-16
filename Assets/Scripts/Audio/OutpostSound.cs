@@ -109,6 +109,44 @@ namespace BuildingEscape
             return o;
         }
 
+        /// <summary>The alarm panel's button: a heavy relay clack, then the siren winding down (a falling tone) and two calm blips.</summary>
+        public static float[] AlarmOff()
+        {
+            var o = new float[Dsp.Samples(1.1f)];
+            Clunk(o, 0, 0.9f, 110f, new SynthRandom(1033));
+
+            // the siren dying away: a tone that slides down from 900 Hz to 150 Hz while it fades
+            int from = Dsp.Samples(0.08f), len = Dsp.Samples(0.55f);
+            float ph = 0f;
+            var lp = new Svf();
+            lp.Set(2400f, 0.7f);
+            for (int i = 0; i < len && from + i < o.Length; i++)
+            {
+                float t = i / (float)len;
+                float hz = 900f * MathF.Pow(150f / 900f, t);
+                ph += hz / SR; ph -= (int)ph;
+                float v = lp.Low(Dsp.Saw(ph, hz / SR) * 0.6f + Dsp.Pulse(ph, hz / SR, 0.5f) * 0.3f);
+                o[from + i] += v * MathF.Pow(1f - t, 1.5f) * MathF.Min(1f, i / 96f) * 0.7f;
+            }
+
+            // two soft blips: "all clear"
+            float[] notes = { 659.3f, 523.3f };
+            for (int k = 0; k < notes.Length; k++)
+            {
+                int at = Dsp.Samples(0.62f + 0.17f * k), n = Dsp.Samples(0.14f);
+                float bp = 0f, dp = notes[k] / SR;
+                for (int i = 0; i < n && at + i < o.Length; i++)
+                {
+                    float edge = MathF.Min(MathF.Min(1f, i / 64f), (n - i) / 256f);
+                    o[at + i] += Dsp.Sine(bp) * 0.45f * edge;
+                    bp += dp; bp -= (int)bp;
+                }
+            }
+            Dsp.FadeEnds(o, 0.006f);
+            Dsp.Normalize(o, 0.85f);
+            return o;
+        }
+
         // ---------------------------------------------------------------- the safe
 
         /// <summary>The safe opens: two heavy bolts and the long groan of the hinge.</summary>

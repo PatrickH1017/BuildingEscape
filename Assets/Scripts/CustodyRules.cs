@@ -28,6 +28,15 @@ namespace BuildingEscape
         /// <summary>A player who was just freed cannot be pinned again for this long (so the officer cannot re-pin at once).</summary>
         public const float PinImmunitySeconds = 3f;
 
+        /// <summary>
+        /// After the alarm panel in a guard outpost has been used the officers' radios are jammed for this long: an officer who was in the
+        /// middle of keying his radio when the button was pressed cannot start the backup all over again at once.
+        /// </summary>
+        public const float StandDownJamSeconds = 10f;
+
+        /// <summary>Are the radios still jammed? (<paramref name="jamUntil"/> is the time the alarm panel's jam ends; 0 = never used.)</summary>
+        public static bool RadioJammed(float now, float jamUntil) => now < jamUntil;
+
         /// <summary>What the vendor says to a customer when a friend of theirs is under arrest.</summary>
         public const string BuyBackLine = "One of your friends got got. You're lucky I have someone on the inside";
 
@@ -89,6 +98,7 @@ namespace BuildingEscape
             Active = true; Left = Interval; Repeats = 0;
         }
 
+        /// <summary>The floor ended, or the alarm panel called the backup off: no more officers are called until the next <see cref="Start"/>.</summary>
         public void Reset() { Active = false; Left = 0f; Repeats = 0; }
 
         /// <summary>Advance by <paramref name="dt"/>; returns true when another officer is due now (at most once per call).</summary>

@@ -27,6 +27,8 @@ namespace BuildingEscape
         public const float OutpostFrontStrip = 3.2f;
         /// <summary>The height of the keypad's middle.</summary>
         public const float OutpostKeypadY = 1.25f;
+        /// <summary>The alarm panel inside, on the front wall's pier beside the door: how far past the door's edge its middle is, and the height of its middle.</summary>
+        public const float OutpostPanelOffset = 0.3f, OutpostPanelY = 1.3f;
 
         // ------------------------------------------------------------------ the room
 
@@ -79,6 +81,7 @@ namespace BuildingEscape
             cell.keeps.Add(room.ToWorldRect(new Rc(-hx - t - 0.4f, -hz - t - OutpostFrontStrip, hx + t + 0.4f, -hz - t)));
 
             room.ToWorld(door1 + 0.4f, fz0, out var keypadX, out var keypadZ);
+            room.ToWorld(door1 + OutpostPanelOffset, fz1, out var panelX, out var panelZ);        // (inside: on the room's face of the same pier)
             layout.outpost = new OutpostInfo
             {
                 room = room.info,
@@ -87,6 +90,7 @@ namespace BuildingEscape
                 frontX = gx, frontZ = gz,
                 door = room.ToWorldRect(new Rc(door0, fz0, door1, fz1)),
                 keypadX = keypadX, keypadY = OutpostKeypadY, keypadZ = keypadZ,
+                panelX = panelX, panelY = OutpostPanelY, panelZ = panelZ,
                 window = room.ToWorldRect(new Rc(OutpostWindowX0, fz0, OutpostWindowX1, fz1)),
                 windowY0 = OutpostSill, windowY1 = OutpostWindowTop,
                 car = room.ToWorldRect(carLocal),

@@ -137,6 +137,7 @@ namespace BuildingEscape
                 hm.godMode = GUILayout.Toggle(hm.godMode, "God mode (guards can't catch you)");
             }
             OutpostTools(tm, gen, pack);
+            SignTools(gen, pack);
             Header("Police (pinning / busted / backup)");
             WobblyPlayer me = null;
             if (pack) pack.TryGetComponent(out me);
@@ -161,6 +162,26 @@ namespace BuildingEscape
         {
             pack.transform.position = position;
             if (pack.TryGetComponent(out Rigidbody rb)) rb.linearVelocity = Vector3.zero;
+        }
+
+        // ------------------------------------------------------------------ direction signs
+
+        int signTour;
+
+        /// <summary>The signs of this floor: what they say and a button that walks you from one to the next.</summary>
+        void SignTools(FloorGenerator gen, Backpack pack)
+        {
+            Header("Direction signs");
+            var signs = gen ? gen.PlanSigns() : null;
+            if (signs == null || signs.Count == 0) { GUILayout.Label("This level has no direction signs."); return; }
+            var s = signs[signTour % signs.Count];
+            GUILayout.Label($"{signs.Count} signs. #{signTour % signs.Count + 1}: {s.line1} {s.line2} {(s.arrowRight ? "->" : "<-")} ({s.steps} doorways to cell {s.toCellX},{s.toCellY})");
+            if (pack && GUILayout.Button("To the next sign"))
+            {
+                signTour = (signTour + 1) % signs.Count;
+                var t = signs[signTour];
+                TeleportTo(pack, new Vector3(t.x, 1.1f, t.z) + new Vector3(t.nx, 0f, t.nz) * 2f);
+            }
         }
 
         // ------------------------------------------------------------------ guard outposts and safes
@@ -201,6 +222,11 @@ namespace BuildingEscape
                 if (GUILayout.Button("Unlock it")) outpost.HostHackResult(true);
                 if (GUILayout.Button("Trip the alarm")) outpost.HostHackResult(false);
                 if (pack && GUILayout.Button("To its door")) TeleportTo(pack, new Vector3(outpost.KeypadPosition.x, 1.1f, outpost.KeypadPosition.z) + outpost.Outward * 1.4f);
+                GUILayout.EndHorizontal();
+                GUILayout.BeginHorizontal();
+                GUILayout.Label("Alarm panel: " + (outpost.AlertOn ? "ALERT (alarm or backup going)" : "quiet"));
+                if (GUILayout.Button("Press it")) { if (outpost.HostStandDown()) outpost.PlayStandDown(); else Say("Nothing to switch off"); }
+                if (pack && GUILayout.Button("To the panel")) TeleportTo(pack, new Vector3(outpost.PanelPosition.x, 1.1f, outpost.PanelPosition.z) - outpost.Outward * 1.2f);
                 GUILayout.EndHorizontal();
             }
             else GUILayout.Label("This level has no guard outpost.");

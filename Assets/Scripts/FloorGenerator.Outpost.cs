@@ -160,6 +160,9 @@ namespace BuildingEscape
                 case "chipBlue": m = Surface("OpChipBlue", new Color(0.10f, 0.20f, 0.70f), 0.35f, false); break;
                 case "chipGreen": m = Surface("OpChipGreen", new Color(0.10f, 0.50f, 0.20f), 0.35f, false); break;
                 case "chipWhite": m = Surface("OpChipWhite", new Color(0.90f, 0.90f, 0.88f), 0.35f, false); break;
+                case "alarmButton": m = Surface("OpAlarmButton", new Color(0.82f, 0.05f, 0.04f), 0.6f, false, 0.1f); break;
+                case "hazard": m = Surface("OpHazard", new Color(0.95f, 0.75f, 0.08f), 0.3f, false); break;
+                case "label": m = Surface("OpLabel", new Color(0.88f, 0.88f, 0.84f), 0.2f, false); break;
                 case "bill": m = Surface("OpBill", new Color(0.45f, 0.66f, 0.45f), 0.1f, false); break;
                 case "band": m = Surface("OpBand", new Color(0.86f, 0.80f, 0.52f), 0.1f, false); break;
                 case "wired":
@@ -387,6 +390,7 @@ namespace BuildingEscape
                     ctl.Door = outpostDoor;
                     ctl.DoorIndex = outpostDoorIndex;
                 }
+                OutpostStep("the alarm panel", floor, () => BuildAlarmPanel(op, ctl, root.transform));
             }
             ctl.Begin();
         }
@@ -494,6 +498,72 @@ namespace BuildingEscape
             ctl.KeypadPosition = pos + outward * 0.07f;
             ctl.Outward = outward;
             ctl.LedRenderers = leds.ToArray();
+        }
+
+        /// <summary>
+        /// The alarm panel inside the room, on the wall beside the door: a steel box with a big red button (yellow ring), two status lamps and
+        /// the words ALARM OFF. E on it switches the siren off and calls the backup off (see <see cref="AlarmPanelProp"/>). Its lamps are green
+        /// while all is quiet and flash red while the alarm or the backup is going.
+        /// </summary>
+        void BuildAlarmPanel(OutpostInfo op, OutpostController ctl, Transform parent)
+        {
+            var inward = new Vector3(-op.frontX, 0f, -op.frontZ);
+            var pos = new Vector3(op.panelX, op.panelY, op.panelZ);
+            var root = new GameObject("AlarmPanel");
+            root.transform.SetParent(parent, false);
+            root.transform.SetPositionAndRotation(pos, Quaternion.LookRotation(inward, Vector3.up));   // (its +z points out of the wall, into the room)
+
+            var housing = Part(root.transform, "Housing", new Vector3(0f, 0f, 0.04f), new Vector3(0.30f, 0.44f, 0.08f), OMat("safeSteel"));
+            var lamps = new List<Renderer>();
+            foreach (float x in new[] { -0.09f, 0.09f })
+                lamps.Add(Part(root.transform, "Lamp", new Vector3(x, 0.175f, 0.083f), new Vector3(0.04f, 0.03f, 0.01f), OMat("led")).GetComponent<Renderer>());
+
+            // the button: a yellow ring, a red dome (cylinders lie along y, so they are turned to point out of the wall)
+            var ring = Part(root.transform, "Ring", new Vector3(0f, 0.01f, 0.088f), new Vector3(0.20f, 0.008f, 0.20f), OMat("hazard"), PrimitiveType.Cylinder);
+            ring.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
+            Part(root.transform, "Button", new Vector3(0f, 0.01f, 0.1f), new Vector3(0.13f, 0.13f, 0.07f), OMat("alarmButton"), PrimitiveType.Sphere);
+
+            DotLabel(root.transform, "Label", "ALARM OFF", 0.0075f, new Vector3(0f, -0.155f, 0.0815f), OMat("label"));
+
+            var box = housing.GetComponent<Renderer>().bounds;
+            box.Expand(0.1f);
+            root.AddComponent<AlarmPanelProp>().Init(ctl, box);
+
+            ctl.PanelPosition = pos + inward * 0.1f;
+            ctl.PanelLamps = lamps.ToArray();
+        }
+
+        /// <summary>Words in the dot lettering as one little mesh facing +z of <paramref name="parent"/> (read from the front, which is looking along -z).</summary>
+        static void DotLabel(Transform parent, string name, string text, float dot, Vector3 localCentre, Material mat)
+        {
+            var runs = new List<DotText.Run>();
+            DotText.AddRuns(text, 0, 0, runs);
+            if (runs.Count == 0) return;
+            var verts = new List<Vector3>(runs.Count * 4);
+            var normals = new List<Vector3>(runs.Count * 4);
+            var tris = new List<int>(runs.Count * 6);
+            float left = -DotText.Columns(text) * dot * 0.5f, top = DotText.Rows * dot * 0.5f;
+            var right = Vector3.left;                       // (somebody who looks along -z has +x on his left)
+            foreach (var run in runs)
+            {
+                float a = left + run.col * dot, b = left + (run.col + run.len) * dot;
+                var c = right * ((a + b) * 0.5f) + Vector3.up * (top - run.row * dot - dot * 0.5f);
+                AddQuad(c, right, Vector3.up, (b - a) * 0.5f, dot * 0.5f, Vector3.forward, verts, normals, tris);
+            }
+            var mesh = new Mesh { name = "DotLabel" };
+            mesh.SetVertices(verts);
+            mesh.SetNormals(normals);
+            mesh.SetTriangles(tris, 0);
+            mesh.RecalculateBounds();
+            var go = new GameObject(name);
+            go.transform.SetParent(parent, false);
+            go.transform.localPosition = localCentre;
+            go.AddComponent<MeshFilter>().sharedMesh = mesh;
+            var r = go.AddComponent<MeshRenderer>();
+            r.sharedMaterial = mat;
+            r.shadowCastingMode = ShadowCastingMode.Off;
+            r.receiveShadows = false;
+            go.AddComponent<OwnedMesh>().mesh = mesh;
         }
 
         /// <summary>The red lamp over the door that flashes (with a red light on the corridor) while the alarm sounds.</summary>

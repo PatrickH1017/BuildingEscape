@@ -45,7 +45,12 @@ namespace BuildingEscape
                 "Inside are desks with notes, weapons and valuables - different every run, and better the higher you climb. " +
                 "About one floor in five hides a safe full of cash worth half of that floor's quota. A note in an outpost names the safe's room and sometimes its code " +
                 "(read it with E; J opens your journal). Without a code you can pry the safe open with a crowbar, but the crowbar snaps 35% of the time. " +
-                "Carry the cash bundles to the elevator to bank them."),
+                "Carry the cash bundles to the elevator to bank them. " +
+                "On the wall inside every outpost, beside the door, is an alarm panel with a big red button: press E on it to shut the siren off and call the backup off, " +
+                "whether the alarm was yours or an officer spotted somebody. No more officers come, and the radios stay jammed for ten seconds so they cannot call again at once - " +
+                "but the officers who already arrived stay, and a later sighting calls backup again. You have to be inside, so a failed hack (which jams the lock) has to be retried first."),
+            ("Finding a room", "Every door has a room number over it (101, 102 ... on floor 1; 201 ... on floor 2). Signs on the corridor walls say which rooms lie that way - " +
+                "\"ROOMS 111-120\" and an arrow. The arrow points along the corridor you are in, towards the doorway that starts the shortest walk to the nearest of those rooms."),
         };
     }
 }

@@ -115,6 +115,8 @@ namespace BuildingEscape
         public Rc door;
         /// <summary>Where the keypad hangs: the middle of its back, on the outside of the front wall (x, y, z).</summary>
         public float keypadX, keypadY, keypadZ;
+        /// <summary>Where the alarm panel hangs: the middle of its back, on the inside face of the front wall beside the door (x, y, z). It faces into the room.</summary>
+        public float panelX, panelY, panelZ;
         /// <summary>The window in the front wall: a thin rectangle through the wall, and the heights of its sill and top.</summary>
         public Rc window;
         public float windowY0, windowY1;

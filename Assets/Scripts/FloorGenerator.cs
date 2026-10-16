@@ -186,6 +186,7 @@ namespace BuildingEscape
                 info.guards = PlaceGuards(rng, floor, dist, elevCell);
                 if (floor == TowerRules.KeyFloor && firstGuard) MarkKeyHolder(firstGuard);
                 OutpostStep("the outpost's things and the safe's cash", floor, () => FillOutpost(floor)); // what the guards keep in their outpost, and the cash in the floor's safe (never uses `rng`)
+                OutpostStep("the small valuables on the desks", floor, () => PlaceLooseLoot(floor));     // (never uses `rng` either)
             }
             guestDoor?.Snap(false); // the NavMesh was baked with the doors open; now the car is shut
             return info;
