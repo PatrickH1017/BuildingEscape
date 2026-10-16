@@ -163,6 +163,11 @@ namespace BuildingEscape
             Add("cs_menu", Cof + "Menu_Board", 4.0f, 1.08f, .24f, .7f, solid: false, cat: PropCat.Mount);
             Add("pastry", Cof + "Croissant", .3f, .1f, .3f, solid: false, cat: PropCat.DeskItem, value: 60, weight: .5f, label: "Croissant");
             Add("takeaway", Cof + "Takeaway_Coffee_1", .2f, .23f, .2f, solid: false, cat: PropCat.DeskItem, value: 50, weight: .4f, label: "Takeaway Coffee");
+
+            // ---------- built from boxes in code (no prefab, so the editor's catalog builder skips them): the guard outpost's lockers
+            // and the floor safe. The safe is under 0.9 m tall on purpose: you cannot duck behind it.
+            Add("locker2", null, 1.2f, 1.95f, 0.5f, label: "Locker");
+            Add("vault_safe", null, 0.9f, 0.85f, 0.65f, label: "Floor Safe");
         }
     }
 }

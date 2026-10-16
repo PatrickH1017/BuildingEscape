@@ -34,7 +34,7 @@ namespace BuildingEscape
         {
             if (!wob && !TryGetComponent(out wob)) return;
             if (!Net.NetPlayer.IsLocalPlayer(wob)) return; // teammates are driven by their own machine
-            if (Backpack.UiOpen || Vendor.ShopOpen || EscapeMenu.Open || ElevatorPanel.Open) return;
+            if (Backpack.UiOpen || Vendor.ShopOpen || EscapeMenu.Open || ElevatorPanel.Open || OutpostUi.Open) return;
             if (wob.InCustody) return; // pinned or busted
             if (Input.GetKeyDown(grabKey)) { if (Held) AskRelease(false); else TryGrab(); }
             if (Held && Input.GetKeyDown(throwKey)) AskRelease(true);

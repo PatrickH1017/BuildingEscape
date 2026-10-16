@@ -26,7 +26,21 @@ namespace BuildingEscape
 
         /// <summary>Does this room get a number? Offices, meeting rooms, break rooms, storage, server rooms and so on do (they have a door);
         /// corridors, lobbies and open-plan areas are not rooms with a door.</summary>
-        public static bool IsNumbered(RoomInfo r) => r != null && r.kind == 0 && r.doors.Count > 0;
+        public static bool IsNumbered(RoomInfo r) => r != null && r.kind == 0 && r.doors.Count > 0 && r.theme != "outpost";
+
+        /// <summary>The label of a room of a floor (101, 102, ... in the order the planner made the rooms), or null if the room has no number.</summary>
+        public static string LabelOf(Layout layout, RoomInfo room, int floor)
+        {
+            if (layout == null || room == null || floor < 1 || !IsNumbered(room)) return null;
+            int index = 0;
+            foreach (var r in layout.rooms)
+            {
+                if (!IsNumbered(r)) continue;
+                index++;
+                if (ReferenceEquals(r, room)) return Label(floor, index);
+            }
+            return null;
+        }
 
         /// <summary>The label of the <paramref name="index"/>th numbered room of a floor (1, 2, ...): 101 ... 199, then 101A ... 199A, 101B ...</summary>
         public static string Label(int floor, int index)

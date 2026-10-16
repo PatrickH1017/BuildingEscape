@@ -2,8 +2,12 @@ using UnityEngine;
 
 namespace BuildingEscape
 {
-    /// <summary>The door, elevator, officer and radio sounds that can come from the AudioCatalog or be generated.</summary>
-    public enum SoundId { DoorOpen, DoorClose, ElevatorDing, Keys, KeysRun, RadioStatic, RadioCall }
+    /// <summary>
+    /// The door, elevator, officer and radio sounds that can come from the AudioCatalog or be generated, and (from KeypadBeep on) the
+    /// guard outpost's and the safes' sounds, which are always generated.
+    /// </summary>
+    public enum SoundId { DoorOpen, DoorClose, ElevatorDing, Keys, KeysRun, RadioStatic, RadioCall,
+                          KeypadBeep, HackWin, HackFail, Alarm, SafeOpen, SafeWrong, Pry, CrowbarSnap, Paper }
 
     /// <summary>
     /// Finds the clip for a <see cref="SoundId"/>. A real clip assigned in the AudioCatalog wins; while there is none, a placeholder is
@@ -18,6 +22,7 @@ namespace BuildingEscape
             ProceduralSound.DoorVariants, ProceduralSound.DoorVariants, 1,
             ProceduralSound.KeyVariants, ProceduralSound.KeyVariants,
             ProceduralSound.RadioVariants, ProceduralSound.CallVariants,
+            OutpostSound.KeypadVariants, 1, 1, 1, 1, 1, OutpostSound.PryVariants, 1, 1,
         };
 
         static AudioClip[][] made = new AudioClip[GeneratedVariants.Length][];
@@ -33,7 +38,7 @@ namespace BuildingEscape
         static AudioClip[] Assigned(SoundId id)
         {
             var c = GameAudio.Catalog;
-            if (!c) return null;
+            if (!c || id >= SoundId.KeypadBeep) return null;      // (the outpost's sounds have no catalog slot: they are generated)
             AudioClip[] a;
             switch (id)
             {
@@ -100,6 +105,15 @@ namespace BuildingEscape
                 case SoundId.Keys: return ProceduralSound.Keys(variant, false);
                 case SoundId.KeysRun: return ProceduralSound.Keys(variant, true);
                 case SoundId.RadioStatic: return ProceduralSound.RadioStatic(variant);
+                case SoundId.KeypadBeep: return OutpostSound.KeypadBeep(variant);
+                case SoundId.HackWin: return OutpostSound.HackWin();
+                case SoundId.HackFail: return OutpostSound.HackFail();
+                case SoundId.Alarm: return OutpostSound.Alarm();
+                case SoundId.SafeOpen: return OutpostSound.SafeOpen();
+                case SoundId.SafeWrong: return OutpostSound.SafeWrong();
+                case SoundId.Pry: return OutpostSound.Pry(variant);
+                case SoundId.CrowbarSnap: return OutpostSound.CrowbarSnap();
+                case SoundId.Paper: return OutpostSound.Paper();
                 default: return ProceduralSound.RadioCall(variant);
             }
         }

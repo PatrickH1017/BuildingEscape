@@ -17,7 +17,9 @@ namespace BuildingEscape
             ("Shift", "Sprint"),
             ("Ctrl (or C) hold", "Crouch: slower, but your footsteps are much quieter"),
             ("Space", "Jump"),
-            ("E", "Aim the crosshair, then press E: pick an item up into your backpack / open and close a door / talk to the vendor"),
+            ("E", "Aim the crosshair, then press E: pick an item up into your backpack / open and close a door / talk to the vendor / hack a guard outpost's lock / read a note / work a safe"),
+            ("W A S D at a lock", "While hacking an outpost's keypad: press the key that appears within one second - four in a row opens the door, a miss sets off the alarm. Esc gives up"),
+            ("J", "Your journal: the floor safes you have learned about from notes (their room and, if a note gave it, their code)"),
             ("Tab", "Open your inventory"),
             ("Q", "Grab or drop heavy loot (more people carry heavier things)"),
             ("Left mouse", "Throw what you hold / swing your weapon"),
@@ -37,6 +39,13 @@ namespace BuildingEscape
             ("Working together", "[Write how teammates cooperate here.]"),
             ("The guards", "[Write how guards notice you and what to do about it here.]"),
             ("The elevator and the Loading Docks", "[Write how floors, the elevator and the Loading Docks work here.]"),
+            ("Guard outposts and safes", "Every floor has a guard outpost: the dark room with a long one-way window (a mirror from the corridor) and a keypad beside its steel door. " +
+                "Aim at the keypad and press E to hack the lock: a key (W, A, S or D) appears and you have one second to press it, four times in a row. " +
+                "A clean hack opens the door for good; a mistake sets off the alarm for a few seconds and calls backup, exactly as if a guard had spotted you. " +
+                "Inside are desks with notes, weapons and valuables - different every run, and better the higher you climb. " +
+                "About one floor in five hides a safe full of cash worth half of that floor's quota. A note in an outpost names the safe's room and sometimes its code " +
+                "(read it with E; J opens your journal). Without a code you can pry the safe open with a crowbar, but the crowbar snaps 35% of the time. " +
+                "Carry the cash bundles to the elevator to bank them."),
         };
     }
 }

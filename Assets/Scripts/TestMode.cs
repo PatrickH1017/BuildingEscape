@@ -136,6 +136,7 @@ namespace BuildingEscape
             {
                 hm.godMode = GUILayout.Toggle(hm.godMode, "God mode (guards can't catch you)");
             }
+            OutpostTools(tm, gen, pack);
             Header("Police (pinning / busted / backup)");
             WobblyPlayer me = null;
             if (pack) pack.TryGetComponent(out me);
@@ -149,15 +150,70 @@ namespace BuildingEscape
                 GUILayout.Label("Pin needs a guard to hold you: the nearest one is used. Wait 12 s to get busted.");
             }
             if (hm && GUILayout.Button("Call backup now (starts the 30 s repeat)")) hm.CallBackup(null);
-            if (tm && pack && GUILayout.Button("Teleport to elevator"))
-            {
-                pack.transform.position = tm.CurrentInfo.spawn + new Vector3(0, 1.1f, 0);
-                if (pack.TryGetComponent(out Rigidbody rb)) rb.linearVelocity = Vector3.zero;
-            }
+            if (tm && pack && GUILayout.Button("Teleport to elevator")) TeleportTo(pack, tm.CurrentInfo.spawn + new Vector3(0, 1.1f, 0));
 
             if (Time.time < statusUntil) GUILayout.Label(status);
             GUILayout.EndScrollView();
             GUILayout.EndArea();
+        }
+
+        static void TeleportTo(Backpack pack, Vector3 position)
+        {
+            pack.transform.position = position;
+            if (pack.TryGetComponent(out Rigidbody rb)) rb.linearVelocity = Vector3.zero;
+        }
+
+        // ------------------------------------------------------------------ guard outposts and safes
+
+        /// <summary>The floors with a safe (and their codes), the lock of this floor's outpost, and this floor's safe.</summary>
+        void OutpostTools(TowerManager tm, FloorGenerator gen, Backpack pack)
+        {
+            Header("Guard outpost & safes");
+            if (!tm) return;
+
+            int seed = tm.IntelSeed;
+            var safeFloors = SafeRules.SafeFloors(seed);
+            GUILayout.Label($"Safe seed {seed}: " + (safeFloors.Length == 0 ? "no floor has a safe" : safeFloors.Length + " floor(s) have one"));
+            foreach (int f in safeFloors)
+            {
+                int source = SafeRules.SourceFloor(seed, f);
+                string room = gen ? gen.SafeRoomLabel(f) : null;
+                GUILayout.BeginHorizontal();
+                GUILayout.Label($"F{f}: room {room ?? "?"}, code {SafeRules.CodeText(SafeRules.Code(seed, f))}, " +
+                                $"note on F{source} ({(SafeRules.NoteGivesCode(seed, f) ? "gives the code" : "no code: crowbar")})");
+                if (GUILayout.Button("Go", GUILayout.Width(40))) { tm.GoToLevel(f); Say("Going to floor " + f); }
+                GUILayout.EndHorizontal();
+            }
+            GUILayout.BeginHorizontal();
+            if (GUILayout.Button("Learn every safe (journal)"))
+            {
+                foreach (int f in safeFloors) SafeIntel.Add(f, gen ? gen.SafeRoomLabel(f) : null, SafeRules.Code(seed, f));
+                Say("The journal (J) lists every safe now");
+            }
+            if (GUILayout.Button("New safes (re-roll)")) { tm.RerollIntel(); Say("New safes - the floor is built again"); }
+            GUILayout.EndHorizontal();
+
+            var outpost = OutpostController.Active;
+            if (outpost)
+            {
+                GUILayout.Label("Outpost lock: " + (outpost.Unlocked ? "OPEN" : outpost.AlarmOn ? "ALARM (jammed)" : "locked"));
+                GUILayout.BeginHorizontal();
+                if (GUILayout.Button("Unlock it")) outpost.HostHackResult(true);
+                if (GUILayout.Button("Trip the alarm")) outpost.HostHackResult(false);
+                if (pack && GUILayout.Button("To its door")) TeleportTo(pack, new Vector3(outpost.KeypadPosition.x, 1.1f, outpost.KeypadPosition.z) + outpost.Outward * 1.4f);
+                GUILayout.EndHorizontal();
+            }
+            else GUILayout.Label("This level has no guard outpost.");
+
+            var safe = FloorSafe.Active;
+            if (safe)
+            {
+                GUILayout.Label($"This floor's safe: {(safe.IsOpen ? "OPEN" : "shut")}, code {SafeRules.CodeText(safe.Code)}, {safe.BundleCount} bundles");
+                GUILayout.BeginHorizontal();
+                if (!safe.IsOpen && GUILayout.Button("Open it")) safe.ApplyOpen(false);
+                if (pack && GUILayout.Button("To the safe")) TeleportTo(pack, new Vector3(safe.transform.position.x, 1.1f, safe.transform.position.z) + safe.transform.forward * 1.4f);
+                GUILayout.EndHorizontal();
+            }
         }
 
         static GUIStyle headerStyle;

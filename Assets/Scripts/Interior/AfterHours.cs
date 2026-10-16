@@ -93,7 +93,7 @@ namespace BuildingEscape
         {
             switch (theme)
             {
-                case "lobby": case "service": return 1f;
+                case "lobby": case "service": case "outpost": return 1f;
                 case "hub": return 0.85f;
                 case "hall": return 0.6f;
                 case "server": return 0.9f;
@@ -108,7 +108,7 @@ namespace BuildingEscape
             }
         }
 
-        static bool IsCool(string theme) => theme == "hub" || theme == "hall" || theme == "lobby" || theme == "service" || theme == "server";
+        static bool IsCool(string theme) => theme == "hub" || theme == "hall" || theme == "lobby" || theme == "service" || theme == "server" || theme == "outpost";
 
         static void PlanRooms(Input inp, Plan plan)
         {
@@ -123,7 +123,7 @@ namespace BuildingEscape
             {
                 roll[i] = Roll(inp.seed, i, 1);
                 float chance = Math.Min(1f, LitChance(rooms[i].theme, rooms[i].kind) * Math.Max(0f, inp.litScale));
-                lit[i] = rooms[i].theme == "lobby" || rooms[i].theme == "service" || roll[i] < chance;
+                lit[i] = rooms[i].theme == "lobby" || rooms[i].theme == "service" || rooms[i].theme == "outpost" || roll[i] < chance;
             }
 
             // 2. every 18 m cell has a lit junction or room, so no stretch of the floor is dark from end to end
@@ -228,14 +228,14 @@ namespace BuildingEscape
                     float x = alongX ? b.x0 + u * b.W : b.x0 + v * b.W;
                     float z = alongX ? b.z0 + v * b.D : b.z0 + u * b.D;
                     var p = new Panel { x = x, z = z, alongX = alongX, room = index };
-                    if (!Fits(p, b, solids)) continue;
+                    if (!Fits(p, b, solids, r.blocks)) continue;
                     res.Add(p);
                 }
             if (res.Count == 0)
             {
                 // a room too small for the grid to fit: one panel in the middle if it can take it at all
                 var p = new Panel { x = b.Cx, z = b.Cz, alongX = alongX, room = index };
-                if (Fits(p, b, solids)) res.Add(p);
+                if (Fits(p, b, solids, r.blocks)) res.Add(p);
             }
             return res;
         }
@@ -247,12 +247,13 @@ namespace BuildingEscape
             return new Rc(p.x - hx, p.z - hz, p.x + hx, p.z + hz);
         }
 
-        static bool Fits(Panel p, Rc room, List<Rc> solids)
+        static bool Fits(Panel p, Rc room, List<Rc> solids, List<Rc> blocks = null)
         {
             var f = FrameRect(p);
             if (f.x0 < room.x0 + WallMargin || f.x1 > room.x1 - WallMargin || f.z0 < room.z0 + WallMargin || f.z1 > room.z1 - WallMargin) return false;
             var g = f.Grow(0.3f);
             for (int i = 0; i < solids.Count; i++) if (g.Overlaps(solids[i])) return false;
+            if (blocks != null) for (int i = 0; i < blocks.Count; i++) if (g.Overlaps(blocks[i])) return false;      // (the room's own blocks: the outpost inside its ring, the elevator alcove inside the outpost)
             return true;
         }
 

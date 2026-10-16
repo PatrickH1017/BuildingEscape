@@ -118,7 +118,7 @@ namespace BuildingEscape
 
         // ------------------------------------------------------------------ which one does E mean
 
-        public enum Pick { None, Pickup, Door, Dealer }
+        public enum Pick { None, Pickup, Door, Dealer, Interact }
 
         /// <summary>
         /// Of the things under the crosshair, the one E works. Each argument is where along the ray the ray meets that thing, or
@@ -126,14 +126,23 @@ namespace BuildingEscape
         /// The nearest wins, an item beats the dealer beats a door on a tie, and an item inside the doorway (or in front of it) beats
         /// the door, so a crate that keeps a door from closing can be picked up.
         /// </summary>
-        public static Pick Choose(float pickupT, float doorEnter, float doorExit, float dealerT)
+        public static Pick Choose(float pickupT, float doorEnter, float doorExit, float dealerT) =>
+            Choose(pickupT, doorEnter, doorExit, dealerT, float.PositiveInfinity);
+
+        /// <summary>
+        /// The same with one more thing: <paramref name="interactT"/> is where the ray meets something in the world that E works (the
+        /// outpost's keypad, a safe, a note). On a tie an item beats the dealer beats such a thing beats a door.
+        /// </summary>
+        public static Pick Choose(float pickupT, float doorEnter, float doorExit, float dealerT, float interactT)
         {
             bool item = !float.IsPositiveInfinity(pickupT), door = !float.IsPositiveInfinity(doorEnter), dealer = !float.IsPositiveInfinity(dealerT);
+            bool thing = !float.IsPositiveInfinity(interactT);
             if (item && door && pickupT <= doorExit + 0.05f) door = false;
             float best = float.PositiveInfinity;
             var pick = Pick.None;
             if (item) { best = pickupT; pick = Pick.Pickup; }
             if (dealer && dealerT < best) { best = dealerT; pick = Pick.Dealer; }
+            if (thing && interactT < best) { best = interactT; pick = Pick.Interact; }
             if (door && doorEnter < best) { pick = Pick.Door; }
             return pick;
         }

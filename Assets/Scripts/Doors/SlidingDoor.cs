@@ -54,13 +54,23 @@ namespace BuildingEscape
         public readonly bool Wide;
 
         public DoorLogic Logic;
+        /// <summary>
+        /// A locked door (the guard outpost's) is not worked with E - E starts the lock hack instead - until somebody opens the lock. Officers
+        /// still open it for themselves (it is their outpost) and it shuts and stays locked behind them.
+        /// </summary>
+        public bool Locked;
         /// <summary>An officer is about to walk through the door, or is in it (set by the manager about ten times a second): it opens for him.</summary>
         public bool GuardNear;
         /// <summary>A player opened it with E: it stays open until a player closes it again.</summary>
         public bool Latched { get; private set; }
 
         readonly Transform leafLow, leafHigh;
+        /// <summary>The two leaves (the builder hangs the outpost door's panes of glass on them, see <see cref="AddDecor"/>).</summary>
+        public Transform LowLeaf => leafLow;
+        public Transform HighLeaf => leafHigh;
         readonly Renderer rendLow, rendHigh;
+        // things hung on a leaf (the panes of glass in the outpost's door): drawn exactly while the leaf is
+        readonly List<Renderer> decorLow = new List<Renderer>(), decorHigh = new List<Renderer>();
         readonly BoxCollider blocker;
         readonly Vector3 clearCentre, clearHalf;
         readonly Quaternion clearRotation;
@@ -88,6 +98,14 @@ namespace BuildingEscape
 
             Logic = new DoorLogic();             // starts shut
             Apply();
+        }
+
+        /// <summary>Hangs something on a leaf (<paramref name="side"/> -1: the low leaf, +1: the high one): it shows and hides with the leaf.</summary>
+        public void AddDecor(int side, Renderer r)
+        {
+            if (!r) return;
+            (side < 0 ? decorLow : decorHigh).Add(r);
+            r.enabled = (side < 0 ? rendLow : rendHigh).enabled;
         }
 
         public bool IsShut => Logic.IsShut;
@@ -202,16 +220,20 @@ namespace BuildingEscape
         void Apply()
         {
             float w = DoorGeometry.LeafWidth(HalfGap, Logic.Open);
-            SetLeaf(leafLow, rendLow, -1, w);
-            SetLeaf(leafHigh, rendHigh, +1, w);
+            SetLeaf(leafLow, rendLow, decorLow, -1, w);
+            SetLeaf(leafHigh, rendHigh, decorHigh, +1, w);
             bool shut = Logic.IsShut;
             if (blocker.enabled != shut) blocker.enabled = shut;
         }
 
-        void SetLeaf(Transform t, Renderer r, int side, float width)
+        void SetLeaf(Transform t, Renderer r, List<Renderer> decor, int side, float width)
         {
             bool visible = width > 0.02f;
-            if (r.enabled != visible) r.enabled = visible;
+            if (r.enabled != visible)
+            {
+                r.enabled = visible;
+                for (int i = 0; i < decor.Count; i++) if (decor[i]) decor[i].enabled = visible;
+            }
             if (!visible) return;
             t.localPosition = new Vector3(DoorGeometry.LeafCentre(HalfGap, width, side), Height * 0.5f, 0f);
             t.localScale = new Vector3(width, Height, LeafThickness);

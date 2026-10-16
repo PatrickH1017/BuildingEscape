@@ -75,6 +75,8 @@ namespace BuildingEscape
         public float wx, wz;             // a free standing spot (guard waypoint)
         public int hideCount, pieceCount;
         public readonly List<Rc> doors = new List<Rc>();   // world rectangles of the doorway openings
+        /// <summary>World rectangles inside the room that nobody can stand in (the block in the middle of a ring, the alcove of the elevator in the outpost); no ceiling panel hangs over them.</summary>
+        public readonly List<Rc> blocks = new List<Rc>();
     }
 
     public sealed class Layout
@@ -91,6 +93,47 @@ namespace BuildingEscape
         public readonly List<float[]> waypoints = new List<float[]>();
         /// <summary>World rectangles that must stay walkable (doorways, gaps); used by the tests.</summary>
         public readonly List<Rc> clear = new List<Rc>();
+        /// <summary>The guard outpost (the room where the backup arrives); null on a floor without one.</summary>
+        public OutpostInfo outpost;
+        /// <summary>The floor safe of this floor; null when this floor has none.</summary>
+        public SafeSpot safe;
+    }
+
+    /// <summary>
+    /// The guard outpost: a room with a long one-way window and a locked door on its front wall, desks and monitors, lockers, a table for
+    /// the things lying about (a note, weapons, valuables) and a small elevator alcove that the backup arrives in. All rectangles are
+    /// world rectangles; directions are unit steps along x or z.
+    /// </summary>
+    public sealed class OutpostInfo
+    {
+        public RoomInfo room;
+        /// <summary>The inside of the room (the walls stand outside it) and the outside of the walls.</summary>
+        public Rc bounds, outer;
+        /// <summary>The way the front wall faces: out of the room, towards the corridor.</summary>
+        public int frontX, frontZ;
+        /// <summary>The doorway in the front wall (a thin rectangle through the wall), and the lock panel beside it.</summary>
+        public Rc door;
+        /// <summary>Where the keypad hangs: the middle of its back, on the outside of the front wall (x, y, z).</summary>
+        public float keypadX, keypadY, keypadZ;
+        /// <summary>The window in the front wall: a thin rectangle through the wall, and the heights of its sill and top.</summary>
+        public Rc window;
+        public float windowY0, windowY1;
+        /// <summary>The elevator alcove: the outside of its walls, the inside, which way its door faces, and the middle of the doorway.</summary>
+        public Rc car, carInner;
+        public int carDoorX, carDoorZ;
+        public float carDoorHalf;
+        public float carDoorCx, carDoorCz;
+        /// <summary>Places on the table for a note, weapons and valuables, in the order to fill them (the first is the note's).</summary>
+        public readonly List<Slot> itemSlots = new List<Slot>();
+    }
+
+    /// <summary>Where the floor's safe stands.</summary>
+    public sealed class SafeSpot
+    {
+        public Piece piece;
+        public RoomInfo room;
+        public int roomIndex;
+        public float x, y, z, yaw;
     }
 
     /// <summary>A prop placed in a room, in the room's own frame.</summary>
@@ -560,6 +603,21 @@ namespace BuildingEscape
             if (it == null) return null;
             var after = ComputeReach();
             if (CountReachable(after) < n0 + 1) { RemoveItem(it); return null; }
+            return it;
+        }
+
+        /// <summary>
+        /// Like <see cref="PutSafe"/> but against a wall (see <see cref="Wall"/>): gives up, and removes the prop again, when it would wall
+        /// off anything a person could walk up to before - or when nobody could walk up to the prop itself.
+        /// </summary>
+        public Item WallSafe(char side, string key, float along, float gap = 0.02f)
+        {
+            var before = ComputeReach();
+            int n0 = CountReachable(before);
+            var it = Wall(side, key, along, gap);
+            if (it == null) return null;
+            var after = ComputeReach();
+            if (CountReachable(after) < n0 + 1) { RemoveItem(it); return null; }       // (the prop itself counts when a person can reach it)
             return it;
         }
 

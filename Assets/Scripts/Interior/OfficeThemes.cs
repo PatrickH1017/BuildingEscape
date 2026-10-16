@@ -122,6 +122,7 @@ namespace BuildingEscape
                 case "cafe_seating": ThCafeSeating(r); break;
                 case "lobby": ThLobby(r); break;
                 case "service": ThService(r); break;
+                case "outpost": ThOutpost(r); break;
             }
         }
 

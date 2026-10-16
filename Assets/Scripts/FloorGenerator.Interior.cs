@@ -53,6 +53,7 @@ namespace BuildingEscape
             new Color(0.90f, 0.76f, 0.58f), // 9 coffee shop
             new Color(0.72f, 0.76f, 0.82f), // 10 copy room
             new Color(0.64f, 0.66f, 0.60f), // 11 service area
+            new Color(0.46f, 0.22f, 0.22f), // 12 guard outpost (the old red room: dark red carpet)
         };
 
         void OnDestroy()
@@ -64,6 +65,7 @@ namespace BuildingEscape
             DestroyDoorMaterial();
             DestroyNightMaterials();
             DestroyCarMaterials();
+            DestroyOutpostMaterials();
             if (protoHolder) Kill(protoHolder.gameObject);
         }
 
@@ -82,7 +84,7 @@ namespace BuildingEscape
         }
 
         /// <summary>Lays the floor out (pure data) and decides which flagged props become loot.</summary>
-        void PlanInterior(int floor, int seed, Vector2Int elevCell, Vector2Int guestCell)
+        void PlanInterior(int floor, int seed)
         {
             layout = null;
             if (!furnishRooms) return;
@@ -92,21 +94,8 @@ namespace BuildingEscape
                 return;
             }
 
-            bool doorEast = cols > 1 && IsOpen(elevCell, elevCell + Vector2Int.right);
-            bool doorNorth = !doorEast && rows > 1 && IsOpen(elevCell, elevCell + Vector2Int.up);
-            if (!doorEast && !doorNorth) doorEast = true;
-            var gd = GuestDoorDir(guestCell);
-
-            var input = new PlanInput
-            {
-                seed = seed, floor = floor, cols = cols, rows = rows, cell = cellSize, wallH = wallHeight,
-                openE = openE, openN = openN,
-                elevC = elevCell.x, elevR = elevCell.y, elevDoorEast = doorEast,
-                hiddenHall = floor == TowerRules.KeyFloor,
-                guestC = guestCell.x, guestR = guestCell.y, guestDirX = gd.x, guestDirY = gd.y,
-                cafe = floor == 1
-            };
-            layout = OfficePlanner.Build(input);
+            // (the same input FloorShape makes for a floor that is only being looked at: SafeRoomLabel)
+            layout = OfficePlanner.Build(Shape().PlanFor(floor, seed, cellSize, wallHeight, IntelSeedFor(floor, seed)));
             layoutFloor = floor;
             SelectLoot(floor, seed);
         }
@@ -207,11 +196,16 @@ namespace BuildingEscape
             var walls = new GameObject("Partitions").transform;
             walls.SetParent(interior, false);
             var pm = PartitionMat();
+            var op = L.outpost;
+            var opWalls = op != null ? OutpostWallMat() : null;                 // (the guard outpost's own walls are dark slate)
+            var opArea = op != null ? op.outer.Grow(0.02f) : default(Rc);
             foreach (var w in L.walls)
             {
                 var r = w.rc;
-                var go = Box(w.kind == "header" ? "DoorHeader" : "Partition",
-                             new Vector3(r.Cx, (w.y0 + w.y1) * 0.5f, r.Cz), new Vector3(r.W, w.y1 - w.y0, r.D), pm ? pm : wallMat, walls);
+                bool mine = opWalls != null && r.x0 >= opArea.x0 && r.x1 <= opArea.x1 && r.z0 >= opArea.z0 && r.z1 <= opArea.z1;
+                var go = Box(w.kind == "header" ? "DoorHeader" : w.kind == "lockheader" ? "LockHeader" : "Partition",
+                             new Vector3(r.Cx, (w.y0 + w.y1) * 0.5f, r.Cz), new Vector3(r.W, w.y1 - w.y0, r.D),
+                             mine ? opWalls : pm ? pm : wallMat, walls);
                 go.GetComponent<Renderer>().shadowCastingMode = ShadowCastingMode.Off;
             }
 
@@ -255,6 +249,9 @@ namespace BuildingEscape
         {
             var def = p.def;
             bool wantCollider = p.solid && !p.mount && !p.onTop;
+
+            if (def.path == null && def.key == "locker2") return BuildLocker(p, parent, wantCollider);
+            if (def.path == null && def.key == "vault_safe" && Application.isPlaying) return BuildFloorSafePiece(p, parent);
 
             if (def.path == null)
             {

@@ -20,6 +20,11 @@ namespace BuildingEscape
         public int guestDirX = -1, guestDirY;
         /// <summary>First floor: the lobby next to the elevator is a coffee shop.</summary>
         public bool cafe;
+        /// <summary>The guest cell holds the guard outpost (every office floor) instead of an empty car in the middle of a service area.</summary>
+        public bool outpost;
+        /// <summary>This floor has a floor safe (see <see cref="SafeRules"/>), and the number that picks the room it stands in.</summary>
+        public bool hasSafe;
+        public uint safeRoll;
     }
 
     /// <summary>One 18 m x 18 m cell while it is being planned.</summary>
@@ -86,6 +91,8 @@ namespace BuildingEscape
                     rng = new System.Random(Mix(inp.seed, c, r, 17));
                     BuildCell(c, r);
                 }
+            ValidateOutpostSlots();
+            PlaceSafe();
             MergeHideZones();
         }
 
@@ -428,6 +435,10 @@ namespace BuildingEscape
                     cell.keeps.Add(WR(cell, hall.x0, hall.z0, hall.x1, hall.z1));
                 }
             }
+            else if (inp.outpost)
+            {
+                PlanOutpost(cell, ring);
+            }
             else
             {
                 const float s = 2.8f;                                           // outside face of the guest car
@@ -457,8 +468,12 @@ namespace BuildingEscape
                 Furnish(room);
                 Settle(room);
                 FinishRoom(cell, room);
+                allRooms.Add(room);
             }
         }
+
+        /// <summary>Every room of the floor once it is furnished (the floor safe is added afterwards).</summary>
+        readonly List<RoomCtx> allRooms = new List<RoomCtx>();
 
         static int TintOf(string theme)
         {
@@ -475,6 +490,7 @@ namespace BuildingEscape
                 case "cafe_counter": case "cafe_seating": return 9;
                 case "copy": return 10;
                 case "service": return 11;
+                case "outpost": return 12;
                 default: return 0;
             }
         }
@@ -513,6 +529,10 @@ namespace BuildingEscape
                         layout.waypoints.Add(new[] { wx, wz, cell.c, cell.r });
                         if (tx2 == 0f) { room.info.wx = wx; room.info.wz = wz; }
                     }
+            }
+            else if (room.theme == "outpost")
+            {
+                room.info.wx = wb.Cx; room.info.wz = wb.Cz;      // (no patrol stops inside the guard outpost: the officers come from its elevator and leave)
             }
             else if (room.FindFreeReach(rg, tx, tz, out var gx, out var gz, 0.8f) || room.FindFreeReach(rg, tx, tz, out gx, out gz, 0.55f))
             {

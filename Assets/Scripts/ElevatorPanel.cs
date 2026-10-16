@@ -219,7 +219,7 @@ namespace BuildingEscape
             return WobblyPlayerRegistry.All.Count > 0 && WobblyPlayerRegistry.All[0] ? WobblyPlayerRegistry.All[0].transform : null;
         }
 
-        static bool Blocked => Backpack.UiOpen || Vendor.ShopOpen || EscapeMenu.Open || TestMode.PanelOpen;
+        static bool Blocked => Backpack.UiOpen || Vendor.ShopOpen || EscapeMenu.Open || TestMode.PanelOpen || OutpostUi.Open;
 
         static bool MovementPressed() =>
             Input.GetKeyDown(KeyCode.W) || Input.GetKeyDown(KeyCode.A) || Input.GetKeyDown(KeyCode.S) || Input.GetKeyDown(KeyCode.D)

@@ -154,7 +154,7 @@ namespace BuildingEscape
         static bool CanUse(WobblyPlayer p)
         {
             if (p.InCustody || p.IsHidden) return false;
-            return !(Backpack.UiOpen || Vendor.ShopOpen || ElevatorPanel.Open || EscapeMenu.Open || TestMode.PanelOpen);
+            return !(Backpack.UiOpen || Vendor.ShopOpen || ElevatorPanel.Open || EscapeMenu.Open || TestMode.PanelOpen || OutpostUi.Open);
         }
 
         /// <summary>
@@ -203,7 +203,12 @@ namespace BuildingEscape
             }
             promptDoor = index;
             PromptShown = index >= 0;
-            if (index >= 0 && Input.GetKeyDown(UseKey)) Use(index, !doors[index].Logic.WantOpen);
+            if (index >= 0 && Input.GetKeyDown(UseKey))
+            {
+                var d = doors[index];
+                if (d.Locked) OutpostController.Active?.UseLockedDoor(me);     // (a locked door is hacked, not opened)
+                else Use(index, !d.Logic.WantOpen);
+            }
         }
 
         /// <summary>
@@ -213,9 +218,16 @@ namespace BuildingEscape
         public void Use(int index, bool open)
         {
             var d = Get(index);
-            if (d == null) return;
+            if (d == null || (open && d.Locked)) return;
             if (Net.NetRole.Synced) Net.RunSync.Instance.RequestDoor(index, open);
             else d.SetOpen(open, Time.time);
+        }
+
+        /// <summary>Is this door locked (nobody can open it with E until the lock is hacked)?</summary>
+        public bool IsLocked(int index)
+        {
+            var d = Get(index);
+            return d != null && d.Locked;
         }
 
         /// <summary>Host check: is this player close enough to the door to have worked it (the player's view of the world is a moment old).</summary>
@@ -260,7 +272,8 @@ namespace BuildingEscape
             if (Event.current.type != EventType.Repaint) return;
             if (promptDoor < 0 || promptDoor >= doors.Count) return;
             var d = doors[promptDoor];
-            string text = d.Obstructed(Time.time) ? "Something is in the doorway" : d.Logic.WantOpen ? "[E] Close door" : "[E] Open door";
+            string text = d.Locked ? (OutpostController.Active != null ? OutpostController.Active.LockPrompt : "Locked")
+                        : d.Obstructed(Time.time) ? "Something is in the doorway" : d.Logic.WantOpen ? "[E] Close door" : "[E] Open door";
             HudText.Label(new Rect(0, Screen.height * 0.62f, Screen.width, 36), text, HudStyles.Label(22, TextAnchor.MiddleCenter));
         }
     }

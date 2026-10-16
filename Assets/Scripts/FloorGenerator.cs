@@ -84,6 +84,8 @@ namespace BuildingEscape
             bool hub = floor <= 0;
             bool boss = TowerRules.IsBoss(floor);
             Net.NetIds.Reset(); // a new floor: ids start again from 0, in creation order (same on every machine)
+            NoteBaseSeed(floor, seed);
+            ResetOutpost();
             var rng = new System.Random(seed);
             current = new GameObject($"Floor_{floor}").transform;
             current.SetParent(transform, false);
@@ -107,16 +109,9 @@ namespace BuildingEscape
             else
             {
                 // ---- size from the time target
-                float roomsF = targetMinutes * 60f * assumedMoveSpeed / (2f * cellSize) + 1f;
-                int roomCount = Mathf.Max(6, Mathf.RoundToInt(roomsF));
-                rows = Mathf.Max(2, Mathf.RoundToInt(Mathf.Sqrt(roomCount / 1.5f)));
-                cols = Mathf.Max(2, Mathf.RoundToInt(roomCount / (float)rows));
+                SizeOfFloor(out cols, out rows);
                 rooms = cols * rows;
-                CarveMaze(rng);
-                // the elevator room always opens to both of its neighbours, so you can leave by whichever
-                // side is closer to where you're heading instead of walking around
-                if (cols > 1) openE[0, 0] = true;
-                if (rows > 1) openN[0, 0] = true;
+                CarveMaze(rng);     // (the elevator room always opens to both of its neighbours: FloorShape.Maze)
             }
 
             var dist = Distances();
@@ -144,13 +139,12 @@ namespace BuildingEscape
             }
 
             var guestCell = FarthestCell(dist);
-            BuildGuestElevator(guestCell); // where backup arrives (not in the docks: there are no guards there)
             if (!boss)
             {
                 // corridors, offices, break rooms...: partitions, floors and furniture, all in place before the bake
                 try
                 {
-                    PlanInterior(floor, seed, elevCell, guestCell);
+                    PlanInterior(floor, seed);
                     BuildInterior();
                 }
                 catch (System.Exception e)
@@ -162,6 +156,13 @@ namespace BuildingEscape
                     if (unfinished) { unfinished.gameObject.SetActive(false); Kill(unfinished.gameObject); }
                 }
             }
+            // where backup arrives (not in the docks: there are no guards there): the small elevator in the back corner of the guard outpost,
+            // or - on the boss floor, or when the floor could not be furnished - the old red car in the middle of the farthest cell
+            if (layout != null && layout.outpost != null)
+            {
+                if (!OutpostStep("the backup's elevator", floor, () => BuildOutpostCar(layout.outpost))) BuildGuestElevator(guestCell);
+            }
+            else BuildGuestElevator(guestCell);
 
             // ---- bake before adding dynamic things
             var surface = current.gameObject.AddComponent<NavMeshSurface>();
@@ -171,6 +172,7 @@ namespace BuildingEscape
 
             MakeHideZones();
             BuildDoors(); // sliding doors in the room doorways (after the bake: the NavMesh is made with every doorway open)
+            OutpostStep("the window, keypad and lock", floor, () => BuildOutpostExtras(floor)); // the one-way window, the keypad, the alarm lamp, the lock (after the bake, once the doors exist)
             BuildAfterHours(floor, seed, elevCell, guestCell, false); // ceiling, light panels, night look (after the bake: a ceiling is not ground)
             if (boss)
             {
@@ -183,6 +185,7 @@ namespace BuildingEscape
                 PlaceMugs(rng);
                 info.guards = PlaceGuards(rng, floor, dist, elevCell);
                 if (floor == TowerRules.KeyFloor && firstGuard) MarkKeyHolder(firstGuard);
+                OutpostStep("the outpost's things and the safe's cash", floor, () => FillOutpost(floor)); // what the guards keep in their outpost, and the cash in the floor's safe (never uses `rng`)
             }
             guestDoor?.Snap(false); // the NavMesh was baked with the doors open; now the car is shut
             return info;
@@ -190,37 +193,24 @@ namespace BuildingEscape
 
         // ------------------------------------------------------------------ maze
 
+        /// <summary>The size of a normal floor in cells, from the time target.</summary>
+        void SizeOfFloor(out int c, out int r)
+        {
+            float roomsF = targetMinutes * 60f * assumedMoveSpeed / (2f * cellSize) + 1f;
+            int roomCount = Mathf.Max(6, Mathf.RoundToInt(roomsF));
+            r = Mathf.Max(2, Mathf.RoundToInt(Mathf.Sqrt(roomCount / 1.5f)));
+            c = Mathf.Max(2, Mathf.RoundToInt(roomCount / (float)r));
+        }
+
+        /// <summary>The floor's maze (see <see cref="FloorShape.Maze"/>; it takes its random numbers from <paramref name="rng"/> in place).</summary>
         void CarveMaze(System.Random rng)
         {
-            openE = new bool[cols, rows];
-            openN = new bool[cols, rows];
-            var visited = new bool[cols, rows];
-            var stack = new Stack<Vector2Int>();
-            visited[0, 0] = true; stack.Push(Vector2Int.zero);
-            var dirs = new[] { Vector2Int.right, Vector2Int.left, Vector2Int.up, Vector2Int.down };
-            var opts = new List<Vector2Int>();
-            while (stack.Count > 0)
-            {
-                var cur = stack.Peek();
-                opts.Clear();
-                foreach (var d in dirs)
-                {
-                    var n = cur + d;
-                    if (n.x >= 0 && n.y >= 0 && n.x < cols && n.y < rows && !visited[n.x, n.y]) opts.Add(n);
-                }
-                if (opts.Count == 0) { stack.Pop(); continue; }
-                var next = opts[rng.Next(opts.Count)];
-                SetOpen(cur, next);
-                visited[next.x, next.y] = true;
-                stack.Push(next);
-            }
-            for (int c = 0; c < cols; c++)
-                for (int r = 0; r < rows; r++)
-                {
-                    if (c < cols - 1 && !openE[c, r] && rng.NextDouble() < loopChance) openE[c, r] = true;
-                    if (r < rows - 1 && !openN[c, r] && rng.NextDouble() < loopChance) openN[c, r] = true;
-                }
+            var shape = FloorShape.Maze(rng, cols, rows, loopChance);
+            openE = shape.openE;
+            openN = shape.openN;
         }
+
+        FloorShape Shape() => new FloorShape(cols, rows, openE, openN);
 
         /// <summary>Basement layout: every interior wall has a door.</summary>
         void OpenAllDoors()
@@ -235,14 +225,6 @@ namespace BuildingEscape
                 }
         }
 
-        void SetOpen(Vector2Int a, Vector2Int b)
-        {
-            if (b.x > a.x) openE[a.x, a.y] = true;
-            else if (b.x < a.x) openE[b.x, b.y] = true;
-            else if (b.y > a.y) openN[a.x, a.y] = true;
-            else openN[b.x, b.y] = true;
-        }
-
         bool IsOpen(Vector2Int a, Vector2Int b)
         {
             if (b.x > a.x) return openE[a.x, a.y];
@@ -251,35 +233,12 @@ namespace BuildingEscape
             return openN[b.x, b.y];
         }
 
-        int[,] Distances()
-        {
-            var dist = new int[cols, rows];
-            for (int c = 0; c < cols; c++) for (int r = 0; r < rows; r++) dist[c, r] = -1;
-            var q = new Queue<Vector2Int>();
-            dist[0, 0] = 0; q.Enqueue(Vector2Int.zero);
-            var dirs = new[] { Vector2Int.right, Vector2Int.left, Vector2Int.up, Vector2Int.down };
-            while (q.Count > 0)
-            {
-                var cur = q.Dequeue();
-                foreach (var d in dirs)
-                {
-                    var n = cur + d;
-                    if (n.x < 0 || n.y < 0 || n.x >= cols || n.y >= rows || dist[n.x, n.y] >= 0) continue;
-                    if (!IsOpen(cur, n)) continue;
-                    dist[n.x, n.y] = dist[cur.x, cur.y] + 1;
-                    q.Enqueue(n);
-                }
-            }
-            return dist;
-        }
+        int[,] Distances() => Shape().Distances();
 
         Vector2Int FarthestCell(int[,] dist)
         {
-            var best = Vector2Int.zero; int bd = -1;
-            for (int c = 0; c < cols; c++)
-                for (int r = 0; r < rows; r++)
-                    if (dist[c, r] > bd) { bd = dist[c, r]; best = new Vector2Int(c, r); }
-            return best;
+            Shape().FarthestCell(dist, out int c, out int r);
+            return new Vector2Int(c, r);
         }
 
         Vector3 CellCenter(Vector2Int c) => new Vector3((c.x + 0.5f) * cellSize, 0f, (c.y + 0.5f) * cellSize);
@@ -769,7 +728,7 @@ namespace BuildingEscape
                 var cell = new Vector2Int(Random.Range(0, cols), Random.Range(0, rows));
                 if (cell == Vector2Int.zero) continue;
                 var p = CellCenter(cell) + new Vector3(Random.Range(-7f, 7f), 0f, Random.Range(-7f, 7f));
-                if (NavMesh.SamplePosition(p, out var hit, 6f, NavMesh.AllAreas)) return hit.position;
+                if (NavMesh.SamplePosition(p, out var hit, 6f, NavMesh.AllAreas) && !InOutpost(hit.position)) return hit.position;     // (not inside the guard outpost)
             }
             return CellCenter(new Vector2Int(cols - 1, rows - 1));
         }

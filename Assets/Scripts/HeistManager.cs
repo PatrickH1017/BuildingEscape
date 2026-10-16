@@ -282,6 +282,20 @@ namespace BuildingEscape
             SendOfficers(2, lastBackupPos, "BACKUP CALLED");
         }
 
+        /// <summary>
+        /// An alarm (the guard outpost's lock shorting out) calls for backup exactly as a guard who spotted a player does: two officers
+        /// now, one more every <see cref="CustodyRules.BackupIntervalSeconds"/> until the floor ends. The first officers are sent to
+        /// <paramref name="where"/>; the later ones go for the team. Host or offline only.
+        /// </summary>
+        public void CallBackupAt(Vector3 where, string headline = "ALARM TRIPPED - BACKUP CALLED")
+        {
+            if (Phase != HeistPhase.Heist || !Net.NetRole.Simulates) return;
+            lastBackupPos = where;
+            BackupCalled = true;
+            backupClock.Start();
+            SendOfficers(2, where, headline);
+        }
+
         void TickBackup(float dt)
         {
             if (!backupClock.Tick(dt)) return;

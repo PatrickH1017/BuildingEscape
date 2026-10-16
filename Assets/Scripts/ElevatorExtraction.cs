@@ -133,7 +133,7 @@ namespace BuildingEscape
             return t ? t.GetComponent<Backpack>() : null;
         }
 
-        static bool InputBlocked => Backpack.UiOpen || Vendor.ShopOpen || EscapeMenu.Open || TestMode.PanelOpen || ElevatorPanel.Open;
+        static bool InputBlocked => Backpack.UiOpen || Vendor.ShopOpen || EscapeMenu.Open || TestMode.PanelOpen || ElevatorPanel.Open || OutpostUi.Open;
 
         /// <summary>A click on the wall panel from this machine: the host runs it, a client asks the host.</summary>
         public void LocalPress(int action)
@@ -410,7 +410,7 @@ namespace BuildingEscape
 
         void Update()
         {
-            bool blocked = Backpack.UiOpen || Vendor.ShopOpen || EscapeMenu.Open || TestMode.PanelOpen;
+            bool blocked = Backpack.UiOpen || Vendor.ShopOpen || EscapeMenu.Open || TestMode.PanelOpen || OutpostUi.Open;
             bool press = !blocked && LocalInside && Input.GetKeyDown(confirmKey);
             if (Net.NetRole.IsRemoteClient)
             {

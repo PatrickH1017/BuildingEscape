@@ -183,8 +183,8 @@ namespace BuildingEscape
             if (!Viewed) return;
             if (wobbly && wobbly.InCustody) { UiOpen = false; target = null; return; } // pinned or busted: hands are full of officer
             CleanUp();
-            bool talk = Vendor.ShopOpen || ElevatorPanel.Open;
-            if (Input.GetKeyDown(inventoryKey) && !Vendor.ShopOpen && !ElevatorPanel.Open) { UiOpen = !UiOpen; scroll = Vector2.zero; }
+            bool talk = Vendor.ShopOpen || ElevatorPanel.Open || OutpostUi.Open;
+            if (Input.GetKeyDown(inventoryKey) && !Vendor.ShopOpen && !ElevatorPanel.Open && !OutpostUi.Open) { UiOpen = !UiOpen; scroll = Vector2.zero; }
 
             // E works what the crosshair is on: an item here, a door in DoorManager, the dealer in Vendor
             var aimed = (UiOpen || talk) ? AimTarget.Nothing : Crosshair.Aim;

@@ -3,7 +3,7 @@ using UnityEngine;
 namespace BuildingEscape
 {
     /// <summary>What the crosshair is on that E can work.</summary>
-    public enum AimKind { None, Pickup, Door, Dealer }
+    public enum AimKind { None, Pickup, Door, Dealer, Interact }
 
     /// <summary>What the crosshair points at right now (see <see cref="Crosshair.Aim"/>).</summary>
     public struct AimTarget
@@ -13,6 +13,8 @@ namespace BuildingEscape
         public Pickup Pickup;
         /// <summary>Index of the door under the crosshair in <see cref="DoorManager.Doors"/> (when Kind is Door; otherwise -1).</summary>
         public int Door;
+        /// <summary>The keypad, safe or note under the crosshair (when <see cref="Kind"/> is Interact).</summary>
+        public Interactable Interactable;
         /// <summary>A guard or a training dummy is under the crosshair and within swinging distance.</summary>
         public bool Foe;
         /// <summary>The crosshair is on something E could work, but it is out of reach (nothing else is targeted).</summary>
@@ -82,7 +84,7 @@ namespace BuildingEscape
         }
 
         /// <summary>A menu, the shop, the elevator panel or the inventory is open (E means something else there, and the cursor is free).</summary>
-        public static bool MenuOpen => Backpack.UiOpen || Vendor.ShopOpen || ElevatorPanel.Open || EscapeMenu.Open || TestMode.PanelOpen;
+        public static bool MenuOpen => Backpack.UiOpen || Vendor.ShopOpen || ElevatorPanel.Open || EscapeMenu.Open || TestMode.PanelOpen || OutpostUi.Open;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
         static void ResetStatics()
@@ -107,6 +109,16 @@ namespace BuildingEscape
         }
 
         void OnDestroy() { if (Instance == this) Instance = null; }
+
+        /// <summary>E on a keypad, a safe or a note: the crosshair says which (items, doors and the dealer have their own scripts).</summary>
+        void Update()
+        {
+            if (!Input.GetKeyDown(KeyCode.E)) return;
+            var a = Aim;
+            if (a.Kind != AimKind.Interact || a.Interactable == null) return;
+            if (!TryGetView(out _, out var player) || player.InCustody || player.IsHidden) return;
+            a.Interactable.Use(player);
+        }
 
         /// <summary>The main camera and the player it follows (the body whose crosshair this is).</summary>
         static bool TryGetView(out Camera cam, out WobblyPlayer player)
@@ -216,14 +228,21 @@ namespace BuildingEscape
                     dealerS = ds;
             }
 
+            // ---- something in the world that E works (the outpost's keypad, a safe, a note)
+            float thingEnter = float.PositiveInfinity, farThing = float.PositiveInfinity;
+            var thing = Interactable.Aimed(start, direction, len, body, out thingEnter, out farThing);
+            if (thing != null && blockS < thingEnter - OccluderSlack) { thing = null; thingEnter = float.PositiveInfinity; }
+            bool farThingAimed = !float.IsPositiveInfinity(farThing) && blockS >= farThing - OccluderSlack;
+
             // ---- which one E works
             float pickS = item != null ? itemS : float.PositiveInfinity;
-            switch (AimMath.Choose(pickS, door >= 0 ? doorEnter : float.PositiveInfinity, doorExit, dealerS))
+            switch (AimMath.Choose(pickS, door >= 0 ? doorEnter : float.PositiveInfinity, doorExit, dealerS, thing != null ? thingEnter : float.PositiveInfinity))
             {
                 case AimMath.Pick.Pickup: res.Kind = AimKind.Pickup; res.Pickup = item; res.Distance = itemS; break;
                 case AimMath.Pick.Door: res.Kind = AimKind.Door; res.Door = door; res.Distance = doorEnter; break;
                 case AimMath.Pick.Dealer: res.Kind = AimKind.Dealer; res.Distance = dealerS; break;
-                default: res.TooFar = farItem || farDoorAimed; break;
+                case AimMath.Pick.Interact: res.Kind = AimKind.Interact; res.Interactable = thing; res.Distance = thingEnter; break;
+                default: res.TooFar = farItem || farDoorAimed || farThingAimed; break;
             }
             return res;
         }
@@ -281,6 +300,9 @@ namespace BuildingEscape
             Draw(cx, cy, dot, thick, gap, arm, 1f, Shadow);
             Draw(cx, cy, dot, thick, gap, arm, 0f, c);
             GUI.color = old;
+
+            if (a.Kind == AimKind.Interact && a.Interactable != null)
+                HudText.Label(new Rect(0, Screen.height * 0.62f, Screen.width, 36), a.Interactable.Prompt, HudStyles.Label(22, TextAnchor.MiddleCenter));
         }
 
         /// <summary>A dot with four ticks round it; <paramref name="grow"/> makes the shadow a pixel bigger on every side.</summary>

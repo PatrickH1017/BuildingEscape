@@ -24,6 +24,11 @@ namespace BuildingEscape
         public float farClip = 40f;
         /// <summary>A camera inside this box (world space) always counts as seeing the mirror.</summary>
         public Bounds insideBounds;
+        /// <summary>
+        /// While nobody can see the mirror drawn (too far, or something in the way) show a plain dark surface instead of the last picture,
+        /// which would be lined up with a screen that has long since moved on. For a mirror that can be seen from afar (the outpost's window).
+        /// </summary>
+        public bool blankWhenIdle;
 
         /// <summary>How many times the mirror has been drawn (for the tests).</summary>
         public int RenderCount { get; private set; }
@@ -40,6 +45,7 @@ namespace BuildingEscape
         MaterialPropertyBlock block;
         Camera mirrorCamera;
         RenderTexture picture;
+        bool blank;
 
         void Awake()
         {
@@ -68,8 +74,17 @@ namespace BuildingEscape
             if (drawing || !isActiveAndEnabled || !rend) return;
             var cam = Camera.current;
             if (!cam || cam == mirrorCamera || cam.cameraType != CameraType.Game) return;
-            if (!CanSee(cam.transform.position)) return;
+            if (!CanSee(cam.transform.position)) { if (blankWhenIdle) ShowBlank(); return; }
             Draw(cam);
+        }
+
+        void ShowBlank()
+        {
+            if (blank) return;
+            blank = true;
+            rend.GetPropertyBlock(block);
+            block.SetTexture(MainTexId, Texture2D.blackTexture);
+            rend.SetPropertyBlock(block);
         }
 
         /// <summary>
@@ -144,6 +159,7 @@ namespace BuildingEscape
                 rend.GetPropertyBlock(block);
                 block.SetTexture(MainTexId, picture);
                 rend.SetPropertyBlock(block);
+                blank = false;
                 RenderCount++;
                 LastSize = new Vector2Int(w, h);
                 return true;

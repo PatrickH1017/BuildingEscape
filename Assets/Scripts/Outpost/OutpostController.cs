@@ -1,0 +1,204 @@
+using UnityEngine;
+
+namespace BuildingEscape
+{
+    /// <summary>
+    /// The guard outpost of the floor that is on show, as a whole: the locked front door and its keypad, the alarm, and the floor's
+    /// safe. FloorGenerator builds the pieces and hands them over; this keeps the state (is the lock open, is the alarm going, is the
+    /// safe open), does what the hack decides, and makes the keypad light, the siren and the flashing lamp follow the state.
+    ///
+    /// The host (or the offline game) decides: a finished hack is a request (<see cref="SubmitHack"/>); a won one opens the lock, a lost
+    /// one sets the alarm off, which calls backup exactly as a guard who spots a player does (<see cref="HeistManager.CallBackupAt"/>):
+    /// two officers at once and another every half minute until the floor ends. The state travels to the other machines as three bits
+    /// (<see cref="Bits"/>, mirrored by RunSync), so everyone sees the same lock, hears the same siren and finds the same safe open.
+    /// </summary>
+    public sealed class OutpostController : MonoBehaviour
+    {
+        /// <summary>How long the siren sounds, and how long the lock stays jammed (a hack cannot be started meanwhile).</summary>
+        public const float AlarmSeconds = 14f;
+        /// <summary>A player farther from the keypad than this loses the hack in progress.</summary>
+        public const float HackReach = 4.2f;
+        /// <summary>The host accepts a hack result from a player this close to the keypad (the player's position is a moment old).</summary>
+        public const float HostReach = 6.5f;
+
+        const int UnlockedBit = 1, AlarmBit = 2, SafeBit = 4;
+
+        /// <summary>The outpost of the floor that is on show (null on a floor without one).</summary>
+        public static OutpostController Active { get; private set; }
+
+        // ---- what the builder fills in
+        public int Floor;
+        public int RunSeed;
+        /// <summary>The middle of the keypad and the way it faces (out of the room, into the corridor).</summary>
+        public Vector3 KeypadPosition;
+        public Vector3 Outward = Vector3.forward;
+        /// <summary>The locked front door and its place in the DoorManager's list.</summary>
+        public SlidingDoor Door;
+        public int DoorIndex = -1;
+        /// <summary>The floor's safe, if it has one.</summary>
+        public FloorSafe Safe;
+        /// <summary>The lit parts of the keypad (they change colour with the state) and the lamp over the door.</summary>
+        public Renderer[] LedRenderers;
+        public Renderer BeaconRenderer;
+        public Light BeaconLight;
+
+        /// <summary>The epoch of the floor this belongs to (the network state is tagged with it, so a floor never takes the last floor's state).</summary>
+        public byte BuiltEpoch { get; private set; }
+
+        // ---- state
+        public bool Unlocked { get; private set; }
+        public bool AlarmOn { get; private set; }
+        /// <summary>The lock is jammed for as long as the alarm sounds.</summary>
+        public bool Jammed => AlarmOn;
+
+        float bornAt, alarmUntil, nextSiren;
+        MaterialPropertyBlock block;
+        static readonly int ColorId = Shader.PropertyToID("_Color"), EmissionId = Shader.PropertyToID("_EmissionColor");
+
+        static readonly Color LedLocked = new Color(1f, 0.12f, 0.08f), LedOpen = new Color(0.15f, 1f, 0.25f), LedOff = new Color(0.12f, 0.02f, 0.02f);
+
+        /// <summary>The state as three bits (lock open, alarm going, safe open) for the other machines.</summary>
+        public byte Bits => (byte)((Unlocked ? UnlockedBit : 0) | (AlarmOn ? AlarmBit : 0) | (Safe != null && Safe.IsOpen ? SafeBit : 0));
+
+        /// <summary>The line under the reticle (and the door's prompt) while the lock is shut; null when it is open.</summary>
+        public string LockPrompt => Unlocked ? null : AlarmOn ? "The lock is jammed - the alarm is going off" : "[E] Hack the lock";
+
+        void Awake()
+        {
+            Active = this;
+            bornAt = Time.time;
+            BuiltEpoch = Net.RunSync.Epoch;
+        }
+
+        void OnDestroy()
+        {
+            if (Active == this) Active = null;
+        }
+
+        /// <summary>Called by the builder once the pieces are in: puts them in their first state.</summary>
+        public void Begin()
+        {
+            block = new MaterialPropertyBlock();
+            if (Door != null) Door.Locked = true;
+            UpdateVisuals(0f);
+        }
+
+        // ------------------------------------------------------------------ the local player works the lock
+
+        /// <summary>The local player pressed E on the keypad or on the door: start the hack (unless the lock is open or jammed).</summary>
+        public void UseLockedDoor(WobblyPlayer who)
+        {
+            if (!who || Unlocked) return;
+            if (AlarmOn) { Backpack.NoticeToLocal("The lock is jammed - wait for the alarm to stop"); return; }
+            HackPanel.Begin(this, who);
+        }
+
+        /// <summary>The local player's hack ended: offline it is settled here, in a networked run the host settles it.</summary>
+        public void SubmitHack(bool success)
+        {
+            if (Net.NetRole.Synced) Net.RunSync.Instance.RequestHack(success);
+            else HostHackResult(success);
+        }
+
+        /// <summary>Host check: is this player close enough to the keypad to have hacked it?</summary>
+        public bool InHackReach(Vector3 playerPosition) =>
+            (playerPosition - KeypadPosition).sqrMagnitude <= HostReach * HostReach;
+
+        /// <summary>Host (or offline): a hack finished. A won one opens the lock; a lost one sets off the alarm (once; not while it is going).</summary>
+        public void HostHackResult(bool success)
+        {
+            if (!Net.NetRole.Simulates || Unlocked) return;
+            if (success) { SetUnlocked(); return; }
+            if (AlarmOn) return;
+            alarmUntil = Time.time + AlarmSeconds;
+            SetAlarm(true);
+            HeistManager.Instance?.CallBackupAt(KeypadPosition, "ALARM TRIPPED - BACKUP CALLED");
+        }
+
+        // ------------------------------------------------------------------ state
+
+        bool Quiet => Time.time - bornAt < 2.5f;        // (state that was already there when this machine built the floor: no sounds)
+
+        void SetUnlocked()
+        {
+            if (Unlocked) return;
+            Unlocked = true;
+            if (Door != null)
+            {
+                Door.Locked = false;
+                if (Quiet) Door.SnapLatched(); else Door.SetOpen(true, Time.time);
+            }
+            if (AlarmOn) { AlarmOn = false; UpdateBeacon(); }
+            if (!Quiet) GameAudio.PlaySound(SoundId.HackWin, KeypadPosition, 0.9f, 1f, true, 32f, 3f);
+            UpdateVisuals(Time.time);
+        }
+
+        void SetAlarm(bool on)
+        {
+            if (AlarmOn == on) return;
+            AlarmOn = on;
+            nextSiren = 0f;
+            if (on && !Quiet) GameAudio.PlaySound(SoundId.HackFail, KeypadPosition, 1f, 1f, true, 40f, 3f);
+            UpdateBeacon();
+            UpdateVisuals(Time.time);
+        }
+
+        /// <summary>Client: take the host's state (a bit for each of: the lock is open, the alarm is going, the safe is open).</summary>
+        public void NetApply(byte bits)
+        {
+            if ((bits & UnlockedBit) != 0) SetUnlocked();
+            if (!Unlocked && ((bits & AlarmBit) != 0) != AlarmOn) SetAlarm((bits & AlarmBit) != 0);
+            if ((bits & SafeBit) != 0 && Safe != null && !Safe.IsOpen) Safe.ApplyOpen(Quiet);
+        }
+
+        // ------------------------------------------------------------------ looks and sounds
+
+        void Update()
+        {
+            float now = Time.time;
+            if (AlarmOn)
+            {
+                if (Net.NetRole.Simulates && now >= alarmUntil) SetAlarm(false);
+                else if (now >= nextSiren)
+                {
+                    nextSiren = now + OutpostSound.AlarmSeconds - 0.05f;
+                    GameAudio.PlaySound(SoundId.Alarm, KeypadPosition + Vector3.up * 1.2f, 0.9f, 1f, true, 70f, 6f);
+                }
+            }
+            if (AlarmOn) UpdateVisuals(now);
+        }
+
+        void UpdateBeacon()
+        {
+            if (BeaconLight) BeaconLight.enabled = AlarmOn;
+            if (!AlarmOn) SetEmission(BeaconRenderer, new Color(0.25f, 0.02f, 0.02f));
+        }
+
+        void UpdateVisuals(float now)
+        {
+            Color led;
+            if (Unlocked) led = LedOpen;
+            else if (AlarmOn) led = (int)(now * 8f) % 2 == 0 ? LedLocked : LedOff;       // flashes
+            else led = LedLocked * 0.8f;
+            if (LedRenderers != null)
+                for (int i = 0; i < LedRenderers.Length; i++) SetEmission(LedRenderers[i], led);
+            if (AlarmOn)
+            {
+                float pulse = 0.5f + 0.5f * Mathf.Sin(now * 9f);
+                if (BeaconLight) BeaconLight.intensity = 0.8f + 2.2f * pulse;
+                SetEmission(BeaconRenderer, new Color(1f, 0.1f, 0.05f) * (0.35f + 0.65f * pulse));
+            }
+        }
+
+        /// <summary>Colours one renderer's glow without touching its (shared) material.</summary>
+        void SetEmission(Renderer r, Color colour)
+        {
+            if (!r) return;
+            if (block == null) block = new MaterialPropertyBlock();
+            r.GetPropertyBlock(block);
+            block.SetColor(ColorId, colour);
+            block.SetColor(EmissionId, colour * 1.8f);
+            r.SetPropertyBlock(block);
+        }
+    }
+}

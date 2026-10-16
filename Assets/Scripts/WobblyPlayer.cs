@@ -97,6 +97,7 @@ namespace BuildingEscape
         void Update()
         {
             var raw = new Vector3(Input.GetAxisRaw("Horizontal"), 0, Input.GetAxisRaw("Vertical"));
+            if (OutpostUi.Open) raw = Vector3.zero;       // (the hack is played on W A S D: the body stands still)
             bool sprintKey = Input.GetKey(KeyCode.LeftShift);
             bool crouchKey = Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.C);
 #if UNITY_EDITOR
@@ -115,7 +116,7 @@ namespace BuildingEscape
             // crouching: not while knocked over or hidden, and it takes the place of sprinting and jumping
             SetCrouch(crouchKey && !IsStumbling && !IsHidden && !InCustody);
             IsSprinting = sprintKey && !IsCrouching && !InCustody && moveInput.sqrMagnitude > 0.01f;
-            if (Input.GetKeyDown(KeyCode.Space) && grounded && !IsStumbling && !IsCrouching && !InCustody)
+            if (Input.GetKeyDown(KeyCode.Space) && grounded && !IsStumbling && !IsCrouching && !InCustody && !OutpostUi.Open)
             {
                 rb.AddForce(Vector3.up * jumpImpulse, ForceMode.VelocityChange);
                 Jumped?.Invoke();

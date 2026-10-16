@@ -152,9 +152,18 @@ namespace BuildingEscape
             input.cars.Add(new Rc(c.x - 3.8f, c.z - 3.8f, c.x + 3.8f, c.z + 3.8f));
             if (!hub)
             {
-                var g = CellCenter(guestCell);                  // the guest elevator that brings the backup
-                input.solids.Add(new Rc(g.x - 2.8f, g.z - 2.8f, g.x + 2.8f, g.z + 2.8f));
-                input.cars.Add(new Rc(g.x - 2.4f, g.z - 2.4f, g.x + 2.4f, g.z + 2.4f));
+                var outpost = layout != null && !boss ? layout.outpost : null;
+                if (outpost != null)
+                {
+                    // the elevator alcove in the guard outpost that brings the backup: one panel inside (the outpost itself is lit like a room)
+                    input.cars.Add(outpost.carInner);
+                }
+                else
+                {
+                    var g = CellCenter(guestCell);              // the guest elevator that brings the backup
+                    input.solids.Add(new Rc(g.x - 2.8f, g.z - 2.8f, g.x + 2.8f, g.z + 2.8f));
+                    input.cars.Add(new Rc(g.x - 2.4f, g.z - 2.4f, g.x + 2.4f, g.z + 2.4f));
+                }
             }
             if (floor == TowerRules.KeyFloor)
             {

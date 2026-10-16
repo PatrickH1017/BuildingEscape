@@ -6,6 +6,7 @@ Shader "BuildingEscape/ElevatorMirror"
     {
         _MainTex ("Reflection (set by PlanarMirror)", 2D) = "black" {}
         _Tint ("Tint", Color) = (0.90, 0.93, 0.96, 1)
+        _Base ("Base colour added to the reflection (dark glass)", Color) = (0, 0, 0, 1)
     }
     SubShader
     {
@@ -24,6 +25,7 @@ Shader "BuildingEscape/ElevatorMirror"
 
             sampler2D _MainTex;
             fixed4 _Tint;
+            fixed4 _Base;
 
             struct appdata
             {
@@ -47,7 +49,7 @@ Shader "BuildingEscape/ElevatorMirror"
             fixed4 frag (v2f i) : SV_Target
             {
                 fixed4 c = tex2Dproj(_MainTex, UNITY_PROJ_COORD(i.screenPos));
-                return fixed4(c.rgb * _Tint.rgb, 1.0);
+                return fixed4(c.rgb * _Tint.rgb + _Base.rgb, 1.0);
             }
             ENDCG
         }

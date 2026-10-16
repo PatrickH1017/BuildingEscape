@@ -18,8 +18,13 @@ namespace BuildingEscape
         [Tooltip("Level the run starts on. Basement (0) first, then up.")]
         public int startLevel = 0;
         public int baseSeed = 20240;
+        [Tooltip("The seed for the floor safes and the notes about them. 0 = a new random one each run (offline the floors themselves repeat, the safes do not). Online it comes from the host's seed.")]
+        public int intelSeedOverride = 0;
         [Tooltip("Share of the floor's loot value that must be banked to unlock the elevator.")]
         public float quotaShare = 0.6f;
+
+        /// <summary>The run's seed for the floor safes and the notes about them (see <see cref="SafeRules"/>).</summary>
+        public int IntelSeed { get; private set; } = 1;
 
         public FloorInfo CurrentInfo { get; private set; }
         public bool Loading { get; private set; }
@@ -37,6 +42,8 @@ namespace BuildingEscape
         void Start()
         {
             ResumeLevel = Mathf.Max(1, startLevel + 1);
+            SafeIntel.Reset();      // a new run: nothing is known about any safe yet
+            IntelSeed = intelSeedOverride != 0 ? intelSeedOverride : Random.Range(1, int.MaxValue);
             StartCoroutine(Net.NetSession.Online ? StartNetworked() : LoadFloor(startLevel));
         }
 
@@ -49,7 +56,11 @@ namespace BuildingEscape
                 waited += Time.unscaledDeltaTime;
                 yield return null;
             }
-            if (Net.RunSync.Instance != null) baseSeed = Net.RunSync.Instance.Seed;
+            if (Net.RunSync.Instance != null)
+            {
+                baseSeed = Net.RunSync.Instance.Seed;
+                IntelSeed = baseSeed ^ 0x2D5AFE1;      // (the same on every machine: the host's seed)
+            }
             yield return LoadFloor(startLevel);
         }
 
@@ -93,6 +104,26 @@ namespace BuildingEscape
             }
             else if (!TowerRules.IsDocks(level)) ResumeLevel = level;
             BeginLevel(level);
+        }
+
+        /// <summary>
+        /// Test mode: a new seed for the safes and the notes about them (the floors themselves stay as they are), and the floor on show built
+        /// again with it. Whatever the notes taught is forgotten.
+        /// </summary>
+        public void RerollIntel()
+        {
+            if (Loading || Net.NetSession.Online || Net.NetRole.IsRemoteClient) return;
+            SetIntelSeed(Random.Range(1, int.MaxValue));
+            var h = HeistManager.Instance;
+            BeginLevel(h != null ? h.Floor : startLevel);
+        }
+
+        /// <summary>Test mode and the QA scenarios: use this seed for the safes and the notes from the next floor on (nothing is rebuilt).</summary>
+        public void SetIntelSeed(int seed)
+        {
+            if (Net.NetSession.Online) return;
+            IntelSeed = seed != 0 ? seed : 1;
+            SafeIntel.Reset();
         }
 
         /// <summary>Test mode: jump straight to a level (0 = basement).</summary>

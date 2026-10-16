@@ -307,6 +307,7 @@ namespace BuildingEscape.Net
             if (np == null || doors == null) return;
             if (np.TryGetComponent(out WobblyPlayer wp) && wp.InCustody) return;
             if (!doors.InUseReach(door, np.transform.position, DoorReachSlack)) return;
+            if (open && doors.IsLocked(door)) return;                // the outpost's door opens when its lock is hacked, not before
             DoorSetRpc((ushort)door, open, Epoch);
         }
 

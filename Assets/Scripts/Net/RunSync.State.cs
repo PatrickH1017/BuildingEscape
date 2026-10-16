@@ -49,6 +49,7 @@ namespace BuildingEscape.Net
             vGuestOpen.Value = gen0 != null && gen0.GuestDoorOpen;
             var tm = TowerManager.Instance;
             if (tm != null) vResume.Value = tm.ResumeLevel;
+            HostPublishOutpost();
         }
 
         void ClientApplyState()
@@ -63,6 +64,7 @@ namespace BuildingEscape.Net
             ElevatorExtraction.NetSetPanel(vGoingUp.Value, vDestination.Value, vBackOpen.Value);
             if (tm != null && tm.generator != null) tm.generator.NetGuestDoor(vGuestOpen.Value);
             if (tm != null) tm.NetSetResume(vResume.Value);
+            ClientApplyOutpost();
         }
     }
-}
+}

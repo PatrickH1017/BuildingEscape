@@ -43,6 +43,13 @@ namespace BuildingEscape
             foreach (var w in layout.walls)
             {
                 if (w.kind == "header") manager.Add(MakeDoor(holder.transform, w, mat));
+                else if (w.kind == "lockheader")
+                {
+                    // the guard outpost's front door: dark steel with wired-glass panes; the controller (BuildOutpostExtras) keeps it locked
+                    outpostDoor = MakeOutpostDoor(holder.transform, w);
+                    outpostDoorIndex = manager.Count;
+                    manager.Add(outpostDoor);
+                }
             }
             if (manager.Count == 0) { Kill(holder); return; }
             manager.OpenDoorsWithPeople();
