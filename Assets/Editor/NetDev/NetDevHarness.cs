@@ -79,6 +79,34 @@ namespace BuildingEscape.EditorTools
             EditorSceneManager.OpenScene("Assets/Scenes/Greybox.unity");
             EditorApplication.isPlaying = true;
         }
+        public static void PewLoot()
+        {
+            SessionState.SetString("netdev.mode", "pewloot");
+            EditorSceneManager.OpenScene("Assets/Scenes/Greybox.unity");
+            EditorApplication.isPlaying = true;
+        }
+        public static void GunNet() => Start("gunnet");
+        public static void OutpostNet() => Start("outpostnet");
+        public static void Demo()
+        {
+            SessionState.SetString("netdev.mode", "demo");
+            EditorSceneManager.OpenScene("Assets/Scenes/Greybox.unity");
+            EditorApplication.isPlaying = true;
+        }
+        public static void DemoNet() => Start("demonet");
+        public static void MeleeNet() => Start("meleenet");
+        public static void LootQa()
+        {
+            SessionState.SetString("netdev.mode", "lootqa");
+            EditorSceneManager.OpenScene("Assets/Scenes/Greybox.unity");
+            EditorApplication.isPlaying = true;
+        }
+        public static void DemoUi()
+        {
+            SessionState.SetString("netdev.mode", "demoui");
+            EditorSceneManager.OpenScene("Assets/Scenes/Greybox.unity");
+            EditorApplication.isPlaying = true;
+        }
         public static void Shaft()
         {
             SessionState.SetString("netdev.mode", "shaft");
@@ -126,7 +154,7 @@ namespace BuildingEscape.EditorTools
         {
             DontDestroyOnLoad(gameObject);
             started = Time.realtimeSinceStartup;
-            if (mode != "offline" && mode != "sneak" && mode != "floors" && mode != "doors" && mode != "outpost" && mode != "pew" && mode != "pewlook" && mode != "ui" && mode != "menus" && mode != "shaft")
+            if (mode != "offline" && mode != "sneak" && mode != "floors" && mode != "doors" && mode != "outpost" && mode != "pew" && mode != "pewlook" && mode != "ui" && mode != "menus" && mode != "shaft" && mode != "pewloot" && mode != "demo" && mode != "demoui" && mode != "lootqa")
                 yield return WaitFor(() => NetSession.Instance != null && SceneManager.GetActiveScene().name == NetConst.MenuScene, 30, "menu");
             switch (mode)
             {
@@ -144,6 +172,14 @@ namespace BuildingEscape.EditorTools
                 case "pewlook": yield return PewLookScenario(); break;
                 case "ui": yield return UiScenario(); break;
                 case "shaft": yield return ShaftScenario(); break;
+                case "pewloot": yield return PewLootScenario(); break;
+                case "demo": yield return DemoScenario(); break;
+                case "demoui": yield return DemoUiScenario(); break;
+                case "meleenet": yield return System.Environment.GetEnvironmentVariable("BE_QA_ROLE") == "host" ? MeleeHostScenario() : MeleeClientScenario(); break;
+                case "lootqa": yield return LootQaScenario(); break;
+                case "demonet": yield return System.Environment.GetEnvironmentVariable("BE_QA_ROLE") == "host" ? DemoHostScenario() : DemoClientScenario(); break;
+                case "gunnet": yield return System.Environment.GetEnvironmentVariable("BE_QA_ROLE") == "host" ? GunHostScenario() : GunClientScenario(); break;
+                case "outpostnet": yield return System.Environment.GetEnvironmentVariable("BE_QA_ROLE") == "host" ? OutpostNetHostScenario() : OutpostNetClientScenario(); break;
                 case "shaftnet": yield return System.Environment.GetEnvironmentVariable("BE_QA_ROLE") == "host" ? ShaftHostScenario() : ShaftClientScenario(); break;
                 case "menus": yield return MenusScenario(); break;
                 case "menuslobby": yield return MenusLobbyScenario(); break;
@@ -763,6 +799,8 @@ namespace BuildingEscape.EditorTools
 
         static void ShotCam(Camera cam, string name)
         {
+            // (a batch run with -nographics has no device to draw with: Camera.Render crashes Unity there, so the picture is skipped)
+            if (SystemInfo.graphicsDeviceType == UnityEngine.Rendering.GraphicsDeviceType.Null) { Log("SKIP picture " + name + " (no graphics device in this run)"); return; }
             var rt = new RenderTexture(1280, 720, 24);
             cam.targetTexture = rt;
             cam.Render();

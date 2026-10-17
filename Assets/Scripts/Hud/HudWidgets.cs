@@ -41,6 +41,8 @@ namespace BuildingEscape
             /// <summary>The floor's level (0 = the docks) and how many stops there are in all (shown as "level/last").</summary>
             public int level, stops;
             public bool docks, boss, met;
+            /// <summary>At the docks with the demo's last floor finished: nothing left to climb to.</summary>
+            public bool demoDone;
             public int cash, banked, quota, lost, runTotal, nextQuota;
             public int free, pinned, busted;
         }
@@ -77,7 +79,7 @@ namespace BuildingEscape
             if (m.docks)
             {
                 HudTheme.Pill(bar, HudTheme.Quota, 2.5f, 2.5f);
-                HudTheme.Text(bar, m.nextQuota > 0 ? nextQuotaText.Get(m.nextQuota) : "BUY AND GET READY", 14f, HudTheme.Bright, TextAnchor.MiddleCenter);
+                HudTheme.Text(bar, m.nextQuota > 0 ? nextQuotaText.Get(m.nextQuota) : m.demoDone ? "DEMO COMPLETE" : "BUY AND GET READY", 14f, HudTheme.Bright, TextAnchor.MiddleCenter);
             }
             else if (m.boss)
             {

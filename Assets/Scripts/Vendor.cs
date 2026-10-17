@@ -21,6 +21,9 @@ namespace BuildingEscape
             public Color color;
             public bool isWeapon;
             public MeleeWeapon.Kind kind;
+            /// <summary>A gun (the pew): made by <c>RangedWeapon.Create</c>.</summary>
+            public bool isGun;
+            public RangedWeapon.Kind gun;
         }
 
         /// <summary>What the vendor sells. Key 1 buys the first entry, key 2 the second, and so on.</summary>
@@ -65,7 +68,22 @@ namespace BuildingEscape
                 name = "Hatchet", blurb = "melee: LMB swing, stuns a guard 6s", price = 550,
                 isWeapon = true, kind = MeleeWeapon.Kind.Hatchet
             },
+            new Product
+            {
+                name = "Pew Pistol", blurb = "gun: LMB fires, R reloads. Free for finishing the demo - try it on the dummy", price = 0,
+                isGun = true, gun = RangedWeapon.Kind.Pew
+            },
         };
+
+        /// <summary>The pew's place in <see cref="Catalog"/>: the last entry, so the places of the others are what they were.</summary>
+        public const int PewIndex = 7;
+        /// <summary>The pew is for sale once this floor has been finished (the owner, 2026-10-16: "after completion of the 4th floor the vendor should now sell the pew pistol for free").</summary>
+        public const int FreePewAfterFloor = 4;
+
+        /// <summary>Is the pew for sale? <paramref name="resume"/> is the floor the elevator would go up to from the docks: past <see cref="FreePewAfterFloor"/> once that floor is finished.</summary>
+        public static bool PewForSale(int resume) => resume > FreePewAfterFloor;
+
+        static bool PewOnOffer { get { var tm = TowerManager.Instance; return PewForSale(tm ? tm.ResumeLevel : 1); } }
 
         public KeyCode sellKey = KeyCode.F;
         public KeyCode talkKey = KeyCode.E;
@@ -196,7 +214,8 @@ namespace BuildingEscape
 
             const int cols = 4;
             const float cw = 176f, ch = 130f, gap = 8f, pad = 14f;
-            int rows = Mathf.CeilToInt(Catalog.Length / (float)cols);
+            int shown = PewOnOffer ? Catalog.Length : PewIndex;          // (the pew is the last entry, and only there once the demo's last floor is done)
+            int rows = Mathf.CeilToInt(shown / (float)cols);
             float pw = pad * 2 + cols * cw + (cols - 1) * gap;
             var busted = BustedPlayers();
             float ph = 120f + rows * (ch + gap) + 70f + (busted.Count > 0 ? 36f + busted.Count * 36f : 0f);
@@ -211,7 +230,7 @@ namespace BuildingEscape
             var cantAfford = HudStyles.Label(18, TextAnchor.UpperLeft, FontStyle.Normal, CantAfford);
             var small = HudStyles.Label(14);
             float y0 = r.y + 64f;
-            for (int i = 0; i < Catalog.Length; i++)
+            for (int i = 0; i < shown; i++)
             {
                 var p = Catalog[i];
                 var cr = new Rect(r.x + pad + (i % cols) * (cw + gap), y0 + (i / cols) * (ch + gap), cw, ch);
@@ -222,7 +241,7 @@ namespace BuildingEscape
                 GUI.Box(cr, GUIContent.none);
                 GUI.color = old;
                 HudText.Label(new Rect(cr.x + 8, cr.y + 4, cw - 16, 26), p.name, bold);
-                HudText.Label(new Rect(cr.x + 8, cr.y + 30, cw - 16, 24), $"${p.price}   {WeightUnits.Lbs(ItemWeight(p))}", afford ? label : cantAfford);
+                HudText.Label(new Rect(cr.x + 8, cr.y + 30, cw - 16, 24), $"{(p.price == 0 ? "FREE" : "$" + p.price)}   {WeightUnits.Lbs(ItemWeight(p))}", afford ? label : cantAfford);
                 GUI.Label(new Rect(cr.x + 8, cr.y + 56, cw - 16, ch - 60), p.blurb, small);
                 if (hover && ev.type == EventType.MouseDown && ev.button == 0)
                 {
@@ -311,7 +330,7 @@ namespace BuildingEscape
             return "Done. Your friend walks out the back.";
         }
 
-        static float ItemWeight(Product p) => p.isWeapon ? MeleeWeapon.Specs[(int)p.kind].weight : Mathf.Max(0.2f, p.mass);
+        static float ItemWeight(Product p) => p.isGun ? RangedWeapon.Specs[(int)p.gun].weight : p.isWeapon ? MeleeWeapon.Specs[(int)p.kind].weight : Mathf.Max(0.2f, p.mass);
 
         /// <summary>Sell everything in the zone. A client only asks; the host / offline sells and tells everyone.</summary>
         void Sell(HeistManager hm)
@@ -378,6 +397,12 @@ namespace BuildingEscape
         {
             var p = Catalog[index];
             if (p.isWeapon && !MeleeWeapon.Available) return "Weapons aren't set up: run Overtime Escape > Setup Weapons";
+            if (p.isGun)
+            {
+                if (!PewOnOffer) return "The dealer has nothing like that for sale yet";
+                if (!RangedWeapon.Available) return "Weapons aren't set up: run Overtime Escape > Setup Weapons";
+                foreach (var held in buyer.Items) if (held && held.TryGetComponent(out RangedWeapon _)) return "You already have a pew";
+            }
             float wgt = ItemWeight(p);
             if (buyer.Weight + wgt > buyer.capacity + 0.001f) return $"No room in your pack for the {p.name} ({WeightUnits.Lbs(wgt)})";
             if (!hm.TrySpend(p.price)) return "Not enough cash";
@@ -398,7 +423,7 @@ namespace BuildingEscape
             var basePos = shelf ? shelf.position : transform.position + Vector3.up;
             float x = ((spawned++ % 5) - 2) * shelfSpacing;
             float yaw = Random.Range(0f, 360f);
-            var go = SpawnAt(p, basePos + new Vector3(x, p.isWeapon ? 0.3f : 0.2f, 0f), yaw);
+            var go = SpawnAt(p, basePos + new Vector3(x, p.isWeapon || p.isGun ? 0.3f : 0.2f, 0f), yaw);
             if (go && go.TryGetComponent(out Pickup pk)) Net.RunSync.Instance?.BroadcastSpawnItem(pk.NetId, index, go.transform.position, yaw);
             return go;
         }
@@ -414,6 +439,7 @@ namespace BuildingEscape
 
         GameObject SpawnAt(Product p, Vector3 pos, float yaw)
         {
+            if (p.isGun) return RangedWeapon.Create(p.gun, pos, transform.parent, yaw);
             if (p.isWeapon) return MeleeWeapon.Create(p.kind, pos, transform.parent, yaw);
 
             var go = GameObject.CreatePrimitive(p.shape);

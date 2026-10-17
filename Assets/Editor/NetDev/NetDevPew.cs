@@ -119,7 +119,7 @@ namespace BuildingEscape.EditorTools
             PewCheck("catalog: the reload clips are the five steps in order",
                 AllSet(ac.gunReload) && ac.gunReload[0].name.Contains("slideLock") && ac.gunReload[1].name.Contains("magOut") && ac.gunReload[2].name.Contains("magDraw")
                 && ac.gunReload[3].name.Contains("magIn") && ac.gunReload[4].name.Contains("charge"));
-            PewCheck("nobody is armed by default (the game as it is today)", ArmedGuards.FirstArmedFloor == ArmedRules.Never && !ArmedGuards.Everywhere);
+            PewCheck("the guards are armed from floor 4 by default (and nobody at the docks)", ArmedGuards.FirstArmedFloor == ArmedGuards.DefaultFirstArmedFloor && !ArmedGuards.Everywhere && !ArmedGuards.ShouldArm(0));
 
             // ================= 2. the dev menu hands out the pew
             PewCheck("the pew is not in the pack before the menu gives it", !pack.Items.Any(i => i && i.TryGetComponent(out RangedWeapon _)));

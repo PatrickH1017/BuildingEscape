@@ -625,14 +625,15 @@ namespace BuildingEscape
                     var noteSlot = slots.Find(s => s.kind == "note");
                     if (noteSlot != null) MakeNote(noteSlot, stash, floor, parent);
                 }
-                if (MeleeWeapon.Available)
+                foreach (int w in stash.weapons)
                 {
-                    foreach (int w in stash.weapons)
-                    {
-                        var s = NextItemSlot();
-                        if (s == null) break;
-                        MeleeWeapon.Create((MeleeWeapon.Kind)w, new Vector3(s.x, s.y + 0.08f, s.z), parent, s.yaw);
-                    }
+                    bool pew = w == OutpostLoot.PewKind;
+                    if (pew ? !RangedWeapon.Available : !MeleeWeapon.Available) continue;
+                    var s = NextItemSlot();
+                    if (s == null) break;
+                    var at = new Vector3(s.x, s.y + 0.08f, s.z);
+                    if (pew) RangedWeapon.Create(RangedWeapon.Kind.Pew, at, parent, s.yaw);          // (a yaw is given: nothing here uses a random number)
+                    else MeleeWeapon.Create((MeleeWeapon.Kind)w, at, parent, s.yaw);
                 }
                 for (int i = 0; i < stash.valuableKinds.Count; i++)
                 {

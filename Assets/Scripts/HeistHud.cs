@@ -44,7 +44,7 @@ namespace BuildingEscape
             {
                 place = m.FloorLabel,
                 level = m.Floor,
-                stops = m.TotalFloors,
+                stops = TowerRules.DemoStops(m.TotalFloors),          // ("FLOOR 1/4" while the tower is a demo)
                 docks = hub,
                 boss = boss,
                 met = m.Phase == HeistPhase.FloorComplete,
@@ -53,7 +53,8 @@ namespace BuildingEscape
                 quota = m.Quota,
                 lost = m.Lost,
                 runTotal = m.RunTotal,
-                nextQuota = hub ? TowerRules.QuotaFor(next) : 0,
+                demoDone = hub && TowerRules.DemoOver(next),
+                nextQuota = hub && !TowerRules.DemoOver(next) ? TowerRules.QuotaFor(next) : 0,
                 free = free,
                 pinned = pinned,
                 busted = busted,
@@ -66,10 +67,17 @@ namespace BuildingEscape
         {
             if (m.Phase == HeistPhase.FloorComplete)
             {
-                bool groupEnd = TowerRules.IsGroupEnd(m.Floor);
+                bool groupEnd = TowerRules.IsGroupEnd(m.Floor), demoEnd = TowerRules.IsDemoEnd(m.Floor);
                 HudWidgets.Banner("QUOTA MET!",
-                    groupEnd ? "Return to the Loading Docks (elevator panel: choose a floor, then GO)" : "Use the elevator panel to go up (choose a floor, then GO)",
+                    demoEnd ? "That was the last floor of the demo: return to the Loading Docks (elevator panel: choose a floor, then GO)"
+                    : groupEnd ? "Return to the Loading Docks (elevator panel: choose a floor, then GO)" : "Use the elevator panel to go up (choose a floor, then GO)",
                     HudTheme.Cash, $"Surplus {HudTheme.Money(m.Surplus)} over the quota becomes your cash to spend at the vendor");
+            }
+            else if (hub && TowerRules.DemoOver(next))
+            {
+                // the demo's last floor is done: the vendor has a free pew now (Vendor.PewForSale)
+                HudWidgets.Banner("DEMO COMPLETE", "That was the last floor of the demo. The vendor has a pew pistol for free: try it on the training dummy", HudTheme.Cash,
+                    m.SurplusPaid > 0 ? $"+{HudTheme.Money(m.SurplusPaid)} surplus from the last floor added to your cash" : null);
             }
             else if (hub)
             {

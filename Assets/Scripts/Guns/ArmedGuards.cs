@@ -3,14 +3,18 @@ using UnityEngine;
 namespace BuildingEscape
 {
     /// <summary>
-    /// Which guards carry the pew. In the game today nobody does: <see cref="FirstArmedFloor"/> is "no floor" until the owner picks the
-    /// floor from which guards are armed (one number, here). The test menu (F1) can arm every guard on every floor meanwhile, and arm or
-    /// disarm the guards of the floor on show at once. The rule itself is <see cref="ArmedRules"/>.
+    /// Which guards carry the pew: every guard made on <see cref="DefaultFirstArmedFloor"/> (floor 4, the owner's choice, 2026-10-16) and
+    /// above, backup and the guard on duty in an outpost included (one number, here). The pew itself lies in the outpost of that floor
+    /// (<see cref="OutpostLoot.PewFloor"/>), so the players can answer. The test menu (F1) can arm every guard on every floor, change the
+    /// floor, and arm or disarm the guards of the floor on show at once. The rule itself is <see cref="ArmedRules"/>.
     /// </summary>
     public static class ArmedGuards
     {
-        /// <summary>The first floor whose guards are armed; <see cref="ArmedRules.Never"/> = none (the game as it is today).</summary>
-        public static int FirstArmedFloor = ArmedRules.Never;
+        /// <summary>The floor from which guards are armed in the game: 4.</summary>
+        public const int DefaultFirstArmedFloor = 4;
+
+        /// <summary>The first floor whose guards are armed; <see cref="ArmedRules.Never"/> = none (the test menu can set it).</summary>
+        public static int FirstArmedFloor = DefaultFirstArmedFloor;
 
         /// <summary>Test menu: every guard on every floor is armed (a offline game only: the test menu is off in a networked run).</summary>
         public static bool Everywhere;
@@ -23,7 +27,7 @@ namespace BuildingEscape
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
         static void ResetStatics()
         {
-            FirstArmedFloor = ArmedRules.Never;
+            FirstArmedFloor = DefaultFirstArmedFloor;
             Everywhere = false;
 #if UNITY_EDITOR
             ForceForTests = false;

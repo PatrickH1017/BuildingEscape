@@ -117,7 +117,7 @@ namespace BuildingEscape
 
             if (h.Phase == HeistPhase.Hub)
             {
-                if (!down) BeginLevel(ResumeLevel);
+                if (!down && !TowerRules.Beyond(ResumeLevel)) BeginLevel(ResumeLevel);   // (the demo ends at TowerRules.DemoLastFloor)
             }
             else if (h.Phase == HeistPhase.FloorComplete)
             {
@@ -137,6 +137,7 @@ namespace BuildingEscape
             var h = HeistManager.Instance;
             if (Loading || h == null || Net.NetRole.IsRemoteClient) return;
             if (level == h.Floor || level < 0 || level >= totalFloors) return;
+            if (TowerRules.Beyond(level)) return;                  // the demo ends at TowerRules.DemoLastFloor (test mode's GoToLevel is not stopped)
             bool complete = h.Phase == HeistPhase.FloorComplete;
             if (TowerRules.IsDocks(level) && !TowerRules.IsDocks(h.Floor))
             {

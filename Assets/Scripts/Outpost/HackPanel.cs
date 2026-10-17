@@ -33,7 +33,31 @@ namespace BuildingEscape
         string resultText = "";
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
-        static void ResetStatics() { Instance = null; }
+        static void ResetStatics()
+        {
+            Instance = null;
+#if UNITY_EDITOR
+            TestKeyDown = null;
+#endif
+        }
+
+#if UNITY_EDITOR
+        /// <summary>
+        /// Editor tests only (a batch run has no keyboard): while it is set the panel asks it, instead of <c>Input.GetKeyDown</c>, whether a key
+        /// went down this frame. A test presses W, A, S, D and Esc through the very <see cref="Update"/> a player's keys go through (back-out
+        /// checks, the session, the result sent to <see cref="OutpostController.SubmitHack"/>), the way <c>WobblyPlayer.testMove</c> walks.
+        /// </summary>
+        public static System.Func<KeyCode, bool> TestKeyDown;
+#endif
+
+        /// <summary>Did this key go down this frame? (The keyboard, or the test's stand-in for it.)</summary>
+        static bool KeyDown(KeyCode key)
+        {
+#if UNITY_EDITOR
+            if (TestKeyDown != null) return TestKeyDown(key);
+#endif
+            return Input.GetKeyDown(key);
+        }
 
         // ------------------------------------------------------------------ starting
 
@@ -88,7 +112,7 @@ namespace BuildingEscape
 
             for (int i = 0; i < Keys.Length && !session.Finished; i++)
             {
-                if (!Input.GetKeyDown(Keys[i])) continue;
+                if (!KeyDown(Keys[i])) continue;
                 char ch = HackSession.KeyPool[i];
                 session.Press(ch, now);
                 if (session.Phase == HackPhase.Prompt && session.Step > lastStep)
@@ -106,7 +130,7 @@ namespace BuildingEscape
         /// <summary>Why the hack has to stop with no result (null while it can go on).</summary>
         string BackOutReason()
         {
-            if (Input.GetKeyDown(KeyCode.Escape)) return "";
+            if (KeyDown(KeyCode.Escape)) return "";
             if (!controller) return "";
             if (controller.Unlocked) return "";
             if (controller.AlarmOn) return "The lock jammed";

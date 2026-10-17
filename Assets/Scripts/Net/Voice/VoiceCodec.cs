@@ -50,6 +50,8 @@ namespace BuildingEscape.Net
         {
             if (on == recording) return;
             recording = on;
+            var steam = SteamService.Instance;
+            if (steam == null || !steam.Ready) return;       // (SteamService shuts Steam down in OnApplicationQuit, before VoiceChat is destroyed: nothing left to stop)
             if (on) SteamUser.StartVoiceRecording(); else SteamUser.StopVoiceRecording();
         }
 

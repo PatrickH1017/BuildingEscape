@@ -7,8 +7,11 @@ namespace BuildingEscape.EditorTools
     /// <summary>
     /// Play Mode check (offline, Greybox scene) of the guard outposts: the locked door and its keypad, the one-way window, the quick hack
     /// (a clean one, a wrong key, a slow one, walking away), the alarm and the backup it calls, the notes and the journal, and the floor
-    /// safe (code, lock-out, crowbar). The hack is played by feeding the same <see cref="HackSession"/> the panel runs (a batch run has no
-    /// keyboard), so it covers everything but the key reading itself.
+    /// safe (code, lock-out, crowbar). The hack is played the way a player plays it: the crosshair on the locked door or the keypad (the
+    /// game's own <see cref="Crosshair.Resolve"/> ray), E (the keypad's / the controller's <c>Use</c>), then W, A, S, D and Esc through the
+    /// panel's own Update (<see cref="HackPanel.TestKeyDown"/> stands in for the keyboard, which a batch run has not), so it covers everything
+    /// but the operating system's key reading. (Feeding the <see cref="HackSession"/> directly does not work: the panel only reports a result
+    /// it saw come about in its own Update, so a session finished from outside leaves the screen up and the alarm off.)
     /// Run: Unity -batchmode -executeMethod BuildingEscape.EditorTools.NetDevHarness.Outpost   (look for "[Outpost] DONE fails=0").
     /// </summary>
     public partial class NetDevRunner
@@ -42,6 +45,20 @@ namespace BuildingEscape.EditorTools
         {
             foreach (char c in HackSession.KeyPool) if (c != expected) return c;
             return 'W';
+        }
+
+        /// <summary>The key a hack letter (W, A, S or D) stands for.</summary>
+        static KeyCode KeyOf(char letter) => (KeyCode)System.Enum.Parse(typeof(KeyCode), letter.ToString());
+
+        /// <summary>
+        /// Presses a key the way a player does: the panel reads it in its own Update, in the one frame it is "down" (what
+        /// <c>Input.GetKeyDown</c> would say), then it is let go again. Use as <c>yield return Tap(key)</c>.
+        /// </summary>
+        IEnumerator Tap(KeyCode key)
+        {
+            HackPanel.TestKeyDown = k => k == key;
+            yield return null;
+            HackPanel.TestKeyDown = null;
         }
 
         IEnumerator OutpostScenario()
@@ -110,15 +127,39 @@ namespace BuildingEscape.EditorTools
                 }
             }
 
-            // ================= the hack
+            // ================= the hack (played through the panel's own Update, started the way E starts it)
             var at = new Vector3(ctl.KeypadPosition.x, 1.1f, ctl.KeypadPosition.z) + outward * 1.0f;
             void GoTo(Vector3 p) { player.TeleportTo(p, player.transform.rotation); rb.linearVelocity = Vector3.zero; }
-            GoTo(at);
+            // the camera sits behind the player as CameraFollow puts it; "Look" is the crosshair on a point of the world (the game's own ray)
+            Vector3 Eye() => player.transform.position + outward * 2.6f + Vector3.up * 0.3f;
+            AimTarget Look(Vector3 point) { var o = Eye(); return Crosshair.Resolve(o, point - o, player); }
+            KeypadProp keypad = null;
+            foreach (var i in Interactable.All) if (i is KeypadProp kp && i.Available) { keypad = kp; break; }
+            HackPanel.TestKeyDown = null;
+
+            // E on the locked door (the crosshair on it) starts the hack; Esc gives it up with no alarm
+            GoTo(new Vector3(door.Centre.x, 1.1f, door.Centre.z) + outward * 1.3f);
+            yield return new WaitForFixedUpdate();
+            Physics.SyncTransforms();
             yield return new WaitForSeconds(0.3f);
             int guardsBefore = GuardAI.All.Count;
+            var aimDoor = Look(door.Centre + Vector3.up * 1.2f);
+            OutpostCheck("aim: the crosshair on the locked door targets the door (E hacks it)", aimDoor.Kind == AimKind.Door && aimDoor.Door == ctl.DoorIndex, $"({aimDoor.Kind}, door {aimDoor.Door})");
+            ctl.UseLockedDoor(player);                                             // (what DoorManager does on E when the door under the crosshair is locked)
+            OutpostCheck("hack: E on the locked door starts the hack and the screen is up", HackPanel.Running && OutpostUi.Current == OutpostUi.Kind.Hack && LiveHack() != null);
+            yield return Tap(KeyCode.Escape);
+            yield return null;
+            OutpostCheck("hack: Esc gives it up with no alarm", !HackPanel.Running && !OutpostUi.Open && !ctl.AlarmOn && !ctl.Unlocked && !hm.BackupCalled);
 
-            // walking away backs out with no alarm
-            HackPanel.Begin(ctl, player);
+            // E on the keypad (the crosshair on it) starts it too; walking away backs out with no alarm
+            GoTo(at);
+            yield return new WaitForFixedUpdate();
+            Physics.SyncTransforms();
+            yield return new WaitForSeconds(0.3f);
+            var aimPad = keypad != null ? Look(keypad.AimBox.center) : AimTarget.Nothing;
+            OutpostCheck("aim: the crosshair on the keypad targets it (E hacks the lock)", keypad != null && aimPad.Kind == AimKind.Interact && aimPad.Interactable == keypad, $"({aimPad.Kind})");
+            if (keypad == null) { Log($"[Outpost] DONE fails={outpostFails}"); Quit(1); yield break; }
+            keypad.Use(player);                                                    // (what Crosshair does on E when the keypad is under the crosshair)
             OutpostCheck("hack: E on the keypad starts the hack and the screen is up", HackPanel.Running && OutpostUi.Current == OutpostUi.Kind.Hack && LiveHack() != null);
             GoTo(at + outward * (OutpostController.HackReach + 2f));
             yield return new WaitForSeconds(0.3f);
@@ -126,22 +167,24 @@ namespace BuildingEscape.EditorTools
             GoTo(at);
             yield return new WaitForSeconds(0.3f);
 
-            // a wrong key sets the alarm off and calls backup
-            HackPanel.Begin(ctl, player);
+            // a key pressed before the first one is shown counts for nothing; a wrong key then sets the alarm off and calls backup
+            keypad.Use(player);
+            yield return Tap(KeyCode.S);
+            OutpostCheck("hack: a key pressed before the first prompt is ignored (nobody could have seen it)", HackPanel.Running && !ctl.AlarmOn);
             yield return WaitForPrompt();
             var s1 = LiveHack();
             OutpostCheck("hack: after the short wait the first key is asked for", s1 != null && s1.Phase == HackPhase.Prompt && "WASD".IndexOf(s1.Expected) >= 0);
             if (s1 != null && s1.Phase == HackPhase.Prompt)
             {
                 yield return null;
-                s1.Press(WrongKeyFor(s1.Expected), Time.unscaledTime);
-                yield return null; yield return null;
+                yield return Tap(KeyOf(WrongKeyFor(s1.Expected)));
+                yield return null;
                 OutpostCheck("hack: a wrong key sets the alarm off", ctl.AlarmOn && !ctl.Unlocked && !HackPanel.Running && !OutpostUi.Open);
                 OutpostCheck("hack: the alarm calls backup, as a spotting guard does", hm.BackupCalled && hm.BackupActive);
                 yield return new WaitForSeconds(1.5f);
-                OutpostCheck("hack: two officers were sent", GuardAI.All.Count >= guardsBefore + 1, $"({guardsBefore} -> {GuardAI.All.Count} officers)");
+                OutpostCheck("hack: two officers were sent", GuardAI.All.Count >= guardsBefore + 2, $"({guardsBefore} -> {GuardAI.All.Count} officers)");
                 OutpostCheck("hack: the lock is jammed while the alarm sounds", ctl.Jammed && ctl.LockPrompt != null && ctl.LockPrompt.Contains("jammed"));
-                HackPanel.Begin(ctl, player);
+                keypad.Use(player);
                 OutpostCheck("hack: no new hack can be started while it is jammed", !HackPanel.Running);
                 OutpostCheck("hack: the door is still locked", door.Locked && door.IsShut);
             }
@@ -188,7 +231,7 @@ namespace BuildingEscape.EditorTools
 
             // too slow loses too
             GoTo(at);
-            HackPanel.Begin(ctl, player);
+            keypad.Use(player);
             yield return WaitForPrompt();
             var s2 = LiveHack();
             OutpostCheck("hack: a second hack can be tried after the alarm", s2 != null && s2 != s1 && s2.Phase == HackPhase.Prompt);
@@ -201,15 +244,13 @@ namespace BuildingEscape.EditorTools
 
             // four right keys open the lock
             GoTo(at);
-            HackPanel.Begin(ctl, player);
+            keypad.Use(player);
             yield return WaitForPrompt();
             var s3 = LiveHack();
             int pressed = 0;
-            while (s3 != null && !s3.Finished && pressed < HackSession.Steps)
+            while (s3 != null && !s3.Finished && s3.Phase == HackPhase.Prompt && pressed < HackSession.Steps)
             {
-                yield return null;                                       // (a key cannot be pressed in the frame it appears)
-                if (s3.Phase != HackPhase.Prompt) break;
-                s3.Press(s3.Expected, Time.unscaledTime);
+                yield return Tap(KeyOf(s3.Expected));                    // (the panel reads it in its next Update: never in the frame the key appears)
                 pressed++;
             }
             yield return null; yield return null;

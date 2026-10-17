@@ -197,6 +197,8 @@ namespace BuildingEscape
             if (TowerRules.IsBoss(current)) return "The elevator is out of service";
             if (f > current)
             {
+                if (TowerRules.Beyond(f)) return $"The demo ends at {TowerRules.Label(TowerRules.DemoLastFloor)}: the rest of the tower is in the full game";
+                if (up < 0 && TowerRules.IsDocks(current)) return "Finished floors are closed";
                 if (up >= 0) return $"From here the elevator only goes up to {TowerRules.Label(up)}";
                 if (TowerRules.IsGroupEnd(current)) return "Three floors done: return to the Loading Docks first";
                 return "Meet the quota before going up";

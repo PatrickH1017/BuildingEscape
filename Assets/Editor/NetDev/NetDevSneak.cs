@@ -103,10 +103,10 @@ namespace BuildingEscape.EditorTools
 
             // ---- the vendor's greeting
             var chat = vendor.GetComponent<VendorChat>();
-            SneakCheck("dock: the vendor has a chat bubble", chat != null && chat.lines != null && chat.lines.Length > 0 && chat.lines[0] == "Shocked you made it back");
+            SneakCheck("dock: the vendor has a chat bubble, and his first line is the greeting", chat != null && chat.lines != null && chat.lines.Length > 0 && chat.lines[0] == CustodyRules.GreetingLine);
             player.TeleportTo(new Vector3(ent.x, 1.1f, counter.z - 3.0f), player.transform.rotation); rb.linearVelocity = Vector3.zero;
             yield return new WaitForSeconds(0.9f);
-            SneakCheck("dock: walking up to him opens the bubble", chat && chat.Visible && chat.Text == "Shocked you made it back", chat ? $"(visible {chat.Visible}, \"{chat.Text}\")" : "");
+            SneakCheck("dock: walking up to him opens the bubble", chat && chat.Visible && chat.Text == CustodyRules.GreetingLine, chat ? $"(visible {chat.Visible}, \"{chat.Text}\")" : "");
             // a real screen capture (the bubble is drawn by the GUI, not by a camera)
             yield return new WaitForSeconds(chat.showSeconds + 1.0f);
             SneakCheck("dock: it fades after a few seconds", chat && !chat.Visible);
@@ -125,15 +125,21 @@ namespace BuildingEscape.EditorTools
                 var ctrl = player.GetComponent<MeleeController>();
                 var meleeHit = typeof(MeleeController).GetMethod("Hit", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
                 var spec = MeleeWeapon.Specs[(int)MeleeWeapon.Kind.Crowbar];
-                void Swing()
+                // A swing goes where the crosshair points (Crosshair.SwingForward: the camera's aim, not the way the body faces), so the
+                // camera looks at the dummy as a player's would - or, for the miss, the other way.
+                void Swing(bool lookAway = false)
                 {
                     var to2 = dummy.transform.position - player.transform.position; to2.y = 0f;
                     player.TeleportTo(dummy.transform.position - to2.normalized * 1.2f + Vector3.up * 1.0f, player.transform.rotation);
                     player.transform.rotation = Quaternion.LookRotation(to2.normalized);
                     Physics.SyncTransforms();
+                    var focus = lookAway ? player.transform.position - to2.normalized * 5f + Vector3.up * 1.0f : dummy.transform.position + Vector3.up * 1.0f;
+                    AimCamera(Camera.main, player, focus);
                     meleeHit.Invoke(ctrl, new object[] { spec, MeleeWeapon.Kind.Crowbar });
                 }
                 float before = dummy.Health;
+                Swing(true);
+                SneakCheck("dock: a swing goes where the crosshair points: with the camera looking away it misses the dummy", Mathf.Approximately(dummy.Health, before), $"({before} -> {dummy.Health})");
                 Swing();
                 SneakCheck("dock: a hit takes health off the dummy", dummy.Health < before && Mathf.Approximately(before - dummy.Health, spec.damage), $"({before} -> {dummy.Health})");
                 // a picture of it half beaten up

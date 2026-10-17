@@ -37,6 +37,8 @@ namespace BuildingEscape.EditorTools
             DoorOpenersTest();
             GunTest();
             GuardShaftTest();
+            PewLootTest();
+            DemoRulesTest();
             HudUnitsTest();
             KeybindTest();
             string v = NetConst.BuildVersion;

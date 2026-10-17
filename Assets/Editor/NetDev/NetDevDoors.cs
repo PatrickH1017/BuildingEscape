@@ -160,7 +160,8 @@ namespace BuildingEscape.EditorTools
 
             int beams = 0;
             var partitions = floorRoot.Find("Interior/Partitions");
-            if (partitions) foreach (Transform t in partitions) if (t.name == "DoorHeader") beams++;
+            // (the beam over an ordinary doorway is "DoorHeader"; over the guard outpost's locked front door it is "LockHeader")
+            if (partitions) foreach (Transform t in partitions) if (t.name == "DoorHeader" || t.name == "LockHeader") beams++;
             DoorCheck("doors: one door under every doorway beam", dm.Count == beams, $"({dm.Count} doors, {beams} beams)");
             int shut = 0;
             foreach (var d in dm.Doors) if (d.IsShut && d.BlockerEnabled) shut++;
@@ -297,12 +298,19 @@ namespace BuildingEscape.EditorTools
                 DoorCheck("aim: an item behind a shut door is not targeted through it", a.Kind == AimKind.Door, $"({a.Kind})");
                 Destroy(nut);
 
-                // too far away to work the door
+                // Just out of reach: nothing is targeted and the reticle goes grey (TooFar). The aim ray ends 1.2 m past the player's reach
+                // (AimMath.EndT), so that is as far away as "too far" can be told.
+                player.TeleportTo(door.Centre + across * 3.0f + Vector3.up * 1.1f, player.transform.rotation); rb.linearVelocity = Vector3.zero;
+                yield return new WaitForFixedUpdate();
+                Physics.SyncTransforms();
+                a = Look(doorMid);
+                DoorCheck("aim: pointing at a door just out of reach targets nothing and says too far", a.Kind != AimKind.Door && a.TooFar, $"({a.Kind}, tooFar {a.TooFar})");
+                // Much farther away the ray does not reach the door at all: nothing is targeted.
                 player.TeleportTo(door.Centre + across * 5.5f + Vector3.up * 1.1f, player.transform.rotation); rb.linearVelocity = Vector3.zero;
                 yield return new WaitForFixedUpdate();
                 Physics.SyncTransforms();
                 a = Look(doorMid);
-                DoorCheck("aim: pointing at a door from far away targets nothing and says too far", a.Kind != AimKind.Door && a.TooFar, $"({a.Kind}, tooFar {a.TooFar})");
+                DoorCheck("aim: pointing at a door from far away targets nothing", a.Kind != AimKind.Door, $"({a.Kind}, tooFar {a.TooFar})");
 
                 // the swing goes the way the crosshair does: a flat unit vector, in front of the player
                 var sw = Crosshair.SwingForward(player.transform);

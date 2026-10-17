@@ -371,10 +371,15 @@ namespace BuildingEscape.EditorTools
             if (role == "c2" && MeleeWeapon.Available)
             {
                 var g = FirstGuard();
-                Teleport(g.transform.position + new Vector3(1.4f, 0.5f, 0f));
-                yield return Settle(1.5f);
-                g = NetIds.Get<GuardAI>(g.NetId);
-                g.WeaponHit(4f, Mine.gameObject);
+                for (int attempt = 0; attempt < 4; attempt++)       // (the guard walks on while the player waits: stand next to where he is now and swing at once; the host judges the distance)
+                {
+                    Teleport(g.transform.position + new Vector3(1.4f, 0.5f, 0f));
+                    yield return Settle(0.5f);
+                    g = NetIds.Get<GuardAI>(g.NetId);
+                    g.WeaponHit(4f, Mine.gameObject);
+                    yield return Settle(0.8f);
+                    if (g.State == GuardState.Stunned) break;
+                }
                 QaSignal("hit_id", g.NetId.ToString());
             }
             if (MeleeWeapon.Available)
@@ -484,11 +489,11 @@ namespace BuildingEscape.EditorTools
                 hm.CallBackup(FirstGuard());
                 yield return Settle(1.2f);
                 var gen = tm.generator;
-                QaSignal("guest_open", gen.GuestDoorOpen ? "1" : "0");
+                QaSignal("guest_open", gen.EntryDoorMask != 0 ? "1" : "0");     // (backup comes out of the guards' elevator or a stairwell)
             }
             yield return QaWait("guest_open", 60);
             yield return Settle(1.5f);
-            if (!host) Check("the guest elevator door opened on my machine", FindFirstObjectByType<FloorGenerator>().GuestDoorOpen);
+            if (!host) Check("a backup door (the guards' elevator or a stairwell) opened on my machine", FindFirstObjectByType<FloorGenerator>().EntryDoorMask != 0);
             int before2 = int.Parse(QaRead("guards_before"));
             Check("backup guards exist on my machine", GuardAI.All.Count >= before2 + 1, $"guards {before2} -> {GuardAI.All.Count}");
             yield return Barrier("backup", Players);
@@ -624,7 +629,9 @@ namespace BuildingEscape.EditorTools
             Teleport(hidden.transform.position + new Vector3((role == "host" ? -1.5f : role == "c1" ? -0.5f : role == "c3" ? 0.5f : 1.5f), 0.4f, 0f));
             yield return Settle(2f);
             yield return Barrier("hidden_in", remaining);
-            if (role == "c1") RunSync.Instance.RequestPanel(1);
+            // the demo's hidden elevator does not go to the boss floor (TowerRules.DemoLastFloor): the host's test hook does, so the boss logic is still tested
+            if (TowerRules.Beyond(TowerRules.BossFloor)) { if (host) tm.GoToLevel(TowerRules.BossFloor); }
+            else if (role == "c1") RunSync.Instance.RequestPanel(1);
             yield return new WaitUntil(() => tm.Loading || hm.Floor == 13);
             yield return FloorReady(13, 120);
             int bosses = 0; foreach (var g in GuardAI.All) if (g && g.IsBoss) bosses++;

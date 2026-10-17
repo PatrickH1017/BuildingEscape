@@ -13,7 +13,7 @@ namespace BuildingEscape
         public int noteSafeFloor;
         /// <summary>Does the note give the safe's code (otherwise it only names the room)?</summary>
         public bool noteGivesCode;
-        /// <summary>Weapons, as <see cref="MeleeWeapon.Kind"/> numbers (0 crowbar, 1 bat, 2 hatchet).</summary>
+        /// <summary>Weapons, as <see cref="MeleeWeapon.Kind"/> numbers (0 crowbar, 1 bat, 2 hatchet) or <see cref="OutpostLoot.PewKind"/> (3, the pistol).</summary>
         public readonly List<int> weapons = new List<int>();
         /// <summary>Small valuables, as <see cref="OutpostValuable"/> numbers, and what each is worth.</summary>
         public readonly List<int> valuableKinds = new List<int>();
@@ -28,11 +28,16 @@ namespace BuildingEscape
     /// What a guard outpost holds, decided from the run's seed and the floor alone (so every machine fills the same outpost the same way).
     /// Not every outpost has everything: the note exists only where a safe's note was placed (<see cref="SafeRules.NoteFor"/>), and the
     /// weapons and the valuables are rolled. Higher floors have better weapons (a hatchet needs the fourth floor), more of them, and
-    /// valuables worth more (they follow the floor's quota).
+    /// valuables worth more (they follow the floor's quota). **The outpost of floor <see cref="PewFloor"/> always holds the pew pistol**
+    /// (the owner's request, 2026-10-16: the guards are armed from that floor, so the players get a gun there, 100 % of the time).
     /// </summary>
     public static class OutpostLoot
     {
         public const int CrowbarKind = 0, BatKind = 1, HatchetKind = 2;
+        /// <summary>The pew pistol in a stash's weapon list (not a melee weapon: it is made by <c>RangedWeapon.Create</c>).</summary>
+        public const int PewKind = 3;
+        /// <summary>The floor whose outpost always holds a pew (the first floor with armed guards, <see cref="ArmedGuards.DefaultFirstArmedFloor"/>).</summary>
+        public const int PewFloor = ArmedGuards.DefaultFirstArmedFloor;
         /// <summary>The most things one outpost can hold (the planner makes this many places for them).</summary>
         public const int MaxItems = 6;
         public const int MaxWeapons = 2, MaxValuables = 3;
@@ -74,7 +79,7 @@ namespace BuildingEscape
             value = Math.Max(25, (int)(Math.Round(ValuableUnit(floor) * spread * kindFactor / 5.0) * 5.0));
         }
 
-        public static string WeaponName(int kind) => kind == BatKind ? "Baseball Bat" : kind == HatchetKind ? "Hatchet" : "Crowbar";
+        public static string WeaponName(int kind) => kind == PewKind ? "Pew" : kind == BatKind ? "Baseball Bat" : kind == HatchetKind ? "Hatchet" : "Crowbar";
 
         /// <summary>What the outpost on this floor holds.</summary>
         public static OutpostStash Roll(int runSeed, int floor)
@@ -121,7 +126,10 @@ namespace BuildingEscape
                 }
             }
 
-            while (stash.ItemCount > MaxItems) stash.valuableKinds.RemoveAt(stash.valuableKinds.Count - 1);   // (cannot happen: 1 + 2 + 3 = 6)
+            // the pistol: always, and first, so it is the first weapon put on a desk (a valuable is dropped before it ever is)
+            if (floor == PewFloor) stash.weapons.Insert(0, PewKind);
+
+            while (stash.ItemCount > MaxItems) stash.valuableKinds.RemoveAt(stash.valuableKinds.Count - 1);   // (1 + 2 + 3 = 6; with the pistol on floor 4 a valuable may go)
             while (stash.valuableValues.Count > stash.valuableKinds.Count) stash.valuableValues.RemoveAt(stash.valuableValues.Count - 1);
             return stash;
         }

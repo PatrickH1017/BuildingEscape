@@ -131,7 +131,7 @@ namespace BuildingEscape
             reloading || (seesTarget && distance >= minRange && distance <= maxRange);
     }
 
-    /// <summary>Which guards carry a gun. Nobody does in the game today: it is switched on from the test menu until the owner picks the floor.</summary>
+    /// <summary>Which guards carry a gun: those made on the first armed floor (4, see <see cref="ArmedGuards"/>) and above; the test menu can arm them everywhere.</summary>
     public static class ArmedRules
     {
         /// <summary>"No floor": nobody is armed by the floor rule.</summary>

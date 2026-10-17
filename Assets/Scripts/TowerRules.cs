@@ -29,6 +29,25 @@ namespace BuildingEscape
             return (int)(System.Math.Round(FirstQuota * growth / 100.0) * 100.0);
         }
 
+        /// <summary>
+        /// The demo: the tower stops here for now. The owner, 2026-10-16: "after the 4th floor players cannot continue to the 5th floor
+        /// basically making this a demo up to the 4th floor (the full game will remove this limitation)". The service elevator goes no
+        /// higher than this floor and the panel keeps the floors above it dark. To remove the limit, set this to <see cref="BossFloor"/>.
+        /// </summary>
+        public const int DemoLastFloor = 4;
+
+        /// <summary>Is <paramref name="level"/> past the end of the demo (the elevator takes nobody there)?</summary>
+        public static bool Beyond(int level, int lastFloor = DemoLastFloor) => lastFloor < BossFloor && level > lastFloor;
+
+        /// <summary>Is this the last floor of the demo?</summary>
+        public static bool IsDemoEnd(int level, int lastFloor = DemoLastFloor) => lastFloor < BossFloor && level > 0 && level == lastFloor;
+
+        /// <summary>How many stops (the docks and the floors) the tower has as far as the player is told: the demo's, or all of them without the limit.</summary>
+        public static int DemoStops(int levels, int lastFloor = DemoLastFloor) => lastFloor < BossFloor ? System.Math.Min(levels, lastFloor + 1) : levels;
+
+        /// <summary>The demo is over: the next floor to climb to (<paramref name="resume"/>) is past the end, so the docks have nothing left to climb to.</summary>
+        public static bool DemoOver(int resume, int lastFloor = DemoLastFloor) => Beyond(resume, lastFloor);
+
         public static bool IsDocks(int level) => level <= 0;
         public static bool IsBoss(int level) => level == BossFloor;
 
@@ -40,13 +59,16 @@ namespace BuildingEscape
         /// <summary>
         /// Where the service elevator goes when it goes up from <paramref name="level"/>, or -1 if it cannot:
         /// not on the boss floor, not from the end of a group, and not before the floor's quota is met.
-        /// From the docks it resumes at <paramref name="resume"/> (the next unfinished floor).
+        /// From the docks it resumes at <paramref name="resume"/> (the next unfinished floor). Nowhere above the demo's last floor
+        /// (<see cref="DemoLastFloor"/>): from floor 4 there is no way up, and once it is finished the docks have no floor to go up to.
         /// </summary>
-        public static int UpFrom(int level, bool floorComplete, int resume)
+        public static int UpFrom(int level, bool floorComplete, int resume, int lastFloor = DemoLastFloor)
         {
-            if (IsDocks(level)) return resume;
-            if (IsBoss(level) || IsGroupEnd(level)) return -1;
-            return floorComplete ? level + 1 : -1;
+            int to;
+            if (IsDocks(level)) to = resume;
+            else if (IsBoss(level) || IsGroupEnd(level)) return -1;
+            else to = floorComplete ? level + 1 : -1;
+            return Beyond(to, lastFloor) ? -1 : to;
         }
 
         /// <summary>Down always returns to the Loading Docks (not from the docks, not from the boss floor).</summary>

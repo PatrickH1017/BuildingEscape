@@ -8,8 +8,10 @@ namespace BuildingEscape
     /// (it starts by itself, the trigger of an empty gun only clicks). A bullet goes from the muzzle to wherever the crosshair points; it
     /// stops at the first wall, desk or door, knocks a guard down for good in two hits, and makes a loud noise that guards come to look at.
     ///
-    /// Not networked yet: the pew only comes from the test menu (which is off in a networked run), so in a networked run this does nothing.
-    /// Added to every player by WobblyPlayer, like MeleeController.
+    /// In a networked run the shooter's machine shows its own flash, tracer and sound at once and tells the host what it fired
+    /// (<see cref="Net.RunSync.RequestGunShot"/>); the HOST traces the bullet, decides what it hit and tells everybody else where it ended, and
+    /// every other machine shows the shot in the shooter's hand (<see cref="ShowRemoteShot"/>) - a teammate's pew is in his hand, the arm
+    /// raised the way he faces, on every machine. Added to every player by WobblyPlayer, like MeleeController.
     /// </summary>
     public sealed class GunController : MonoBehaviour
     {
@@ -21,6 +23,8 @@ namespace BuildingEscape
         public static bool LocalAimsAtFoe { get; private set; }
         /// <summary>Bullets this player has fired (for the tests).</summary>
         public int ShotsFired { get; private set; }
+        /// <summary>Shots of this player's gun that another machine fired and this one showed (a networked run; for the tests).</summary>
+        public int ShotsSeen { get; private set; }
         /// <summary>Where the last bullet started, which way it went and what it hit (for the tests).</summary>
         public Vector3 LastMuzzle { get; private set; }
         public Vector3 LastDirection { get; private set; }
@@ -36,6 +40,9 @@ namespace BuildingEscape
         HeldGun held;
         int reloadStep = 99;
         Vector3 lastAim;
+        // a teammate's gun: where his last bullet went (his arm follows it for a moment, then points the way he faces)
+        Vector3 remoteAim;
+        float remoteAimUntil;
 
         void Awake()
         {
@@ -58,7 +65,6 @@ namespace BuildingEscape
             RangedWeapon wanted = null;
             var eq = pack.Equipped;
             if (eq) eq.TryGetComponent(out wanted);
-            if (Net.NetSession.Online) wanted = null;                   // (not networked yet: see the summary)
             if (wanted != gun && !ChangeTo(wanted)) return;
             if (!gun) { if (pack.Viewed) LocalAimsAtFoe = false; return; }
 
@@ -78,6 +84,7 @@ namespace BuildingEscape
                 lastAim = aimPoint;
                 PoseArm(mag, aimPoint, BodyFree());
             }
+            else PoseRemote();
             if (!usable) return;
 
             if (Input.GetKeyDown(KeyCode.R) && mag.StartReload(now)) reloadStep = 0;
@@ -109,8 +116,36 @@ namespace BuildingEscape
             gun = next;
             reloadStep = next.Magazine.Reloading ? 0 : 99;
             GunSounds.Prewarm();
-            GunSounds.Draw(transform.position, true);
+            GunSounds.Draw(transform.position, pack.Viewed);
             return true;
+        }
+
+        /// <summary>A teammate's gun: raised at where he last shot, or the way he faces; lowered when his body is not free.</summary>
+        void PoseRemote()
+        {
+            if (!held) return;
+            if (!BodyFree()) { held.Raise = 0f; return; }
+            var aim = Time.time < remoteAimUntil ? remoteAim : transform.forward;
+            if (aim.sqrMagnitude < 1e-4f) aim = transform.forward;
+            held.AimDirection = aim.normalized;
+            held.Raise = 1f;
+        }
+
+        /// <summary>
+        /// Another machine's player fired and the host says the bullet ended at <paramref name="end"/> (<paramref name="result"/>: 0 flew off, 1 a wall or
+        /// a desk, 2 a guard, 3 a guard now down for good, 4 the training dummy): the flash, the tracer, the shot and what it hit, from his gun.
+        /// </summary>
+        public void ShowRemoteShot(Vector3 end, byte result)
+        {
+            if (!gun) return;                                            // (his gun is not drawn on this machine yet)
+            ShotsSeen++;
+            var muzzle = held ? held.Muzzle.position : transform.position + Vector3.up * 0.3f + transform.forward * 0.6f;
+            GunFx.Get().Shot(muzzle, end, result != 0, held ? held.Grip.right : transform.right);
+            GunSounds.Shot(muzzle, false);
+            if (result >= 2) GameAudio.BulletHit(result == 3, end);
+            if (held) held.Kick();
+            remoteAim = end - muzzle;
+            remoteAimUntil = Time.time + 1f;
         }
 
         // ------------------------------------------------------------------ aiming
@@ -209,12 +244,19 @@ namespace BuildingEscape
 
             var imp = Ballistics.Trace(muzzle, dir, spec.range, transform, false);
             LastMuzzle = muzzle; LastDirection = dir; LastImpact = imp;
-            Land(imp, dir, spec);
+            bool synced = Net.NetRole.Synced;
+            if (!synced) Land(imp, dir, spec);                           // (in a networked run the host decides what the bullet does)
 
             GunFx.Get().Shot(muzzle, imp.point, imp.hit, held ? held.Grip.right : transform.right);
             GunSounds.Shot(muzzle, true);
-            NoiseBus.Emit(muzzle, spec.noise, gameObject);               // every guard within earshot comes to look
             if (held) held.Kick();
+            if (synced)
+            {
+                // the same hit sound at once (a guess: the host may disagree), then the host does the rest and tells everybody else
+                if (imp.hit && ((imp.guard != null && !imp.guard.Dead) || (imp.dummy != null && !imp.dummy.Down))) GameAudio.BulletHit(false, imp.point);
+                Net.RunSync.Instance.RequestGunShot(muzzle, dir, imp.guard != null ? imp.guard.NetId : -1);
+            }
+            else NoiseBus.Emit(muzzle, spec.noise, gameObject);          // every guard within earshot comes to look
         }
 
         /// <summary>What the bullet does where it lands.</summary>
