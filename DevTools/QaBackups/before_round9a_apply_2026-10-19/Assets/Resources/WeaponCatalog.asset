@@ -1,0 +1,32 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a6f9109d59da7f346aefc8b2b65a7d36, type: 3}
+  m_Name: WeaponCatalog
+  m_EditorClassIdentifier: 
+  crowbar: {fileID: 1053601135882890, guid: e836a075ea7fb4948a5ac07f447e206d, type: 3}
+  bat: {fileID: 1079387494257586, guid: 27af943660497544a943e5dc2595eea7, type: 3}
+  hatchet: {fileID: 1295617296399724, guid: c59e08db54612244384ff025bbac7d3f, type: 3}
+  pew: {fileID: 1508934165754910, guid: 68317e2c4c57a6e45be7063240f91cbb, type: 3}
+  pewBullet: {fileID: 1738196236741032, guid: 9316af0d181af92458371185644b6a72, type: 3}
+  slash: {fileID: 7400000, guid: 1e17815a8d3d5574cb14f3cefd383fe4, type: 2}
+  silencer: {fileID: 1516053780134580, guid: 0f491f9de5dd9b04d84663b053e837cc, type: 3}
+  crowbarTurn: {x: 0, y: 0, z: 0}
+  batTurn: {x: 0, y: 0, z: 0}
+  hatchetTurn: {x: 0, y: 0, z: 0}
+  pewTurn: {x: 0, y: 90, z: 0}
+  crowbarGrip: {x: 0, y: -0.31764424, z: -0.08922233}
+  batGrip: {x: -0.0000000055879354, y: 0.13891439, z: 0.0000000055879354}
+  hatchetGrip: {x: 0, y: -0.22837116, z: -0.0153270755}
+  pewMuzzleFace: {x: 0, y: 0.07906718, z: 0.2959765}
+  silencerAt: {x: 0, y: 0.07906718, z: 0.3650455}
+  silencerTurn: {x: 0, y: 0, z: 0}
+  modelsVersion: 1

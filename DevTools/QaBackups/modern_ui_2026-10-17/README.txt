@@ -1,0 +1,1 @@
+The 'modern' flat UI the owner tried on 2026-10-17 (rejected: 'not our vibe'). Kept only for reference. The cartoon UI is back in the project; the cleaner cartoon version is being worked on separately.

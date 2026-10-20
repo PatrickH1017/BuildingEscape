@@ -15,6 +15,11 @@ namespace BuildingEscape
         public const int BossFloor = 13;
         /// <summary>The quota on floor 1: the value of loot the team must drop in the elevator.</summary>
         public const int FirstQuota = 4300;
+        /// <summary>
+        /// How much higher the quotas are than the numbers the loot was calibrated on (the owner, 2026-10-18, after the first playtests: "Quotas should be higher"). The loot on a floor, the scanner's tiers
+        /// and <see cref="Valuables.Scale"/> all stay as they were, calibrated on <see cref="FirstQuota"/>; only what the team has to bank (and half of it in a floor's safe) is multiplied.
+        /// </summary>
+        public const double QuotaMultiplier = 2.0;
 
         /// <summary>
         /// The quota for an office floor: $4,300 on floor 1, then rising with the floor (loot is worth more and
@@ -26,7 +31,7 @@ namespace BuildingEscape
             double f = level;
             double share = 0.35 + 0.25 * System.Math.Min(1.0, System.Math.Max(0.0, (f - 1.0) / 9.0));
             double growth = (8.0 + f) * (1.0 + 0.12 * f) * share / (9.0 * 1.12 * 0.35); // 1.0 on floor 1
-            return (int)(System.Math.Round(FirstQuota * growth / 100.0) * 100.0);
+            return (int)(System.Math.Round(FirstQuota * growth * QuotaMultiplier / 100.0) * 100.0);
         }
 
         /// <summary>
@@ -71,8 +76,12 @@ namespace BuildingEscape
             return Beyond(to, lastFloor) ? -1 : to;
         }
 
-        /// <summary>Down always returns to the Loading Docks (not from the docks, not from the boss floor).</summary>
-        public static int DownFrom(int level) => IsDocks(level) || IsBoss(level) ? -1 : 0;
+        /// <summary>
+        /// Where the service elevator goes when it goes down from <paramref name="level"/>, or -1 if it cannot: always the Loading Docks, never from the
+        /// docks or the boss floor, and not before the floor's quota is met (<paramref name="floorComplete"/>). The owner, 2026-10-17: "Players should not
+        /// be able to go back to the basement until quota is met".
+        /// </summary>
+        public static int DownFrom(int level, bool floorComplete) => IsDocks(level) || IsBoss(level) || !floorComplete ? -1 : 0;
 
         /// <summary>The floor to come back to after leaving <paramref name="level"/> for the docks.</summary>
         public static int ResumeAfterLeaving(int level, bool floorComplete) => floorComplete ? level + 1 : level;

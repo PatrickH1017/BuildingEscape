@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: f5a57386a07fe4b4bbc602c91018769f
+timeCreated: 1579572134
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 43095794590452458
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 159492
+  packageName: POLYGON - Office Pack - Art by Synty
+  packageVersion: 1.9.4
+  assetPath: Assets/Synty/PolygonOffice/Models/Convex/SM_Prop_Darkboard_01_Convex.asset
+  uploadId: 976702

@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 2a1cfed6602971844a3032e03f53b477
+timeCreated: 1579556390
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 43629211536052976
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 159492
+  packageName: POLYGON - Office Pack - Art by Synty
+  packageVersion: 1.9.4
+  assetPath: Assets/Synty/PolygonOffice/Models/Convex/SM_Prop_Headphones_01_Convex.asset
+  uploadId: 976702

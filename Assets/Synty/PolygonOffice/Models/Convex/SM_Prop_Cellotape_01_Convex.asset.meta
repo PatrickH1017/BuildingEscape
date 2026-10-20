@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 12f8c689027f0f14e8822dea45fe20da
+timeCreated: 1579556459
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 43909276128466698
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 159492
+  packageName: POLYGON - Office Pack - Art by Synty
+  packageVersion: 1.9.4
+  assetPath: Assets/Synty/PolygonOffice/Models/Convex/SM_Prop_Cellotape_01_Convex.asset
+  uploadId: 976702

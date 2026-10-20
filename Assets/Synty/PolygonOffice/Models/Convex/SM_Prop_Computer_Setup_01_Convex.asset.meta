@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 9aeaa458fa1fb71498a01ed1b69f09d8
+timeCreated: 1579556310
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 43323088845884438
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 159492
+  packageName: POLYGON - Office Pack - Art by Synty
+  packageVersion: 1.9.4
+  assetPath: Assets/Synty/PolygonOffice/Models/Convex/SM_Prop_Computer_Setup_01_Convex.asset
+  uploadId: 976702

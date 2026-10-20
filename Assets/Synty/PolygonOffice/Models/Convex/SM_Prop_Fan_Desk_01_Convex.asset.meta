@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 2763039e293e92649a1920d1bf8c2edc
+timeCreated: 1579556270
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 43821754141031954
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 159492
+  packageName: POLYGON - Office Pack - Art by Synty
+  packageVersion: 1.9.4
+  assetPath: Assets/Synty/PolygonOffice/Models/Convex/SM_Prop_Fan_Desk_01_Convex.asset
+  uploadId: 976702

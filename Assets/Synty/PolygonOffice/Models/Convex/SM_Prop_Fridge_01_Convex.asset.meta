@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 81b65da37d64dd34eaa3d20a71d67984
+timeCreated: 1579571642
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 43578180367198534
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 159492
+  packageName: POLYGON - Office Pack - Art by Synty
+  packageVersion: 1.9.4
+  assetPath: Assets/Synty/PolygonOffice/Models/Convex/SM_Prop_Fridge_01_Convex.asset
+  uploadId: 976702

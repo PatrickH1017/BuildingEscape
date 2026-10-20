@@ -5,8 +5,8 @@ using UnityEngine;
 namespace BuildingEscape.EditorTools
 {
     /// <summary>
-    /// Creates Assets/Resources/OfficeCatalog.asset: one prefab for every prop in PropTable (the VNB Low-Poly Office
-    /// Set, the Office Essentials pack, the Pandazole kitchen props and the coffee shop pack). The room generator asks
+    /// Creates Assets/Resources/OfficeCatalog.asset: one prefab for every prop in PropTable (since 2026-10-17 night all from the Synty POLYGON
+    /// Office pack; before that the VNB Low-Poly Office Set, the Office Essentials pack, the Pandazole kitchen props and the coffee shop pack). The room generator asks
     /// the catalog for a prop by key, so the prefabs ship with the game even though nothing else references them.
     /// Runs by itself whenever the catalog is missing props that are in the project.
     /// </summary>
@@ -21,12 +21,16 @@ namespace BuildingEscape.EditorTools
             EditorApplication.delayCall += () =>
             {
                 var cat = AssetDatabase.LoadAssetAtPath<OfficeCatalog>(AssetPath);
+                if (!cat && System.IO.File.Exists(AssetPath)) return;      // (a catalog that exists but does not load: its script is not imported yet - rebuilding now would overwrite it with a blank one)
                 if (NeedsBuild(cat)) Build(false);
             };
         }
 
-        [MenuItem("Overtime Escape/Setup Office Pack", priority = 30)]
+        [MenuItem("Employees Take Revenge/Setup Office Pack", priority = 30)]
         static void Menu() => Build(true);
+
+        /// <summary>Batch entry point: <c>-executeMethod BuildingEscape.EditorTools.OfficeCatalogBuilder.BuildBatch</c> (the catalog is rebuilt, the Editor quits).</summary>
+        public static void BuildBatch() { AssetDatabase.Refresh(); Build(true); EditorApplication.Exit(0); }
 
         static GameObject Load(string path) => AssetDatabase.LoadAssetAtPath<GameObject>(path + ".prefab");
 

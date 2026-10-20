@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: bb3e8eca15565994eac0616efca71d1d
+timeCreated: 1579571217
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 43378435807510204
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 159492
+  packageName: POLYGON - Office Pack - Art by Synty
+  packageVersion: 1.9.4
+  assetPath: Assets/Synty/PolygonOffice/Models/Convex/SM_Prop_CoffeeTable_02_Convex.asset
+  uploadId: 976702

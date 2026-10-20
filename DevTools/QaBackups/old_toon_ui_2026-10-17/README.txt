@@ -1,0 +1,1 @@
+The game's code exactly as it was with the original toon-style UI (2026-10-17 23:40), the Vendor already restyled to match it. To go back to that UI, copy Assets\Scripts back over the project (the build Playtest_2026-10-17_OldUI was made from this state).

@@ -30,6 +30,8 @@ namespace BuildingEscape
         /// <summary>This floor has a floor safe (see <see cref="SafeRules"/>), and the number that picks the room it stands in.</summary>
         public bool hasSafe;
         public uint safeRoll;
+        /// <summary>How many safes the floor has (see <see cref="SafeRules.SafeCount"/>); the first goes where the only safe always went, the others into other rooms.</summary>
+        public int safeCount;
     }
 
     /// <summary>One 18 m x 18 m cell while it is being planned.</summary>
@@ -41,7 +43,11 @@ namespace BuildingEscape
         /// <summary>Quarter turns of the plan frame (lets one corridor-along-x plan serve both directions).</summary>
         public int rot;
         public string plan;
+        /// <summary>The random numbers of this cell: its planning and its furnishing share one sequence, the furnishing runs after every cell is planned (OfficePlanner.Core.cs).</summary>
+        public System.Random rng;
         public readonly List<RoomCtx> rooms = new List<RoomCtx>();
+        /// <summary>Two stacked rooms of one quadrant (6.4 x 3.1 m each), recorded while planning: where the restrooms can go.</summary>
+        public readonly List<RoomCtx[]> pairs = new List<RoomCtx[]>();
         public readonly List<Rc> keeps = new List<Rc>();
     }
 
@@ -91,13 +97,22 @@ namespace BuildingEscape
 
         void Run()
         {
+            // 1. plan every cell (rooms, walls, doorways, themes), 2. the break room and the restrooms every floor must have (OfficePlanner.Core.cs), 3. furnish every cell with the random
+            // numbers its own planning left off at: a floor is the same as before wherever the core rooms do not touch it
+            var cells = new List<CellCtx>();
             for (int c = 0; c < inp.cols; c++)
                 for (int r = 0; r < inp.rows; r++)
                 {
                     rng = new System.Random(Mix(inp.seed, c, r, 17));
-                    BuildCell(c, r);
+                    var cell = BuildCell(c, r);
+                    cell.rng = rng;
+                    cells.Add(cell);
                 }
+            EnsureRestrooms(cells);
+            EnsureBreakRoom(cells);
+            foreach (var cell in cells) { rng = cell.rng; FurnishCell(cell); }
             ValidateOutpostSlots();
+            PickRoles();                      // the executive suites and the server room (the safe goes into a suite first)
             PlaceSafe();
             MergeHideZones();
         }
@@ -221,7 +236,7 @@ namespace BuildingEscape
 
         // ------------------------------------------------------------------ cell dispatch
 
-        void BuildCell(int c, int r)
+        CellCtx BuildCell(int c, int r)
         {
             var cell = new CellCtx { c = c, r = r, ox = (c + 0.5f) * cs, oz = (r + 0.5f) * cs };
             cell.oN = r < inp.rows - 1 && inp.openN[c, r];
@@ -248,7 +263,7 @@ namespace BuildingEscape
                 else if (roll < 0.76) PlanHall(cell, null);
                 else PlanSplit(cell);
             }
-            FurnishCell(cell);
+            return cell;
         }
 
         static int ZoneTurns(int sx, int sz) => sx > 0 ? (sz > 0 ? 0 : 1) : (sz < 0 ? 2 : 3);
@@ -326,6 +341,7 @@ namespace BuildingEscape
                 specs.Add(new[] { mid + Thick / 2, Inner, A0, Inner });
             }
 
+            var madeRooms = new List<RoomCtx>();
             foreach (var s in specs)
             {
                 float a0 = s[0], a1 = s[1], b0 = s[2], b1 = s[3];
@@ -357,7 +373,9 @@ namespace BuildingEscape
                 room.SetTheme(small
                     ? Pick(new[] { "office", "storage", "copy", "server" }, new[] { 7, 2, 3, 2 })
                     : Pick(new[] { "office", "conference", "break", "storage", "lounge", "server", "training" }, new[] { 5, 3, 3, 1, 2, 1, 2 }));
+                madeRooms.Add(room);
             }
+            if (madeRooms.Count == 2) cell.pairs.Add(madeRooms.ToArray());          // (two stacked rooms: the restrooms are picked from these)
 
             float hx1 = sx * (Inner + 0.2f), vz1 = sz * (Inner + 0.2f);      // out to the middle of the outer wall
             WallRun(cell, true, sz * PM, sx * CH, hx1, gapsH);
@@ -577,9 +595,9 @@ namespace BuildingEscape
                         if (tx2 == 0f) { room.info.wx = wx; room.info.wz = wz; }
                     }
             }
-            else if (room.theme == "outpost")
+            else if (room.theme == "outpost" || room.theme == ThemeRestroom)
             {
-                room.info.wx = wb.Cx; room.info.wz = wb.Cz;      // (no patrol stops inside the guard outpost: the officers come from its elevator and leave)
+                room.info.wx = wb.Cx; room.info.wz = wb.Cz;      // (no patrol stops inside the guard outpost: the officers come from its elevator and leave; none in a restroom: its door never opens)
             }
             else if (room.FindFreeReach(rg, tx, tz, out var gx, out var gz, 0.8f) || room.FindFreeReach(rg, tx, tz, out gx, out gz, 0.55f))
             {

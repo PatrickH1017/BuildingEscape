@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 822970581a1f90747a9b8bc1e660c9ef
+timeCreated: 1579556288
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 43267242525213358
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 159492
+  packageName: POLYGON - Office Pack - Art by Synty
+  packageVersion: 1.9.4
+  assetPath: Assets/Synty/PolygonOffice/Models/Convex/SM_Prop_Joystick_02_Convex.asset
+  uploadId: 976702

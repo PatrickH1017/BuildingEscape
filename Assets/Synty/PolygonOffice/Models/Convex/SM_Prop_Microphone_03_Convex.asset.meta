@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: a718b2466c0c1164690655bbae664cbc
+timeCreated: 1579556419
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 43085413521708926
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 159492
+  packageName: POLYGON - Office Pack - Art by Synty
+  packageVersion: 1.9.4
+  assetPath: Assets/Synty/PolygonOffice/Models/Convex/SM_Prop_Microphone_03_Convex.asset
+  uploadId: 976702

@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 38b2933ec9184f346bc21f716acb7bc6
+timeCreated: 1579565731
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 43013114867488250
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 159492
+  packageName: POLYGON - Office Pack - Art by Synty
+  packageVersion: 1.9.4
+  assetPath: Assets/Synty/PolygonOffice/Models/Convex/SM_Bld_Window_Awning_Large_Down_01_Convex.asset
+  uploadId: 976702

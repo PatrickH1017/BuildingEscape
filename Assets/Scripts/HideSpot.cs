@@ -24,7 +24,7 @@ namespace BuildingEscape
 
         void Update()
         {
-            if (!inside || inside.InCustody || !Input.GetKeyDown(hideKey)) return;
+            if (!inside || inside.InCustody || OutpostUi.Open || !Input.GetKeyDown(hideKey)) return;
             hiding = !hiding;
             inside.IsHidden = hiding;
         }

@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: cee1f45f7f70de74aaf6f6d88e295c10
+timeCreated: 1579556415
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 43091869536513144
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 159492
+  packageName: POLYGON - Office Pack - Art by Synty
+  packageVersion: 1.9.4
+  assetPath: Assets/Synty/PolygonOffice/Models/Convex/SM_Prop_Jellybeans_01_Convex.asset
+  uploadId: 976702

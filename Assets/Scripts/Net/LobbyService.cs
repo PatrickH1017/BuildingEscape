@@ -102,7 +102,7 @@ namespace BuildingEscape.Net
                 if (SteamMatchmaking.GetLobbyData(Current, NetConst.KeyGame) != NetConst.GameTag)
                 {
                     Leave();
-                    done(false, "That lobby is not an Overtime Escape lobby.");
+                    done(false, "That lobby is not an Employees Take Revenge lobby.");
                     return;
                 }
                 SteamMatchmaking.SetLobbyMemberData(Current, NetConst.MemberReady, "0");
@@ -206,6 +206,14 @@ namespace BuildingEscape.Net
             if (!IsOwner) return;
             SteamMatchmaking.SetLobbyData(Current, NetConst.KeyState, NetConst.StateInRun);
             SteamMatchmaking.SetLobbyJoinable(Current, false);
+        }
+
+        /// <summary>The run is over and the party is back in the lobby: the owner opens it again (friends may join, the state says the lobby is open).</summary>
+        public void Unlock()
+        {
+            if (!IsOwner) return;
+            SteamMatchmaking.SetLobbyData(Current, NetConst.KeyState, NetConst.StateOpen);
+            SteamMatchmaking.SetLobbyJoinable(Current, true);
         }
 
         /// <summary>Sends this lobby to one friend (they get an in-game pop-up, or a Steam notification if not playing).</summary>

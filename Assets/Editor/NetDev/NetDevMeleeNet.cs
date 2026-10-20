@@ -53,11 +53,11 @@ namespace BuildingEscape.EditorTools
             float dist = clientPlayer && g ? Vector3.Distance(clientPlayer.transform.position, g.transform.position) : -1f;
             var cpack = clientPlayer ? clientPlayer.GetComponent<Backpack>() : null;
             MeleeCheck("host: the client's crowbar is in his hand here", cpack != null && cpack.Equipped != null && cpack.Equipped.GetComponent<MeleeWeapon>() != null);
-            MeleeCheck("host: the first hit stunned the guard", g != null && g.State == GuardState.Stunned && g.Hits == 1, $"(state {g?.State}, hits {g?.Hits}, the client was {dist:0.0} m away)");
+            MeleeCheck("host: the first blow knocked the guard over and did not count towards knocking him out", g != null && g.State == GuardState.Stunned && g.Hits == 0, $"(state {g?.State}, hits {g?.Hits}, the client was {dist:0.0} m away)");
             Signal("h_saw1");
             yield return WaitSig("c_hit2", 90);
             yield return new WaitForSeconds(1.0f);
-            MeleeCheck("host: a second hit counts too", g != null && g.Hits == 2, $"(hits {g?.Hits})");
+            MeleeCheck("host: a second blow does not count either, and he is still up to be hit", g != null && g.Hits == 0 && !g.Dead, $"(hits {g?.Hits})");
             Signal("h_done");
             yield return WaitSig("c_done", 60);
             Log($"[MeleeNet] host DONE fails={meleeFails}");

@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 435cf763983651548b35f373c3f3989f
+timeCreated: 1579572120
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 43558542184042180
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 159492
+  packageName: POLYGON - Office Pack - Art by Synty
+  packageVersion: 1.9.4
+  assetPath: Assets/Synty/PolygonOffice/Models/Convex/SM_Prop_Elevator_Button_02_Convex.asset
+  uploadId: 976702

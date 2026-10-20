@@ -31,7 +31,7 @@ namespace BuildingEscape.Net
         struct Sent
         {
             public Vector3 pos; public Quaternion rot;
-            public byte state, call, flags;
+            public byte kind, state, call, flags;
             public float time;
         }
 
@@ -89,10 +89,10 @@ namespace BuildingEscape.Net
                 }
                 else if (c is GuardAI g)
                 {
-                    kind = 1;
+                    kind = g.Loadout.Pack();                                    // (a guard: bit 0 set; his shield and the kind of gun he carries ride in the other bits)
                     state = (byte)g.State;
                     call = (byte)Mathf.RoundToInt(Mathf.Clamp01(g.CallProgress) * 255f);
-                    flags = (byte)((g.Dead ? 1 : 0) | (g.IsCalling ? 2 : 0) | (g.Armed ? 4 : 0));
+                    flags = (byte)((g.Dead ? 1 : 0) | (g.IsCalling ? 2 : 0) | (g.Armed ? 4 : 0) | (g.Eating ? 8 : 0));
                     speed = (byte)Mathf.Clamp(Mathf.RoundToInt(g.CurrentSpeed * 20f), 0, 255);
                 }
                 else continue;
@@ -102,10 +102,10 @@ namespace BuildingEscape.Net
                 if (sent.TryGetValue(kv.Key, out var s))
                 {
                     bool changed = (pos - s.pos).sqrMagnitude > 0.0004f || Quaternion.Angle(rot, s.rot) > 0.7f
-                                   || state != s.state || flags != s.flags || call != s.call;
+                                   || state != s.state || flags != s.flags || call != s.call || kind != s.kind;
                     if (!changed && now - s.time < RefreshInterval) continue;
                 }
-                sent[kv.Key] = new Sent { pos = pos, rot = rot, state = state, call = call, flags = flags, time = now };
+                sent[kv.Key] = new Sent { pos = pos, rot = rot, kind = kind, state = state, call = call, flags = flags, time = now };
                 pending.Add(new Entry
                 {
                     id = (ushort)kv.Key, kind = kind,
@@ -157,7 +157,7 @@ namespace BuildingEscape.Net
                     pp.placed = true;
                     pp.t.SetPositionAndRotation(pp.pos, pp.rot);
                 }
-                if (c is GuardAI g) g.NetApply((GuardState)state, (flags & 1) != 0, (flags & 2) != 0, call / 255f, speed / 20f, (flags & 4) != 0);
+                if (c is GuardAI g) g.NetApply((GuardState)state, (flags & 1) != 0, (flags & 2) != 0, call / 255f, speed / 20f, (flags & 4) != 0, (flags & 8) != 0, kind);
             }
         }
 

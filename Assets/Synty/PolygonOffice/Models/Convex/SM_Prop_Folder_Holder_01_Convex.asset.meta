@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: d77561dfc87ecff4bbcfe4ff9988ee8a
+timeCreated: 1579556467
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 43388305375951226
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 159492
+  packageName: POLYGON - Office Pack - Art by Synty
+  packageVersion: 1.9.4
+  assetPath: Assets/Synty/PolygonOffice/Models/Convex/SM_Prop_Folder_Holder_01_Convex.asset
+  uploadId: 976702

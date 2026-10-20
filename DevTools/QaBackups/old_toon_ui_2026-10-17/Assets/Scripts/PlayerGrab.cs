@@ -1,0 +1,149 @@
+using UnityEngine;
+
+namespace BuildingEscape
+{
+    /// <summary>
+    /// Grab/carry. Light items follow the hand; HeavyLoot only moves when enough
+    /// players hold it, and then it is pulled toward the average of the holders' hand points.
+    /// In a networked run the host decides who holds what (RunSync) and moves the object; every machine
+    /// applies the same grab / release so the carry state matches everywhere.
+    /// </summary>
+    public class PlayerGrab : MonoBehaviour
+    {
+        public Transform hand;
+        public float reach = 2.2f;
+        public LayerMask grabbable = ~0;
+        public float carryForce = 40f;
+        [Tooltip("How hard a carried thing is held back from overshooting its hand (the spring is damped about as much as it can be without being sluggish).")]
+        public float carryDamping = 12f;
+        /// <summary>The most a carried thing is accelerated towards its hand (m/s^2): a far-off piece is not shot at its carrier.</summary>
+        public const float MaxCarryAcceleration = 70f;
+        public float throwForce = 9f;
+        public KeyCode grabKey = KeyCode.Q; // E now puts things in the backpack
+        public KeyCode throwKey = KeyCode.Mouse0;
+
+        public Rigidbody Held { get; private set; }
+        HeavyLoot heldLoot;
+        Vector3 lastTarget;
+        bool haveLastTarget;
+
+        /// <summary>Where this player holds what they carry: the hand point in front of them.</summary>
+        public Vector3 HandPoint => hand ? hand.position : transform.position + transform.forward;
+
+        Pickup heldPickup;
+        WobblyPlayer wob;
+
+        void Awake()
+        {
+            grabKey = KeyCode.Q; // overrides the old value saved in the scene
+            TryGetComponent(out wob);
+        }
+
+        void Update()
+        {
+            if (!wob && !TryGetComponent(out wob)) return;
+            if (!Net.NetPlayer.IsLocalPlayer(wob)) return; // teammates are driven by their own machine
+            if (Backpack.UiOpen || Vendor.ShopOpen || EscapeMenu.Open || ElevatorPanel.Open || OutpostUi.Open) return;
+            if (wob.InCustody) return; // pinned or busted
+            if (Input.GetKeyDown(grabKey)) { if (Held) AskRelease(false); else TryGrab(); }
+            if (Held && Input.GetKeyDown(throwKey)) AskRelease(true);
+        }
+
+        void FixedUpdate()
+        {
+            if (!Held) { haveLastTarget = false; return; }
+            if (Net.NetRole.IsRemoteClient) return; // the host moves what is carried
+            if (heldLoot && !heldLoot.IsLiftable)
+            {
+                // Not enough hands: you just drag your feet. It stays where it is (and falls if it was lifted).
+                Held.useGravity = true;
+                haveLastTarget = false;
+                return;
+            }
+            // A spring to the hand that also follows the hand's own motion (so a piece does not trail behind a walking carrier or swing like a
+            // pendulum) and is damped about as much as it can be without being sluggish. Nothing pulls it down while it is carried (it would sag
+            // below the hand by the spring's stretch). Two or three carriers add up: the piece goes to the middle of their hands.
+            var target = HandPoint;
+            var targetVelocity = haveLastTarget ? Vector3.ClampMagnitude((target - lastTarget) / Time.fixedDeltaTime, 8f) : Vector3.zero;
+            lastTarget = target; haveLastTarget = true;
+            Held.useGravity = false;
+            var acceleration = (target - Held.position) * carryForce + (targetVelocity - Held.linearVelocity) * carryDamping;
+            Held.AddForce(Vector3.ClampMagnitude(acceleration, MaxCarryAcceleration), ForceMode.Acceleration);
+        }
+
+        void TryGrab()
+        {
+            Rigidbody rb = null;
+            var aimed = Crosshair.Aim;                       // what the crosshair is on first, then whatever is nearest
+            var p = aimed.Kind == AimKind.Pickup ? aimed.Pickup : Pickup.FindNearest(transform, reach);
+            if (p) p.TryGetComponent(out rb);
+            if (!rb)
+            {
+                var origin = transform.position + Vector3.up * 0.3f;
+                if (!Physics.SphereCast(origin, 0.6f, transform.forward, out var hit, reach, grabbable)) return;
+                rb = hit.rigidbody;
+                if (!rb || rb.TryGetComponent<WobblyPlayer>(out _)) return;      // never pick up another player
+                rb.TryGetComponent(out p);
+            }
+            if (Net.NetRole.Synced)
+            {
+                if (p) Net.RunSync.Instance.RequestGrab(p); // the host checks and tells everyone
+                return;
+            }
+            Attach(rb, p);
+        }
+
+        void Attach(Rigidbody rb, Pickup p)
+        {
+            Held = rb;
+            heldPickup = p;
+            if (heldPickup) heldPickup.IsHeld = true;
+            heldLoot = rb.TryGetComponent(out HeavyLoot loot) ? loot : null;
+            if (heldLoot) heldLoot.AddHolder(this);
+        }
+
+        /// <summary>The host said this player now holds the item (every machine applies it).</summary>
+        public void ApplyGrab(Pickup p)
+        {
+            if (!p || Held || !p.TryGetComponent(out Rigidbody rb)) return;
+            Attach(rb, p);
+        }
+
+        void AskRelease(bool thrown)
+        {
+            if (Net.NetRole.Synced) Net.RunSync.Instance.RequestRelease(thrown);
+            else Release(thrown);
+        }
+
+        /// <summary>Where the throw goes (the host calculates it from the player's facing).</summary>
+        public Vector3 ThrowImpulse()
+        {
+            float multiplier = Held && Held.TryGetComponent(out Throwable t) ? t.throwMultiplier : 1f;
+            return (transform.forward + Vector3.up * 0.25f) * throwForce * multiplier;
+        }
+
+        /// <summary>Let go now, on this machine only (offline play, or tidy-up when the player goes away).</summary>
+        public void Release(bool thrown)
+        {
+            if (!Held) return;
+            ApplyRelease(thrown, thrown ? ThrowImpulse() : Vector3.zero);
+        }
+
+        /// <summary>The host said this player let go (and with what impulse, if thrown). Every machine applies it.</summary>
+        public void ApplyRelease(bool thrown, Vector3 impulse)
+        {
+            if (!Held) return;
+            Held.useGravity = true;
+            if (heldLoot) heldLoot.RemoveHolder(this, thrown);
+            if (thrown && (!heldLoot || heldLoot.Holders == 0))
+            {
+                if (Net.NetRole.Simulates) Held.AddForce(impulse, ForceMode.VelocityChange);
+                if (Held.TryGetComponent(out Throwable thrownItem)) thrownItem.OnThrown(gameObject);
+            }
+            if (heldPickup) heldPickup.IsHeld = heldLoot && heldLoot.Holders > 0;
+            Held = null; heldLoot = null; heldPickup = null;
+        }
+
+        void OnDisable() { Release(false); }
+    }
+}

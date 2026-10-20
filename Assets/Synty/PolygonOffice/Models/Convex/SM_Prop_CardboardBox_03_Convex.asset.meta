@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 249d2dd227ddbab42940550a7476bb36
+timeCreated: 1579571826
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 43832261325035518
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 159492
+  packageName: POLYGON - Office Pack - Art by Synty
+  packageVersion: 1.9.4
+  assetPath: Assets/Synty/PolygonOffice/Models/Convex/SM_Prop_CardboardBox_03_Convex.asset
+  uploadId: 976702

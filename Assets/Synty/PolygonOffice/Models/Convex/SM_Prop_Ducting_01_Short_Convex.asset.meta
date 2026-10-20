@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 8155057dd14e8ec4ebbe20949ce9b0c7
+timeCreated: 1579574419
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 43599508512780648
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 159492
+  packageName: POLYGON - Office Pack - Art by Synty
+  packageVersion: 1.9.4
+  assetPath: Assets/Synty/PolygonOffice/Models/Convex/SM_Prop_Ducting_01_Short_Convex.asset
+  uploadId: 976702

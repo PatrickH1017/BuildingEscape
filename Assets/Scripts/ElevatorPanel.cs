@@ -16,6 +16,9 @@ namespace BuildingEscape
     {
         /// <summary>The local player is using the panel: cursor free, camera in front of it, character hidden.</summary>
         public static bool Open { get; private set; }
+
+        /// <summary>Closes the panel if it is up (an accepted invite closes every menu, see <see cref="MenuRegistry"/>).</summary>
+        public static void CloseAll() { if (Active != null) Active.ClosePanel(); else Open = false; }
         public static ElevatorPanel Active { get; private set; }
 
         public KeyCode useKey = KeyCode.F;
@@ -268,7 +271,7 @@ namespace BuildingEscape
             var tm = TowerManager.Instance;
             int cur = hm.Floor;
             int up = tm ? TowerRules.UpFrom(cur, hm.Phase == HeistPhase.FloorComplete, tm.ResumeLevel) : -1;
-            int down = TowerRules.DownFrom(cur);
+            int down = TowerRules.DownFrom(cur, hm.Phase == HeistPhase.FloorComplete);
 
             var me = LocalPlayer();
             nearLocal = me && (me.position - transform.position).sqrMagnitude <= useReach * useReach;
@@ -370,9 +373,6 @@ namespace BuildingEscape
 
         // ================================================================== on screen
 
-        static GUIStyle tipStyle;
-        static readonly GUIContent tipContent = new GUIContent();
-
         void OnGUI()
         {
             if (Event.current.type != EventType.Repaint) return;      // everything here is drawing only (the clicks are read in Update)
@@ -387,15 +387,18 @@ namespace BuildingEscape
                 return;
             }
 
-            var big = HudStyles.Label(24, TextAnchor.MiddleCenter, FontStyle.Bold, Color.white);
-            var small = HudStyles.Label(18, TextAnchor.MiddleCenter, FontStyle.Normal, new Color(0.85f, 0.85f, 0.85f));
-
+            float s = HudTheme.S;
             int dest = ElevatorExtraction.Destination;
-            HudText.Label(new Rect(0, 24, Screen.width, 36), "ELEVATOR PANEL - click a floor, then click GO", big);
+            string title = "ELEVATOR PANEL  -  click a floor, then click GO";
+            float tw = HudTheme.Width(title, 24f) + title.Length * 2.6f * s + 64f * s;
+            var tr = new Rect((Screen.width - tw) * 0.5f, 22f * s, tw, 46f * s);
+            HudTheme.Panel(tr, 14f);
+            HudTheme.Text(new Rect(tr.x, tr.y + 3f * s, tr.width, tr.height - 3f * s), title, 22f, HudTheme.Bright, TextAnchor.MiddleCenter);
             string status = dest >= 0 ? $"Going to: {TowerRules.Label(dest)}" : "No floor chosen yet";
             if (dest >= 0 && !ElevatorExtraction.EveryoneAboard) status += "   (everyone must be inside the elevator first)";
-            HudText.Label(new Rect(0, 60, Screen.width, 28), status, small);
-            HudText.Label(new Rect(0, Screen.height - 44, Screen.width, 28), $"[{useKey}] or Esc to step back", small);
+            float sw = HudTheme.Width(status, 18f) + 44f * s;
+            HudTheme.Chip(new Rect((Screen.width - sw) * 0.5f, tr.yMax + 10f * s, sw, 32f * s), status, dest >= 0 ? (ElevatorExtraction.EveryoneAboard ? HudTheme.Good : HudTheme.Warning) : HudTheme.Dim, 18f);
+            HudTheme.Text(new Rect(0f, Screen.height - 52f * s, Screen.width, 30f * s), $"[{useKey}] or Esc to step back", 18f, HudTheme.Muted, TextAnchor.MiddleCenter);
 
             // what the button under the cursor does
             if (hovered != null)
@@ -404,22 +407,16 @@ namespace BuildingEscape
                 var tm = TowerManager.Instance;
                 int cur = hm.Floor;
                 int up = tm ? TowerRules.UpFrom(cur, hm.Phase == HeistPhase.FloorComplete, tm.ResumeLevel) : -1;
-                int down = TowerRules.DownFrom(cur);
+                int down = TowerRules.DownFrom(cur, hm.Phase == HeistPhase.FloorComplete);
                 if (hovered.isGo) tip = dest < 0 ? "GO - choose a floor first" : $"GO to {TowerRules.Label(dest)}";
                 else if (hovered.floor == cur) tip = $"{TowerRules.Label(hovered.floor)} - you are here";
                 else if (hovered.floor == up || hovered.floor == down) tip = $"{TowerRules.Label(hovered.floor)} - click to choose";
                 else tip = $"{TowerRules.Label(hovered.floor)} - " + ElevatorExtraction.WhyNot(hovered.floor, cur, up, down);
                 var m = Event.current.mousePosition;
-                if (tipStyle == null)
-                {
-                    tipStyle = new GUIStyle(GUI.skin.box) { fontSize = 18, alignment = TextAnchor.MiddleLeft, wordWrap = false };
-                    tipStyle.normal.textColor = Color.white;
-                }
-                tipContent.text = tip;
-                var ts = tipStyle.CalcSize(tipContent);
-                float w = ts.x + 20f, th = ts.y + 10f;
-                GUI.Box(new Rect(Mathf.Clamp(m.x + 18f, 4f, Mathf.Max(4f, Screen.width - w - 4f)),
-                                 Mathf.Clamp(m.y + 18f, 4f, Mathf.Max(4f, Screen.height - th - 4f)), w, th), tipContent, tipStyle);
+                float w = HudTheme.Width(tip, 18f) + 34f * s, th = 36f * s;
+                var tipRect = new Rect(Mathf.Clamp(m.x + 18f * s, 4f, Mathf.Max(4f, Screen.width - w - 4f)), Mathf.Clamp(m.y + 18f * s, 4f, Mathf.Max(4f, Screen.height - th - 4f)), w, th);
+                HudTheme.Body(tipRect, HudTheme.Card, 8f, 2f, 2f);
+                HudTheme.Text(tipRect, tip, 18f, HudTheme.Bright, TextAnchor.MiddleCenter, false);
             }
         }
     }

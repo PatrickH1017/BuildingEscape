@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 6dc0adcbe76d2074f8f35237bbb13920
+timeCreated: 1579571891
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 43925968030820108
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 159492
+  packageName: POLYGON - Office Pack - Art by Synty
+  packageVersion: 1.9.4
+  assetPath: Assets/Synty/PolygonOffice/Models/Convex/SM_Prop_Fan_Pedistal_01_Convex.asset
+  uploadId: 976702

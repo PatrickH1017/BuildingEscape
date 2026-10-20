@@ -4,14 +4,16 @@ using UnityEngine;
 namespace BuildingEscape
 {
     /// <summary>
-    /// The look of the in-run HUD, in one place: a cartoon ("toon") style to match the toon characters. Chunky dark ink outlines, bright
-    /// saturated fills in two flat tones (a lit top, a shaded bottom, like cel shading), a hard drop shadow, outlined text, key caps,
+    /// The look of the in-run HUD and of the menus, in one place: a cartoon ("toon") style to match the toon characters, drawn with a light hand and in blue (the owner, 2026-10-18: "make the UI main color blue instead
+    /// of purple and make it a bit cleaner/less cartooney but don't stray from the current look too much", tried as a test look first and then approved: "The UI looks good please implement it"). Ink outlines, bright
+    /// saturated fills in two flat tones (a lit top, a shaded bottom, like cel shading), a small soft drop shadow, a thin even text outline, key caps,
     /// and a few colours that mean the same thing everywhere (money is green, the quota gold, danger red ...).
     /// <see cref="HudWidgets"/> builds the HUD's pieces from this, <see cref="HudIcons"/> draws the little pictures, <see cref="HudAnim"/>
     /// makes things bounce. Everything here draws only on the Repaint event, uses no textures of its own (Unity draws the rounded
     /// rectangles) and makes no garbage while it draws.
     /// The font: a bundled <c>Resources/HudFont</c> (any .ttf the team drops there) wins, then "Arial Rounded MT Bold" (ships with
     /// Office), then Trebuchet MS / Verdana / Arial in bold. Players without the rounded font still get a clean bold face.
+    /// The few numbers that set the finish (how heavy the toon look is) are under "the finish" below, the palette under "colours".
     /// </summary>
     public static class HudTheme
     {
@@ -20,7 +22,7 @@ namespace BuildingEscape
         static Color Hex(int rgb) => new Color32((byte)((rgb >> 16) & 255), (byte)((rgb >> 8) & 255), (byte)(rgb & 255), 255);
 
         /// <summary>Outlines, shadows, and text on light parts.</summary>
-        public static readonly Color Ink = Hex(0x1B1236);
+        public static readonly Color Ink = Hex(0x0E1B3C);
         /// <summary>Money you can spend.</summary>
         public static readonly Color Cash = Hex(0x45E07C);
         /// <summary>What the floor asks for (the quota) and loot worth money.</summary>
@@ -36,15 +38,25 @@ namespace BuildingEscape
         /// <summary>All clear: free, ready, quota met.</summary>
         public static readonly Color Good = Cash;
         /// <summary>The card colour everything sits on.</summary>
-        public static readonly Color Card = Hex(0x4C3CA8);
+        public static readonly Color Card = Hex(0x2D5BB4);
         /// <summary>Key caps and paper.</summary>
         public static readonly Color Cream = Hex(0xFFF3D8);
         /// <summary>Main text.</summary>
         public static readonly Color Bright = Hex(0xFFFFFF);
         /// <summary>Labels and hints (on a card).</summary>
-        public static readonly Color Muted = Hex(0xD6CDFA);
+        public static readonly Color Muted = Hex(0xD2E1FC);
         /// <summary>Things that are off or not available.</summary>
-        public static readonly Color Dim = Hex(0x9C94C8);
+        public static readonly Color Dim = Hex(0x93A8D2);
+        /// <summary>The dark trough of a bar, a slider and a ring.</summary>
+        public static readonly Color Track = Hex(0x15306C);
+        /// <summary>The quiet fill of the small tags and header chips that sit on a card (a lighter card colour, so they do not compete with the buttons).</summary>
+        public static readonly Color Tag = Hex(0x5584D6);
+        /// <summary>The colour of the secondary buttons (Settings, Customize, Randomize ...): a periwinkle blue.</summary>
+        public static readonly Color Violet = Hex(0x5A80F0);
+
+        static readonly Color[] playerColours = { Hex(0x45E07C), Hex(0xFFC61F), Hex(0x40D8FF), Hex(0xFF7ACB), Hex(0xFF9A24), Hex(0xB58CFF) };
+        /// <summary>The colour of "Player n" (1 = the first): the same on the player's own badge (<see cref="HudWidgets.PlayerBadge"/>) and on the security computer's Nav map, so "Player 2, go left" is easy to follow on both.</summary>
+        public static Color PlayerColour(int number) => playerColours[Mathf.Abs(number - 1) % playerColours.Length];
         /// <summary>Amber ink for the "$" on a coin.</summary>
         public static readonly Color Amber = Hex(0x9B5A00);
 
@@ -54,6 +66,23 @@ namespace BuildingEscape
         public static Color Light(Color c, float k = 0.3f) => Color.Lerp(c, Color.white, k);
         /// <summary>The colour with another opacity.</summary>
         public static Color Alpha(Color c, float a) => new Color(c.r, c.g, c.b, a);
+
+        /// <summary>The outline colour for white text on a coloured plate: the plate's own colour, much darker (softer than a black-ish outline, and it keeps the candy feel).</summary>
+        public static Color Edge(Color plate) => Color.Lerp(plate, Ink, 0.62f);
+
+        // ------------------------------------------------------------------ the finish (how heavy the toon look is)
+
+        // Callers pass their own outline / shadow / rim widths (reference pixels); these scale them, so one edit here changes every plate.
+        /// <summary>The ink outline, as a share of the width the caller asks for.</summary>
+        const float OutlineK = 0.78f;
+        /// <summary>The depth of the drop shadow (a share of what the caller asks for) and how dark it is.</summary>
+        const float ShadowK = 0.55f, ShadowA = 0.30f;
+        /// <summary>The width of the pale sticker rim (a share) and how opaque it is.</summary>
+        const float RimK = 0.65f, RimA = 0.55f;
+        /// <summary>How much darker the shaded lower half of a plate is than the lit upper half (the two-tone cel look).</summary>
+        public const float ShadeAmount = 0.18f;
+        /// <summary>How opaque the little gloss line on a tall plate is.</summary>
+        const float GlossA = 0.20f;
 
         // ------------------------------------------------------------------ sizes
 
@@ -105,37 +134,35 @@ namespace BuildingEscape
 
         /// <summary>
         /// The two-tone toon fill: the whole shape in the shaded colour, then the upper <paramref name="litShare"/> of it again in the lit
-        /// colour (the same curve, cut by a clip), and an optional thin gloss line near the top.
+        /// colour (the same curve, cut by a clip), and, on a tall plate, a short faint gloss line near the top.
         /// </summary>
         public static void Fill(Rect r, Color c, float radius, bool gloss = true, float litShare = 0.58f)
         {
             if (r.width < 1f || r.height < 1f) return;
-            Rounded(r, Shade(c, 0.24f), radius);
+            Rounded(r, Shade(c, ShadeAmount), radius);
             GUI.BeginGroup(new Rect(r.x, r.y, r.width, r.height * litShare));
             Rounded(new Rect(0f, 0f, r.width, r.height), c, radius);
             GUI.EndGroup();
-            if (gloss && r.height >= 16f * S)
+            if (gloss && r.height >= 30f * S)
             {
-                float g = Mathf.Max(2f, 2.6f * S), inset = Mathf.Min(radius, r.width * 0.3f) * 0.85f + 2f * S;
-                Rounded(new Rect(r.x + inset, r.y + Mathf.Max(2f, 3.5f * S), r.width - inset * 2f, g), new Color(1f, 1f, 1f, 0.32f), g * 0.5f);
+                float g = Mathf.Max(2f, 2f * S), inset = Mathf.Min(radius, r.width * 0.3f) * 0.8f + 4f * S;
+                float len = (r.width - inset * 2f) * 0.5f;
+                if (len > 10f * S) Rounded(new Rect(r.x + inset, r.y + Mathf.Max(2f, 3f * S), len, g), new Color(1f, 1f, 1f, GlossA), g * 0.5f);
             }
         }
 
         /// <summary>
-        /// A toon plate: a hard drop shadow, the ink outline, then the two-tone fill. Sizes: <paramref name="radius"/>, <paramref name="outline"/>
-        /// and <paramref name="shadow"/> are reference pixels (scaled with the screen).
+        /// A toon plate: a small drop shadow, an optional pale rim, the ink outline, then the two-tone fill. Sizes: <paramref name="radius"/>, <paramref name="outline"/>,
+        /// <paramref name="shadow"/> and <paramref name="rim"/> are reference pixels (scaled with the screen, and lightened by the finish constants above).
         /// </summary>
-        public static void Body(Rect r, Color fill, float radius, float outline = 3.5f, float shadow = 4f, bool gloss = true, float rim = 0f)
+        public static void Body(Rect r, Color fill, float radius, float outline = 3.5f, float shadow = 4f, bool gloss = true, float rim = 0f, float litShare = 0.58f)
         {
-            float s = S, ow = Mathf.Max(1.5f, outline * s), rad = radius * s;
-            if (shadow > 0f) Rounded(new Rect(r.x, r.y + shadow * s, r.width, r.height), Alpha(Ink, 0.38f), rad);
-            if (rim > 0f)       // a pale sticker rim round the outline, so a plate still stands out from a dark scene
-            {
-                float g = rim * s;
-                Rounded(new Rect(r.x - g, r.y - g, r.width + g * 2f, r.height + g * 2f), Alpha(Cream, 0.62f), rad + g);
-            }
+            float s = S, ow = Mathf.Max(1.5f, outline * OutlineK * s), rad = radius * s;
+            float g = rim > 0f ? Mathf.Max(1f, rim * RimK * s) : 0f;       // a pale sticker rim round the outline, so a plate still stands out from a dark scene
+            if (shadow > 0f) Rounded(new Rect(r.x - g, r.y - g + shadow * ShadowK * s, r.width + g * 2f, r.height + g * 2f), Alpha(Ink, ShadowA), rad + g);
+            if (g > 0f) Rounded(new Rect(r.x - g, r.y - g, r.width + g * 2f, r.height + g * 2f), Alpha(Cream, RimA), rad + g);
             Rounded(r, Ink, rad);
-            Fill(new Rect(r.x + ow, r.y + ow, r.width - ow * 2f, r.height - ow * 2f), fill, Mathf.Max(0f, rad - ow), gloss);
+            Fill(new Rect(r.x + ow, r.y + ow, r.width - ow * 2f, r.height - ow * 2f), fill, Mathf.Max(0f, rad - ow), gloss, litShare);
         }
 
         /// <summary>A plate with fully round ends.</summary>
@@ -151,11 +178,11 @@ namespace BuildingEscape
         /// <summary>A chunky progress bar: a dark track, <paramref name="fraction"/> of it filled in <paramref name="fill"/>.</summary>
         public static void Bar(Rect r, float fraction, Color fill, float outline = 3f)
         {
-            float s = S, ow = Mathf.Max(1.5f, outline * s), pad = ow + 1.5f * s;
-            Rounded(new Rect(r.x, r.y + 3f * s, r.width, r.height), Alpha(Ink, 0.38f), r.height * 0.5f);
+            float s = S, ow = Mathf.Max(1.5f, outline * OutlineK * s);
+            Rounded(new Rect(r.x, r.y + 2f * s, r.width, r.height), Alpha(Ink, ShadowA), r.height * 0.5f);
             Rounded(r, Ink, r.height * 0.5f);
             var inner = new Rect(r.x + ow, r.y + ow, r.width - ow * 2f, r.height - ow * 2f);
-            Rounded(inner, Hex(0x2B2068), inner.height * 0.5f);
+            Rounded(inner, Track, inner.height * 0.5f);
             fraction = Mathf.Clamp01(fraction);
             if (fraction <= 0.004f) return;
             var f = new Rect(inner.x + 1.5f * s, inner.y + 1.5f * s, inner.width - 3f * s, inner.height - 3f * s);
@@ -163,26 +190,53 @@ namespace BuildingEscape
             Fill(new Rect(f.x, f.y, Mathf.Min(w, f.width), f.height), fill, f.height * 0.5f);
         }
 
+        /// <summary>
+        /// The label of a progress bar drawn by <see cref="Bar"/> (give it the same <paramref name="outline"/>): white on the dark track and ink on the bright fill, cut where the fill ends, so the words read across
+        /// both halves (white on the yellow fill was the one place on the HUD where small text could not be read).
+        /// </summary>
+        public static void BarLabel(Rect r, float fraction, string text, float size, float outline = 3f)
+        {
+            if (string.IsNullOrEmpty(text) || Event.current.type != EventType.Repaint) return;
+            float s = S, ow = Mathf.Max(1.5f, outline * OutlineK * s);
+            var inner = new Rect(r.x + ow, r.y + ow, r.width - ow * 2f, r.height - ow * 2f);
+            var f = new Rect(inner.x + 1.5f * s, inner.y + 1.5f * s, inner.width - 3f * s, inner.height - 3f * s);
+            fraction = Mathf.Clamp01(fraction);
+            float edge = fraction <= 0.004f ? r.x : f.x + Mathf.Min(Mathf.Max(f.height, f.width * fraction), f.width);
+            edge = Mathf.Clamp(edge, r.x, r.xMax);
+            if (edge < r.xMax)
+            {
+                GUI.BeginGroup(new Rect(edge, r.y, r.xMax - edge, r.height));
+                TextPx(new Rect(r.x - edge, 0f, r.width, r.height), text, size * s, Bright, TextAnchor.MiddleCenter);
+                GUI.EndGroup();
+            }
+            if (edge > r.x)
+            {
+                GUI.BeginGroup(new Rect(r.x, r.y, edge - r.x, r.height));
+                TextPx(new Rect(0f, 0f, r.width, r.height), text, size * s, Ink, TextAnchor.MiddleCenter, false);
+                GUI.EndGroup();
+            }
+        }
+
         /// <summary>A small plate with round ends and centred text (a chip).</summary>
         public static void Chip(Rect r, string text, Color fill, float textSize = 17f, Color? ink = null)
         {
             if (Event.current.type != EventType.Repaint) return;
-            Pill(r, fill, 2.5f, 2.5f);
+            Pill(r, fill, 2.5f, 2f);
             TextPx(r, text, textSize * S, ink ?? Ink, TextAnchor.MiddleCenter, false);
         }
 
         /// <summary>A key cap with the key's name; draws at (x, y) with the given height and returns its width.</summary>
         public static float KeyCap(float x, float y, string key, float h, float textSize)
         {
-            float s = S, ow = Mathf.Max(1.5f, 2.5f * s);
+            float s = S, ow = Mathf.Max(1.5f, 2.2f * s);
             float w = Mathf.Max(h, TextWidthPx(key, textSize * s) + h * 0.55f);
             var r = new Rect(x, y, w, h);
-            Rounded(new Rect(r.x, r.y + 2.5f * s, r.width, r.height), Alpha(Ink, 0.38f), h * 0.3f);
+            Rounded(new Rect(r.x, r.y + 1.8f * s, r.width, r.height), Alpha(Ink, ShadowA), h * 0.3f);
             Rounded(r, Ink, h * 0.3f);
             var inner = new Rect(r.x + ow, r.y + ow, r.width - ow * 2f, r.height - ow * 2f);
             Rounded(inner, Hex(0xD9BF86), h * 0.26f);                       // the shaded lip
-            Rounded(new Rect(inner.x, inner.y, inner.width, inner.height - 3.5f * s), Cream, h * 0.26f);   // the cap
-            TextPx(new Rect(inner.x, inner.y - 1.5f * s, inner.width, inner.height - 3.5f * s), key, textSize * s, Ink, TextAnchor.MiddleCenter, false);
+            Rounded(new Rect(inner.x, inner.y, inner.width, inner.height - 3f * s), Cream, h * 0.26f);   // the cap
+            TextPx(new Rect(inner.x, inner.y - 1.5f * s, inner.width, inner.height - 3f * s), key, textSize * s, Ink, TextAnchor.MiddleCenter, false);
             return w;
         }
 
@@ -192,11 +246,13 @@ namespace BuildingEscape
         static bool faceBold;
         static GUIStyle scratch;
         static readonly GUIContent content = new GUIContent();
+        // the eight directions of a round outline (big text), and the four diagonals of a light one (everything else): whole pixels, so the outline stays crisp
         static readonly Vector2[] ring8 =
         {
             new Vector2(1f, 0f), new Vector2(-1f, 0f), new Vector2(0f, 1f), new Vector2(0f, -1f),
             new Vector2(0.72f, 0.72f), new Vector2(-0.72f, 0.72f), new Vector2(0.72f, -0.72f), new Vector2(-0.72f, -0.72f),
         };
+        static readonly Vector2[] diagonals = { new Vector2(1f, 1f), new Vector2(-1f, 1f), new Vector2(1f, -1f), new Vector2(-1f, -1f) };
 
         static readonly string[] osFaces = { "Arial Rounded MT Bold", "Trebuchet MS", "Verdana", "Arial" };
 
@@ -272,14 +328,25 @@ namespace BuildingEscape
         public static float Width(string text, float size) => TextWidthPx(text, size * S);
 
         /// <summary>
-        /// Text with a toon outline (and a hard shadow below it for big sizes). <paramref name="size"/> is in reference pixels; the rectangle
-        /// is in screen pixels. The text shrinks to fit the rectangle's width.
+        /// The size (screen pixels, at most <paramref name="px"/>) at which the longest of the texts fits <paramref name="width"/> screen pixels:
+        /// a row of buttons or pills that all use it shows one size of lettering instead of each text shrinking by itself.
         /// </summary>
-        public static void Text(Rect r, string text, float size, Color color, TextAnchor anchor = TextAnchor.MiddleLeft, bool outline = true) =>
-            TextPx(r, text, size * S, color, anchor, outline);
+        public static float FitPx(string[] texts, float px, float width)
+        {
+            float widest = 0f;
+            if (texts != null) for (int i = 0; i < texts.Length; i++) widest = Mathf.Max(widest, TextWidthPx(texts[i], px));
+            return widest > width && widest > 0f ? Mathf.Floor(px * width / widest) : px;
+        }
+
+        /// <summary>
+        /// Text with a toon outline: a thin even outline in the ink colour (or <paramref name="edge"/>): one pixel round small and medium text, two or more round big text.
+        /// <paramref name="size"/> is in reference pixels; the rectangle is in screen pixels. The text shrinks to fit the rectangle's width.
+        /// </summary>
+        public static void Text(Rect r, string text, float size, Color color, TextAnchor anchor = TextAnchor.MiddleLeft, bool outline = true, Color? edge = null) =>
+            TextPx(r, text, size * S, color, anchor, outline, edge);
 
         /// <summary>The same with the size in screen pixels.</summary>
-        public static void TextPx(Rect r, string text, float px, Color color, TextAnchor anchor = TextAnchor.MiddleLeft, bool outline = true)
+        public static void TextPx(Rect r, string text, float px, Color color, TextAnchor anchor = TextAnchor.MiddleLeft, bool outline = true, Color? edge = null)
         {
             if (string.IsNullOrEmpty(text) || Event.current.type != EventType.Repaint) return;
             int size = Mathf.Max(8, Mathf.RoundToInt(px));
@@ -289,25 +356,21 @@ namespace BuildingEscape
             content.text = text;
             if (outline)
             {
-                // every pass is one more label (each makes a little garbage), so the outline is as cheap as it can be while still reading
-                // as an outline: 8 passes and a shadow for big text, 4 for medium, one down-right shadow for small
-                float ow = Mathf.Clamp(size * 0.085f, 1.3f, 6f);
-                if (size >= 36)
+                // every pass is one more label (each makes a little garbage), so the outline is as cheap as it can be while still reading as one:
+                // 8 passes for big text (it must look round), 4 diagonal passes for the rest. The offsets are whole pixels, so the outline stays crisp.
+                st.normal.textColor = edge ?? Ink;
+                if (size >= 34)
                 {
-                    st.normal.textColor = Alpha(Ink, 0.4f);
-                    GUI.Label(new Rect(r.x, r.y + ow * 1.7f, r.width, r.height), content, st);
+                    float ow = Mathf.Clamp(Mathf.Round(size * 0.055f), 2f, 5f);
+                    for (int i = 0; i < 8; i++)
+                        GUI.Label(new Rect(r.x + Mathf.Round(ring8[i].x * ow), r.y + Mathf.Round(ring8[i].y * ow), r.width, r.height), content, st);
                 }
-                st.normal.textColor = Ink;
-                if (size >= 18)
+                else
                 {
-                    int n = size >= 36 ? 8 : 4;
-                    for (int i = 0; i < n; i++)
-                    {
-                        var o = n == 8 ? ring8[i] : ring8[4 + i];
-                        GUI.Label(new Rect(r.x + o.x * ow, r.y + o.y * ow, r.width, r.height), content, st);
-                    }
+                    float ow = size >= 28 ? 2f : 1f;
+                    for (int i = 0; i < 4; i++)
+                        GUI.Label(new Rect(r.x + diagonals[i].x * ow, r.y + diagonals[i].y * ow, r.width, r.height), content, st);
                 }
-                else GUI.Label(new Rect(r.x + ow, r.y + ow, r.width, r.height), content, st);
             }
             st.normal.textColor = color;
             GUI.Label(r, content, st);

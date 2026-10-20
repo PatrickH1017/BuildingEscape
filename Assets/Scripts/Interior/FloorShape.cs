@@ -224,7 +224,8 @@ namespace BuildingEscape
                 cafe = floor == 1,
                 outpost = true,
                 hasSafe = SafeRules.HasSafe(intelSeed, floor),
-                safeRoll = SafeRules.RoomRoll(intelSeed, floor)
+                safeRoll = SafeRules.RoomRoll(intelSeed, floor),
+                safeCount = SafeRules.SafeCount(intelSeed, floor)
             };
         }
     }

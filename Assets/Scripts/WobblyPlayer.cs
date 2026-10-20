@@ -14,7 +14,7 @@ namespace BuildingEscape
         public float maxSpeed = 5f;
         public float turnSpeed = 8f;
         public float uprightStrength = 30f;
-        public float uprightDamping = 4f;
+        public float uprightDamping = 8f;
         public float footstepNoise = 3f;
         public float sprintNoise = 8f;
         [Header("Crouching (hold Ctrl or C)")]
@@ -72,6 +72,7 @@ namespace BuildingEscape
         CameraFollow rig;
         CapsuleCollider capsule;
         PlayerGrab grab;
+        Stamina stamina;
         float standHeight;
         Vector3 standCenter;
         bool crouchApplied;
@@ -86,7 +87,11 @@ namespace BuildingEscape
             if (!GetComponent<FootstepPlayer>()) gameObject.AddComponent<FootstepPlayer>();
             if (!GetComponent<MeleeController>()) gameObject.AddComponent<MeleeController>();
             if (!GetComponent<GunController>()) gameObject.AddComponent<GunController>();
+            if (!GetComponent<Stamina>()) gameObject.AddComponent<Stamina>();
+            if (!GetComponent<PvpFighter>()) gameObject.AddComponent<PvpFighter>();
+            TryGetComponent(out stamina);
             if (usePartyCharacter && !GetComponent<PlayerVisual>()) gameObject.AddComponent<PlayerVisual>();
+            if (!GetComponent<PlayerArmourVisual>()) gameObject.AddComponent<PlayerArmourVisual>();          // (the vest of the armour he wears: every machine reads his pack)
         }
 
         // This script only runs for the body this machine controls (NetPlayer switches it off on every teammate's puppet). The
@@ -126,7 +131,7 @@ namespace BuildingEscape
             var raw = new Vector3(Input.GetAxisRaw("Horizontal"), 0, Input.GetAxisRaw("Vertical"));
             if (OutpostUi.Open) raw = Vector3.zero;       // (the hack is played on W A S D: the body stands still)
             bool sprintKey = Input.GetKey(KeyCode.LeftShift);
-            bool crouchKey = Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.C);
+            bool crouchKey = !OutpostUi.Open && (Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.C));
 #if UNITY_EDITOR
             if (testMove.HasValue) raw = testMove.Value;
             sprintKey |= testSprint;
@@ -142,7 +147,9 @@ namespace BuildingEscape
             moveInput = basis * raw.normalized;
             // crouching: not while knocked over or hidden, and it takes the place of sprinting and jumping
             SetCrouch(crouchKey && !IsStumbling && !IsHidden && !InCustody);
-            IsSprinting = sprintKey && !IsCrouching && !InCustody && moveInput.sqrMagnitude > 0.01f;
+            bool wantsSprint = sprintKey && !IsCrouching && !InCustody && moveInput.sqrMagnitude > 0.01f;
+            IsSprinting = wantsSprint && (stamina == null || stamina.CanSprint);            // (winded: no sprint until a quarter of the bar is back)
+            if (stamina != null) stamina.Step(Time.deltaTime, IsSprinting);
             if (Input.GetKeyDown(KeyCode.Space) && grounded && !IsStumbling && !IsCrouching && !InCustody && !OutpostUi.Open)
             {
                 rb.AddForce(Vector3.up * jumpImpulse, ForceMode.VelocityChange);
@@ -187,6 +194,7 @@ namespace BuildingEscape
                     transform.rotation = Quaternion.Slerp(transform.rotation, target, turnSpeed * Time.fixedDeltaTime);
                 }
                 KeepUpright();
+                LimitTilt();
                 Footsteps();
             }
         }
@@ -251,6 +259,17 @@ namespace BuildingEscape
                 if (rb && !rb.isKinematic) rb.AddForce(Vector3.up * 2f, ForceMode.VelocityChange); // gets back up
             }
             CustodyChanged?.Invoke(state);
+        }
+
+        /// <summary>Walking sideways (A / D) must not tip the body over: the wobble is kept, but the lean is capped.</summary>
+        public float maxTiltDegrees = 9f;
+        void LimitTilt()
+        {
+            float tilt = Vector3.Angle(transform.up, Vector3.up);
+            if (tilt <= maxTiltDegrees) return;
+            var upright = Quaternion.FromToRotation(transform.up, Vector3.up) * rb.rotation;
+            rb.MoveRotation(Quaternion.RotateTowards(rb.rotation, upright, tilt - maxTiltDegrees));
+            rb.angularVelocity *= 0.5f;
         }
 
         void KeepUpright()

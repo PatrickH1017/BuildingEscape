@@ -15,6 +15,8 @@ namespace BuildingEscape.Net
         // the doors backup comes out of: bit 0 the guards' elevator, bit 1 and 2 the two stairwells
         readonly NetworkVariable<byte> vEntriesOpen = new();
         readonly NetworkVariable<int> vDestination = new(-1);
+        // the guns the party has found and brought back (RunUnlocks): the host decides, everybody's dealer reads it
+        readonly NetworkVariable<int> vUnlocks = new();
         // The epoch of the floor the host has finished building. Until it matches this machine's epoch the
         // mirrored values still belong to the previous floor, so they are not applied.
         readonly NetworkVariable<byte> vReadyEpoch = new();
@@ -47,15 +49,18 @@ namespace BuildingEscape.Net
             vGoingUp.Value = ElevatorExtraction.GoingUp;
             vDestination.Value = ElevatorExtraction.Destination;
             vBackOpen.Value = ElevatorExtraction.BackDoorOpen;
+            vUnlocks.Value = RunUnlocks.Mask;
             var gen0 = TowerManager.Instance != null ? TowerManager.Instance.generator : null;
             vEntriesOpen.Value = gen0 != null ? gen0.EntryDoorMask : (byte)0;
             var tm = TowerManager.Instance;
             if (tm != null) vResume.Value = tm.ResumeLevel;
             HostPublishOutpost();
+            HostPublishPa();
         }
 
         void ClientApplyState()
         {
+            RunUnlocks.NetSet(vUnlocks.Value);                    // (not tied to a floor: what was brought back stays unlocked)
             var hm = HeistManager.Instance;
             var tm = TowerManager.Instance;
             if (hm == null || (tm != null && tm.Loading)) return; // a floor is being built; the next update is the right one
@@ -67,6 +72,7 @@ namespace BuildingEscape.Net
             if (tm != null && tm.generator != null) tm.generator.NetEntryDoors(vEntriesOpen.Value);
             if (tm != null) tm.NetSetResume(vResume.Value);
             ClientApplyOutpost();
+            ClientApplyPa();
         }
     }
 }

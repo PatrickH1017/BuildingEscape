@@ -97,10 +97,27 @@ namespace BuildingEscape
         /// <summary>How far, in metres, the nearest point of this item's solid colliders is from <paramref name="pos"/>.</summary>
         public float DistanceFrom(Vector3 pos) => Vector3.Distance(pos, ClosestPointTo(pos));
 
-        /// <summary>The world box around all of this item's solid colliders (what the crosshair aims at). False if it has none.</summary>
+        /// <summary>
+        /// When set (a long gun, which lies slanted across a safe), the crosshair aims at this box, in the item's own space, instead of the box round all its colliders: the world box round a slanted gun covers the whole
+        /// diagonal of the hollow and would hide what lies beside it (the owner, 2026-10-18: every item of a safe is aimed at on its own).
+        /// </summary>
+        public Bounds? aimBox;
+
+        /// <summary>The world box around all of this item's solid colliders (what the crosshair aims at), or round its <see cref="aimBox"/>. False if it has none.</summary>
         public bool TryGetBounds(out Bounds box)
         {
             box = default;
+            if (aimBox.HasValue)
+            {
+                var ab = aimBox.Value;
+                box = new Bounds(transform.TransformPoint(ab.center + new Vector3(ab.extents.x, ab.extents.y, ab.extents.z)), Vector3.zero);
+                for (int i = 0; i < 8; i++)
+                {
+                    var corner = ab.center + Vector3.Scale(ab.extents, new Vector3((i & 1) == 0 ? -1f : 1f, (i & 2) == 0 ? -1f : 1f, (i & 4) == 0 ? -1f : 1f));
+                    box.Encapsulate(transform.TransformPoint(corner));
+                }
+                return true;
+            }
             bool any = false;
             GetComponentsInChildren(ownColliders);
             for (int i = 0; i < ownColliders.Count; i++)

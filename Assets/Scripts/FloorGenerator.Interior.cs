@@ -66,6 +66,8 @@ namespace BuildingEscape
             DestroyNightMaterials();
             DestroyCarMaterials();
             DestroyOutpostMaterials();
+            DestroyValuableMaterials();
+            DestroySurfaceMaterials();
             if (protoHolder) Kill(protoHolder.gameObject);
         }
 
@@ -108,12 +110,13 @@ namespace BuildingEscape
         }
 
         /// <summary>
-        /// The themes flag far more things as stealable than a floor should hold. Pick a share of them (<see cref="LootPlan"/>: one in as many
-        /// rooms as possible first, then more, at most four to a cell, shuffled with the floor seed); the rest stay as plain furniture.
+        /// Furniture is never loot (the owner, 2026-10-17: "rather than some monitors be interactable and some not, make the loot more stuff like watches and phones and
+        /// such"): the themes still flag monitors, printers and so on, but nothing is picked, so every piece stays plain furniture. What there is to steal lies on the
+        /// desks (<see cref="PlaceValuables"/>) and on the treasure spots (<see cref="PlaceLootFromLayout"/>).
         /// </summary>
         void SelectLoot(int floor, int seed)
         {
-            LootPlan.SelectSmall(layout, new System.Random(seed ^ 0x2F6E2B1), floor, cellSize, cols, rows);
+            foreach (var p in layout.pieces) p.picked = false;
         }
 
         // ------------------------------------------------------------------ building
@@ -172,6 +175,8 @@ namespace BuildingEscape
             interior.SetParent(current, false);
 
             // partitions: wall segments, and the beams over the doorways
+            wallObjects.Clear();
+            windowedWalls.Clear();
             var walls = new GameObject("Partitions").transform;
             walls.SetParent(interior, false);
             var pm = PartitionMat();
@@ -186,17 +191,23 @@ namespace BuildingEscape
                              new Vector3(r.Cx, (w.y0 + w.y1) * 0.5f, r.Cz), new Vector3(r.W, w.y1 - w.y0, r.D),
                              mine ? opWalls : pm ? pm : wallMat, walls);
                 go.GetComponent<Renderer>().shadowCastingMode = ShadowCastingMode.Off;
+                wallObjects[w] = go;
             }
 
-            // floors: a thin tinted slab per room (no collider, so the NavMesh ignores it)
-            var floors = new GameObject("RoomFloors").transform;
-            floors.SetParent(interior, false);
-            foreach (var p in L.patches)
+            // floors: carpet in the rooms and tile on the path, one merged mesh per surface (no collider, so the NavMesh ignores it); one painted wall in every room
+            // (FloorGenerator.Surfaces.cs). If either fails the floor still loads: plain coloured floors, bare walls.
+            try { BuildRoomFloors(interior, L); }
+            catch (System.Exception e) { Debug.LogWarning("[Floors] The carpet and the tile could not be laid, so the rooms get plain coloured floors: " + e); BuildFlatFloors(interior, L); }
+            try { BuildOfficeWindows(interior, L); }
+            catch (System.Exception e)
             {
-                var r = p.rc;
-                var go = Box("RoomFloor", new Vector3(r.Cx, 0.005f, r.Cz), new Vector3(r.W, 0.01f, r.D), TintMat(p.tint), floors, collider: false);
-                go.GetComponent<Renderer>().shadowCastingMode = ShadowCastingMode.Off;
+                Debug.LogWarning("[Glass] The glass fronts could not be built, so the offices keep their plain walls: " + e);
+                RestoreWindowedWalls();
+                var half = interior.Find("OfficeWindows");
+                if (half) { half.gameObject.SetActive(false); Kill(half.gameObject); }
             }
+            try { BuildAccentWalls(interior, L); }
+            catch (System.Exception e) { Debug.LogWarning("[Floors] The accent walls could not be painted: " + e); }
 
             BuildRoomNumbers(interior);
             BuildDirectionSigns(interior);
@@ -294,7 +305,7 @@ namespace BuildingEscape
             if (!prefab)
             {
                 if (warned.Add("missing:" + def.key))
-                    Debug.LogWarning($"[Rooms] No prefab for '{def.key}' ({def.path}); using a plain box. Run Overtime Escape > Setup Office Pack.");
+                    Debug.LogWarning($"[Rooms] No prefab for '{def.key}' ({def.path}); using a plain box. Run Employees Take Revenge > Setup Office Pack.");
                 protos[def.key] = null;
                 return null;
             }
@@ -362,26 +373,28 @@ namespace BuildingEscape
 
         // ------------------------------------------------------------------ loot, mugs
 
-        /// <summary>The big treasures go to the planner's treasure spots; the picked small items are spawned from the props.</summary>
+        /// <summary>
+        /// The big treasures go to the planner's treasure spots: a stapler on a desk, a trophy on a credenza, an espresso machine in the break room, a server, a safe.
+        /// The ones that take two or three people to carry only stand where those people have room to lift and walk them out (<see cref="LootPlan.RoomForCarry"/>);
+        /// a spot that is too cramped is skipped and the next one used.
+        /// </summary>
         void PlaceLootFromLayout(System.Random rng, int floor, float scale, ref int total, ref int count)
         {
-            // big treasures (stapler on a desk, trophy on a credenza, espresso machine in the break room, server, safe)
             var slots = new List<Slot>(layout.bigSlots);
             for (int i = slots.Count - 1; i > 0; i--)
             {
                 int j = rng.Next(i + 1);
                 var t = slots[i]; slots[i] = slots[j]; slots[j] = t;
             }
-            int want = LootPlan.TreasureCount(floor);
-            treasureSpots.Clear();
-            for (int i = 0; i < slots.Count && i < want; i++)
+            int want = LootPlan.TreasureCount(floor), placed = 0, cramped = 0;
+            for (int i = 0; i < slots.Count && placed < want; i++)
             {
                 try
                 {
                     var s = slots[i];
-                    treasureSpots.Add(new[] { s.x, s.z });
                     int idx = LootIndex(s.kind);
                     var t = LootTable[idx];
+                    if (!LootPlan.RoomForCarry(layout, s, t.lifters)) { cramped++; continue; }
                     var pos = new Vector3(s.x, s.y + t.size.y * 0.5f + 0.03f, s.z);
                     var go = Box(t.name, pos, t.size, lootMat, null, dynamic: true);
                     go.transform.SetParent(current);
@@ -391,24 +404,11 @@ namespace BuildingEscape
                     l.baseValue = Mathf.RoundToInt(t.value * scale / 50f) * 50;
                     go.GetComponent<Rigidbody>().mass = t.lifters * l.massPerLifter;
                     EnsurePickup(go).weight = t.weight;
-                    total += l.baseValue; count++;
+                    total += l.baseValue; count++; placed++;
                 }
                 catch (System.Exception e) { LogOnce("treasure " + slots[i].kind, e); }
             }
-
-            // small things to steal: the monitors, phones, printers and so on that were picked
-            foreach (var p in layout.pieces)
-            {
-                if (!p.picked) continue;
-                try
-                {
-                    var go = SpawnLootPiece(p, scale);
-                    if (!go) continue;
-                    total += go.GetComponent<HeavyLoot>().baseValue;
-                    count++;
-                }
-                catch (System.Exception e) { LogOnce("loot " + p.def.key, e); }
-            }
+            if (cramped > 0) Debug.Log($"[Loot] floor {floor}: {placed} treasures placed, {cramped} spots skipped because two or three people could not carry what stands there");
         }
 
         /// <summary>HeavyLoot adds its Pickup in Awake, which Unity skips in edit mode (the floor preview), so make sure it is there.</summary>
@@ -434,31 +434,6 @@ namespace BuildingEscape
                 case "trophy": return 3;
                 default: return 4; // safe
             }
-        }
-
-        GameObject SpawnLootPiece(Piece p, float scale)
-        {
-            var def = p.def;
-            var pr = GetProto(def);
-            GameObject go;
-            if (pr != null)
-            {
-                go = PlaceProto(pr, def, p, current);
-                go.transform.position += Vector3.up * 0.02f;
-                AddBox(go, pr, 100f);
-                go.AddComponent<Rigidbody>();
-            }
-            else
-            {
-                go = Box(def.key, new Vector3(p.rc.Cx, p.y + def.H * 0.5f + 0.02f, p.rc.Cz), new Vector3(p.rc.W, def.H, p.rc.D), lootMat, current, dynamic: true);
-            }
-            go.name = def.label;
-            var l = go.AddComponent<HeavyLoot>();
-            l.displayName = def.label; l.lifters = Mathf.Max(1, def.lifters);
-            l.baseValue = Mathf.RoundToInt(def.value * scale / 50f) * 50;
-            go.GetComponent<Rigidbody>().mass = l.lifters * l.massPerLifter;
-            EnsurePickup(go).weight = def.weight;
-            return go;
         }
 
         /// <summary>A prefab turned into loot at a world position (Test Mode's spawn buttons).</summary>
@@ -492,25 +467,7 @@ namespace BuildingEscape
             return go;
         }
 
-        readonly List<float[]> treasureSpots = new List<float[]>();     // where the big treasures went (x, z)
         readonly List<Slot> spareMugSlots = new List<Slot>();            // desks and counters that got no mug
-
-        /// <summary>
-        /// A few small valuables (a cash envelope, a gold watch, casino chips) lie on desks in numbered rooms that hold nothing else, so that more
-        /// of the doors on a floor lead to something. Where and what follows from the floor's seed alone (<see cref="LootPlan.LooseSpots"/>,
-        /// <see cref="OutpostLoot.Loose"/>); it never uses the floor's own random numbers, and it runs after everything else is placed.
-        /// </summary>
-        void PlaceLooseLoot(int floor)
-        {
-            if (layout == null || !Application.isPlaying) return;
-            var spots = LootPlan.LooseSpots(layout, spareMugSlots, treasureSpots, new System.Random(layoutSeed ^ 0x5A17E3), floor);
-            for (int i = 0; i < spots.Count; i++)
-            {
-                var s = spots[i];
-                OutpostLoot.Loose(intelNow, floor, i, out int kind, out int value);
-                MakeValuable(kind, value, new Vector3(s.x, s.y + 0.03f, s.z), (i * 97 + floor * 31) % 360, current);
-            }
-        }
 
         /// <summary>Mugs (something to throw to lure guards) sit on desks and counters.</summary>
         void PlaceMugsOnSurfaces(System.Random rng)

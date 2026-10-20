@@ -77,6 +77,7 @@ namespace BuildingEscape
         {
             ResumeLevel = Mathf.Max(1, startLevel + 1);
             SafeIntel.Reset();      // a new run: nothing is known about any safe yet
+            RunUnlocks.Reset();     // ...and nothing is unlocked at the dealer's yet (a gun found and brought back unlocks its ammunition)
             IntelSeed = intelSeedOverride != 0 ? intelSeedOverride : Random.Range(1, int.MaxValue);
             StartCoroutine(Net.NetSession.Online ? StartNetworked() : LoadFloor(startLevel));
         }
@@ -286,6 +287,7 @@ namespace BuildingEscape
             PlaceCargo(cargo, info);
 
             HeistManager.Instance.StartFloor(floor, totalFloors, info.quota);
+            // (the elevator no longer refills the guns: ammunition is bought from the dealer. In the basement it is unlimited, see GunRules.UnlimitedAmmo)
             Debug.Log(info.isHub
                 ? $"Basement ({floor + 1}/{totalFloors}): safe zone {info.cols}x{info.rows} rooms, vendor open, {cargo.Count} items carried in"
                 : $"{HeistManager.Instance.FloorLabel} ({floor + 1}/{totalFloors}): {info.cols}x{info.rows} rooms, ~{info.estimatedMinutes:0.0} min sweep, " +

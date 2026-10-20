@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: b842148c9cd59584cb2649cfa4577ac2
+timeCreated: 1579556335
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 43375245238155420
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 159492
+  packageName: POLYGON - Office Pack - Art by Synty
+  packageVersion: 1.9.4
+  assetPath: Assets/Synty/PolygonOffice/Models/Convex/SM_Prop_Projector_02_Convex.asset
+  uploadId: 976702

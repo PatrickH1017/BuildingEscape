@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 2f2b221cce3ae5d4db5d520b12b09496
+timeCreated: 1579574418
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 43204548577472296
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 159492
+  packageName: POLYGON - Office Pack - Art by Synty
+  packageVersion: 1.9.4
+  assetPath: Assets/Synty/PolygonOffice/Models/Convex/SM_Prop_Pipe_01_Short_Convex.asset
+  uploadId: 976702

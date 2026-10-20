@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 264d9e2726c2c884cab052c4c684d3dd
+timeCreated: 1579572124
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 43114933343883532
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 159492
+  packageName: POLYGON - Office Pack - Art by Synty
+  packageVersion: 1.9.4
+  assetPath: Assets/Synty/PolygonOffice/Models/Convex/SM_Prop_Fire_Extinguisher_01_Convex.asset
+  uploadId: 976702

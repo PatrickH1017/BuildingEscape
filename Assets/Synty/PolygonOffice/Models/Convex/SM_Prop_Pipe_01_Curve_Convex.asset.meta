@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: f5124e2ac776c6d47b17fffd034a88a1
+timeCreated: 1579574402
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 43222430644981354
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 159492
+  packageName: POLYGON - Office Pack - Art by Synty
+  packageVersion: 1.9.4
+  assetPath: Assets/Synty/PolygonOffice/Models/Convex/SM_Prop_Pipe_01_Curve_Convex.asset
+  uploadId: 976702

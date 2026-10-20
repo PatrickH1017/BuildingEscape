@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: b144889112c81b549b84cd97c1236456
+timeCreated: 1579556308
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 43881954663491484
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 159492
+  packageName: POLYGON - Office Pack - Art by Synty
+  packageVersion: 1.9.4
+  assetPath: Assets/Synty/PolygonOffice/Models/Convex/SM_Prop_CardRoller_01_Convex.asset
+  uploadId: 976702

@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 294846ac9d8117143af186bb96c898b7
+timeCreated: 1574900446
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 100100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 159492
+  packageName: POLYGON - Office Pack - Art by Synty
+  packageVersion: 1.9.4
+  assetPath: Assets/Synty/PolygonOffice/Prefabs/Props/Kitchen Props/SM_Prop_Fridge_01.prefab
+  uploadId: 976702

@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: b57b209d42b579d45a2428bac33cff4c
+timeCreated: 1579556431
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 43918773317534160
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 159492
+  packageName: POLYGON - Office Pack - Art by Synty
+  packageVersion: 1.9.4
+  assetPath: Assets/Synty/PolygonOffice/Models/Convex/SM_Prop_Phone_Desk_01_Convex.asset
+  uploadId: 976702

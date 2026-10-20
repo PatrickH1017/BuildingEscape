@@ -6,7 +6,7 @@ namespace BuildingEscape.EditorTools
     /// <summary>Menu switch for the in-game cheat panel (Test Mode).</summary>
     public static class TestModeMenu
     {
-        const string Path = "Overtime Escape/Test Mode (F1 cheat panel)";
+        const string Path = "Employees Take Revenge/Test Mode (F1 cheat panel)";
 
         [MenuItem(Path, priority = 40)]
         static void Toggle()

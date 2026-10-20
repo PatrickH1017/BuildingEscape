@@ -10,7 +10,8 @@ namespace BuildingEscape
     ///
     /// A wall panel (ElevatorPanel) has a button for every floor and a GO button: press F beside it, click the floor
     /// you want, then click GO. Everyone must be aboard. The car can only go to the next floor once the quota is met
-    /// (not from 3, 6, 9, 12, where the team must return), or down to the Loading Docks; from the docks it goes to the
+    /// (not from 3, 6, 9, 12, where the team must return), or, once the quota is met, down to the Loading Docks (not before:
+    /// the way back to the basement stays shut until the floor's quota is banked); from the docks it goes to the
     /// next unfinished floor. Loot and items left in the car ride along. On floor 12 the car's back door is locked
     /// until the key from a guard is used on it (F).
     /// </summary>
@@ -181,7 +182,7 @@ namespace BuildingEscape
         void RefreshPanel(HeistManager hm, TowerManager tm)
         {
             int up = TowerRules.UpFrom(hm.Floor, hm.Phase == HeistPhase.FloorComplete, tm.ResumeLevel);
-            int down = TowerRules.DownFrom(hm.Floor);
+            int down = TowerRules.DownFrom(hm.Floor, hm.Phase == HeistPhase.FloorComplete);
             if (selected >= 0 && selected != up && selected != down) selected = -1;
             Destination = selected;
             GoingUp = selected < 0 || selected == up;
@@ -204,6 +205,7 @@ namespace BuildingEscape
                 return "Meet the quota before going up";
             }
             if (down >= 0) return "Going down always leads to the Loading Docks";
+            if (!TowerRules.IsDocks(current)) return "Meet the quota before going back down to the Loading Docks";
             return "There is no way down from here";
         }
 
@@ -230,7 +232,7 @@ namespace BuildingEscape
 
             RefreshPanel(hm, tm);
             int up = TowerRules.UpFrom(hm.Floor, hm.Phase == HeistPhase.FloorComplete, tm.ResumeLevel);
-            int down = TowerRules.DownFrom(hm.Floor);
+            int down = TowerRules.DownFrom(hm.Floor, hm.Phase == HeistPhase.FloorComplete);
 
             if (action >= SelectBase)
             {
@@ -244,7 +246,8 @@ namespace BuildingEscape
             {
                 if (Destination < 0)
                 {
-                    Announce(up < 0 && down < 0 ? "The elevator is out of service" : "Choose a floor on the panel first");
+                    Announce(up < 0 && down < 0 ? (TowerRules.IsBoss(hm.Floor) ? "The elevator is out of service" : TowerRules.IsDocks(hm.Floor) ? "Finished floors are closed" : "Meet the quota first: the elevator is locked until then")
+                                                 : "Choose a floor on the panel first");
                     return;
                 }
                 if (!EveryoneAboard) { Announce("Everyone must be inside the elevator"); return; }
@@ -265,9 +268,25 @@ namespace BuildingEscape
             Announce("The back door unlocks. A hidden elevator waits beyond it");
         }
 
+        /// <summary>The doors wait this long after GO before they begin to close (the owner, 2026-10-17: "a two second delay before the elevator door closes after clicking the Go button").</summary>
+        public const float CloseDelay = 2f;
+
         System.Collections.IEnumerator Seal(int destination)
         {
             sealing = true; Sealing = true;
+            int steps = Mathf.Max(1, Mathf.CeilToInt(CloseDelay));            // a countdown on every machine (the owner, 2026-10-17 night: "elevator door closing pop-up should be a countdown")
+            for (int left = steps; left >= 1; left--)
+            {
+                Announce($"Doors closing in {left}");
+                yield return new WaitForSeconds(CloseDelay / steps);
+            }
+            if (!EveryoneAboard)
+            {
+                // somebody stepped out while the doors waited: they stay open, and GO can be pressed again
+                Announce("Everyone must be inside the elevator");
+                Sealing = false; sealing = false;
+                yield break;
+            }
             if (door) door.SetOpen(false);
             yield return new WaitForSeconds(door ? 1.6f : 0.2f);
             yield return new WaitForSeconds(0.8f);

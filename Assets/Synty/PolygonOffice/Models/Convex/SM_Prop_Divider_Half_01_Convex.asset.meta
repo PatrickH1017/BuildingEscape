@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: cb1d3717d9ad00a4599032adb9c9c8ff
+timeCreated: 1579571228
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 43857720893327226
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 159492
+  packageName: POLYGON - Office Pack - Art by Synty
+  packageVersion: 1.9.4
+  assetPath: Assets/Synty/PolygonOffice/Models/Convex/SM_Prop_Divider_Half_01_Convex.asset
+  uploadId: 976702

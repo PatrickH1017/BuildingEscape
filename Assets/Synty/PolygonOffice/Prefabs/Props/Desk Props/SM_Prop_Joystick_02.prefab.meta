@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 14da2d398a2e10d43a058837061ed935
+timeCreated: 1575344896
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 100100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 159492
+  packageName: POLYGON - Office Pack - Art by Synty
+  packageVersion: 1.9.4
+  assetPath: Assets/Synty/PolygonOffice/Prefabs/Props/Desk Props/SM_Prop_Joystick_02.prefab
+  uploadId: 976702

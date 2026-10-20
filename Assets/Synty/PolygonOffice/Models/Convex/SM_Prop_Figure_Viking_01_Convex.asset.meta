@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: a5403000872a1ea40a693a5b6e6f56ed
+timeCreated: 1579556375
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 43276012001906086
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 159492
+  packageName: POLYGON - Office Pack - Art by Synty
+  packageVersion: 1.9.4
+  assetPath: Assets/Synty/PolygonOffice/Models/Convex/SM_Prop_Figure_Viking_01_Convex.asset
+  uploadId: 976702

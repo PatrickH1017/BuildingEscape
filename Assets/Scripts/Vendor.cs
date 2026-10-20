@@ -24,6 +24,12 @@ namespace BuildingEscape
             /// <summary>A gun (the pew): made by <c>RangedWeapon.Create</c>.</summary>
             public bool isGun;
             public RangedWeapon.Kind gun;
+            /// <summary>A clip of ammunition for the pew (the owner, 2026-10-18: "More ammo should need to be purchased from the Vendor"): not an item but <see cref="rounds"/> more rounds in the reserve of the pew in the buyer's pack (<see cref="GiveAmmo"/>).</summary>
+            public bool isAmmo;
+            public int rounds;
+            /// <summary>A piece of armour (the owner, 2026-10-19): found on the floors, sold once its tier was brought back to the docks (<see cref="RunUnlocks.HasArmour"/>).</summary>
+            public bool isArmour;
+            public ShieldTier armour;
         }
 
         /// <summary>What the vendor sells. Key 1 buys the first entry, key 2 the second, and so on.</summary>
@@ -70,20 +76,74 @@ namespace BuildingEscape
             },
             new Product
             {
-                name = "Pew Pistol", blurb = "gun: LMB fires, R reloads. Free for finishing the demo - try it on the dummy", price = 0,
+                name = "Pew Pistol", blurb = "gun: LMB fires, R reloads. 8 rounds a clip, 3 clips, 3 hits drop a guard. Try it on the dummy", price = PewPrice,
                 isGun = true, gun = RangedWeapon.Kind.Pew
             },
+            new Product
+            {
+                name = "Pistol Clip", blurb = "8 more rounds for your pew: it reloads from the clips you carry", price = AmmoClipPrice,
+                isAmmo = true, rounds = 8
+            },
+            // the ammunition of the guns that are found, not sold (the owner, 2026-10-19: "The Vendor should sell ammo for the specific guns after finding them, ammo from the Vendor should be expensive")
+            new Product { name = "SMG Magazine", blurb = "24 more rounds for your SMG", price = RangedWeapon.Specs[(int)RangedWeapon.Kind.Smg].clipPrice, isAmmo = true, gun = RangedWeapon.Kind.Smg, rounds = RangedWeapon.Specs[(int)RangedWeapon.Kind.Smg].magazine },
+            new Product { name = "Rifle Magazine", blurb = "30 more rounds for your rifle", price = RangedWeapon.Specs[(int)RangedWeapon.Kind.Rifle].clipPrice, isAmmo = true, gun = RangedWeapon.Kind.Rifle, rounds = RangedWeapon.Specs[(int)RangedWeapon.Kind.Rifle].magazine },
+            new Product { name = "Shotgun Shells", blurb = "6 more shells for your shotgun", price = RangedWeapon.Specs[(int)RangedWeapon.Kind.Shotgun].clipPrice, isAmmo = true, gun = RangedWeapon.Kind.Shotgun, rounds = RangedWeapon.Specs[(int)RangedWeapon.Kind.Shotgun].magazine },
+            new Product { name = "Sniper Rounds", blurb = "5 more rounds for your sniper rifle", price = RangedWeapon.Specs[(int)RangedWeapon.Kind.Sniper].clipPrice, isAmmo = true, gun = RangedWeapon.Kind.Sniper, rounds = RangedWeapon.Specs[(int)RangedWeapon.Kind.Sniper].magazine },
+            // the armour (the owner, 2026-10-19): found in the safes of floors 3 / 7 / 10, sold to the whole party once its finder is back in the docks; worn while it is in the pack
+            new Product { name = "Light Armour", blurb = "armour: a guard's bullet knocks you down for 75% of the time", price = ArmourRules.Price(ShieldTier.Light), isArmour = true, armour = ShieldTier.Light },
+            new Product { name = "Medium Armour", blurb = "armour: a guard's bullet knocks you down for 50% of the time", price = ArmourRules.Price(ShieldTier.Medium), isArmour = true, armour = ShieldTier.Medium },
+            new Product { name = "Heavy Armour", blurb = "armour: a guard's bullet knocks you down for 30% of the time", price = ArmourRules.Price(ShieldTier.Heavy), isArmour = true, armour = ShieldTier.Heavy },
         };
 
-        /// <summary>The pew's place in <see cref="Catalog"/>: the last entry, so the places of the others are what they were.</summary>
-        public const int PewIndex = 7;
-        /// <summary>The pew is for sale once this floor has been finished (the owner, 2026-10-16: "after completion of the 4th floor the vendor should now sell the pew pistol for free").</summary>
-        public const int FreePewAfterFloor = 4;
+        /// <summary>The pew's place in <see cref="Catalog"/> and the clips of ammunition right after it, so the places of the others are what they were.</summary>
+        public const int PewIndex = 7, AmmoIndex = 8;
+        /// <summary>What the pew costs (the owner, 2026-10-18: "The pistol should not be free from the Vendor anymore") and what a clip of eight rounds costs.</summary>
+        public const int PewPrice = 900, AmmoClipPrice = 120;
+        /// <summary>The pew is for sale once this floor has been finished (the owner, 2026-10-16: "after completion of the 4th floor the vendor should now sell the pew pistol"; 2026-10-17: the third floor, "so that players can buy the pistol after completing the third floor"; it was free until 2026-10-18).</summary>
+        public const int PewAfterFloor = 3;
 
-        /// <summary>Is the pew for sale? <paramref name="resume"/> is the floor the elevator would go up to from the docks: past <see cref="FreePewAfterFloor"/> once that floor is finished.</summary>
-        public static bool PewForSale(int resume) => resume > FreePewAfterFloor;
+        /// <summary>Is the pew (and ammunition for it) for sale? <paramref name="resume"/> is the floor the elevator would go up to from the docks: past <see cref="PewAfterFloor"/> once that floor is finished.</summary>
+        public static bool PewForSale(int resume) => resume > PewAfterFloor;
 
-        static bool PewOnOffer { get { var tm = TowerManager.Instance; return PewForSale(tm ? tm.ResumeLevel : 1); } }
+        /// <summary>A gun in a player's pack (in hand or not), or null: the one in his hand when it is of the kind asked for (any kind when none is), else the first that is.</summary>
+        public static RangedWeapon GunOf(Backpack pack, RangedWeapon.Kind? kind = null)
+        {
+            if (!pack) return null;
+            RangedWeapon first = null;
+            foreach (var held in pack.Items)
+            {
+                if (!held || !held.TryGetComponent(out RangedWeapon gun)) continue;
+                if (kind.HasValue && gun.kind != kind.Value) continue;
+                if (pack.Equipped == held) return gun;
+                if (first == null) first = gun;
+            }
+            return first;
+        }
+
+        /// <summary>Puts these rounds in the reserve of the gun of this kind in this pack (no more than three clips: <see cref="GunMagazine.Room"/>). The host announces a sale to every machine (<c>RunSync.AnnounceAmmo</c>), each of which calls this for the buyer. True when a gun took them.</summary>
+        public static bool GiveAmmo(Backpack pack, int rounds, RangedWeapon.Kind kind = RangedWeapon.Kind.Pew)
+        {
+            var gun = GunOf(pack, kind);
+            return gun != null && gun.Magazine.AddReserve(rounds) > 0;
+        }
+
+        static int ResumeNow { get { var tm = TowerManager.Instance; return tm ? tm.ResumeLevel : 1; } }
+
+        /// <summary>
+        /// Is entry <paramref name="index"/> of <see cref="Catalog"/> for sale now? The first seven always are; the pew once floor 3 is done (<see cref="PewForSale"/>); ammunition for a gun once the gun has been found and brought back to
+        /// the docks (<see cref="RunUnlocks"/>; the pew's also once the pew is for sale). The other guns are found, not sold (the owner, 2026-10-19).
+        /// </summary>
+        public static bool OnOffer(int index, int resume)
+        {
+            if (index < 0 || index >= Catalog.Length) return false;
+            var p = Catalog[index];
+            if (p.isGun) return p.gun == RangedWeapon.Kind.Pew && PewForSale(resume);
+            if (p.isAmmo) return RunUnlocks.Has(p.gun) || (p.gun == RangedWeapon.Kind.Pew && PewForSale(resume));
+            if (p.isArmour) return RunUnlocks.HasArmour(p.armour);                // (found and brought back to the docks)
+            return true;
+        }
+
+        readonly List<int> offered = new List<int>();
 
         public KeyCode sellKey = KeyCode.F;
         public KeyCode talkKey = KeyCode.E;
@@ -93,6 +153,9 @@ namespace BuildingEscape
 
         /// <summary>True while the shop window is open (the cursor is free, other actions are paused).</summary>
         public static bool ShopOpen { get; private set; }
+
+        /// <summary>Closes the shop window (an accepted invite closes every menu, see <see cref="MenuRegistry"/>).</summary>
+        public static void CloseShop() { ShopOpen = false; }
         /// <summary>True when the player is close enough to the dealer to press E.</summary>
         public bool CanTalk { get; private set; }
         string msg; float msgUntil;
@@ -212,69 +275,78 @@ namespace BuildingEscape
                 return;
             }
 
+            // the shop window, in the same style as the rest of the menus (MenuKit: dimmed screen, cream-edged card, ribbon title, chunky buttons); reference pixels, scaled by HudTheme.S
+            MenuKit.Begin();
+            float S = HudTheme.S;
             const int cols = 4;
-            const float cw = 176f, ch = 130f, gap = 8f, pad = 14f;
-            int shown = PewOnOffer ? Catalog.Length : PewIndex;          // (the pew is the last entry, and only there once the demo's last floor is done)
+            const float cw = 188f, gap = 12f, pad = 26f;
+            offered.Clear();
+            int resume = ResumeNow;
+            for (int oi = 0; oi < Catalog.Length; oi++) if (OnOffer(oi, resume)) offered.Add(oi);
+            int shown = offered.Count;                                    // (what is for sale now: the pew once floor 3 is done, a gun's ammunition once the gun was found and brought back)
             int rows = Mathf.CeilToInt(shown / (float)cols);
-            float pw = pad * 2 + cols * cw + (cols - 1) * gap;
+            float ch = rows > 4 ? 112f : 128f;                            // (more cards than fit: they get a little shorter)
             var busted = BustedPlayers();
-            float ph = 120f + rows * (ch + gap) + 70f + (busted.Count > 0 ? 36f + busted.Count * 36f : 0f);
-            var r = new Rect((Screen.width - pw) / 2f, (Screen.height - ph) / 2f, pw, ph);
-            GUI.Box(r, "BLACK MARKET  -  no questions asked");
+            float pw = (pad * 2 + cols * cw + (cols - 1) * gap) * S;
+            float ph = (96f + rows * (ch + gap) + 62f + (busted.Count > 0 ? 44f + busted.Count * 52f : 0f) + 40f) * S;
+            var r = new Rect((Screen.width - pw) / 2f, (Screen.height - ph) / 2f + 20f * S, pw, ph);
+            MenuKit.Dim(0.45f);
+            MenuKit.Sheet(r);
+            MenuKit.Ribbon(r, "BLACK MARKET  -  no questions asked", HudTheme.Danger, 30f);
 
-            HudText.Label(new Rect(r.x + pad, r.y + 28, pw - pad * 2, 28),
-                $"Cash ${hm.Cash}      Pack {WeightUnits.Num(buyer ? buyer.Weight : 0)} / {WeightUnits.Lbs(buyer ? buyer.capacity : 0)}      Hover an item and left click to buy it.", label);
+            // cash and pack chips
+            float cy = r.y + 40f * S;
+            var cashR = new Rect(r.x + pad * S, cy, 190f * S, 34f * S);
+            HudTheme.Chip(cashR, "$" + hm.Cash, HudTheme.Cash, 20f, HudTheme.Ink);
+            var packR = new Rect(cashR.xMax + 10f * S, cy, 330f * S, 34f * S);
+            HudTheme.Chip(packR, "Pack " + WeightUnits.Num(buyer ? buyer.Weight : 0) + " / " + WeightUnits.Lbs(buyer ? buyer.capacity : 0), HudTheme.Info, 18f, HudTheme.Ink);
+            MenuKit.Label(new Rect(packR.xMax + 14f * S, cy, r.xMax - packR.xMax - 40f * S, 34f * S), "Hover an item and left click to buy it.", 16f, HudTheme.Muted);
 
             var ev = Event.current;
-            var bold = HudStyles.Label(18, TextAnchor.UpperLeft, FontStyle.Bold);
-            var cantAfford = HudStyles.Label(18, TextAnchor.UpperLeft, FontStyle.Normal, CantAfford);
-            var small = HudStyles.Label(14);
-            float y0 = r.y + 64f;
+            float y0 = r.y + 90f * S;
             for (int i = 0; i < shown; i++)
             {
-                var p = Catalog[i];
-                var cr = new Rect(r.x + pad + (i % cols) * (cw + gap), y0 + (i / cols) * (ch + gap), cw, ch);
+                var p = Catalog[offered[i]];
+                var cr = new Rect(r.x + (pad + (i % cols) * (cw + gap)) * S, y0 + (i / cols) * (ch + gap) * S, cw * S, ch * S);
                 bool hover = cr.Contains(ev.mousePosition);
                 bool afford = hm.Cash >= p.price;
-                var old = GUI.color;
-                GUI.color = hover ? (afford ? new Color(1f, 0.85f, 0.4f) : CantAfford) : Color.white;
-                GUI.Box(cr, GUIContent.none);
-                GUI.color = old;
-                HudText.Label(new Rect(cr.x + 8, cr.y + 4, cw - 16, 26), p.name, bold);
-                HudText.Label(new Rect(cr.x + 8, cr.y + 30, cw - 16, 24), $"{(p.price == 0 ? "FREE" : "$" + p.price)}   {WeightUnits.Lbs(ItemWeight(p))}", afford ? label : cantAfford);
-                GUI.Label(new Rect(cr.x + 8, cr.y + 56, cw - 16, ch - 60), p.blurb, small);
+                if (ev.type == EventType.Repaint)
+                {
+                    var fill = hover ? (afford ? HudTheme.Light(HudTheme.Card, 0.30f) : HudTheme.Shade(HudTheme.Danger, 0.45f)) : HudTheme.Light(HudTheme.Card, 0.12f);
+                    HudTheme.Body(cr, fill, 14f, 3f, hover ? 4f : 2.5f, true, 0f);
+                    HudTheme.Text(new Rect(cr.x + 12f * S, cr.y + 6f * S, cr.width - 24f * S, 28f * S), p.name, 20f, HudTheme.Bright, TextAnchor.MiddleLeft, false);
+                    string price = p.price == 0 ? "FREE" : "$" + p.price;
+                    string detail = p.isAmmo ? "+" + p.rounds + " rounds" : WeightUnits.Lbs(ItemWeight(p));
+                    HudTheme.Text(new Rect(cr.x + 12f * S, cr.y + 34f * S, cr.width - 24f * S, 24f * S), price + "    " + detail, 17f, afford ? HudTheme.Cash : HudTheme.Lost, TextAnchor.MiddleLeft, false);
+                    MenuKit.Wrapped(new Rect(cr.x + 12f * S, cr.y + 62f * S, cr.width - 24f * S, cr.height - 66f * S), p.blurb, 14f * S, HudTheme.Muted);
+                }
                 if (hover && ev.type == EventType.MouseDown && ev.button == 0)
                 {
                     ev.Use();
-                    Buy(hm, i);
+                    Buy(hm, offered[i]);
                 }
             }
 
-            float by = y0 + rows * (ch + gap) + 4f;
+            float by = y0 + rows * (ch + gap) * S + 6f * S;
             int lootCount = LootCount;
             string sell = lootCount > 0 ? $"Sell hot goods: {lootCount} item(s) for ${SellValue}  [F]" : "Nothing to sell (loot in your pack or on the counter)";
-            var was = GUI.enabled; GUI.enabled = lootCount > 0;
-            if (GUI.Button(new Rect(r.x + pad, by, 470, 32), sell)) Sell(hm);
-            GUI.enabled = was;
-            if (GUI.Button(new Rect(r.xMax - pad - 120, by, 120, 32), "Leave [E]")) ShopOpen = false;
-            float my = by + 36f;
+            if (MenuKit.Button(new Rect(r.x + pad * S, by, 560f * S, 46f * S), sell, HudTheme.Cash, 20f, lootCount > 0)) Sell(hm);
+            if (MenuKit.Button(new Rect(r.xMax - (pad + 160f) * S, by, 160f * S, 46f * S), "Leave [E]", HudTheme.Danger, 20f)) ShopOpen = false;
+            float my = by + 56f * S;
             if (busted.Count > 0)
             {
                 // getting friends out of custody: he knows someone on the inside
-                HudText.Label(new Rect(r.x + pad, my, pw - pad * 2, 28), "\"" + CustodyRules.BuyBackLine + "\"", HudStyles.Label(18, TextAnchor.UpperLeft, FontStyle.Italic));
-                my += 36f;
+                MenuKit.Label(new Rect(r.x + pad * S, my, r.width - pad * 2f * S, 32f * S), "\"" + CustodyRules.BuyBackLine + "\"", 18f, HudTheme.Cream);
+                my += 40f * S;
                 foreach (var bp in busted)
                 {
                     int price = CustodyRules.BuyBackPrice(bp.BustedOnLevel);
-                    var enabled = GUI.enabled; GUI.enabled = CustodyRules.CanAffordBuyBack(hm.Cash, bp.BustedOnLevel);
-                    if (GUI.Button(new Rect(r.x + pad, my, 470, 32), $"Buy back {LabelOf(bp)}  -  ${price}")) BuyBackPlayer(hm, bp);
-                    GUI.enabled = enabled;
-                    my += 36f;
+                    if (MenuKit.Button(new Rect(r.x + pad * S, my, 560f * S, 44f * S), $"Buy back {LabelOf(bp)}  -  ${price}", HudTheme.Warning, 19f, CustodyRules.CanAffordBuyBack(hm.Cash, bp.BustedOnLevel))) BuyBackPlayer(hm, bp);
+                    my += 52f * S;
                 }
             }
-            if (Time.time < msgUntil) HudText.Label(new Rect(r.x + pad, my, pw - pad * 2, 28), msg, label);
+            if (Time.time < msgUntil) MenuKit.Notice(new Rect(r.x + pad * S, r.yMax - 52f * S, r.width - pad * 2f * S, 34f * S), msg, HudTheme.Info, 17f);
         }
-
         // ------------------------------------------------------------------ buy-back (busted teammates)
 
         static readonly List<WobblyPlayer> bustedList = new();
@@ -330,7 +402,7 @@ namespace BuildingEscape
             return "Done. Your friend walks out the back.";
         }
 
-        static float ItemWeight(Product p) => p.isGun ? RangedWeapon.Specs[(int)p.gun].weight : p.isWeapon ? MeleeWeapon.Specs[(int)p.kind].weight : Mathf.Max(0.2f, p.mass);
+        static float ItemWeight(Product p) => p.isArmour ? ArmourRules.Weight(p.armour) : p.isGun ? RangedWeapon.Specs[(int)p.gun].weight : p.isWeapon ? MeleeWeapon.Specs[(int)p.kind].weight : Mathf.Max(0.2f, p.mass);
 
         /// <summary>Sell everything in the zone. A client only asks; the host / offline sells and tells everyone.</summary>
         void Sell(HeistManager hm)
@@ -396,16 +468,28 @@ namespace BuildingEscape
         string BuyFor(HeistManager hm, Backpack buyer, int index)
         {
             var p = Catalog[index];
-            if (p.isWeapon && !MeleeWeapon.Available) return "Weapons aren't set up: run Overtime Escape > Setup Weapons";
+            if (p.isWeapon && !MeleeWeapon.Available) return "Weapons aren't set up: run Employees Take Revenge > Setup Weapons";
+            if (!OnOffer(index, ResumeNow)) return "The dealer has nothing like that for sale yet";
+            if (p.isAmmo)
+            {
+                var spec = RangedWeapon.Specs[(int)p.gun];
+                var gun = GunOf(buyer, p.gun);
+                if (gun == null) return p.gun == RangedWeapon.Kind.Pew ? "You have no pew to load - buy the pistol first" : $"You carry no {spec.name} to load";
+                if (gun.Magazine.Room < p.rounds) return "You can't carry more than three clips";
+                if (!hm.TrySpend(p.price)) return $"Not enough cash (a clip costs ${p.price})";
+                if (Net.NetRole.IsHost && buyer.TryGetComponent(out Net.NetPlayer ammoBuyer)) Net.RunSync.Instance.AnnounceAmmo(ammoBuyer.Slot, p.rounds, p.gun);      // (every machine adds the rounds to that player's gun)
+                else GiveAmmo(buyer, p.rounds, p.gun);
+                return p.gun == RangedWeapon.Kind.Pew ? $"Bought a clip: +{p.rounds} rounds for your pew" : $"Bought {spec.ammoName}: +{p.rounds} rounds for your {spec.name}";
+            }
             if (p.isGun)
             {
-                if (!PewOnOffer) return "The dealer has nothing like that for sale yet";
-                if (!RangedWeapon.Available) return "Weapons aren't set up: run Overtime Escape > Setup Weapons";
-                foreach (var held in buyer.Items) if (held && held.TryGetComponent(out RangedWeapon _)) return "You already have a pew";
+                if (!RangedWeapon.Available) return "Weapons aren't set up: run Employees Take Revenge > Setup Weapons";
+                foreach (var held in buyer.Items) if (held && held.TryGetComponent(out RangedWeapon _)) return "You already have a gun";
             }
+            if (p.isArmour && PlayerArmour.Wears(buyer)) return ArmourRules.AlreadyWearing;
             float wgt = ItemWeight(p);
             if (buyer.Weight + wgt > buyer.capacity + 0.001f) return $"No room in your pack for the {p.name} ({WeightUnits.Lbs(wgt)})";
-            if (!hm.TrySpend(p.price)) return "Not enough cash";
+            if (!hm.TrySpend(p.price)) return p.price > 0 ? $"Not enough cash (it costs ${p.price})" : "Not enough cash";
             var item = Spawn(p, index);
             if (!item) return $"Bought {p.name}";
             var pk = item.GetComponent<Pickup>();
@@ -439,6 +523,7 @@ namespace BuildingEscape
 
         GameObject SpawnAt(Product p, Vector3 pos, float yaw)
         {
+            if (p.isArmour) return ArmourItem.Create(p.armour, pos, transform.parent, yaw);
             if (p.isGun) return RangedWeapon.Create(p.gun, pos, transform.parent, yaw);
             if (p.isWeapon) return MeleeWeapon.Create(p.kind, pos, transform.parent, yaw);
 

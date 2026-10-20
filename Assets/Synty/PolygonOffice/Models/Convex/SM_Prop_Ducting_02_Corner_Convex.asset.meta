@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 0d7525045eacd3a46a68515e1397d078
+timeCreated: 1579574420
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 43986935899868898
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 159492
+  packageName: POLYGON - Office Pack - Art by Synty
+  packageVersion: 1.9.4
+  assetPath: Assets/Synty/PolygonOffice/Models/Convex/SM_Prop_Ducting_02_Corner_Convex.asset
+  uploadId: 976702

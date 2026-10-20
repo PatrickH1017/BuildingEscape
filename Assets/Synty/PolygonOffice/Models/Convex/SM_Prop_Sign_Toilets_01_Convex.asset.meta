@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 24d37b6313e32654d9729b2d7f0387cf
+timeCreated: 1579572135
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 43637625322101894
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 159492
+  packageName: POLYGON - Office Pack - Art by Synty
+  packageVersion: 1.9.4
+  assetPath: Assets/Synty/PolygonOffice/Models/Convex/SM_Prop_Sign_Toilets_01_Convex.asset
+  uploadId: 976702

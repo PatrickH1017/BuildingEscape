@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 9e8ed5cc10ec9f944ac5fc2205eb1348
+timeCreated: 1579571899
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 43312363281058176
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 159492
+  packageName: POLYGON - Office Pack - Art by Synty
+  packageVersion: 1.9.4
+  assetPath: Assets/Synty/PolygonOffice/Models/Convex/SM_Wep_ToyGun_OneShot_01_Convex.asset
+  uploadId: 976702

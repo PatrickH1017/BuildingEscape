@@ -11,13 +11,13 @@ namespace BuildingEscape.EditorTools
     /// <summary>
     /// Creates the networking assets and scenes: the networked player prefab, the run-sync prefab,
     /// the NetworkPrefabsList, the Boot scene (persistent Net object) and the Menu scene.
-    /// Menu: Overtime Escape > Build Network Scenes. Re-runnable.
+    /// Menu: Employees Take Revenge > Build Network Scenes. Re-runnable.
     /// </summary>
     public static class NetSceneBuilder
     {
         const string PrefabDir = "Assets/Prefabs";
 
-        [MenuItem("Overtime Escape/Build Network Scenes")]
+        [MenuItem("Employees Take Revenge/Build Network Scenes")]
         public static void Build()
         {
             System.IO.Directory.CreateDirectory(PrefabDir);

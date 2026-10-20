@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: cf66f7ee5225e3945b78e7ffa0ec677a
+timeCreated: 1579556412
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 43492702927722576
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 159492
+  packageName: POLYGON - Office Pack - Art by Synty
+  packageVersion: 1.9.4
+  assetPath: Assets/Synty/PolygonOffice/Models/Convex/SM_Prop_Computer_Mouse_03_Convex.asset
+  uploadId: 976702

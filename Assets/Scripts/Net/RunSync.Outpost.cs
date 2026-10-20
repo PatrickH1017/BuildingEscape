@@ -52,6 +52,28 @@ namespace BuildingEscape.Net
             c.HostHackResult(success);                                  // the new state reaches everybody with the run state
         }
 
+        // ------------------------------------------------------------------ the gun safe's hack
+
+        /// <summary>A player finished the hack of the gun safe (won or lost; backing out is not reported).</summary>
+        public void RequestGunSafe(bool success)
+        {
+            if (IsServer) HostGunSafe(Me, success, Epoch); else GunSafeRequestRpc(success, Epoch);
+        }
+
+        [Rpc(SendTo.Server)]
+        void GunSafeRequestRpc(bool success, byte epoch, RpcParams rp = default) => HostGunSafe(rp.Receive.SenderClientId, success, epoch);
+
+        void HostGunSafe(ulong who, bool success, byte epoch)
+        {
+            if (epoch != Epoch) return;                                  // about the floor before this one
+            var np = PlayerOf(who);
+            var c = OutpostController.Active;
+            if (np == null || c == null || c.GunSafe == null) return;
+            if (np.TryGetComponent(out WobblyPlayer wp) && wp.InCustody) return;
+            if (!c.GunSafe.InReach(np.transform.position)) return;     // not even near the safe
+            c.GunSafe.HostResult(success);                               // the open safe (or the alarm) reaches everybody with the run state
+        }
+
         // ------------------------------------------------------------------ the alarm panel
 
         /// <summary>A player pressed the button on the alarm panel inside the outpost: the siren stops and the backup is called off.</summary>
@@ -84,21 +106,22 @@ namespace BuildingEscape.Net
 
         // ------------------------------------------------------------------ the safe
 
-        /// <summary>A player tries the floor safe: with a code (<paramref name="pry"/> false) or with a crowbar from his backpack.</summary>
-        public void RequestSafe(bool pry, int code)
+        /// <summary>A player tries safe number <paramref name="index"/> of the floor (0 first): with a code (<paramref name="pry"/> false) or with a crowbar from his backpack.</summary>
+        public void RequestSafe(int index, bool pry, int code)
         {
             code = Mathf.Clamp(code, 0, 9999);
-            if (IsServer) HostSafe(Me, pry, code, Epoch); else SafeRequestRpc(pry, (ushort)code, Epoch);
+            index = Mathf.Clamp(index, 0, SafeRules.MaxSafes - 1);
+            if (IsServer) HostSafe(Me, index, pry, code, Epoch); else SafeRequestRpc((byte)index, pry, (ushort)code, Epoch);
         }
 
         [Rpc(SendTo.Server)]
-        void SafeRequestRpc(bool pry, ushort code, byte epoch, RpcParams rp = default) => HostSafe(rp.Receive.SenderClientId, pry, code, epoch);
+        void SafeRequestRpc(byte index, bool pry, ushort code, byte epoch, RpcParams rp = default) => HostSafe(rp.Receive.SenderClientId, index, pry, code, epoch);
 
-        void HostSafe(ulong who, bool pry, int code, byte epoch)
+        void HostSafe(ulong who, int index, bool pry, int code, byte epoch)
         {
             if (epoch != Epoch) return;
             var np = PlayerOf(who);
-            var safe = FloorSafe.Active;
+            var safe = FloorSafe.ByIndex(index);
             if (np == null || safe == null || safe.IsOpen) return;
             if (np.TryGetComponent(out WobblyPlayer wp) && wp.InCustody) return;
             if (!safe.InReach(np.transform.position, SafeReachSlack)) return;
@@ -107,30 +130,30 @@ namespace BuildingEscape.Net
             switch (reply)
             {
                 case SafeReply.Opened:
-                    SafeOpenedRpc(Epoch, false);
+                    SafeOpenedRpc(Epoch, (byte)index, false);
                     break;
                 case SafeReply.OpenedCrowbarBroke:
-                    SafeOpenedRpc(Epoch, true);
+                    SafeOpenedRpc(Epoch, (byte)index, true);
                     Notice(who, "The crowbar snapped!");
                     break;
                 case SafeReply.Ignored:
                     break;
                 default:
-                    SafeReplyRpc((byte)reply, RpcTarget.Single(who, RpcTargetUse.Temp));
+                    SafeReplyRpc((byte)reply, (byte)index, RpcTarget.Single(who, RpcTargetUse.Temp));
                     break;
             }
         }
 
-        /// <summary>Host -> everyone: the safe is open (and the crowbar that did it snapped, if it did).</summary>
+        /// <summary>Host -> everyone: safe number <paramref name="index"/> is open (and the crowbar that did it snapped, if it did).</summary>
         [Rpc(SendTo.ClientsAndHost)]
-        void SafeOpenedRpc(byte epoch, bool crowbarBroke)
+        void SafeOpenedRpc(byte epoch, byte index, bool crowbarBroke)
         {
             if (epoch != Epoch) return;
-            FloorSafe.Active?.ApplyOpen(false, crowbarBroke);
+            FloorSafe.ByIndex(index)?.ApplyOpen(false, crowbarBroke);
         }
 
         /// <summary>Host -> the player who tried: the safe said no.</summary>
         [Rpc(SendTo.SpecifiedInParams)]
-        void SafeReplyRpc(byte reply, RpcParams rp = default) => FloorSafe.Active?.NetReply((SafeReply)reply);
+        void SafeReplyRpc(byte reply, byte index, RpcParams rp = default) => FloorSafe.ByIndex(index)?.NetReply((SafeReply)reply);
     }
 }

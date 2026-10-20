@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: ff7cef98cb293df4da5464451a2aa494
+timeCreated: 1575344943
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 100100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 159492
+  packageName: POLYGON - Office Pack - Art by Synty
+  packageVersion: 1.9.4
+  assetPath: Assets/Synty/PolygonOffice/Prefabs/Props/Roof Props/SM_Prop_Ducting_01_Curve.prefab
+  uploadId: 976702

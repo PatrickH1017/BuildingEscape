@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 965f4c26683184f45916936a132fa4ed
+timeCreated: 1574894180
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 2100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 159492
+  packageName: POLYGON - Office Pack - Art by Synty
+  packageVersion: 1.9.4
+  assetPath: Assets/Synty/PolygonOffice/Materials/Alts/PolygonOffice_01_B.mat
+  uploadId: 976702

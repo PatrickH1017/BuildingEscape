@@ -14,7 +14,7 @@ namespace BuildingEscape
         {
             public const int Cash = 0, Banked = 1, Lost = 2, RunTotal = 3, Prompt = 4, Prompt2 = 5, Banner = 6, Notice = 7, Notice2 = 8,
                 Backup = 9, Pinned = 10, Busted = 11, Ammo = 12, Pack = 13, Loot = 14, Voice = 15, Status = 16, Weight = 17, Rounds = 18,
-                Reload = 19, Met = 20, Checking = 21, Controls = 22, Reticle = 23, Ring = 24, BackupChip = 25, Sub = 26, Sub2 = 27, Esc = 28;
+                Reload = 19, Met = 20, Checking = 21, Controls = 22, Reticle = 23, Ring = 24, BackupChip = 25, Sub = 26, Sub2 = 27, Esc = 28, Inventory = 29, Computer = 30;
         }
 
         public const int Slots = 32;

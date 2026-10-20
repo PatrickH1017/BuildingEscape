@@ -206,7 +206,10 @@ namespace BuildingEscape
             if (index >= 0 && Input.GetKeyDown(UseKey))
             {
                 var d = doors[index];
-                if (d.Locked) OutpostController.Active?.UseLockedDoor(me);     // (a locked door is hacked, not opened)
+                if (d.ComputerLocked && !IsOutpostDoor(d)) { }                                         // (locked at the security computer: only the computer opens it)
+                else if (d.Permanent) { }                                              // (a restroom door: nothing happens, the prompt says it is locked)
+                else if (d.Locked && OutpostInside(d, me.transform.position)) Use(index, true);     // (from inside the lock is simply undone)
+                else if (d.Locked) OutpostController.Active?.UseLockedDoor(me);     // (a locked door is hacked, not opened)
                 else Use(index, !d.Logic.WantOpen);
             }
         }
@@ -218,16 +221,39 @@ namespace BuildingEscape
         public void Use(int index, bool open)
         {
             var d = Get(index);
-            if (d == null || (open && d.Locked)) return;
+            var me = LocalPlayer(out _);
+            Vector3 at = me ? me.transform.position : Vector3.zero;
+            if (d == null || (open && d.ComputerLocked && !(me && OutpostInside(d, at))) || (open && d.Locked && !(me && OutpostInside(d, at)))) return;
             if (Net.NetRole.Synced) Net.RunSync.Instance.RequestDoor(index, open);
-            else d.SetOpen(open, Time.time);
+            else { ApplyOutpostInsideRule(index, open, at); d.SetOpen(open, Time.time); }
         }
 
-        /// <summary>Is this door locked (nobody can open it with E until the lock is hacked)?</summary>
+        public bool IsOutpostDoor(SlidingDoor d) => d != null && OutpostController.Active != null && OutpostController.Active.Door == d;
+
+        /// <summary>Is this the outpost's door, and is this spot on the inside of it?</summary>
+        public bool OutpostInside(SlidingDoor d, Vector3 p)
+        {
+            var oc = OutpostController.Active;
+            return d != null && oc != null && oc.Door == d && oc.IsInside(p);
+        }
+
+        /// <summary>
+        /// Offline / host: opening the outpost's locked door from inside (E) undoes the lock. Shutting the door locks nothing (the owner, 2026-10-18): the hard lock that the officers cannot open comes only from
+        /// the code at the security terminal (<see cref="OutpostController.LockByCode"/>).
+        /// </summary>
+        public void ApplyOutpostInsideRule(int index, bool open, Vector3 p)
+        {
+            var d = Get(index);
+            if (!IsOutpostDoor(d)) return;
+            var oc = OutpostController.Active;
+            if (open && oc.IsInside(p)) oc.UnlockFromInside();
+        }
+
+        /// <summary>Is this door locked (nobody can open it with E until the lock is hacked, or the security computer unlocks it)?</summary>
         public bool IsLocked(int index)
         {
             var d = Get(index);
-            return d != null && d.Locked;
+            return d != null && (d.Locked || d.ComputerLocked);
         }
 
         /// <summary>Host check: is this player close enough to the door to have worked it (the player's view of the world is a moment old).</summary>
@@ -238,6 +264,72 @@ namespace BuildingEscape
         }
 
         // ------------------------------------------------------------------ what the host announces
+
+        /// <summary>The player at the security computer locks / unlocks the doors of a room (by room number): done at once offline, asked of the host in a networked run. Returns false when there is no such room.</summary>
+        public bool ComputerLock(int floor, string roomText, bool locked)
+        {
+            if (FloorDirectory.IsOutpostName(roomText))             // (the security office's own door: locked with the code, the officers cannot open it, the keypad can still hack it)
+            {
+                var oc = OutpostController.Active;
+                if (oc == null || oc.Door == null) return false;
+                if (Net.NetRole.Synced) Net.RunSync.Instance.RequestComputerLock(floor, FloorDirectory.OutpostName, locked);
+                else oc.HostLockByCode(locked);
+                return true;
+            }
+            var ids = FloorDirectory.DoorsOf(floor, roomText);
+            if (ids == null) return false;
+            if (Net.NetRole.Synced) Net.RunSync.Instance.RequestComputerLock(floor, roomText.Trim(), locked);
+            else NetSetComputerLocked(ids, locked, floor);
+            return true;
+        }
+
+        /// <summary>
+        /// Are the doors of this room (a number, or a name of the security office) locked at the security computer right now? A room counts as locked when any of its doors is, so a bare room number typed at the
+        /// terminal (which does the other thing than the doors do now) unlocks it then. False for a room that does not exist.
+        /// </summary>
+        public bool ComputerIsLocked(int floor, string roomText)
+        {
+            if (FloorDirectory.IsOutpostName(roomText))
+            {
+                var oc = OutpostController.Active;
+                return oc != null && oc.Door != null && oc.Door.ComputerLocked;
+            }
+            var ids = FloorDirectory.DoorsOf(floor, roomText);
+            if (ids == null) return false;
+            for (int i = 0; i < ids.Length; i++)
+            {
+                var d = Get(ids[i]);
+                if (d != null && d.ComputerLocked) return true;
+            }
+            return false;
+        }
+
+        /// <summary>Everybody: these doors are now locked / unlocked by the computer (a loud metal clang for an executive suite or the server room).</summary>
+        public void NetSetComputerLocked(ushort[] ids, bool locked, int floor)
+        {
+            if (ids == null || ids.Length == 0) return;
+            var dir = FloorDirectory.Current(floor);
+            bool heavy = false;
+            Vector3 at = Vector3.zero;
+            for (int i = 0; i < ids.Length; i++)
+            {
+                var d = Get(ids[i]);
+                if (d == null) continue;
+                if (d.ComputerLocked != locked) { d.SetComputerLocked(locked, Time.time); at = d.Centre + Vector3.up; }
+                if (dir != null && dir.IsHeavy(ids[i])) heavy = true;
+            }
+            if (at == Vector3.zero) return;
+            if (locked) GameAudio.PlaySound(SoundId.MetalLock, at, heavy ? 1f : 0.35f, heavy ? 0.9f : 1.35f, true, heavy ? 48f : 16f, 3f);
+            else GameAudio.PlaySound(SoundId.DoorOpen, at, 0.4f, 0.8f, true, 15f, 3f);
+        }
+
+        /// <summary>Host: the doors the computer has locked (a machine that joined the floor late asks for them).</summary>
+        public ushort[] LockedByComputer()
+        {
+            var list = new List<ushort>();
+            for (int i = 0; i < doors.Count && i <= ushort.MaxValue; i++) if (doors[i].ComputerLocked) list.Add((ushort)i);
+            return list.ToArray();
+        }
 
         /// <summary>The host said a door is to be open or shut.</summary>
         public void NetSet(int index, bool open)
@@ -272,7 +364,8 @@ namespace BuildingEscape
             if (Event.current.type != EventType.Repaint) return;
             if (promptDoor < 0 || promptDoor >= doors.Count) return;
             var d = doors[promptDoor];
-            string text = d.Locked ? (OutpostController.Active != null ? OutpostController.Active.LockPrompt : "Locked")
+            var meNow = LocalPlayer(out _);
+            string text = d.Locked && meNow && OutpostInside(d, meNow.transform.position) ? "[E] Unlock door" : IsOutpostDoor(d) && d.Locked && OutpostController.Active != null ? OutpostController.Active.LockPrompt : d.ComputerLocked ? "Locked - open it at the security computer" : d.Permanent ? "Locked" : d.Locked && meNow && OutpostInside(d, meNow.transform.position) ? "[E] Unlock door" : d.Locked ? (OutpostController.Active != null ? OutpostController.Active.LockPrompt : "Locked")
                         : d.Obstructed(Time.time) ? "Something is in the doorway" : d.Logic.WantOpen ? "[E] Close door" : "[E] Open door";
             HudWidgets.Prompt(text, Screen.height * 0.62f, !text.StartsWith("["));
         }

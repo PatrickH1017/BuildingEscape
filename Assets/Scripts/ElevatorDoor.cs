@@ -10,7 +10,12 @@ namespace BuildingEscape
     /// </summary>
     public class ElevatorDoor : MonoBehaviour
     {
-        public float speed = 1.6f; // 1 = fully open per second
+        public float speed = 1.6f; // 1 = fully open per second (the doors CLOSE this fast; opening takes OpenSeconds)
+        /// <summary>How long the doors take to open (the owner, 2026-10-17 night: "elevator door opening should also take 2 seconds").</summary>
+        public const float OpenSeconds = 2f;
+
+        /// <summary>How far open (0..1) a door is after <paramref name="dt"/> seconds of moving from <paramref name="k"/> towards <paramref name="target"/>: opening takes <see cref="OpenSeconds"/>, closing runs at <paramref name="closeSpeed"/> per second.</summary>
+        public static float Advance(float k, float target, float dt, float closeSpeed) => Mathf.MoveTowards(k, target, (target > k ? 1f / OpenSeconds : closeSpeed) * dt);
         [Tooltip("Also ring the arrival chime when the doors open (the guest elevator that brings backup).")]
         public bool chimeOnOpen;
 
@@ -61,7 +66,7 @@ namespace BuildingEscape
         void Update()
         {
             if (Mathf.Approximately(k, target)) return;      // at rest: nothing to move
-            k = Mathf.MoveTowards(k, target, speed * Time.deltaTime);
+            k = Advance(k, target, Time.deltaTime, speed);
             Apply();
         }
 

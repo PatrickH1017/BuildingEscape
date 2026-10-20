@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 6c1617b0a6df4dd42840becce3b6186e
+timeCreated: 1579571622
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 43839124727997340
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 159492
+  packageName: POLYGON - Office Pack - Art by Synty
+  packageVersion: 1.9.4
+  assetPath: Assets/Synty/PolygonOffice/Models/Convex/SM_Prop_Donut_Box_01_Convex.asset
+  uploadId: 976702

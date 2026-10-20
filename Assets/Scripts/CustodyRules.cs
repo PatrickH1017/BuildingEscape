@@ -22,8 +22,21 @@ namespace BuildingEscape
         /// <summary>Seconds a pinned player has before they are busted.</summary>
         public const float PinSeconds = 12f;
 
-        /// <summary>After backup has been called, one more officer is called this often.</summary>
+        /// <summary>After backup has been called, one more officer is called this often (on floor 1; see <see cref="BackupInterval"/> for the higher floors).</summary>
         public const float BackupIntervalSeconds = 30f;
+
+        /// <summary>The same on floor 12 and above.</summary>
+        public const float BackupIntervalTopFloorSeconds = 12f;
+
+        /// <summary>
+        /// Seconds between the officers a backup call keeps sending, by floor (the owner, 2026-10-18: "Backup timing should speed up with the higher floors"):
+        /// 30 s on floor 1, shrinking in equal steps to 12 s on floor 12 and above.
+        /// </summary>
+        public static float BackupInterval(int floor)
+        {
+            float t = Math.Min(1f, Math.Max(0f, (floor - 1) / 11f));
+            return BackupIntervalSeconds + (BackupIntervalTopFloorSeconds - BackupIntervalSeconds) * t;
+        }
 
         /// <summary>A player who was just freed cannot be pinned again for this long (so the officer cannot re-pin at once).</summary>
         public const float PinImmunitySeconds = 3f;
@@ -82,7 +95,7 @@ namespace BuildingEscape
     /// </summary>
     public sealed class BackupClock
     {
-        public float Interval { get; }
+        public float Interval { get; private set; }
         public bool Active { get; private set; }
         /// <summary>Seconds until the next repeat call (meaningful while <see cref="Active"/>).</summary>
         public float Left { get; private set; }
@@ -91,10 +104,11 @@ namespace BuildingEscape
 
         public BackupClock(float interval = CustodyRules.BackupIntervalSeconds) { Interval = Math.Max(0.01f, interval); }
 
-        /// <summary>The first backup call of the floor: the countdown to the next officer starts. Later calls change nothing.</summary>
-        public void Start()
+        /// <summary>The first backup call of the floor: the countdown to the next officer starts (with this interval when one is given: it depends on the floor). Later calls change nothing.</summary>
+        public void Start(float interval = 0f)
         {
             if (Active) return;
+            if (interval > 0f) Interval = Math.Max(0.01f, interval);
             Active = true; Left = Interval; Repeats = 0;
         }
 

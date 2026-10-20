@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: ee969a86bcefa334495a0684b7c15e0d
+timeCreated: 1579556299
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 43854279506639498
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 159492
+  packageName: POLYGON - Office Pack - Art by Synty
+  packageVersion: 1.9.4
+  assetPath: Assets/Synty/PolygonOffice/Models/Convex/SM_Prop_Paper_Plane_01_Convex.asset
+  uploadId: 976702

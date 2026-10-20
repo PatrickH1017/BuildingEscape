@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 453c2af17c289974bb15fc202dfb1b2a
+timeCreated: 1579572118
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 43172072161998960
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 159492
+  packageName: POLYGON - Office Pack - Art by Synty
+  packageVersion: 1.9.4
+  assetPath: Assets/Synty/PolygonOffice/Models/Convex/SM_Prop_Keypad_01_Convex.asset
+  uploadId: 976702

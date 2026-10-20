@@ -59,6 +59,17 @@ namespace BuildingEscape
         /// still open it for themselves (it is their outpost) and it shuts and stays locked behind them.
         /// </summary>
         public bool Locked;
+        /// <summary>A door that never opens, for anybody (a restroom: "Players should not be allowed to enter the restroom"): <see cref="Locked"/> as well, but no lock to hack and officers do not open it either.</summary>
+        public bool Permanent;
+        /// <summary>Locked from the security computer's Hacked terminal: shut at once and nobody (players or officers) opens it until the computer unlocks it.</summary>
+        public bool ComputerLocked { get; private set; }
+
+        public void SetComputerLocked(bool locked, float now)
+        {
+            if (ComputerLocked == locked) return;
+            ComputerLocked = locked;
+            if (locked) { Latched = false; GuardNear = false; Logic.CloseNow(now); }
+        }
         /// <summary>An officer is about to walk through the door, or is in it (set by the manager about ten times a second): it opens for him.</summary>
         public bool GuardNear;
         /// <summary>A player opened it with E: it stays open until a player closes it again.</summary>
@@ -107,6 +118,46 @@ namespace BuildingEscape
             (side < 0 ? decorLow : decorHigh).Add(r);
             r.enabled = (side < 0 ? rendLow : rendHigh).enabled;
         }
+
+        // ---- how the leaves leave the doorway: sliding into the wall beside it (see DoorSlide) instead of narrowing into the jambs
+        bool slide;
+        float lowTravel, highTravel, lowDepth, highDepth;
+
+        /// <summary>
+        /// The leaves keep their size and slide sideways out of the doorway, <paramref name="plan"/> says how far and where (inside the wall, or in front of a glass front). A plan that says
+        /// "no" leaves the door as it is: its leaves narrow into the jambs.
+        /// </summary>
+        public void SetSlide(DoorSlide.Plan plan)
+        {
+            if (!plan.slide) return;
+            slide = true;
+            lowTravel = plan.lowTravel; highTravel = plan.highTravel;
+            float lane = Depth * 0.5f + LeafThickness * 0.5f + 0.012f;           // (in front of the wall's face, not touching it)
+            lowDepth = plan.lowLane * lane; highDepth = plan.highLane * lane;
+            Apply();
+        }
+
+        /// <summary>Does this door slide into the wall?</summary>
+        public bool Slides => slide;
+
+        // ---- a door whose walls have no room for its leaves swings open instead (hinged at the jambs)
+        bool swing;
+        int swingSign = 1;
+        const float SwingDegrees = 92f;
+
+        /// <summary>
+        /// The leaves are hinged at the jambs and swing open towards the side <paramref name="sign"/> (+1 / -1 across the wall, in the door's own frame): for a door that cannot slide into the
+        /// wall beside it (<see cref="DoorSlide"/>). The doorway's approach is kept clear of furniture on both sides, so the leaves have room.
+        /// </summary>
+        public void SetSwing(int sign)
+        {
+            swing = true;
+            swingSign = sign >= 0 ? 1 : -1;
+            Apply();
+        }
+
+        /// <summary>Does this door swing open (hinged leaves)?</summary>
+        public bool Swings => swing;
 
         public bool IsShut => Logic.IsShut;
         /// <summary>The doorway can be walked through exactly when this is false.</summary>
@@ -176,6 +227,7 @@ namespace BuildingEscape
         /// </summary>
         public void SetOpen(bool open, float now)
         {
+            if (open && ComputerLocked) return;
             Latched = open;
             if (!open) Logic.CloseNow(now);
         }
@@ -190,7 +242,7 @@ namespace BuildingEscape
         /// <summary>Advances the door by one frame. <paramref name="soundBudget"/> is shared by all doors: each sound uses one.</summary>
         public void Tick(float now, float dt, ref int soundBudget)
         {
-            bool held = Latched || GuardNear;
+            bool held = !Permanent && !ComputerLocked && (Latched || GuardNear);
             bool blocked = Logic.NeedsBlockCheck(now, held) && Blocked();
             if (blocked) obstructedUntil = now + 0.6f;
             float open = Wide ? WideOpenSeconds : OpenSeconds, close = Wide ? WideCloseSeconds : CloseSeconds;
@@ -205,6 +257,7 @@ namespace BuildingEscape
         /// </summary>
         public void SnapOpen()
         {
+            if (Permanent) return;
             Logic.Open = 1f; Logic.WantOpen = true; Logic.CloseAfter = Time.time + Linger;
             Apply();
         }
@@ -212,6 +265,7 @@ namespace BuildingEscape
         /// <summary>Opens the door at once, without a sound, and holds it open (a machine that learns late that a player opened it).</summary>
         public void SnapLatched()
         {
+            if (Permanent || ComputerLocked) return;
             Latched = true;
             Logic.Open = 1f; Logic.WantOpen = true; Logic.CloseAfter = Time.time + Linger;
             Apply();
@@ -219,11 +273,64 @@ namespace BuildingEscape
 
         void Apply()
         {
-            float w = DoorGeometry.LeafWidth(HalfGap, Logic.Open);
-            SetLeaf(leafLow, rendLow, decorLow, -1, w);
-            SetLeaf(leafHigh, rendHigh, decorHigh, +1, w);
+            if (slide) ApplySlide();
+            else if (swing) ApplySwing();
+            else
+            {
+                float w = DoorGeometry.LeafWidth(HalfGap, Logic.Open);
+                SetLeaf(leafLow, rendLow, decorLow, -1, w);
+                SetLeaf(leafHigh, rendHigh, decorHigh, +1, w);
+            }
             bool shut = Logic.IsShut;
             if (blocker.enabled != shut) blocker.enabled = shut;
+        }
+
+        /// <summary>Each leaf slides out of the doorway as far as its plan says (eased); one that goes in front of a glass front steps out of the doorway's line first. A leaf that is all the way inside the wall is not drawn.</summary>
+        void ApplySlide()
+        {
+            float o = Mathf.Clamp01(Logic.Open), e = o * o * (3f - 2f * o), stepOut = Mathf.Clamp01(o / 0.25f);
+            float w = HalfGap - DoorGeometry.Seam;
+            SlideLeaf(leafLow, rendLow, decorLow, -1, w, lowTravel * e, lowDepth * stepOut, o >= 1f && lowDepth == 0f && lowTravel >= w - 0.01f);
+            SlideLeaf(leafHigh, rendHigh, decorHigh, +1, w, highTravel * e, highDepth * stepOut, o >= 1f && highDepth == 0f && highTravel >= w - 0.01f);
+        }
+
+        /// <summary>Both leaves turn about their hinges at the jambs (eased, up to 92 degrees). The hinge moves half a leaf's thickness inwards as the door opens, so an open leaf lies flush against the side of the doorway.</summary>
+        void ApplySwing()
+        {
+            float o = Mathf.Clamp01(Logic.Open), e = o * o * (3f - 2f * o);
+            float w = HalfGap - DoorGeometry.Seam;
+            float hingeX = HalfGap - LeafThickness * 0.5f * e;
+            float angle = SwingDegrees * e * swingSign;
+            SwingLeaf(leafLow, rendLow, decorLow, -1, w, hingeX, angle);
+            SwingLeaf(leafHigh, rendHigh, decorHigh, +1, w, hingeX, angle);
+        }
+
+        void SwingLeaf(Transform t, Renderer r, List<Renderer> decor, int side, float width, float hingeX, float angle)
+        {
+            if (!r.enabled)
+            {
+                r.enabled = true;
+                for (int i = 0; i < decor.Count; i++) if (decor[i]) decor[i].enabled = true;
+            }
+            // the low leaf is hinged at -x and reaches towards +x: turned by -angle about y it swings towards +z; the high leaf is hinged at +x and reaches towards -x: +angle swings it towards +z
+            var q = Quaternion.Euler(0f, side < 0 ? -angle : angle, 0f);
+            var hinge = new Vector3(side * hingeX, Height * 0.5f, 0f);
+            t.localRotation = q;
+            t.localPosition = hinge + q * new Vector3(-side * width * 0.5f, 0f, 0f);
+            t.localScale = new Vector3(width, Height, LeafThickness);
+        }
+
+        void SlideLeaf(Transform t, Renderer r, List<Renderer> decor, int side, float width, float moved, float depth, bool insideWall)
+        {
+            bool visible = !insideWall;
+            if (r.enabled != visible)
+            {
+                r.enabled = visible;
+                for (int i = 0; i < decor.Count; i++) if (decor[i]) decor[i].enabled = visible;
+            }
+            if (!visible) return;
+            t.localPosition = new Vector3(side * ((HalfGap + DoorGeometry.Seam) * 0.5f + moved), Height * 0.5f, depth);
+            t.localScale = new Vector3(width, Height, LeafThickness);
         }
 
         void SetLeaf(Transform t, Renderer r, List<Renderer> decor, int side, float width)

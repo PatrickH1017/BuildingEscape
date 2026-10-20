@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: ebc4044b1260dac4fbbe8760d8d4abd9
+timeCreated: 1579572121
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 43016437272592552
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 159492
+  packageName: POLYGON - Office Pack - Art by Synty
+  packageVersion: 1.9.4
+  assetPath: Assets/Synty/PolygonOffice/Models/Convex/SM_Prop_Sign_Toilets_Disabled_01_Convex.asset
+  uploadId: 976702

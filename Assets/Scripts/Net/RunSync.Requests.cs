@@ -67,6 +67,19 @@ namespace BuildingEscape.Net
             if (!Near(np.transform, p.transform, ReachCheck)) return;
             var bp = np.GetComponent<Backpack>();
             if (bp == null) return;
+            if (p.TryGetComponent(out AmmoClip clip))
+            {
+                // a spare clip is used up on the spot (the owner, 2026-10-18): its rounds go into the pew this player carries - every machine adds them, as for the dealer's clip - and the clip is gone everywhere; no pew, no clip
+                var clipGun = Vendor.GunOf(bp, clip.kind);
+                if (clipGun == null) { Notice(who, Backpack.NoGunForClip(clip.kind)); return; }
+                if (clipGun.Magazine.Room < clip.rounds) { Notice(who, Backpack.TooManyClips); return; }      // (three clips at most: the clip stays where it lies)
+                int rounds = clip.rounds;
+                AnnounceAmmo(np.Slot, rounds, clip.kind);
+                Notice(who, Backpack.ClipTaken(rounds, clip.kind));
+                BroadcastConsumed(p.NetId);
+                Destroy(p.gameObject);
+                return;
+            }
             if (!bp.CanFit(p, out string why)) { Notice(who, why); return; }
             StoredRpc((ushort)id, (byte)np.Slot);
         }
@@ -189,26 +202,53 @@ namespace BuildingEscape.Net
             if (np == null || g == null) return;
             var bp = np.GetComponent<Backpack>();
             var weapon = bp && bp.Equipped ? bp.Equipped.GetComponent<MeleeWeapon>() : null;
-            if (weapon == null) return;
+            bool punch = weapon == null && !(bp && bp.Equipped);              // (empty hands: a punch)
+            if (weapon == null && !punch) return;
             if (!Near(np.transform, g.transform, GuardHitReach)) return;
             float now = Time.unscaledTime;
             if (lastHit.TryGetValue(who, out float t) && now - t < 0.35f) return; // faster than any swing
             lastHit[who] = now;
-            g.WeaponHitHost(weapon.Data.stun, np.gameObject);
+            if (punch) g.PunchHost(PunchRules.StunSeconds, np.gameObject);
+            else g.MeleeHitHost(weapon.Data.stun, np.gameObject);
         }
 
-        public void RequestSwing()
+        /// <summary>This player swung a weapon (<paramref name="kind"/> 0-2) or threw a punch (<see cref="MeleeWeapon.PunchKind"/>): the teammates see it and hear it when they are near.</summary>
+        public void RequestSwing(byte kind)
         {
-            if (IsServer) HostSwing(Me); else SwingRequestRpc();
+            if (IsServer) HostSwing(Me, kind); else SwingRequestRpc(kind);
         }
 
         [Rpc(SendTo.Server)]
-        void SwingRequestRpc(RpcParams rp = default) => HostSwing(rp.Receive.SenderClientId);
+        void SwingRequestRpc(byte kind, RpcParams rp = default) => HostSwing(rp.Receive.SenderClientId, kind);
 
-        void HostSwing(ulong who)
+        static bool MeleeKindOk(byte kind) => kind <= 2 || kind == MeleeWeapon.PunchKind;
+
+        void HostSwing(ulong who, byte kind)
         {
             var np = PlayerOf(who);
-            if (np != null) SwungRpc((byte)np.Slot);
+            if (np != null && MeleeKindOk(kind)) SwungRpc((byte)np.Slot, kind);
+        }
+
+        /// <summary>A blow landed (a weapon or a fist, on a guard or the training dummy) at <paramref name="at"/>: the teammates hear it from there, when they are near.</summary>
+        public void RequestMeleeHit(byte kind, bool killed, Vector3 at)
+        {
+            if (IsServer) HostMeleeHit(Me, kind, killed, at); else MeleeHitRequestRpc(kind, killed, at);
+        }
+
+        [Rpc(SendTo.Server)]
+        void MeleeHitRequestRpc(byte kind, bool killed, Vector3 at, RpcParams rp = default) => HostMeleeHit(rp.Receive.SenderClientId, kind, killed, at);
+
+        readonly System.Collections.Generic.Dictionary<ulong, float> lastMeleeSound = new();
+
+        void HostMeleeHit(ulong who, byte kind, bool killed, Vector3 at)
+        {
+            var np = PlayerOf(who);
+            if (np == null || !MeleeKindOk(kind) || !(at.sqrMagnitude < 1e8f)) return;                 // (NaN and absurd places are refused)
+            if ((np.transform.position - at).sqrMagnitude > 10f * 10f) return;                         // (the blow was where its player is)
+            float now = Time.unscaledTime;
+            if (lastMeleeSound.TryGetValue(who, out float t) && now - t < 0.12f) return;               // (faster than any swing)
+            lastMeleeSound[who] = now;
+            MeleeHitRpc((byte)np.Slot, kind, killed, at);
         }
 
         public void RequestNoise(Vector3 pos, float loudness)
@@ -326,8 +366,38 @@ namespace BuildingEscape.Net
             if (np == null || doors == null) return;
             if (np.TryGetComponent(out WobblyPlayer wp) && wp.InCustody) return;
             if (!doors.InUseReach(door, np.transform.position, DoorReachSlack)) return;
-            if (open && doors.IsLocked(door)) return;                // the outpost's door opens when its lock is hacked, not before
+            if (open && doors.IsLocked(door) && !doors.OutpostInside(doors.Get(door), np.transform.position)) return;     // (the outpost's door opens when its lock is hacked, not before; from inside it just unlocks)
+            doors.ApplyOutpostInsideRule(door, open, np.transform.position);
             DoorSetRpc((ushort)door, open, Epoch);
+        }
+
+        /// <summary>The player at the security computer locks / unlocks the doors of a room by its number.</summary>
+        public void RequestComputerLock(int floor, string room, bool locked)
+        {
+            if (string.IsNullOrEmpty(room) || room.Length > 8) return;
+            if (IsServer) HostComputerLock(Me, floor, room, locked, Epoch); else ComputerLockRequestRpc(floor, room, locked, Epoch);
+        }
+
+        [Rpc(SendTo.Server)]
+        void ComputerLockRequestRpc(int floor, string room, bool locked, byte epoch, RpcParams rp = default) => HostComputerLock(rp.Receive.SenderClientId, floor, room, locked, epoch);
+
+        void HostComputerLock(ulong who, int floor, string room, bool locked, byte epoch)
+        {
+            if (epoch != Epoch) return;
+            var np = PlayerOf(who);
+            var oc = OutpostController.Active;
+            if (np == null || oc == null) return;
+            if (np.TryGetComponent(out WobblyPlayer wp) && wp.InCustody) return;
+            if (Vector3.Distance(np.transform.position, oc.KeypadPosition) > 30f) return;          // (the computer is in the outpost room)
+            if (FloorDirectory.IsOutpostName(room))
+            {
+                if (!oc.IsInsideNear(np.transform.position)) return;                                // (the door of the room is locked from inside, at the computer)
+                oc.HostLockByCode(locked);                                                         // (the new state reaches everybody with the run state)
+                return;
+            }
+            var ids = FloorDirectory.DoorsOf(floor, room);
+            if (ids == null) return;
+            ComputerLockRpc(ids, locked, floor, Epoch);
         }
 
         /// <summary>Client: this machine has just built the floor; ask which doors the host's players have opened since it was built.</summary>
@@ -344,6 +414,8 @@ namespace BuildingEscape.Net
             if (doors == null) return;
             var open = doors.OpenByPlayers();
             if (open.Length > 0) DoorStatesRpc(open, Epoch, RpcTarget.Single(rp.Receive.SenderClientId, RpcTargetUse.Temp));
+            var locked = doors.LockedByComputer();
+            if (locked.Length > 0) ComputerLockStatesRpc(locked, HeistManager.Instance != null ? HeistManager.Instance.Floor : 0, Epoch, RpcTarget.Single(rp.Receive.SenderClientId, RpcTargetUse.Temp));
         }
     }
 }

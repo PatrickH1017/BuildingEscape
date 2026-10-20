@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 751a09526279b0a4395a707e2ee22620
+timeCreated: 1579571644
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 43976012062094996
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 159492
+  packageName: POLYGON - Office Pack - Art by Synty
+  packageVersion: 1.9.4
+  assetPath: Assets/Synty/PolygonOffice/Models/Convex/SM_Prop_CoffeeMachine_Small_01_Convex.asset
+  uploadId: 976702

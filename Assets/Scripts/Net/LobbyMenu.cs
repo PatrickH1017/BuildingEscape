@@ -19,7 +19,7 @@ namespace BuildingEscape.Net
         const string VolumeKey = "OvertimeEscape.MasterVolume";   // shared with the in-run Esc menu
         const string SensitivityKey = "OvertimeEscape.MouseSensitivity";
 
-        static readonly Color Violet = new Color32(0x8A, 0x5C, 0xFF, 255);
+        static Color Violet => HudTheme.Violet;
 
         static readonly Color[] Swatches =
         {
@@ -28,7 +28,6 @@ namespace BuildingEscape.Net
             new Color(0.45f, 0.85f, 0.20f), new Color(0.95f, 0.95f, 0.95f), new Color(0.55f, 0.55f, 0.60f), new Color(0.12f, 0.12f, 0.14f),
         };
 
-        static readonly string[] VoiceModes = { "OPEN MIC", "PUSH TO TALK (T)", "OFF" };
         static readonly string[] FaceNames = Upper(PlayerAppearance.FaceLabels);
         static readonly string[] HatNames = Upper(PlayerAppearance.HatLabels);
 
@@ -54,8 +53,24 @@ namespace BuildingEscape.Net
         readonly MenuKit.Flow flow = new MenuKit.Flow();
         readonly MenuKit.Scroll scroll = new MenuKit.Scroll();
 
+        static LobbyMenu instance;
+
+        /// <summary>Closes the page the lobby menu is on: back to the main page, which shows the lobby or the connection (an accepted invite closes every menu, see <see cref="MenuRegistry"/>).</summary>
+        public static void CloseAll()
+        {
+            if (instance == null) return;
+            instance.page = Page.Main;
+            GUI.FocusControl(null);
+        }
+
+        /// <summary>Is the lobby menu on a page other than its main one?</summary>
+        public static bool PageOpen => instance != null && instance.page != Page.Main;
+
+        void OnDestroy() { if (instance == this) instance = null; }
+
         void Start()
         {
+            instance = this;
             Cursor.lockState = CursorLockMode.None;
             Cursor.visible = true;
             AudioListener.volume = PlayerPrefs.GetFloat(VolumeKey, 1f);
@@ -176,8 +191,13 @@ namespace BuildingEscape.Net
             float s = HudTheme.S, t = Time.unscaledTime;
             var r = new Rect(panel.x + 24f * s, panel.y - 30f * s, panel.width - 48f * s, 132f * s);
             HudTheme.Body(r, HudTheme.Danger, 24f, 4f, 5f, true, 2f);
-            HudTheme.Text(new Rect(r.x, r.y + 10f * s, r.width, 46f * s), "OVERTIME", 40f, HudTheme.Bright, TextAnchor.MiddleCenter);
-            HudTheme.Text(new Rect(r.x, r.y + 44f * s, r.width, 80f * s), "ESCAPE", 72f, HudTheme.Quota, TextAnchor.MiddleCenter);
+            // "EMPLOYEES TAKE" over "REVENGE": each line shrinks until it fits the plate
+            const string top = "EMPLOYEES TAKE", bottom = "REVENGE";
+            float fitW = r.width - 84f * s, topSize = 40f, bottomSize = 72f;
+            while (topSize > 18f && HudTheme.Width(top, topSize) > fitW) topSize -= 2f;
+            while (bottomSize > 30f && HudTheme.Width(bottom, bottomSize) > fitW) bottomSize -= 2f;
+            HudTheme.Text(new Rect(r.x, r.y + 10f * s, r.width, 46f * s), top, topSize, HudTheme.Bright, TextAnchor.MiddleCenter);
+            HudTheme.Text(new Rect(r.x, r.y + 44f * s, r.width, 80f * s), bottom, bottomSize, HudTheme.Quota, TextAnchor.MiddleCenter);
             HudIcons.Sparkle(new Vector2(r.x + 30f * s, r.y + 30f * s), 20f * s * (0.8f + 0.2f * Mathf.Sin(t * 5f)), HudTheme.Bright, t * 40f);
             HudIcons.Sparkle(new Vector2(r.xMax - 32f * s, r.yMax - 30f * s), 16f * s * (0.8f + 0.2f * Mathf.Sin(t * 4f + 2f)), HudTheme.Quota, -t * 30f);
         }
@@ -411,9 +431,8 @@ namespace BuildingEscape.Net
             toonNames = null;
             if (toons != null && toons.Count > 0)
             {
-                toonNames = new string[toons.Count + 1];
-                toonNames[0] = "PARTY";
-                for (int i = 0; i < toons.Count; i++) toonNames[i + 1] = (toons[i].label ?? toons[i].id).ToUpperInvariant();
+                toonNames = new string[toons.Count];          // (no PARTY choice any more: every player is a dock worker; the Party character is only the fallback of a machine without the pack)
+                for (int i = 0; i < toons.Count; i++) toonNames[i] = catalog.DockLabel(toons[i]).ToUpperInvariant();
             }
             page = Page.Customize;
             if (LobbyStage.Instance) LobbyStage.Instance.Customizing = true;
@@ -436,13 +455,13 @@ namespace BuildingEscape.Net
             // Which character: the Party character (colour, face, hat) or one of the Tiny Toon people.
             var catalog = CharacterCatalog.Instance;
             var toons = catalog ? catalog.Players() : null;
-            if (toonNames != null && toons != null && toons.Count > 0 && toonNames.Length == toons.Count + 1)
+            if (toonNames != null && toons != null && toons.Count > 0 && toonNames.Length == toons.Count)
             {
                 MenuKit.Header(f.Row(28f, 8f), "CHARACTER", HudTheme.Info);
                 int current = 0;
-                for (int i = 0; i < toons.Count; i++) if (edit.model == toons[i].id) current = i + 1;
+                for (int i = 0; i < toons.Count; i++) if (edit.model == toons[i].id) current = i;
                 int pick = MenuKit.Choice(f, toonNames, current, 3, HudTheme.Quota, 42f, 16f);
-                if (pick != current) { edit.model = pick == 0 ? null : toons[pick - 1].id; changed = true; }
+                if (pick != current || edit.model != toons[pick].id) { edit.model = toons[pick].id; changed = true; }
                 f.Gap(6f);
             }
 
@@ -590,32 +609,10 @@ namespace BuildingEscape.Net
 
         // ------------------------------------------------------------------ settings
 
+        /// <summary>The Settings page: the controls are <see cref="SettingsPanel"/>'s, the same as the Esc menu's Settings page.</summary>
         void DrawSettings(MenuKit.Flow f)
         {
-            float vol = MenuKit.SliderRow(f, "VOLUME", Mathf.RoundToInt(AudioListener.volume * 100f) + "%", AudioListener.volume, 0f, 1f, HudTheme.Cash);
-            if (!Mathf.Approximately(vol, AudioListener.volume))
-            {
-                AudioListener.volume = vol;
-                PlayerPrefs.SetFloat(VolumeKey, vol);
-            }
-
-            float sens = PlayerPrefs.GetFloat(SensitivityKey, 2.4f);
-            float ns = MenuKit.SliderRow(f, "MOUSE SENSITIVITY", sens.ToString("0.0"), sens, 0.5f, 6f, HudTheme.Info);
-            if (!Mathf.Approximately(ns, sens)) PlayerPrefs.SetFloat(SensitivityKey, ns);
-
-            f.Gap(6f);
-            MenuKit.Header(f.Row(28f, 8f), "VOICE CHAT", HudTheme.Warning);
-            int vm = MenuKit.Choice(f, VoiceModes, (int)VoiceChat.CurrentMode, 1, HudTheme.Quota, 44f, 18f);
-            if (vm != (int)VoiceChat.CurrentMode) VoiceChat.CurrentMode = (VoiceChat.Mode)vm;
-            f.Gap(4f);
-            float vv = MenuKit.SliderRow(f, "VOICES", Mathf.RoundToInt(VoiceChat.Volume * 100f) + "%", VoiceChat.Volume, 0f, 1f, HudTheme.Warning);
-            if (!Mathf.Approximately(vv, VoiceChat.Volume)) VoiceChat.Volume = vv;
-
-            f.Gap(6f);
-            bool fs = MenuKit.ToggleRow(f.Row(52f, 14f), "FULLSCREEN", Screen.fullScreen);
-            if (fs != Screen.fullScreen) Screen.fullScreen = fs;
-
-            if (MenuKit.Button(f.Row(56f, 8f), "KEYBINDS", HudTheme.Info, 24f)) page = Page.Keybinds;
+            if (SettingsPanel.DrawControls(f)) page = Page.Keybinds;
         }
     }
 }

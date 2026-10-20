@@ -15,8 +15,8 @@ namespace BuildingEscape.EditorTools
             EditorApplication.delayCall += () =>
             {
                 var cat = AssetDatabase.LoadAssetAtPath<AudioCatalog>(CatalogPath);
-                if (!cat) Build(false);
-                else if (cat.gunShot == null || cat.gunShot.Length == 0) { FillGuns(cat); EditorUtility.SetDirty(cat); AssetDatabase.SaveAssets(); }
+                if (!cat) { if (!System.IO.File.Exists(CatalogPath)) Build(false); }      // (a catalog that exists but does not load: its script is not imported yet - rebuilding now would overwrite it with a blank one)
+                else if (cat.gunShot == null || cat.gunShot.Length == 0 || cat.rifleShot == null || cat.rifleShot.Length == 0 || cat.shotgunShot == null || cat.shotgunShot.Length == 0) { FillGuns(cat); EditorUtility.SetDirty(cat); AssetDatabase.SaveAssets(); }
             };
         }
 
@@ -29,9 +29,35 @@ namespace BuildingEscape.EditorTools
                                   "sfx_wpn_hgn_reload_04_magIn", "sfx_wpn_hgn_reload_05_charge");
             cat.gunEquip = Clips("sfx_wpn_hgn_foley_equip_01", "sfx_wpn_hgn_foley_equip_02");
             cat.gunAim = Clips("sfx_wpn_hgn_foley_aim_01", "sfx_wpn_hgn_foley_aim_02");
+            // the assault rifle (also the sniper rifle's) and the shotgun, from the same pack
+            cat.rifleShot = Clips("sfx_wpn_ar_gunshot_01", "sfx_wpn_ar_gunshot_02", "sfx_wpn_ar_gunshot_03");
+            cat.rifleTail = Clips("sfx_wpn_ar_tail_01", "sfx_wpn_ar_tail_02");
+            cat.rifleReload = Clips("sfx_wpn_ar_reload_01_magOut", "sfx_wpn_ar_reload_02_magDraw", "sfx_wpn_ar_reload_03_magIn", "sfx_wpn_ar_reload_04_charge");
+            cat.rifleEquip = Clips("sfx_wpn_ar_foley_equip_01", "sfx_wpn_ar_foley_equip_02");
+            cat.rifleAim = Clips("sfx_wpn_ar_foley_aim_01", "sfx_wpn_ar_foley_aim_02");
+            cat.shotgunShot = Clips("sfx_wpn_sgn_gunshot_01", "sfx_wpn_sgn_gunshot_02", "sfx_wpn_sgn_gunshot_03");
+            cat.shotgunTail = Clips("sfx_wpn_sgn_tail_01", "sfx_wpn_sgn_tail_02");
+            cat.shotgunReload = Clips("sfx_wpn_sgn_reload_01_charge", "sfx_wpn_sgn_reload_02_pumpBack", "sfx_wpn_sgn_reload_03_shellDraw", "sfx_wpn_sgn_reload_04_chambering", "sfx_wpn_sgn_reload_05_pumpForward");
+            cat.shotgunEquip = Clips("sfx_wpn_sgn_foley_equip_01", "sfx_wpn_sgn_foley_equip_02");
+            cat.shotgunAim = Clips("sfx_wpn_sgn_foley_aim_01", "sfx_wpn_sgn_foley_aim_02");
         }
 
-        [MenuItem("Overtime Escape/Setup Audio", priority = 32)]
+        /// <summary>For the QA runs (<c>-executeMethod</c>): fills the guns' sounds now, the same as the first editor start with the new fields empty, and exits.</summary>
+        public static void FillGunsBatch()
+        {
+            try
+            {
+                var cat = AssetDatabase.LoadAssetAtPath<AudioCatalog>(CatalogPath);
+                if (!cat) { Debug.LogError("[Audio] no catalog"); return; }
+                FillGuns(cat);
+                EditorUtility.SetDirty(cat);
+                AssetDatabase.SaveAssets();
+                Debug.Log($"[Audio] guns: handgun {cat.gunShot.Length}/{cat.gunTail.Length}/{cat.gunReload.Length}/{cat.gunEquip.Length}/{cat.gunAim.Length}, rifle {cat.rifleShot.Length}/{cat.rifleTail.Length}/{cat.rifleReload.Length}/{cat.rifleEquip.Length}/{cat.rifleAim.Length}, shotgun {cat.shotgunShot.Length}/{cat.shotgunTail.Length}/{cat.shotgunReload.Length}/{cat.shotgunEquip.Length}/{cat.shotgunAim.Length}");
+            }
+            finally { EditorApplication.Exit(0); }
+        }
+
+        [MenuItem("Employees Take Revenge/Setup Audio", priority = 32)]
         static void Menu() => Build(true);
 
         static AudioClip[] Clips(params string[] names)

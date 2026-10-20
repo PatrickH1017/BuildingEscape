@@ -11,18 +11,19 @@ namespace BuildingEscape.EditorTools
     /// Builds the Windows player of the game (the friends' demo): the scenes ticked in File > Build Settings (Boot, Menu, Greybox), 64 bit, the
     /// project's own scripting backend, no development build; then puts <c>steam_appid.txt</c> (480) next to the exe, because Steam needs it
     /// when the game is not started from Steam.
-    /// Menu: Overtime Escape > Build demo (Windows) builds into &lt;project&gt;/Builds/Demo_&lt;date&gt;_&lt;time&gt; (Builds is ignored by git).
+    /// Menu: Employees Take Revenge > Build demo (Windows) builds into &lt;project&gt;/Builds/Demo_&lt;date&gt;_&lt;time&gt; (Builds is ignored by git).
     /// Command line (a project that is NOT open in an Editor, e.g. a scratch copy):
     /// <c>Unity.exe -batchmode -nographics -projectPath &lt;copy&gt; -executeMethod BuildingEscape.EditorTools.DemoBuild.Build -buildOutput &lt;folder&gt; -logFile &lt;log&gt;</c>.
-    /// The built game can be tested without a person: <c>OvertimeEscape.exe -be-autopilot -be-out &lt;folder&gt;</c> (see QaAutopilot).
+    /// The built game can be tested without a person: <c>EmployeesTakeRevenge.exe -be-autopilot -be-out &lt;folder&gt;</c> (see QaAutopilot).
     /// </summary>
     public static class DemoBuild
     {
-        public const string ExeName = "OvertimeEscape.exe";
+        public const string ProductName = "Employees Take Revenge";
+        public const string ExeName = "EmployeesTakeRevenge.exe";
 
         static string ProjectRoot => Directory.GetParent(Application.dataPath).FullName;
 
-        [MenuItem("Overtime Escape/Build demo (Windows)", priority = 50)]
+        [MenuItem("Employees Take Revenge/Build demo (Windows)", priority = 50)]
         static void BuildFromMenu()
         {
             string dir = Path.Combine(ProjectRoot, "Builds", "Demo_" + DateTime.Now.ToString("yyyy-MM-dd_HHmm"));
@@ -47,6 +48,15 @@ namespace BuildingEscape.EditorTools
 
         static void Run(string dir, bool exitAfter)
         {
+            PlayerSettings.productName = ProductName;
+            var backend = Arg("-buildBackend");
+            if (!string.IsNullOrEmpty(backend))
+            {
+                // (the friends' build can be made with IL2CPP: the game's code is then native code with a metadata file, not a plain .NET assembly that any decompiler reads)
+                var impl = backend.ToLowerInvariant() == "il2cpp" ? ScriptingImplementation.IL2CPP : ScriptingImplementation.Mono2x;
+                PlayerSettings.SetScriptingBackend(UnityEditor.Build.NamedBuildTarget.Standalone, impl);
+                Debug.Log($"[DemoBuild] scripting backend {impl}");
+            }        // (the window title, the exe's properties and the folder of the game's log are named after it)
             var scenes = EditorBuildSettings.scenes.Where(s => s.enabled).Select(s => s.path).ToArray();
             Directory.CreateDirectory(dir);
             var options = new BuildPlayerOptions

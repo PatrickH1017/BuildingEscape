@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: cb1d91a39510bc944aee75c542715d79
+timeCreated: 1579572119
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 43207465777537924
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 159492
+  packageName: POLYGON - Office Pack - Art by Synty
+  packageVersion: 1.9.4
+  assetPath: Assets/Synty/PolygonOffice/Models/Convex/SM_Prop_CorkBoard_01_Convex.asset
+  uploadId: 976702

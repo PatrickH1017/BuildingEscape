@@ -17,9 +17,10 @@ namespace BuildingEscape
             ("Shift", "Sprint"),
             ("Ctrl (or C) hold", "Crouch: slower, but your footsteps are much quieter"),
             ("Space", "Jump"),
-            ("E", "Aim the crosshair, then press E: pick an item up into your backpack / open and close a door / talk to the vendor / hack a guard outpost's lock / read a note / work a safe"),
+            ("E", "Aim the crosshair, then press E: pick an item up into your backpack / open and close a door / talk to the vendor / hack a guard outpost's lock / use a guard outpost's computer / work a safe"),
             ("W A S D at a lock", "While hacking an outpost's keypad: press the key that appears within one second - four in a row opens the door, a miss sets off the alarm. Esc gives up"),
-            ("J", "Your journal: the floor safes you have learned about from notes (their room and, if a note gave it, their code)"),
+            ("J", "Your journal: the safes of the floor you are on that you have learned about from the outpost's computer (their room and, if the computer had it, their code)"),
+            ("Z hold", "Scan for loot: a pulse sweeps the room you are standing in and marks the valuables lying in it (you have to go in to scan a room) with what they are, what they are worth and how far; the top of the screen says what the room holds. Not at the Loading Docks or in the elevator"),
             ("Tab", "Open your inventory"),
             ("Q", "Grab or drop heavy loot (more people carry heavier things)"),
             ("Left mouse", "Throw what you hold / swing your weapon"),
@@ -42,15 +43,15 @@ namespace BuildingEscape
             ("Guard outposts and safes", "Every floor has a guard outpost: the dark room with a long one-way window (a mirror from the corridor) and a keypad beside its steel door. " +
                 "Aim at the keypad and press E to hack the lock: a key (W, A, S or D) appears and you have one second to press it, four times in a row. " +
                 "A clean hack opens the door for good; a mistake sets off the alarm for a few seconds and calls backup, exactly as if a guard had spotted you. " +
-                "Inside are desks with notes, weapons and valuables - different every run, and better the higher you climb. " +
-                "About one floor in five hides a safe full of cash worth half of that floor's quota. A note in an outpost names the safe's room and sometimes its code " +
-                "(read it with E; J opens your journal). Without a code you can pry the safe open with a crowbar, but the crowbar snaps 35% of the time. " +
+                "Inside are desks with a computer, weapons and valuables - different every run, and better the higher you climb. " +
+                "Every floor hides a safe: on floors 1 and 2 it is full of cash worth half of that floor's quota, from floor 3 up there are several (up to four), each with a pistol inside, and sometimes a little cash and a spare clip (each is picked up on its own). The computer in an outpost (its log-in is on a post-it on the monitor; click its Safes tab) lists this floor's safes - each one's room, and sometimes its code " +
+                "(use it with E; J opens your journal). Without a code you can pry the safe open with a crowbar, but the crowbar snaps 35% of the time. " +
                 "Carry the cash bundles to the elevator to bank them. " +
-                "On the wall inside every outpost, beside the door, is an alarm panel with a big red button: press E on it to shut the siren off and call the backup off, " +
-                "whether the alarm was yours or an officer spotted somebody. No more officers come, and the radios stay jammed for ten seconds so they cannot call again at once - " +
-                "but the officers who already arrived stay, and a later sighting calls backup again. You have to be inside, so a failed hack (which jams the lock) has to be retried first."),
+                "Shutting the outpost's door locks nothing - the officers open it like any other door - but a door you lock with the code stays shut for them too: at the computer's terminal (under the Nav map, or on the Hacked tab) type SECURITY to lock yourself in. Somebody outside has to hack the keypad again to open it (typing SECURITY at the computer again, or E on the door from inside, undoes it yourself). " +
+                "On the computer, the Nav tab is a map of the floor (a ring spreads from every player and officer who moves, a padlock marks a locked room, the wheel zooms it, dragging moves it, pointing at a room names it and a click opens its card), and its terminal (under the map; the Hacked tab is the same terminal, bigger) locks and unlocks the doors of any room: type a room number and its doors lock, or unlock if they are locked."),
             ("Finding a room", "Every door has a room number over it (101, 102 ... on floor 1; 201 ... on floor 2). Signs on the corridor walls say which rooms lie that way - " +
-                "\"ROOMS 111-120\" and an arrow. The arrow points along the corridor you are in, towards the doorway that starts the shortest walk to the nearest of those rooms."),
+                "\"ROOMS 111-120\" and an arrow. The arrow points along the corridor you are in, towards the doorway that starts the shortest walk to the nearest of those rooms. " +
+                "Dark red signs that say \"SECURITY OFFICE\" with an arrow lead the way to the guard outpost the same way."),
         };
     }
 }

@@ -25,11 +25,10 @@ namespace BuildingEscape
             player = GetComponent<WobblyPlayer>();
             rb = GetComponent<Rigidbody>();
             int i = lookIndex >= 0 ? lookIndex : Mathf.Max(0, WobblyPlayerRegistry.All.IndexOf(player));
-            var looks = PartyCharacterFactory.PlayerLooks;
             CharacterLook look;
             if (lookOverride != null) look = lookOverride;
             else if (!GetComponent<Net.NetPlayer>() && PlayerAppearance.TryLoadSaved(out var saved)) look = saved.ToLook();
-            else look = looks[i % looks.Length];
+            else look = PlayerAppearance.ForSlot(i).ToLook();       // (a Tiny Toon person by slot until the player chooses)
             anim = PartyCharacterFactory.Attach(gameObject, look);
             player.Jumped += OnJumped;
             started = true;

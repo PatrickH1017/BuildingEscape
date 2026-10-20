@@ -79,7 +79,8 @@ namespace BuildingEscape
             if (m.docks)
             {
                 HudTheme.Pill(bar, HudTheme.Quota, 2.5f, 2.5f);
-                HudTheme.Text(bar, m.nextQuota > 0 ? nextQuotaText.Get(m.nextQuota) : m.demoDone ? "DEMO COMPLETE" : "BUY AND GET READY", 14f, HudTheme.Bright, TextAnchor.MiddleCenter);
+                string dockText = m.nextQuota > 0 ? nextQuotaText.Get(m.nextQuota) : m.demoDone ? "DEMO COMPLETE" : "BUY AND GET READY";
+                HudTheme.Text(bar, dockText, 14f, HudTheme.Ink, TextAnchor.MiddleCenter, false);        // (ink on the yellow bar reads better than outlined white)
             }
             else if (m.boss)
             {
@@ -93,7 +94,7 @@ namespace BuildingEscape
                 var mat2 = HudAnim.Begin(bankedPunch, bar.center);
                 HudTheme.Bar(bar, m.met ? 1f : f, m.met ? HudTheme.Cash : HudTheme.Quota, 2.5f);
                 string label = m.met ? "QUOTA MET!" : quotaText.Get(m.banked, m.quota);
-                HudTheme.Text(bar, label, 14f, HudTheme.Bright, TextAnchor.MiddleCenter);
+                HudTheme.BarLabel(bar, m.met ? 1f : f, label, 14f, 2.5f);
                 HudAnim.End(mat2);
                 if (m.met)
                 {
@@ -135,6 +136,23 @@ namespace BuildingEscape
                 HudAnim.End(mat);
             }
             if (m.busted > 0) Chip(x, y, h, bustedText.Get(m.busted), HudTheme.Dim);
+        }
+
+        // ====================================================================== player badge (top right)
+
+        static readonly CachedText1 playerText = new CachedText1("PLAYER ");
+
+        /// <summary>
+        /// "PLAYER 2" on a chip in the player's own colour, at the top right: the number the person at the security computer sees on the Nav map
+        /// (the owner, 2026-10-17: players should know what number they are, so the computer can say "Player 2, go left").
+        /// </summary>
+        public static void PlayerBadge(int number)
+        {
+            if (Event.current.type != EventType.Repaint) return;
+            float s = S;
+            string text = playerText.Get(number);
+            float w = Mathf.Max(132f * s, HudTheme.Width(text, 20f) + 40f * s), h = 36f * s;
+            HudTheme.Chip(new Rect(Screen.width - w - 16f * s, 14f * s, w, h), text, HudTheme.PlayerColour(number), 20f, HudTheme.Ink);
         }
 
         // ====================================================================== banner (the moments that matter)
@@ -272,13 +290,14 @@ namespace BuildingEscape
             HudTheme.Plate(r);
             float f = Mathf.Clamp01(m.weight / Mathf.Max(0.1f, m.capacity));
             Color wc = f > 0.9f ? HudTheme.Danger : f > 0.65f ? HudTheme.Warning : HudTheme.Good;
+            Color wt = f > 0.9f ? HudTheme.Light(HudTheme.Danger, 0.4f) : wc;            // (on the dark card a lighter red reads, the bar keeps the strong one)
             float x = r.x + pad, iw = r.width - pad * 2f, y = r.y + pad;
 
             HudIcons.Pack(new Rect(x, y, 24f * s, 24f * s), HudTheme.Info);
             HudTheme.Text(new Rect(x + 30f * s, y, 70f * s, 26f * s), "PACK", 16f, HudTheme.Bright);
             float wk = HudAnim.Bump(HudAnim.Id.Weight, Mathf.RoundToInt(m.weight * 10f));
             var mat = HudAnim.Begin(wk, new Vector2(r.xMax - pad - 40f * s, y + 13f * s));
-            HudTheme.Text(new Rect(x + iw * 0.4f, y, iw * 0.6f, 26f * s), weightText.Get(Mathf.RoundToInt(m.weight * 10f), Mathf.RoundToInt(m.capacity * 10f)), 15f, wc, TextAnchor.MiddleRight);
+            HudTheme.Text(new Rect(x + iw * 0.4f, y, iw * 0.6f, 26f * s), weightText.Get(Mathf.RoundToInt(m.weight * 10f), Mathf.RoundToInt(m.capacity * 10f)), 15f, wt, TextAnchor.MiddleRight);
             HudAnim.End(mat);
             y += 30f * s;
             HudTheme.Bar(new Rect(x, y, iw, 13f * s), f, wc, 2.5f);
@@ -307,6 +326,8 @@ namespace BuildingEscape
             public int rounds, capacity;
             public bool reloading;
             public float reloadProgress;
+            /// <summary>The basement: the ammunition never runs out.</summary>
+            public bool unlimited;
         }
 
         /// <summary>
@@ -327,11 +348,11 @@ namespace BuildingEscape
             float punch = HudAnim.Bump(HudAnim.Id.Rounds, m.rounds);
             var count = new Rect(x + iw * 0.38f, y - 2f * s, iw * 0.62f, 30f * s);
             var mat = HudAnim.Begin(punch, count.center);
-            HudTheme.Text(count, m.reloading ? "RELOADING" : ammoText.Get(m.rounds, m.capacity), m.reloading ? 18f : 28f, accent, TextAnchor.MiddleRight);
+            HudTheme.Text(count, m.unlimited ? "UNLIMITED" : m.reloading ? "RELOADING" : ammoText.Get(m.rounds, m.capacity), m.unlimited || m.reloading ? 18f : 28f, m.unlimited ? HudTheme.Good : accent == HudTheme.Danger ? HudTheme.Light(accent, 0.4f) : accent, TextAnchor.MiddleRight);
             HudAnim.End(mat);
             y += 32f * s;
 
-            if (m.reloading) { HudTheme.Bar(new Rect(x, y + 2f * s, iw, 14f * s), m.reloadProgress, HudTheme.Warning, 2.5f); return; }
+            if (m.reloading && !m.unlimited) { HudTheme.Bar(new Rect(x, y + 2f * s, iw, 14f * s), m.reloadProgress, HudTheme.Warning, 2.5f); return; }
             float bh = 18f * s, gap = 3f * s, bw = Mathf.Min(bh * 0.5f, (iw - (m.capacity - 1) * gap) / Mathf.Max(1, m.capacity));
             float rowW = m.capacity * bw + (m.capacity - 1) * gap;
             for (int i = 0; i < m.capacity; i++)
@@ -393,7 +414,7 @@ namespace BuildingEscape
             HudTheme.Circle(centre + new Vector2(0f, 4f * s), (R + ow) * 2f, HudTheme.Alpha(HudTheme.Ink, 0.38f));
             if (big) HudTheme.Circle(centre, (R + ow + 2.2f * s) * 2f, HudTheme.Alpha(HudTheme.Cream, 0.62f));
             HudTheme.Circle(centre, (R + ow) * 2f, HudTheme.Ink);
-            HudTheme.Circle(centre, R * 2f, new Color32(0x2B, 0x20, 0x68, 255));
+            HudTheme.Circle(centre, R * 2f, HudTheme.Track);
 
             // the arc: a trail of round dots along the middle of the band (round dots are smoothed by Unity, rotated rectangles are not)
             if (progress > 0.002f)

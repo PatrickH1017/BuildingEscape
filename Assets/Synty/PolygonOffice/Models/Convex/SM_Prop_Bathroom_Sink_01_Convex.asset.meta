@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 82ce3740700a2b54dbd022ecbb8b50ed
+timeCreated: 1579567323
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 43707121307960668
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 159492
+  packageName: POLYGON - Office Pack - Art by Synty
+  packageVersion: 1.9.4
+  assetPath: Assets/Synty/PolygonOffice/Models/Convex/SM_Prop_Bathroom_Sink_01_Convex.asset
+  uploadId: 976702

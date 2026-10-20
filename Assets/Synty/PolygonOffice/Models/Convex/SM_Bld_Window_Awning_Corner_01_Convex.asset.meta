@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: fa5421b146ac318489e383ae7d87613e
+timeCreated: 1579565420
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 43292711791330538
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 159492
+  packageName: POLYGON - Office Pack - Art by Synty
+  packageVersion: 1.9.4
+  assetPath: Assets/Synty/PolygonOffice/Models/Convex/SM_Bld_Window_Awning_Corner_01_Convex.asset
+  uploadId: 976702

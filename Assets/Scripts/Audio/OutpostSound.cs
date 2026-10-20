@@ -256,6 +256,38 @@ namespace BuildingEscape
             return o;
         }
 
+        /// <summary>The security computer locks a door: a hard click, a heavy bolt thrown and seated (two thunks) and a long ring of steel. Loud: played at full volume for an executive suite or the server room.</summary>
+        public static float[] MetalLock()
+        {
+            var r = new SynthRandom(977);
+            int n = Dsp.Samples(1.15f);
+            var o = new float[n];
+            var hp = new Svf();
+            hp.Set(2200f, 0.7f);
+            float dec = Dsp.DecayPerSample(0.003f), env = 1f;
+            for (int i = 0; i < Dsp.Samples(0.025f) && i < n; i++) { o[i] += hp.High(r.Signed()) * env * 1.2f; env *= dec; }      // (the first sharp click)
+
+            Clunk(o, 0, 0.9f, 95f, r);                                                  // the bolt is thrown...
+            Clunk(o, Dsp.Samples(0.11f), 1.0f, 120f, r);                                // ...and seats against the frame
+
+            float[] ratio = { 1f, 2.32f, 4.17f, 6.61f }, amp = { 1f, 0.65f, 0.35f, 0.18f }, tau = { 0.38f, 0.22f, 0.12f, 0.06f };
+            int ringAt = Dsp.Samples(0.11f);
+            for (int p = 0; p < ratio.Length; p++)
+            {
+                float hz = 640f * ratio[p];
+                float pd = Dsp.DecayPerSample(tau[p]), pe = 1f, pph = 0f, dp = hz / SR;
+                for (int i = ringAt; i < n && pe > 0.0005f; i++)
+                {
+                    o[i] += amp[p] * 0.55f * Dsp.Sine(pph) * pe;
+                    pph += dp; pph -= (int)pph;
+                    pe *= pd;
+                }
+            }
+            Dsp.FadeEnds(o, 0.003f);
+            Dsp.Normalize(o, 0.95f);
+            return o;
+        }
+
         /// <summary>A sheet of paper taken off a desk.</summary>
         public static float[] Paper()
         {
@@ -285,6 +317,43 @@ namespace BuildingEscape
         // ---------------------------------------------------------------- pieces
 
         /// <summary>A heavy metal thunk: a falling sine, a dull click and a short ring.</summary>
+        public const int PunchVariants = 3;
+
+        /// <summary>A fist landing on a body: a low thump with a short dull slap on top; three variants, a little different in pitch.</summary>
+        public static float[] Punch(int variant)
+        {
+            var r = new SynthRandom(2301 + variant * 17);
+            var o = new float[Dsp.Samples(0.28f)];
+            Clunk(o, 0, 0.95f, 72f + 14f * variant, r);
+            var lp = new Svf();
+            lp.Set(1800f - 250f * variant, 0.8f);
+            float dec = Dsp.DecayPerSample(0.03f), env = 1f;
+            for (int i = 0; i < Dsp.Samples(0.06f) && i < o.Length; i++) { o[i] += lp.Low(r.Signed()) * env * 0.8f; env *= dec; }
+            Dsp.FadeEnds(o, 0.004f);
+            Dsp.Normalize(o, 0.9f);
+            return o;
+        }
+
+        public const int MunchVariants = 2;
+
+        /// <summary>A bite of a donut: three soft crunches, each a short burst of low-passed noise (the guard stops to eat one now and then).</summary>
+        public static float[] Munch(int variant)
+        {
+            var r = new SynthRandom(3101 + variant * 23);
+            var o = new float[Dsp.Samples(0.42f)];
+            var lp = new Svf();
+            for (int b = 0; b < 3; b++)
+            {
+                lp.Set(1300f + 350f * b + 200f * variant, 0.9f);
+                float dec = Dsp.DecayPerSample(0.035f), env = 1f - 0.2f * b;
+                int at = Dsp.Samples(0.125f * b);
+                for (int i = 0; at + i < o.Length && i < Dsp.Samples(0.11f); i++) { o[at + i] += lp.Low(r.Signed()) * env; env *= dec; }
+            }
+            Dsp.FadeEnds(o, 0.004f);
+            Dsp.Normalize(o, 0.6f);
+            return o;
+        }
+
         static void Clunk(float[] o, int at, float gain, float hz, SynthRandom r)
         {
             float dec = Dsp.DecayPerSample(0.07f), env = 1f, ph = 0f;

@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 893420acd493d8041bc8e45e87d2ba8b
+timeCreated: 1579556346
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 43699308652038470
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 159492
+  packageName: POLYGON - Office Pack - Art by Synty
+  packageVersion: 1.9.4
+  assetPath: Assets/Synty/PolygonOffice/Models/Convex/SM_Prop_Webcam_01_Convex.asset
+  uploadId: 976702

@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 8b9bd19d1338e0d43ba3d1bd971c6d46
+timeCreated: 1579567427
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 43212270897444126
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 159492
+  packageName: POLYGON - Office Pack - Art by Synty
+  packageVersion: 1.9.4
+  assetPath: Assets/Synty/PolygonOffice/Models/Convex/SM_Prop_Soap_Dispenser_01_Convex.asset
+  uploadId: 976702

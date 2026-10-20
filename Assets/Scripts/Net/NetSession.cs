@@ -110,6 +110,7 @@ namespace BuildingEscape.Net
                 nextRosterSend = Time.unscaledTime + 1f;
                 SendRoster();
             }
+            if (State == NetSessionState.InRun && nm != null && nm.IsListening && SceneManager.GetActiveScene().name == NetConst.MenuScene) BackInLobby();       // (the host brought the party back)
             if (State == NetSessionState.Connecting && connectDeadline > 0 && Time.unscaledTime > connectDeadline)
                 Leave("Could not reach the host (timed out).");
         }
@@ -273,13 +274,16 @@ namespace BuildingEscape.Net
             }
         }
 
+        /// <summary>QA only: the run seed the host starts the run with instead of a random one (0: random). The built-player autopilot picks one whose safes hold what it wants to take (a safe holds a gun only by luck).</summary>
+        public int QaSeed;
+
         public void StartRun()
         {
             if (!CanStart) return;
             State = NetSessionState.StartingRun;
             Status = "Starting the run...";
             lobby?.Lock();
-            PendingSeed = UnityEngine.Random.Range(1, int.MaxValue);
+            PendingSeed = QaSeed != 0 ? QaSeed : UnityEngine.Random.Range(1, int.MaxValue);
             nm.SceneManager.OnLoadEventCompleted += OnRunSceneLoaded;
             nm.SceneManager.LoadScene(NetConst.RunScene, LoadSceneMode.Single);
         }
@@ -305,6 +309,26 @@ namespace BuildingEscape.Net
             sync.GetComponent<RunSync>().Begin(PendingSeed, completed.Count);
             State = NetSessionState.InRun;
             Status = "";
+        }
+
+        /// <summary>
+        /// Host: after a run (the end screen: Exit, "Leave with party") everybody goes back to the lobby together; the connection stays, the party can start another run. Anybody else, and a session that
+        /// is not in a run, just leaves. The players and the run's objects are spawned with their scene, so loading the menu scene removes them on every machine.
+        /// </summary>
+        public void ReturnPartyToLobby()
+        {
+            if (!IsHost || State != NetSessionState.InRun || nm == null || !nm.IsListening) { Leave(); return; }
+            nm.SceneManager.LoadScene(NetConst.MenuScene, LoadSceneMode.Single);
+        }
+
+        /// <summary>The menu scene is on screen again while the session is still connected (the host brought the party back): the lobby it is.</summary>
+        void BackInLobby()
+        {
+            State = NetSessionState.InLobby;
+            Status = "";
+            LocalReady = false;
+            if (UsingSteam) { lobby?.SetReady(false); if (IsHost) lobby?.Unlock(); }
+            RebuildRoster();
         }
 
         /// <summary>Leave the lobby or run and return to the menu. Safe to call in any state.</summary>
@@ -366,7 +390,7 @@ namespace BuildingEscape.Net
             {
                 lobby = new LobbyService();
                 lobby.Changed += OnLobbyChanged;
-                lobby.JoinRequested += id => { if (State == NetSessionState.Offline) JoinSteam(id); };
+                lobby.JoinRequested += id => { if (State == NetSessionState.Offline) { MenuRegistry.CloseAll(); JoinSteam(id); } };
             }
             return true;
         }

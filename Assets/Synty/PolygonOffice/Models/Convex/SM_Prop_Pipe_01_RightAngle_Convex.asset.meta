@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: abd54108c6f9059479c3615387121d55
+timeCreated: 1579574403
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 43021295695464054
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 159492
+  packageName: POLYGON - Office Pack - Art by Synty
+  packageVersion: 1.9.4
+  assetPath: Assets/Synty/PolygonOffice/Models/Convex/SM_Prop_Pipe_01_RightAngle_Convex.asset
+  uploadId: 976702

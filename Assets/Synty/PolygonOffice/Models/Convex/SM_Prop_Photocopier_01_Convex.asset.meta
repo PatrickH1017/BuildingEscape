@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: ff8ed43d78130054f9cef05fc43dfb05
+timeCreated: 1579571907
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 43997664443379772
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 159492
+  packageName: POLYGON - Office Pack - Art by Synty
+  packageVersion: 1.9.4
+  assetPath: Assets/Synty/PolygonOffice/Models/Convex/SM_Prop_Photocopier_01_Convex.asset
+  uploadId: 976702

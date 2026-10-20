@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 13f038292e318ff4fbdcf10550080eb2
+timeCreated: 1579572132
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 43174500462376896
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 159492
+  packageName: POLYGON - Office Pack - Art by Synty
+  packageVersion: 1.9.4
+  assetPath: Assets/Synty/PolygonOffice/Models/Convex/SM_Prop_Socket_Switch_01_Convex.asset
+  uploadId: 976702

@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace BuildingEscape
@@ -9,9 +10,9 @@ namespace BuildingEscape
     ///
     /// The host (or the offline game) decides: a finished hack is a request (<see cref="SubmitHack"/>); a won one opens the lock, a lost
     /// one sets the alarm off, which calls backup exactly as a guard who spots a player does (<see cref="HeistManager.CallBackupAt"/>):
-    /// two officers at once and another every half minute until the floor ends. Inside the room, beside the door, hangs the alarm panel
-    /// (<see cref="AlarmPanelProp"/>): its button switches the siren off and calls the backup off (<see cref="HostStandDown"/>), whether the
-    /// alarm or an officer who spotted somebody started it. The state travels to the other machines as three bits
+    /// two officers at once and another every half minute until the floor ends (the alarm panel with the button that called them off, <see cref="AlarmPanelProp"/>, is not built any more: the owner
+    /// had the button taken out on 2026-10-17; its code is still here in case it comes back). The outpost's door is locked by the hack (officers still open it: it is their outpost) and, as a hard lock that
+    /// officers cannot open either, only with a code at the security terminal (<see cref="LockByCode"/>); shutting the door locks nothing. The state travels to the other machines as three bits
     /// (<see cref="Bits"/>, mirrored by RunSync), so everyone sees the same lock, hears the same siren and finds the same safe open.
     /// </summary>
     public sealed class OutpostController : MonoBehaviour
@@ -25,7 +26,7 @@ namespace BuildingEscape
         /// <summary>The host accepts a press on the alarm panel from a player this close to it (the player's position is a moment old).</summary>
         public const float PanelHostReach = 5.5f;
 
-        const int UnlockedBit = 1, AlarmBit = 2, SafeBit = 4;
+        const int UnlockedBit = 1, AlarmBit = 2, SafeBit = 4, GunSafeBit = 8, MoreSafeBits = 16;      // (the first safe of a floor has the bit 4; the second, third and fourth have 16, 32 and 64)
 
         /// <summary>The outpost of the floor that is on show (null on a floor without one).</summary>
         public static OutpostController Active { get; private set; }
@@ -39,8 +40,10 @@ namespace BuildingEscape
         /// <summary>The locked front door and its place in the DoorManager's list.</summary>
         public SlidingDoor Door;
         public int DoorIndex = -1;
-        /// <summary>The floor's safe, if it has one.</summary>
-        public FloorSafe Safe;
+        /// <summary>The floor's safes, lowest number first (empty when it has none; floors 3 and up have several).</summary>
+        public readonly List<FloorSafe> Safes = new List<FloorSafe>();
+        /// <summary>The floor's first safe, if it has one.</summary>
+        public FloorSafe Safe => Safes.Count > 0 ? Safes[0] : null;
         /// <summary>The lit parts of the keypad (they change colour with the state) and the lamp over the door.</summary>
         public Renderer[] LedRenderers;
         public Renderer BeaconRenderer;
@@ -53,6 +56,8 @@ namespace BuildingEscape
         public byte BuiltEpoch { get; private set; }
 
         // ---- state
+        /// <summary>The gun safe on the desk (floor 3), or null: the pistol is inside until it is hacked open (<see cref="GunSafeProp"/>).</summary>
+        public GunSafeProp GunSafe;
         public bool Unlocked { get; private set; }
         public bool AlarmOn { get; private set; }
         /// <summary>The lock is jammed for as long as the alarm sounds.</summary>
@@ -66,8 +71,19 @@ namespace BuildingEscape
         static readonly Color LedLocked = new Color(1f, 0.12f, 0.08f), LedOpen = new Color(0.15f, 1f, 0.25f), LedOff = new Color(0.12f, 0.02f, 0.02f);
         static readonly Color PanelQuiet = new Color(0.12f, 0.75f, 0.2f), PanelAlert = new Color(1f, 0.12f, 0.06f), PanelDone = new Color(0.45f, 1f, 0.55f);
 
-        /// <summary>The state as three bits (lock open, alarm going, safe open) for the other machines.</summary>
-        public byte Bits => (byte)((Unlocked ? UnlockedBit : 0) | (AlarmOn ? AlarmBit : 0) | (Safe != null && Safe.IsOpen ? SafeBit : 0));
+        /// <summary>The state as bits (lock open, alarm going, a gun safe open, and one bit for each floor safe that is open) for the other machines.</summary>
+        public byte Bits
+        {
+            get
+            {
+                int bits = (Unlocked ? UnlockedBit : 0) | (AlarmOn ? AlarmBit : 0) | (GunSafe != null && GunSafe.IsOpen ? GunSafeBit : 0);
+                for (int i = 0; i < Safes.Count; i++) if (Safes[i] && Safes[i].IsOpen) bits |= SafeBitOf(Safes[i].Index);
+                return (byte)bits;
+            }
+        }
+
+        /// <summary>The bit that says safe number <paramref name="index"/> is open: the first has its own, the next three the high ones (0: no bit for a fifth safe, there is none).</summary>
+        static int SafeBitOf(int index) => index <= 0 ? SafeBit : index <= 3 ? MoreSafeBits << (index - 1) : 0;
 
         /// <summary>The line under the reticle (and the door's prompt) while the lock is shut; null when it is open.</summary>
         public string LockPrompt => Unlocked ? null : AlarmOn ? "The lock is jammed - the alarm is going off" : "[E] Hack the lock";
@@ -125,6 +141,15 @@ namespace BuildingEscape
             HeistManager.Instance?.CallBackupAt(KeypadPosition, "ALARM TRIPPED - BACKUP CALLED");
         }
 
+        /// <summary>Host (or offline): something other than the lock went wrong at <paramref name="at"/> (the gun safe's hack hit a wall): the siren sounds and backup is called, exactly as for a failed lock hack.</summary>
+        public void HostAlarmAt(Vector3 at)
+        {
+            if (!Net.NetRole.Simulates || AlarmOn) return;
+            alarmUntil = Time.time + AlarmSeconds;
+            SetAlarm(true);
+            HeistManager.Instance?.CallBackupAt(at, "ALARM TRIPPED - BACKUP CALLED");
+        }
+
         // ------------------------------------------------------------------ the alarm panel inside the room
 
         /// <summary>Is there anything for the alarm panel to switch off: the siren, or the backup that is on its way (called by the siren or by an officer)?</summary>
@@ -152,6 +177,7 @@ namespace BuildingEscape
 
         /// <summary>Host check: is this player close enough to the panel to have pressed it?</summary>
         public bool InPanelReach(Vector3 playerPosition) =>
+            PanelLamps != null && PanelLamps.Length > 0 &&                           // (no panel is built any more: there is nothing to reach, so the host never accepts a press, wherever the player stands)
             (playerPosition - PanelPosition).sqrMagnitude <= PanelHostReach * PanelHostReach;
 
         /// <summary>
@@ -199,6 +225,7 @@ namespace BuildingEscape
             if (Door != null)
             {
                 Door.Locked = false;
+                Door.SetComputerLocked(false, Time.time);
                 if (Quiet) Door.SnapLatched(); else Door.SetOpen(true, Time.time);
             }
             if (AlarmOn) { AlarmOn = false; UpdateBeacon(); }
@@ -216,12 +243,83 @@ namespace BuildingEscape
             UpdateVisuals(Time.time);
         }
 
+        /// <summary>Is this spot inside the outpost room (on the far side of the keypad's wall)?</summary>
+        public bool IsInside(Vector3 p)
+        {
+            if (HasRoomBounds) return RoomBounds.Contains(p.x, p.z);                 // (the inside of the room: the walls, and so the doorway, stand outside it)
+            return Vector3.Dot(p - KeypadPosition, Outward) < -0.5f && (p - KeypadPosition).sqrMagnitude < 144f;      // (no room known: the room's side of the wall, within 12 m)
+        }
+
+        /// <summary>The inside of the outpost room (world rectangle), set by the builder.</summary>
+        public Rc RoomBounds;
+        public bool HasRoomBounds;
+
+        /// <summary>Is this spot inside the room, or within <paramref name="slack"/> metres of it (the host sees a player where he stood a moment ago)?</summary>
+        public bool IsInsideNear(Vector3 p, float slack = 1.5f)
+        {
+            if (HasRoomBounds) return RoomBounds.Grow(slack).Contains(p.x, p.z);
+            return IsInside(p);
+        }
+
+        /// <summary>
+        /// A player locked the outpost's door with a code (the security terminal's LOCK, typed at the computer inside the room): the lock is shut again and it is a hard one, so the officers cannot open the
+        /// door either; somebody has to hack the keypad from the corridor, or undo it from inside (E on the door, or UNLOCK at the terminal). Shutting the door locks nothing: the officers open a shut door
+        /// that nobody has locked (the owner, 2026-10-18: "guards should be able to open the outpost door as long as it is not locked from the inside by a player ... you have to lock the door with a code").
+        /// </summary>
+        public void LockByCode()
+        {
+            if (!Unlocked && Door != null && Door.ComputerLocked) return;           // (it is locked this way already: no second clang)
+            Unlocked = false;
+            if (Door != null)
+            {
+                Door.Locked = true;
+                Door.SetComputerLocked(true, Time.time);
+                if (!Quiet) GameAudio.PlaySound(SoundId.MetalLock, Door.Centre + Vector3.up, 0.6f, 1.1f, true, 24f, 3f);
+            }
+            UpdateVisuals(Time.time);
+        }
+
+        /// <summary>
+        /// Host (or offline): the terminal's LOCK / UNLOCK for the outpost's own door. UNLOCK only undoes a lock set by a code, and opens the door as a hack and E from inside do (the clients follow the host
+        /// through the state bits, and a rising Unlocked bit opens the door on their side: the host must have it open too). Clients get the new state with the run state (<see cref="NetApply"/>).
+        /// </summary>
+        public void HostLockByCode(bool locked)
+        {
+            if (!Net.NetRole.Simulates) return;
+            if (locked) LockByCode();
+            else if (!Unlocked && Door != null && Door.ComputerLocked) UnlockByCode(true);
+        }
+
+        /// <summary>A player inside works the locked door with E: the lock opens and so does the door.</summary>
+        public void UnlockFromInside() => UnlockByCode(true);
+
+        /// <summary>The lock is undone (E on the door from inside, or UNLOCK at the terminal); <paramref name="open"/> slides the door open as well.</summary>
+        void UnlockByCode(bool open)
+        {
+            if (Unlocked) return;
+            Unlocked = true;
+            if (Door != null)
+            {
+                Door.Locked = false;
+                Door.SetComputerLocked(false, Time.time);
+                if (open) Door.SetOpen(true, Time.time);
+            }
+            UpdateVisuals(Time.time);
+        }
+
         /// <summary>Client: take the host's state (a bit for each of: the lock is open, the alarm is going, the safe is open).</summary>
         public void NetApply(byte bits)
         {
             if ((bits & UnlockedBit) != 0) SetUnlocked();
+            else if (Unlocked) LockByCode();                                        // (the host locked it with a code)
             if (!Unlocked && ((bits & AlarmBit) != 0) != AlarmOn) SetAlarm((bits & AlarmBit) != 0);
-            if ((bits & SafeBit) != 0 && Safe != null && !Safe.IsOpen) Safe.ApplyOpen(Quiet);
+            for (int i = 0; i < Safes.Count; i++)
+            {
+                var safe = Safes[i];
+                int bit = safe ? SafeBitOf(safe.Index) : 0;
+                if (bit != 0 && (bits & bit) != 0 && !safe.IsOpen) safe.ApplyOpen(Quiet);
+            }
+            if ((bits & GunSafeBit) != 0 && GunSafe != null && !GunSafe.IsOpen) GunSafe.ApplyOpen(true);
         }
 
         // ------------------------------------------------------------------ looks and sounds

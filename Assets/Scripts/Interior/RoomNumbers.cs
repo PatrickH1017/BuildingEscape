@@ -28,11 +28,13 @@ namespace BuildingEscape
             /// <summary>The middle of the plate on the outer face of the beam over the doorway (x, z), and the direction it faces: away from
             /// the room, into the corridor. y0 / y1: the bottom and top of that beam.</summary>
             public float x, z, nx, nz, y0, y1;
+            /// <summary>The number of an executive suite or of the server room: no plate, gold lettering straight on the wall over the door, "almost as if painted" (the owner).</summary>
+            public bool painted;
         }
 
         /// <summary>Does this room get a number? Offices, meeting rooms, break rooms, storage, server rooms and so on do (they have a door);
         /// corridors, lobbies and open-plan areas are not rooms with a door.</summary>
-        public static bool IsNumbered(RoomInfo r) => r != null && r.kind == 0 && r.doors.Count > 0 && r.theme != "outpost";
+        public static bool IsNumbered(RoomInfo r) => r != null && r.kind == 0 && r.doors.Count > 0 && r.theme != "outpost" && r.theme != "restroom";
 
         /// <summary>A floor's numbered rooms in the order of their numbers, with each room's label and round (0 = no letter, 1 = A, ...).</summary>
         public sealed class Numbering
@@ -117,7 +119,7 @@ namespace BuildingEscape
                     var rc = beam.rc;
                     float x = alongX ? (nx > 0f ? rc.x1 : rc.x0) : rc.Cx;
                     float z = alongX ? rc.Cz : (nz > 0f ? rc.z1 : rc.z0);
-                    plates.Add(new Plate { label = label, x = x, z = z, nx = nx, nz = nz, y0 = beam.y0, y1 = beam.y1 });
+                    plates.Add(new Plate { label = label, x = x, z = z, nx = nx, nz = nz, y0 = beam.y0, y1 = beam.y1, painted = room.role != null });
                 }
             }
             return plates;

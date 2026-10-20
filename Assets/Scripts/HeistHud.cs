@@ -19,7 +19,8 @@ namespace BuildingEscape
             if (!m) return;
             // everything draws only on Repaint (the strings below are not free); the end-screen button needs every event
             if (Event.current.type == EventType.Repaint) Draw(m);
-            if (m.Phase == HeistPhase.Won || m.Phase == HeistPhase.Failed) DrawEndButton();
+            if (m.Phase == HeistPhase.Won || m.Phase == HeistPhase.Failed) DrawEndButton(m.Phase);
+            else endSince = -1f;
         }
 
         void Draw(HeistManager m)
@@ -59,6 +60,8 @@ namespace BuildingEscape
                 pinned = pinned,
                 busted = busted,
             });
+            var me = Net.NetPlayer.Local;
+            HudWidgets.PlayerBadge(me && me.IsSpawned ? me.Slot + 1 : 1);          // (alone, offline: Player 1)
             DrawBanner(m, hub, next);
         }
 
@@ -75,8 +78,8 @@ namespace BuildingEscape
             }
             else if (hub && TowerRules.DemoOver(next))
             {
-                // the demo's last floor is done: the vendor has a free pew now (Vendor.PewForSale)
-                HudWidgets.Banner("DEMO COMPLETE", "That was the last floor of the demo. The vendor has a pew pistol for free: try it on the training dummy", HudTheme.Cash,
+                // the demo's last floor is done: the vendor sells the pew now (Vendor.PewForSale)
+                HudWidgets.Banner("DEMO COMPLETE", "That was the last floor of the demo. The vendor sells a pew pistol and clips for it now: try it on the training dummy", HudTheme.Cash,
                     m.SurplusPaid > 0 ? $"+{HudTheme.Money(m.SurplusPaid)} surplus from the last floor added to your cash" : null);
             }
             else if (hub)
@@ -93,15 +96,81 @@ namespace BuildingEscape
                 HudWidgets.Banner("BUSTED", m.BackupCalled ? $"Backup was called - busted on {m.FloorLabel}" : $"Busted on {m.FloorLabel}", HudTheme.Danger);
         }
 
-        /// <summary>The way out of the end screen: back to the menu online, restart the scene offline.</summary>
-        static void DrawEndButton()
+        /// <summary>When the end screen came up (unscaled time; -1 while it is not up): the button waits a beat, so a player hammering the attack button as the team goes down does not hit it.</summary>
+        static float endSince = -1f;
+        public const float EndButtonDelay = 1.2f;
+
+        /// <summary>
+        /// Where the end screen's button is: up under the banner, nowhere near the middle of the screen, where the cursor appears (and where a player who is spamming the attack button
+        /// keeps clicking) when the team goes down. The owner, 2026-10-17: "the exit button after wiping in a run should be higher so you don't click it on accident".
+        /// </summary>
+        public static Rect EndButtonRect(float screenW, float screenH, float s) => new Rect((screenW - 210f * s) * 0.5f, Mathf.Max(150f * s, screenH * 0.14f), 210f * s, 52f * s);
+
+        /// <summary>The pop-up over the Exit button of the players who are not the host (the owner, 2026-10-18: "When a team wipes, players other than the host should get a "Waiting for host..." pop up above the exit button").</summary>
+        public const string WaitingText = "Waiting for host...";
+
+        /// <summary>Does this machine show <see cref="WaitingText"/>? In an online run, when the team has wiped (the Failed phase), on every machine but the host's: the host decides what happens next (back to the lobby with the party, or not).</summary>
+        public static bool ShowWaitingForHost(bool online, bool isHost, HeistPhase phase) => online && !isHost && phase == HeistPhase.Failed;
+
+        /// <summary>A small plate right above the Exit button (between it and the banner), its lettering breathing a little.</summary>
+        static void DrawWaitingForHost(Rect button, float s)
         {
+            if (Event.current.type != EventType.Repaint) return;
+            float w = 300f * s, h = 38f * s;
+            var r = new Rect(button.center.x - w * 0.5f, button.y - h - 10f * s, w, h);
+            float breathe = 0.5f + 0.5f * Mathf.Sin(Time.unscaledTime * 3f);
+            HudTheme.Body(r, HudTheme.Card, 16f, 3f, 4f, true, 1.6f);
+            HudTheme.Text(r, WaitingText, 20f, Color.Lerp(HudTheme.Muted, HudTheme.Bright, breathe), TextAnchor.MiddleCenter);
+        }
+
+        /// <summary>The host clicked Exit online: the pop-up that asks whether the party goes with them.</summary>
+        static bool leavePopup;
+
+        /// <summary>
+        /// The ways out of the end screen (the owner, 2026-10-17 night: "Add Exit next to restart after a wipe, which brings you back to the lobby. For multiplayer the host after clicking Exit should get a pop-up
+        /// asking Leave with party or Leave solo"): offline Restart and Exit (the lobby: the menu scene); online Exit only; a member leaves, the host is asked.
+        /// </summary>
+        static void DrawEndButton(HeistPhase phase)
+        {
+            if (endSince < 0f) endSince = Time.unscaledTime;
+            if (Time.unscaledTime - endSince < EndButtonDelay) return;
             bool online = Net.NetSession.Online;
             float s = HudTheme.S;
-            var r = new Rect((Screen.width - 210f * s) * 0.5f, Mathf.Max(300f * s, Screen.height * 0.46f), 210f * s, 52f * s);
-            if (!HudWidgets.Button(r, online ? "Back to menu" : "Restart", HudTheme.Info, 22f)) return;
-            if (online) Net.NetSession.Instance.Leave();
-            else UnityEngine.SceneManagement.SceneManager.LoadScene(UnityEngine.SceneManagement.SceneManager.GetActiveScene().buildIndex);
+            var r = EndButtonRect(Screen.width, Screen.height, s);
+            if (leavePopup) { DrawLeavePopup(s); return; }
+            if (ShowWaitingForHost(online, online && Net.NetSession.Instance != null && Net.NetSession.Instance.IsHost, phase)) DrawWaitingForHost(r, s);
+            bool exit;
+            if (online) exit = HudWidgets.Button(r, "Exit", HudTheme.Info, 22f);
+            else
+            {
+                float gap = 18f * s;
+                var left = new Rect(r.x - (r.width + gap) * 0.5f, r.y, r.width, r.height);
+                var right = new Rect(left.x + r.width + gap, r.y, r.width, r.height);
+                if (HudWidgets.Button(left, "Restart", HudTheme.Info, 22f))
+                {
+                    UnityEngine.SceneManagement.SceneManager.LoadScene(UnityEngine.SceneManagement.SceneManager.GetActiveScene().buildIndex);
+                    return;
+                }
+                exit = HudWidgets.Button(right, "Exit", HudTheme.Info, 22f);
+            }
+            if (!exit) return;
+            if (!online) UnityEngine.SceneManagement.SceneManager.LoadScene(Net.NetConst.MenuScene);
+            else if (Net.NetSession.Instance.IsHost) leavePopup = true;
+            else Net.NetSession.Instance.Leave();
+        }
+
+        /// <summary>"Leave with party" brings everybody back to the lobby, "Leave solo" leaves alone (the session ends: nobody else can host it), Stay closes the pop-up.</summary>
+        static void DrawLeavePopup(float s)
+        {
+            var old = GUI.color;
+            GUI.color = new Color(0f, 0f, 0f, 0.6f);
+            GUI.DrawTexture(new Rect(0f, 0f, Screen.width, Screen.height), Texture2D.whiteTexture);
+            GUI.color = old;
+            float w = 300f * s, h = 52f * s, x = (Screen.width - w) * 0.5f, y = Screen.height * 0.40f;
+            HudWidgets.Banner("LEAVE THE RUN?", "You are the host", HudTheme.Info);
+            if (HudWidgets.Button(new Rect(x, y, w, h), "Leave with party", HudTheme.Cash, 22f)) { leavePopup = false; Net.NetSession.Instance.ReturnPartyToLobby(); return; }
+            if (HudWidgets.Button(new Rect(x, y + h + 12f * s, w, h), "Leave solo", HudTheme.Info, 22f)) { leavePopup = false; Net.NetSession.Instance.Leave(); return; }
+            if (HudWidgets.Button(new Rect(x, y + 2f * (h + 12f * s), w, h), "Stay", HudTheme.Danger, 22f)) leavePopup = false;
         }
     }
 }

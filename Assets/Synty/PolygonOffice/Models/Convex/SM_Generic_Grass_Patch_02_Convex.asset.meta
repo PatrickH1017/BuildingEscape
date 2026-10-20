@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 12e9de4d2bdf7464d9942d5088bc3957
+timeCreated: 1579566318
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 43002006558274984
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 159492
+  packageName: POLYGON - Office Pack - Art by Synty
+  packageVersion: 1.9.4
+  assetPath: Assets/Synty/PolygonOffice/Models/Convex/SM_Generic_Grass_Patch_02_Convex.asset
+  uploadId: 976702

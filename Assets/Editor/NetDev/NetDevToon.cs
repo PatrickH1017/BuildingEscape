@@ -27,18 +27,19 @@ namespace BuildingEscape.EditorTools
             var stage = LobbyStage.Instance;
             ToonCheck("lobby stage exists", stage != null);
             var looks = new List<string>();
-            foreach (var c in cat.Players())
+            foreach (var c in cat.Players().Take(3))
             {
                 var a = PlayerAppearance.ForSlot(0);
                 a.model = c.id;
                 looks.Add(a.Serialize());
             }
-            looks.Add(PlayerAppearance.ForSlot(3).Serialize()); // and a Party character beside them
+            var party = PlayerAppearance.ForSlot(3); party.model = null;
+            looks.Add(party.Serialize()); // and a Party character beside them
             stage.DebugShowLooks(looks);
             yield return new WaitForSeconds(3f);
             var anims = Object.FindObjectsByType<CharacterAnimator>(FindObjectsSortMode.None);
             int clipModes = anims.Count(x => x.ClipMode);
-            ToonCheck("stage shows 3 Tiny Toon people + 1 Party character", anims.Length == 4 && clipModes == 3, $"(animators={anims.Length}, clip mode={clipModes})");
+            ToonCheck("stage shows 3 dock workers + 1 Party character", anims.Length == 4 && clipModes == 3, $"(animators={anims.Length}, clip mode={clipModes})");
             Shot("toon_stage");
 
             // ---- 2. free-standing line-up: every character in the catalog + a Party one
@@ -56,13 +57,16 @@ namespace BuildingEscape.EditorTools
 
             var hosts = new List<GameObject>();
             var byId = new Dictionary<string, CharacterAnimator>();
-            var chars = cat.characters.ToList();
+            // (a spread of the catalog, not all of it: the dock workers, the old toon people, the guard and the boss would not fit one picture)
+            var pick = new[] { "police", "male_a", "female", "zombie", "syn_cleaner_male_01", "syn_boss_female_01", "syn_developer_male_02", "syn_business_male_02", "syn_cleaner_female_01", "syn_business_female_01", "syn_security_male_01", "syn_boss_male_01" };
+            var chars = pick.Select(pid => cat.characters.FirstOrDefault(x => x != null && x.id == pid && x.prefab)).Where(x => x != null).ToList();
+            const float gap = 1.15f;
             for (int i = 0; i <= chars.Count; i++)
             {
                 var host = GameObject.CreatePrimitive(PrimitiveType.Capsule);
                 host.name = i < chars.Count ? "Host_" + chars[i].id : "Host_party";
                 host.transform.SetParent(root.transform, false);
-                host.transform.localPosition = new Vector3((i - chars.Count / 2f) * 1.7f, 0f, 0f);
+                host.transform.localPosition = new Vector3((i - chars.Count / 2f) * gap, 0f, 0f);
                 host.transform.localRotation = Quaternion.Euler(0f, 180f, 0f); // face the camera
                 Object.Destroy(host.GetComponent<Collider>());
                 var look = i < chars.Count
@@ -80,7 +84,7 @@ namespace BuildingEscape.EditorTools
             cam.clearFlags = CameraClearFlags.SolidColor;
             cam.backgroundColor = new Color(0.55f, 0.66f, 0.82f);
             cam.fieldOfView = 32f;
-            cam.transform.localPosition = new Vector3(0f, 0.9f, -13f);
+            cam.transform.localPosition = new Vector3(0f, 0.9f, -((chars.Count + 1) * gap + 2f) / 1.0195f);
             cam.transform.LookAt(root.transform.position + new Vector3(0f, 0.1f, 0f));
             cam.enabled = false;
 
@@ -93,7 +97,7 @@ namespace BuildingEscape.EditorTools
                 var host = hosts.First(h => h.name == "Host_" + c.id);
                 var rs = host.GetComponentsInChildren<Renderer>(false).Where(r => r.enabled && r.gameObject.activeInHierarchy && r.name != host.name).ToList();
                 var b = rs[0].bounds; foreach (var r in rs) b.Encapsulate(r.bounds);
-                bool allStandard = rs.All(r => r.sharedMaterials.All(m => m && m.shader && m.shader.name == "Standard" && m.mainTexture == cat.atlas));
+                bool allStandard = rs.All(r => r.sharedMaterials.All(m => m && m.shader && m.shader.name == "Standard" && m.mainTexture == (c.atlas ? c.atlas : cat.atlas)));
                 ToonCheck($"{c.id}: height ~1.85 m, Standard shader + atlas on every renderer", Mathf.Abs(b.size.y - ToonCharacterFactory.Height) < 0.2f && allStandard,
                     $"(height {b.size.y:0.00} m, renderers {rs.Count}, first y {b.min.y - host.transform.position.y:0.00})");
             }

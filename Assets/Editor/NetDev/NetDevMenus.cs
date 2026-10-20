@@ -107,6 +107,8 @@ namespace BuildingEscape.EditorTools
             yield return new WaitForSeconds(2.0f);
             Log($"[Menu] screen {Screen.width}x{Screen.height}");
             MenuCheck("the lobby menu is on the Main page offline", net.State == NetSessionState.Offline && pageField.GetValue(menu).ToString() == "Main");
+            MenuCheck("the lobby has its loading dock behind the characters", FindFirstObjectByType<BuildingEscape.Net.LobbyDockLife>() != null);
+            MenuCheck("the lobby song is loaded and plays", MusicDirector.Instance != null && MusicDirector.Instance.HasLobbySong && MusicDirector.Instance.LobbyPlaying);
             yield return SnapMenu("lobby_main");
 
             Go("Play"); yield return new WaitForSeconds(0.8f); yield return SnapMenu("lobby_play");

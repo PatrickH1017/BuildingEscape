@@ -133,7 +133,7 @@ namespace BuildingEscape
                 Shape(new Rect(c.x - rad, c.y - rad, rad * 2f, rad * 2f), metal, rad, ow);
                 float hole = rad * 0.5f;
                 HudTheme.Circle(c, hole * 2f + ow, HudTheme.Ink);
-                HudTheme.Circle(c, hole * 2f, new Color32(0x2B, 0x20, 0x68, 255));
+                HudTheme.Circle(c, hole * 2f, HudTheme.Track);
                 HudTheme.Rounded(new Rect(c.x - rad * 0.16f, c.y - rad - ow * 0.2f - rad * 0.2f, rad * 0.32f, rad * 0.4f), HudTheme.Ink, rad * 0.08f);   // the lock
             }
         }

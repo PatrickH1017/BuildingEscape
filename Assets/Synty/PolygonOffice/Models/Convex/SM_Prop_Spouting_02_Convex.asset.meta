@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 69f5e89f64c0dfb448e8f3720d49d7dc
+timeCreated: 1579569992
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 43946481446637126
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 159492
+  packageName: POLYGON - Office Pack - Art by Synty
+  packageVersion: 1.9.4
+  assetPath: Assets/Synty/PolygonOffice/Models/Convex/SM_Prop_Spouting_02_Convex.asset
+  uploadId: 976702

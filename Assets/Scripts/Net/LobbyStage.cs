@@ -41,6 +41,7 @@ namespace BuildingEscape.Net
         PlayerAppearance local;
         Camera cam;
         Material padMat, markerMat;
+        LobbyDockLife dockLife;
         Quaternion camRot;
 
         // ------------------------------------------------------------------ lifecycle
@@ -75,29 +76,36 @@ namespace BuildingEscape.Net
             if (cam)
             {
                 cam.clearFlags = CameraClearFlags.SolidColor;
-                cam.backgroundColor = new Color(0.07f, 0.08f, 0.11f);
+                cam.backgroundColor = new Color(0.06f, 0.07f, 0.09f);
                 cam.fieldOfView = 38f;
             }
-            RenderSettings.ambientLight = new Color(0.42f, 0.44f, 0.5f);
+            // the loading dock behind the stage (LobbyDock): dim ambient light and a little haze, the warm lamps do the rest
+            RenderSettings.ambientMode = UnityEngine.Rendering.AmbientMode.Flat;
+            RenderSettings.ambientLight = new Color(0.36f, 0.38f, 0.44f);
+            RenderSettings.fog = true;
+            RenderSettings.fogMode = FogMode.Exponential;
+            RenderSettings.fogDensity = 0.010f;
+            RenderSettings.fogColor = new Color(0.09f, 0.10f, 0.13f);
 
             var key = new GameObject("KeyLight").AddComponent<Light>();
             key.type = LightType.Directional;
-            key.intensity = 1.0f;
-            key.color = new Color(1f, 0.95f, 0.88f);
+            key.intensity = 0.65f;
+            key.color = new Color(0.86f, 0.9f, 1f);
+            key.shadows = LightShadows.Soft;
+            key.shadowStrength = 0.55f;
             key.transform.SetParent(transform);
-            key.transform.rotation = Quaternion.Euler(35f, -25f, 0f);
+            key.transform.rotation = Quaternion.Euler(48f, -28f, 0f);
 
             var fill = new GameObject("FillLight").AddComponent<Light>();
             fill.type = LightType.Point;
-            fill.range = 14f; fill.intensity = 0.8f;
-            fill.color = new Color(0.55f, 0.65f, 1f);
+            fill.range = 14f; fill.intensity = 0.6f;
+            fill.color = new Color(0.62f, 0.7f, 1f);
             fill.transform.SetParent(transform);
             fill.transform.position = new Vector3(-3f, 3.5f, -3f);
 
-            padMat = NewMat(new Color(0.22f, 0.24f, 0.3f));
-            markerMat = NewMat(new Color(1f, 0.82f, 0.2f));
-            Prop(PrimitiveType.Cube, "Floor", new Vector3(0, -0.15f, 0), new Vector3(40f, 0.3f, 24f), NewMat(new Color(0.12f, 0.13f, 0.17f)));
-            Prop(PrimitiveType.Cube, "Backdrop", new Vector3(0, 4f, 4.2f), new Vector3(40f, 10f, 0.3f), NewMat(new Color(0.14f, 0.17f, 0.26f)));
+            padMat = NewMat(new Color(0.17f, 0.18f, 0.22f));
+            markerMat = NewMat(new Color(0.89f, 0.65f, 0.17f));
+            dockLife = LobbyDock.Build(transform);
         }
 
         GameObject Prop(PrimitiveType type, string name, Vector3 pos, Vector3 scale, Material mat, Transform parent = null)
@@ -247,26 +255,27 @@ namespace BuildingEscape.Net
                 pos = new Vector3(mine.target.x - 1.35f, 1.6f, -6.4f);
             }
             float k = 1f - Mathf.Exp(-5f * Time.deltaTime);
+            // the camera drifts a little, slowly, so the room is never quite still
+            float tt = Time.time, calm = Customizing ? 0.35f : 1f;
+            pos += new Vector3(Mathf.Sin(tt * 0.21f) * 0.16f, Mathf.Sin(tt * 0.33f) * 0.045f, Mathf.Sin(tt * 0.17f) * 0.12f) * calm;
+            camRot = Quaternion.Slerp(camRot, Quaternion.Euler(Customizing ? 1f : 6f, Mathf.Sin(tt * 0.19f) * 0.35f * calm, 0f), k);
             cam.transform.position = Vector3.Lerp(cam.transform.position, pos, k);
-            camRot = Quaternion.Slerp(camRot, Quaternion.Euler(Customizing ? 1f : 6f, 0f, 0f), k);
             cam.transform.rotation = camRot;
         }
 
         void OnGUI()
         {
             if (!cam || Event.current.type != EventType.Repaint) return;     // name tags are only drawn, never clicked
-            float k = Mathf.Max(0.75f, Screen.height / 720f);
-            int size = Mathf.RoundToInt(16 * k);
-            var style = HudStyles.Label(size, TextAnchor.MiddleCenter, FontStyle.Bold, Color.white);
-            var shadow = HudStyles.Label(size, TextAnchor.MiddleCenter, FontStyle.Bold, Color.black);
-            foreach (var s in slots)
+            float k = HudTheme.S;
+            foreach (var slot in slots)
             {
-                var p = cam.WorldToScreenPoint(s.root.transform.position + Vector3.up * (2.15f * s.height + 0.15f));
+                var p = cam.WorldToScreenPoint(slot.root.transform.position + Vector3.up * (2.15f * slot.height + 0.15f));
                 if (p.z <= 0f) continue;
-                var rect = new Rect(p.x - 110f, Screen.height - p.y - 14f, 220f, 28f);
-                string text = s.isLocal ? s.name + "  (you)" : s.name;
-                GUI.Label(new Rect(rect.x + 1, rect.y + 1, rect.width, rect.height), text, shadow);
-                GUI.Label(rect, text, style);
+                string text = slot.isLocal ? slot.name + "  (you)" : slot.name;
+                float w = HudTheme.Width(text, 18f) + 40f * k, h = 34f * k;
+                var rect = new Rect(p.x - w * 0.5f, Screen.height - p.y - h * 0.5f, w, h);
+                HudTheme.Pill(rect, HudTheme.Card, 3f, 3f, 1.4f);
+                HudTheme.Text(rect, text, 18f, HudTheme.Bright, TextAnchor.MiddleCenter);
             }
         }
     }

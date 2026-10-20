@@ -21,6 +21,8 @@ namespace BuildingEscape
         public int textCols;
         /// <summary>The cell the sign hangs in.</summary>
         public int cellX, cellY;
+        /// <summary>A "SECURITY / OFFICE" sign: its arrow leads to the guard outpost (<see cref="toCellX"/>, <see cref="toCellY"/> is the outpost's cell) and it names no numbered rooms.</summary>
+        public bool security;
         /// <summary>The numbered rooms it names (1-based, in the order of their numbers) and the nearest cell that holds any of them.</summary>
         public int firstIndex, lastIndex, toCellX, toCellY;
         /// <summary>How many doorways it takes to get from the sign's cell to that cell.</summary>
@@ -46,6 +48,8 @@ namespace BuildingEscape
         public const int BlockSize = 10, MinLastBlock = 4;
         /// <summary>The lettering: "ROOMS" over the numbers.</summary>
         public const string Title = "ROOMS", TitleOne = "ROOM";
+        /// <summary>The lettering of the security office's signs: "SECURITY" over "OFFICE".</summary>
+        public const string SecurityTitle = "SECURITY", SecurityRange = "OFFICE";
         public const int TextRows = DotText.Rows * 2 + 1;
         /// <summary>Empty columns between the text and the arrow, and the margin round the lettering on the plate, in dots.</summary>
         public const int ArrowGap = 3, MarginDots = 3;
@@ -62,12 +66,26 @@ namespace BuildingEscape
 
         public static int AreasFor(int cellCount) => Math.Max(2, Math.Min(5, cellCount / 9));
 
+        /// <summary>How many cells get a "SECURITY OFFICE" sign: 3 on a small floor, 5 on 8 x 5 cells, 6 at most.</summary>
+        public static int SecurityAreas(int cellCount) => Math.Max(3, Math.Min(6, cellCount / 7));
+
+        /// <summary>The cell the guard outpost stands in (cell x + cell y * columns), or -1 on a floor without one.</summary>
+        public static int OutpostCell(Layout layout, float cell, int cols, int rows)
+        {
+            var op = layout?.outpost;
+            if (op == null || cols < 1 || rows < 1) return -1;
+            int cx = Math.Max(0, Math.Min(cols - 1, (int)(op.bounds.Cx / cell))), cy = Math.Max(0, Math.Min(rows - 1, (int)(op.bounds.Cz / cell)));
+            return cx + cy * cols;
+        }
+
         // ------------------------------------------------------------------ blocks of rooms
 
         /// <summary>A run of ten numbered rooms (their indices count from 1, in the order of their numbers).</summary>
         public sealed class Block
         {
             public int first, last;
+            /// <summary>The security office (the guard outpost): a block of its own that holds no numbered rooms (first = last = 0).</summary>
+            public bool security;
             /// <summary>"ROOMS", or "ROOM" for a block of one; and the numbers on the second line ("111-120", or just "101A").</summary>
             public string title, range;
             /// <summary>The cells (cell x + cell y * columns) that hold its rooms.</summary>
@@ -265,7 +283,7 @@ namespace BuildingEscape
             var result = new List<DirSign>();
             if (layout == null || floor < 1 || cols < 1 || rows < 1 || openE == null || openN == null) return result;
             var blocks = MakeBlocks(layout, floor, cols);
-            if (blocks.Count < 2) return result;
+            bool roomSigns = blocks.Count >= 2;
             int n = cols * rows;
             var dist = Distances(cols, rows, openE, openN);
             var sites = FindSites(layout, cols, rows, cell, wallH);
@@ -288,7 +306,7 @@ namespace BuildingEscape
             int want = AreasFor(n);
             var done = new List<int>();
             var tried = new HashSet<int>();
-            while (done.Count < want && tried.Count < withSites.Count)
+            while (roomSigns && done.Count < want && tried.Count < withSites.Count)
             {
                 int pick = -1;
                 if (done.Count == 0)
@@ -318,7 +336,58 @@ namespace BuildingEscape
                 tried.Add(pick);
                 if (PlanCell(pick, sitesByCell[pick], blocks, dist, n, cols, rows, openE, openN, layout, piecesByCell, result, seed, cell, floor) > 0) done.Add(pick);
             }
+            PlanSecurity(layout, cols, rows, openE, openN, cell, seed, floor, n, dist, sitesByCell, withSites, piecesByCell, result);
             return result;
+        }
+
+        /// <summary>
+        /// The "SECURITY OFFICE" signs: the guard outpost is one more place a sign points to. The first goes in the cell nearest the elevator that can take
+        /// one (a player who steps out of the car and looks for the security office finds it at once), the rest in the cells farthest from the ones that have
+        /// one, so a sign is close wherever a player is. A sign's arrow points the way a shortest walk through the doorways to the outpost's cell begins (the
+        /// same rule as the room-number signs), and the outpost's own cell gets none: its door is in plain sight there.
+        /// </summary>
+        static void PlanSecurity(Layout layout, int cols, int rows, bool[,] openE, bool[,] openN, float cell, int seed, int floor, int n, int[] dist,
+                                 List<Site>[] sitesByCell, List<int> withSites, List<Piece>[] piecesByCell, List<DirSign> result)
+        {
+            int target = OutpostCell(layout, cell, cols, rows);
+            if (target < 0) return;
+            var block = new Block { first = 0, last = 0, title = SecurityTitle, range = SecurityRange, security = true };
+            block.cells.Add(target);
+            var only = new List<Block> { block };
+
+            int want = SecurityAreas(n);
+            var done = new List<int>();
+            var tried = new HashSet<int>();
+            while (done.Count < want && tried.Count < withSites.Count)
+            {
+                int pick = -1;
+                if (done.Count == 0)
+                {
+                    int bestDist = int.MaxValue, bestHash = -1;
+                    foreach (int c in withSites)
+                    {
+                        if (tried.Contains(c) || c == target) continue;
+                        int d = dist[c] < 0 ? int.MaxValue - 1 : dist[c];         // (cell 0 is the elevator's)
+                        int h = Hash(seed, c, 0, 191);
+                        if (d < bestDist || (d == bestDist && h > bestHash)) { pick = c; bestDist = d; bestHash = h; }
+                    }
+                }
+                else
+                {
+                    int bestGap = -1, bestHash = -1;
+                    foreach (int c in withSites)
+                    {
+                        if (tried.Contains(c) || c == target) continue;
+                        int gap = int.MaxValue;
+                        foreach (int a in done) gap = Math.Min(gap, Math.Abs(c % cols - a % cols) + Math.Abs(c / cols - a / cols));
+                        int h = Hash(seed, c, 1, 192);
+                        if (gap > bestGap || (gap == bestGap && h > bestHash)) { pick = c; bestGap = gap; bestHash = h; }
+                    }
+                }
+                if (pick < 0) break;
+                tried.Add(pick);
+                if (PlanCell(pick, sitesByCell[pick], only, dist, n, cols, rows, openE, openN, layout, piecesByCell, result, seed, cell, floor) > 0) done.Add(pick);
+            }
         }
 
         sealed class Candidate
@@ -392,7 +461,7 @@ namespace BuildingEscape
             var site = c.site;
             var sign = new DirSign
             {
-                line1 = c.block.title, line2 = c.block.range,
+                line1 = c.block.title, line2 = c.block.range, security = c.block.security,
                 nx = site.nx, nz = site.nz,
                 dirX = site.alongX ? c.dir : 0, dirZ = site.alongX ? 0 : c.dir,
                 y = SignY, cellX = ax, cellY = ay,
@@ -453,6 +522,10 @@ namespace BuildingEscape
             foreach (var r in layout.rooms)
                 foreach (var d in r.doors)
                     if (d.Grow(0.1f).Overlaps(thin)) return true;
+
+            // the front of an executive suite is glass (the owner: suites have glass walls and doors): no sign on a suite's perimeter wall
+            foreach (var r in layout.rooms)
+                if (r.role == OfficePlanner.RoleSuite && r.bounds.Grow(0.45f).Overlaps(thin)) return true;
 
             // furniture and things hanging on the wall
             int cx0 = Math.Max(0, (int)((box.x0 - 0.5f) / cell)), cx1 = Math.Min(cols - 1, (int)((box.x1 + 0.5f) / cell));

@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 0189fe64ce77284408163a57470f42ae
+timeCreated: 1575342738
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 2100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 159492
+  packageName: POLYGON - Office Pack - Art by Synty
+  packageVersion: 1.9.4
+  assetPath: Assets/Synty/PolygonOffice/Materials/Misc/Screen_04.mat
+  uploadId: 976702

@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 39959bef43f00bd4296c4c6bf8333a52
+timeCreated: 1576111634
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 100100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 159492
+  packageName: POLYGON - Office Pack - Art by Synty
+  packageVersion: 1.9.4
+  assetPath: Assets/Synty/PolygonOffice/Prefabs/Characters/SM_Chr_Business_Female_04.prefab
+  uploadId: 976702

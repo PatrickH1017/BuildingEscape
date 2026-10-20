@@ -94,6 +94,50 @@ namespace BuildingEscape.EditorTools
             rb.linearVelocity = Vector3.zero;
         }
 
+        // ---- where the silencer sits (the owner, 2026-10-18: "make sure the silencer is on the exit barrel of the pew", with photographs of suppressed rifles: it is an extension of the barrel, and the bullet's last point is its front)
+        // Measured on the live objects from the models' own vertices (read here, in the editor) and not from the numbers the weapon catalog stores, so that a wrong stored number is caught.
+        static float silencerFrontZ = float.NaN;
+
+        /// <summary>The silencer's own z of its front face, from its box (a build cannot read a mesh's vertices, and neither can a test in Play mode).</summary>
+        static float SilencerFrontLocalZ()
+        {
+            if (float.IsNaN(silencerFrontZ) && WeaponCatalog.Measure(RangedWeapon.Catalog.silencer, Quaternion.identity, null, out var b)) silencerFrontZ = b.max.z;
+            return silencerFrontZ;
+        }
+
+        /// <summary>The middle of the silencer's front face, in the world: the last point of the barrel.</summary>
+        static Vector3 SilencerFront(Transform silencer) => silencer.TransformPoint(new Vector3(0f, 0f, SilencerFrontLocalZ()));
+
+        /// <summary>The catalog's numbers agree with the models' boxes: the barrel's end is the front of the pistol, centred and on the slide's upper half; the silencer's rear recess is a few millimetres deep and its axis is the barrel's.</summary>
+        static bool CatalogMeasurementsAgree(out string why)
+        {
+            var cat = RangedWeapon.Catalog;
+            why = "(no models)";
+            if (!WeaponCatalog.Measure(cat.pew, Quaternion.identity, null, out var pb) || !WeaponCatalog.Measure(cat.silencer, Quaternion.identity, null, out var sb)) return false;
+            var face = cat.pewMuzzleFace;
+            float seat = face.z - cat.silencerAt.z;                 // the silencer's own z of the bottom of its rear recess
+            bool atFront = Mathf.Abs(face.z - pb.max.z) < 0.002f;
+            bool centred = Mathf.Abs(face.x) < 0.002f && face.y > pb.center.y && face.y < pb.max.y;
+            bool recess = seat - sb.min.z > 0.002f && seat - sb.min.z < 0.02f;
+            bool lined = Mathf.Abs(cat.silencerAt.x - face.x) < 0.001f && Mathf.Abs(cat.silencerAt.y - face.y) < 0.001f && cat.silencerTurn == Vector3.zero;
+            why = $"(barrel end z {face.z:0.0000} against the pistol's front {pb.max.z:0.0000}; its line ({face.x:0.0000}, {face.y:0.0000}); the recess is {(seat - sb.min.z) * 1000f:0.0} mm deep)";
+            return atFront && centred && recess && lined;
+        }
+
+        /// <summary>Is the silencer on the barrel: its rear recess over the end of the barrel (the catalog's measured muzzle face, on the gun as it is placed), its length axis along the barrel, and - given a muzzle - the muzzle on its front face.</summary>
+        static bool SilencerOnBarrel(Transform model, Transform silencer, Transform muzzle, out string why)
+        {
+            why = "(no model or silencer)";
+            if (!model || !silencer) return false;
+            var cat = RangedWeapon.Catalog;
+            var tip = model.TransformPoint(cat.pewMuzzleFace);                                                  // the middle of the barrel's end
+            var seat = silencer.TransformPoint(new Vector3(0f, 0f, cat.pewMuzzleFace.z - cat.silencerAt.z));    // the bottom of the silencer's rear recess
+            float off = Vector3.Distance(tip, seat);
+            float angle = Vector3.Angle(silencer.TransformDirection(Vector3.forward), model.TransformDirection(Vector3.forward));
+            float muzzleOff = muzzle ? Vector3.Distance(muzzle.position, SilencerFront(silencer)) : 0f;
+            why = $"(end of the barrel to the bottom of the recess {off * 1000f:0.0} mm, axis off by {angle:0.00} degrees{(muzzle ? $", the muzzle {muzzleOff * 1000f:0.0} mm from the silencer's front face" : "")})";
+            return off < 0.002f && angle < 0.5f && muzzleOff < 0.003f;
+        }
         IEnumerator PewScenario()
         {
             var hm = HeistManager.Instance;
@@ -119,7 +163,7 @@ namespace BuildingEscape.EditorTools
             PewCheck("catalog: the reload clips are the five steps in order",
                 AllSet(ac.gunReload) && ac.gunReload[0].name.Contains("slideLock") && ac.gunReload[1].name.Contains("magOut") && ac.gunReload[2].name.Contains("magDraw")
                 && ac.gunReload[3].name.Contains("magIn") && ac.gunReload[4].name.Contains("charge"));
-            PewCheck("the guards are armed from floor 4 by default (and nobody at the docks)", ArmedGuards.FirstArmedFloor == ArmedGuards.DefaultFirstArmedFloor && !ArmedGuards.Everywhere && !ArmedGuards.ShouldArm(0));
+            PewCheck("the guards are armed from the first armed floor by default (and nobody at the docks)", ArmedGuards.FirstArmedFloor == ArmedGuards.DefaultFirstArmedFloor && !ArmedGuards.Everywhere && !ArmedGuards.ShouldArm(0));
 
             // ================= 2. the dev menu hands out the pew
             PewCheck("the pew is not in the pack before the menu gives it", !pack.Items.Any(i => i && i.TryGetComponent(out RangedWeapon _)));
@@ -132,15 +176,35 @@ namespace BuildingEscape.EditorTools
             var gc = player.GetComponent<GunController>();
             PewCheck("the player has a gun controller that holds the pew", gc != null && gc.Gun != null && gc.Gun.kind == RangedWeapon.Kind.Pew);
             PewCheck("the pew model is in the player's hand", gc != null && gc.Held != null && gc.Held.Grip != null && gc.Held.Muzzle != null);
+            PewCheck("the player's pew has a silencer: a tube on the front of the barrel, and the shot leaves from its end (the owner, 2026-10-18)",
+                gc != null && gc.Gun != null && gc.Gun.silenced && gc.Held.Grip.Find("Silencer") != null && Vector3.Distance(gc.Held.Muzzle.position, gc.Held.Grip.Find("Silencer").position) < RangedWeapon.Specs[0].silencerLength * 0.75f
+                && gc.Gun.NoiseRadius < RangedWeapon.Specs[0].noise);
+            PewCheck("the pew lying on the floor has the silencer on too", pewItem != null && pewItem.transform.Find("Silencer") != null);
+            {
+                bool onBarrel = false; string whyBarrel = "";
+                try { onBarrel = SilencerOnBarrel(gc.Held.Grip.Find("Pew_Model"), gc.Held.Grip.Find("Silencer"), gc.Held.Muzzle, out whyBarrel); } catch (System.Exception e) { whyBarrel = "(" + e.Message + ")"; }
+                PewCheck("the silencer is an extension of the barrel: its recess is over the end of the barrel, on the barrel's own line, and the muzzle is the middle of its front face (the owner, 2026-10-18)", onBarrel, whyBarrel);
+                bool lyingOk = false; string whyLying = "";
+                try { lyingOk = SilencerOnBarrel(pewItem.transform.Find("Pew_Model"), pewItem.transform.Find("Silencer"), null, out whyLying); } catch (System.Exception e) { whyLying = "(" + e.Message + ")"; }
+                PewCheck("the same on the pew lying on the floor", lyingOk, whyLying);
+                bool agree = false; string whyAgree = "";
+                try { agree = CatalogMeasurementsAgree(out whyAgree); } catch (System.Exception e) { whyAgree = "(" + e.Message + ")"; }
+                PewCheck("the catalog's measured barrel end and silencer seat agree with the models' boxes", agree, whyAgree);
+                var port = gc.Held.Port;
+                PewCheck("the empty case leaves the slide's ejection port: near the grip and far behind the muzzle (with the silencer on, the muzzle is the far end of the gun)",
+                    port != null && Vector3.Distance(port.position, gc.Held.Grip.position) < 0.16f && Vector3.Distance(port.position, gc.Held.Muzzle.position) > 0.25f,
+                    port ? $"(port {Vector3.Distance(port.position, gc.Held.Grip.position):0.000} m from the grip, {Vector3.Distance(port.position, gc.Held.Muzzle.position):0.000} m from the muzzle)" : "(no port)");
+            }
             var vis = player.GetComponent<PlayerVisual>();
             PewCheck("the pew sits on the right-hand bone", gc != null && gc.Held != null && vis != null && vis.Anim != null && gc.Held.Grip.IsChildOf(vis.Anim.RightHand != null ? vis.Anim.RightHand : vis.Anim.transform));
-            PewCheck("the pew starts with a full magazine of 10", pewItem != null && pewItem.GetComponent<RangedWeapon>().Magazine.Rounds == 10 && pewItem.GetComponent<RangedWeapon>().Magazine.Capacity == 10);
+            PewCheck("the pew starts with a full magazine of 8 and two spare clips", pewItem != null && pewItem.GetComponent<RangedWeapon>().Magazine.Rounds == 8 && pewItem.GetComponent<RangedWeapon>().Magazine.Capacity == 8 && pewItem.GetComponent<RangedWeapon>().Magazine.Reserve == 16);
             PewCheck("the draw sound played when it was equipped", GunSounds.EquipsPlayed >= 1);
             var pewGun = pewItem.GetComponent<RangedWeapon>();
             PewCheck("melee does not swing the pew (the melee controller sees no melee weapon)", pewItem.GetComponent<MeleeWeapon>() == null);
 
             // ================= 3. shooting the training dummy from the camera's crosshair
             if (rig) rig.enabled = false;
+            GunController.LimitedAmmoForTests = true;                       // (the magazine checks below need a finite magazine; the docks have unlimited ammunition, checked at the end of this section)
             var dummy = TrainingDummy.Current;
             PewCheck("the training dummy stands in the dock", dummy != null);
             Vector3 spot = default;
@@ -172,26 +236,29 @@ namespace BuildingEscape.EditorTools
                 noiseHeard.Clear();
                 float h0 = dummy.Health;
                 bool fired1 = gc.Fire();
-                PewCheck("the first shot leaves the gun", fired1 && pewGun.Magazine.Rounds == 9);
+                var silencerFrontNow = SilencerFront(gc.Held.Grip.Find("Silencer"));            // (this frame: the arm has not kicked yet)
+                PewCheck("the first shot leaves the gun", fired1 && pewGun.Magazine.Rounds == 7);
+                PewCheck("the bullet starts at the front of the silencer: the last point of the barrel (the owner, 2026-10-18)", fired1 && Vector3.Distance(gc.LastMuzzle, silencerFrontNow) < 0.01f,
+                    $"(bullet from {gc.LastMuzzle}, silencer front {silencerFrontNow}, {Vector3.Distance(gc.LastMuzzle, silencerFrontNow) * 1000f:0.0} mm apart)");
                 yield return null;
                 PewCheck("a bullet takes 60 health off the dummy", Mathf.Approximately(h0 - dummy.Health, RangedWeapon.Specs[0].damage), $"({h0} -> {dummy.Health})");
                 PewCheck("the shot makes a flash, a tracer, a gunshot and its tail", GunFx.Get().FlashesShown == flashes0 + 1 && GunFx.Get().TracersShown == tracers0 + 1
                     && GunSounds.ShotsPlayed == shots0 + 1 && GunSounds.TailsPlayed == tails0 + 1);
-                PewCheck("the shot is a loud noise guards can hear (45 m)", noiseHeard.Any(n => n.Source == player.gameObject && Mathf.Approximately(n.Loudness, 45f)));
-                PewCheck("a second pull at once is too soon", !gc.Fire() && pewGun.Magazine.Rounds == 9);
+                PewCheck("the player's silenced shot is a quiet noise guards only hear close by (12 m)", noiseHeard.Any(n => n.Source == player.gameObject && Mathf.Approximately(n.Loudness, 12f)));
+                PewCheck("a second pull at once is too soon", !gc.Fire() && pewGun.Magazine.Rounds == 7);
                 if (gfx) ShotCam(cam, "pew_player_shot");
 
                 // the rest of the magazine, 0.32 s apart
-                for (int i = 2; i <= 10; i++)
+                for (int i = 2; i <= 8; i++)
                 {
                     yield return new WaitForSeconds(0.32f);
                     AimCamera(cam, player, aimAt);
                     gc.Fire();
                 }
-                PewCheck("ten shots empty the magazine", pewGun.Magazine.Rounds == 0 && pewGun.Magazine.Fired == 10 && gc.ShotsFired == 10, $"(rounds {pewGun.Magazine.Rounds}, fired {pewGun.Magazine.Fired})");
-                PewCheck("ten flashes, ten tracers, ten gunshots with tails", GunFx.Get().FlashesShown - flashes0 == 10 && GunFx.Get().TracersShown - tracers0 == 10
-                    && GunSounds.ShotsPlayed - shots0 == 10 && GunSounds.TailsPlayed - tails0 == 10);
-                PewCheck("the bullets sparked where they landed and threw cases", GunFx.Get().SparksShown >= 10 && GunFx.Get().CasingsShown >= 10, $"(sparks {GunFx.Get().SparksShown}, cases {GunFx.Get().CasingsShown})");
+                PewCheck("eight shots empty the magazine", pewGun.Magazine.Rounds == 0 && pewGun.Magazine.Fired == 8 && gc.ShotsFired == 8, $"(rounds {pewGun.Magazine.Rounds}, fired {pewGun.Magazine.Fired})");
+                PewCheck("eight flashes, eight tracers, eight gunshots with tails", GunFx.Get().FlashesShown - flashes0 == 8 && GunFx.Get().TracersShown - tracers0 == 8
+                    && GunSounds.ShotsPlayed - shots0 == 8 && GunSounds.TailsPlayed - tails0 == 8);
+                PewCheck("the bullets sparked where they landed and threw cases", GunFx.Get().SparksShown >= 8 && GunFx.Get().CasingsShown >= 8, $"(sparks {GunFx.Get().SparksShown}, cases {GunFx.Get().CasingsShown})");
                 PewCheck("the dummy went down after two bullets", dummy.Down || dummy.Health <= 0f, $"(health {dummy.Health}, down {dummy.Down})");
 
                 // the reload starts by itself and takes its time; the five reload sounds play in order
@@ -203,29 +270,52 @@ namespace BuildingEscape.EditorTools
                 PewCheck("the first reload sounds have played (slide, magazine out)", GunSounds.ReloadStepsPlayed - steps0 >= 2, $"({GunSounds.ReloadStepsPlayed - steps0} steps)");
                 if (gfx) ShotCam(cam, "pew_player_reloading");
                 yield return new WaitForSeconds(RangedWeapon.Specs[0].reloadSeconds);
-                PewCheck("the reload ends with ten rounds", !pewGun.Magazine.Reloading && pewGun.Magazine.Rounds == 10 && pewGun.Magazine.Reloads == 1);
+                PewCheck("the reload ends with eight rounds, out of a spare clip", !pewGun.Magazine.Reloading && pewGun.Magazine.Rounds == 8 && pewGun.Magazine.Reloads == 1 && pewGun.Magazine.Reserve == 8);
                 PewCheck("all five steps of the reload were heard", GunSounds.ReloadStepsPlayed - steps0 == 5, $"({GunSounds.ReloadStepsPlayed - steps0})");
 
                 // the trigger of an empty gun only clicks, and starts the reload (pulled in the quarter second before it starts by itself)
                 pewGun.Magazine.Fill();
-                for (int i = 0; i < 9; i++) { AimCamera(cam, player, aimAt); gc.Fire(); yield return new WaitForSeconds(0.31f); }
+                for (int i = 0; i < 7; i++) { AimCamera(cam, player, aimAt); gc.Fire(); yield return new WaitForSeconds(0.31f); }
                 AimCamera(cam, player, aimAt);
-                gc.Fire();                                              // the tenth
+                gc.Fire();                                              // the eighth
                 yield return new WaitForSeconds(0.1f);
                 int clicks0 = GunSounds.DryClicksPlayed;
                 bool clicked = !gc.Fire();
                 PewCheck("pulling the trigger of the empty gun only clicks, and starts the reload", clicked && GunSounds.DryClicksPlayed == clicks0 + 1 && pewGun.Magazine.Reloading && pewGun.Magazine.Rounds == 0);
                 yield return new WaitForSeconds(RangedWeapon.Specs[0].reloadSeconds + 0.3f);
-                PewCheck("full again after the second reload", pewGun.Magazine.Rounds == 10 && pewGun.Magazine.Reloads >= 2, $"(reloads {pewGun.Magazine.Reloads})");
+                PewCheck("full again after the second reload, and the two spare clips are used up", pewGun.Magazine.Rounds == 8 && pewGun.Magazine.Reloads >= 2 && pewGun.Magazine.Reserve == 0, $"(reloads {pewGun.Magazine.Reloads}, reserve {pewGun.Magazine.Reserve})");
+                // with no spare clip the gun stays empty: the trigger only clicks and no reload starts
+                for (int i = 0; i < 8; i++) { AimCamera(cam, player, aimAt); gc.Fire(); yield return new WaitForSeconds(0.31f); }
+                yield return new WaitForSeconds(0.6f);
+                int clicksDry = GunSounds.DryClicksPlayed;
+                bool clickedDry = !gc.Fire();
+                PewCheck("with no spare clip the empty gun only clicks, and no reload starts", clickedDry && pewGun.Magazine.Rounds == 0 && pewGun.Magazine.OutOfAmmo && !pewGun.Magazine.Reloading && GunSounds.DryClicksPlayed == clicksDry + 1);
+                Vendor.GiveAmmo(pack, 8);                                                  // (what a clip from the dealer does)
+                PewCheck("a clip from the dealer makes the reload possible again", pewGun.Magazine.Reserve == 8 && pewGun.Magazine.CanReload);
+                pewGun.Magazine.StartReload(Time.time);
+                yield return new WaitForSeconds(RangedWeapon.Specs[0].reloadSeconds + 0.3f);
+                PewCheck("...and it fills the magazine again", pewGun.Magazine.Rounds == 8 && pewGun.Magazine.Reserve == 0);
                 // reload by hand after a few shots, then put the gun away mid-reload
                 gc.Fire(); yield return new WaitForSeconds(0.31f); gc.Fire(); yield return new WaitForSeconds(0.31f);
-                PewCheck("the gun can be reloaded by hand when it is partly used", pewGun.Magazine.Rounds == 8 && pewGun.Magazine.StartReload(Time.time));
+                pewGun.Magazine.AddReserve(8);
+                PewCheck("the gun can be reloaded by hand when it is partly used", pewGun.Magazine.Rounds == 6 && pewGun.Magazine.StartReload(Time.time));
                 pack.SetEquipped(null);
                 yield return new WaitForSeconds(0.4f);
-                PewCheck("putting the pew away takes it out of the hand and stops the reload", gc.Gun == null && gc.Held == null && !pewGun.Magazine.Reloading && pewGun.Magazine.Rounds == 8);
+                PewCheck("putting the pew away takes it out of the hand and stops the reload", gc.Gun == null && gc.Held == null && !pewGun.Magazine.Reloading && pewGun.Magazine.Rounds == 6);
                 pack.SetEquipped(pewItem);
                 yield return new WaitForSeconds(0.4f);
-                PewCheck("and getting it out again puts it back, with the rounds it had", gc.Gun == pewGun && gc.Held != null && pewGun.Magazine.Rounds == 8);
+                PewCheck("and getting it out again puts it back, with the rounds it had", gc.Gun == pewGun && gc.Held != null && pewGun.Magazine.Rounds == 6);
+
+                // the real rule, the test hook off again: in the docks the ammunition is unlimited (14 shots from a magazine of 10, no round used, no reload)
+                GunController.LimitedAmmoForTests = false;
+                pewGun.Magazine.Fill();
+                yield return new WaitForSeconds(0.3f);
+                int unlimitedShots0 = gc.ShotsFired, unlimitedReloads0 = pewGun.Magazine.Reloads;
+                for (int i = 0; i < 14; i++) { AimCamera(cam, player, aimAt); gc.Fire(); yield return new WaitForSeconds(0.32f); }
+                PewCheck("in the docks the ammunition is unlimited: 14 shots from a magazine of 8 leave eight rounds and start no reload",
+                    pewGun.Magazine.Unlimited && gc.ShotsFired - unlimitedShots0 >= 13 && pewGun.Magazine.Rounds == 8 && !pewGun.Magazine.Reloading && pewGun.Magazine.Reloads == unlimitedReloads0,
+                    $"(shots {gc.ShotsFired - unlimitedShots0}, rounds {pewGun.Magazine.Rounds}, unlimited {pewGun.Magazine.Unlimited}, reloads {pewGun.Magazine.Reloads - unlimitedReloads0})");
+                PewCheck("a manual reload is refused in the docks (the magazine is never short)", !pewGun.Magazine.StartReload(Time.time));
                 pewGun.Magazine.Fill();
             }
 
@@ -265,7 +355,7 @@ namespace BuildingEscape.EditorTools
             var fUnseen = typeof(GuardAI).GetField("unseenFor", AnyInst);
             PewCheck("(test) the guard's private fields are where the test expects them", fState != null && fTarget != null && fUnseen != null);
 
-            // ---- 5a. the player's pew against a guard: two bullets, where ten swings were needed
+            // ---- 5a. the player's pew against a guard: three bullets (the owner, 2026-10-18: "3 shots to knock down a guard"), where ten swings were needed
             GuardAI victim = null; Vector3 vspot = default;
             foreach (var g in guards)
             {
@@ -290,13 +380,18 @@ namespace BuildingEscape.EditorTools
                 bool firedAtVictim = gc.Fire();
                 var li = gc.LastImpact;
                 yield return null;
-                PewCheck("one bullet counts as five hits on a guard and stuns him", victim.Hits == hits0 + 5 && victim.State == GuardState.Stunned && !victim.Dead,
+                PewCheck("one bullet counts as four hits on a guard and does not knock him over (the owner, 2026-10-19: bullets damage, melee knocks over)", victim.Hits == hits0 + 4 && victim.State != GuardState.Stunned && !victim.Dead,
                     $"(fired {firedAtVictim}, hits {victim.Hits}, {victim.State}; bullet from {gc.LastMuzzle} dir {gc.LastDirection}, hit {(li.hit ? li.collider.name : "nothing")} at {li.distance:0.0} m, guard at {victim.transform.position}, player {player.transform.position})");
                 yield return new WaitForSeconds(0.32f);
                 AimCamera(cam, player, victim.transform.position + Vector3.up * 0.3f);
                 bool second = gc.Fire();
                 yield return null;
-                PewCheck("the second bullet puts him down for good", second && victim.Dead, $"(hits {victim.Hits}, dead {victim.Dead})");
+                PewCheck("the second bullet hits him again, but he is not down yet (eight of ten hits)", second && !victim.Dead && victim.Hits == hits0 + 8, $"(hits {victim.Hits}, dead {victim.Dead})");
+                yield return new WaitForSeconds(0.32f);
+                AimCamera(cam, player, victim.transform.position + Vector3.up * 0.3f);
+                bool third = gc.Fire();
+                yield return null;
+                PewCheck("the third bullet puts him down for good", third && victim.Dead, $"(hits {victim.Hits}, dead {victim.Dead})");
                 args = new object[] { true };
                 AimCamera(cam, player, victim.transform.position + Vector3.up * 0.3f);
                 aimPoint.Invoke(gc, args);
@@ -326,6 +421,7 @@ namespace BuildingEscape.EditorTools
             PewCheck("test menu: 'every guard carries a pew' arms the guards on the floor", newly == armTargets.Count && armTargets.All(g => g.Armed), $"({newly} of {armTargets.Count})");
             yield return new WaitForSeconds(0.6f);
             PewCheck("each armed guard holds the pew model in his right hand", armTargets.All(g => g.Gun != null && g.Gun.HasModel && g.Gun.Muzzle != null));
+            PewCheck("an officer's pew has no silencer: his shots are loud", armTargets.All(g => g.GetComponentsInChildren<Transform>(true).All(t => t.name != "Silencer")));
             PewCheck("an armed guard's magazine is full (ten)", armTargets.All(g => g.Gun.Magazine.Rounds == 10 && g.Gun.Magazine.Capacity == 10));
             var shooter = armTargets[0];
             Vector3 pspot = default;

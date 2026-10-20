@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: bf4f913f479f80942977296305b80631
+timeCreated: 1579556364
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 43885029843893292
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 159492
+  packageName: POLYGON - Office Pack - Art by Synty
+  packageVersion: 1.9.4
+  assetPath: Assets/Synty/PolygonOffice/Models/Convex/SM_Prop_HDD_USB_03_Convex.asset
+  uploadId: 976702

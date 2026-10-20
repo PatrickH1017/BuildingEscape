@@ -36,7 +36,7 @@ namespace BuildingEscape
             model.transform.localScale = Vector3.one;
 
             foreach (var c in model.GetComponentsInChildren<Collider>(true)) Object.Destroy(c); // physics belongs to the capsule
-            var mat = AtlasMaterial(cat);
+            var mat = ch.atlas ? AtlasMaterialFor(ch.atlas) : AtlasMaterial(cat);
             foreach (var r in model.GetComponentsInChildren<Renderer>(true))
             {
                 if (mat)
@@ -77,6 +77,21 @@ namespace BuildingEscape
             }
             float h = b.size.y / Mathf.Max(0.0001f, host.lossyScale.y);
             return any && h > 0.05f ? Height / h : 1f;
+        }
+
+        static readonly System.Collections.Generic.Dictionary<Texture2D, Material> atlasMats = new System.Collections.Generic.Dictionary<Texture2D, Material>();
+
+        /// <summary>A Standard material with one character's own atlas (the Synty people: their Shader Graph material is pink in this pipeline).</summary>
+        public static Material AtlasMaterialFor(Texture2D atlas)
+        {
+            if (atlasMats.TryGetValue(atlas, out var m) && m) return m;
+            var sh = Shader.Find("Standard") ?? Shader.Find("Legacy Shaders/Diffuse");
+            if (!sh) return null;
+            m = new Material(sh) { name = "Atlas_" + atlas.name, mainTexture = atlas, color = Color.white };
+            if (m.HasProperty("_Metallic")) m.SetFloat("_Metallic", 0f);
+            if (m.HasProperty("_Glossiness")) m.SetFloat("_Glossiness", 0.12f);
+            atlasMats[atlas] = m;
+            return m;
         }
 
         /// <summary>The pack's single Standard-shader material (colour atlas, matt).</summary>

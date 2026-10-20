@@ -86,8 +86,10 @@ namespace BuildingEscape.EditorTools
                 }
                 yield return Ride(hm, tm, 0);
                 DemoCheck($"floor {floor}: back at the docks, the elevator would resume at floor {floor + 1}", hm.Floor == 0 && tm.ResumeLevel == floor + 1, $"(resume {tm.ResumeLevel})");
-                if (floor < 4)
+                if (floor < Vendor.PewAfterFloor)
                     DemoCheck($"floor {floor}: the shop still has no pew", !Vendor.PewForSale(tm.ResumeLevel) && BuyFrom(Vendor.Current, hm, pack, Vendor.PewIndex).Contains("nothing like that"));
+                else
+                    DemoCheck($"floor {floor} done: the shop has the pew now", Vendor.PewForSale(tm.ResumeLevel));
             }
 
             // ---- the demo is over: the docks have nothing to go up to, and the vendor has a free pew
@@ -99,16 +101,32 @@ namespace BuildingEscape.EditorTools
             yield return new WaitForSeconds(1.5f);
             DemoCheck("floor 4 done: neither the elevator's own up nor a ride to floor 5 builds a floor", hm.Floor == 0 && hm.Phase == HeistPhase.Hub && !tm.Loading);
 
-            int cash0 = hm.Cash;
             DemoCheck("floor 4 done: the pew is for sale", Vendor.PewForSale(tm.ResumeLevel));
+            hm.TrySpend(hm.Cash); hm.AddCash(Vendor.PewPrice - 1);                      // (one dollar short)
+            string noClip = BuyFrom(vendor, hm, pack, Vendor.AmmoIndex);
+            DemoCheck("without a pew the vendor will not sell a clip", noClip.Contains("no pew") && hm.Cash == Vendor.PewPrice - 1, $"(\"{noClip}\")");
+            string poor = BuyFrom(vendor, hm, pack, Vendor.PewIndex);
+            DemoCheck("the pew is not free any more: one dollar short, the vendor refuses", poor.Contains("Not enough cash") && !pack.Items.Any(i => i && i.GetComponent<RangedWeapon>()) && hm.Cash == Vendor.PewPrice - 1, $"(\"{poor}\")");
+            hm.AddCash(1 + Vendor.AmmoClipPrice * 2);                                   // (the pew's price, and two clips)
+            int cash0 = hm.Cash;
             string bought = BuyFrom(vendor, hm, pack, Vendor.PewIndex);
             yield return new WaitForSeconds(0.8f);
             var pew = pack.Items.FirstOrDefault(i => i && i.GetComponent<RangedWeapon>());
-            DemoCheck("the vendor sells it: it is in the pack, in the hand, and it cost nothing", bought.Contains("Bought Pew Pistol") && pew != null && pack.Equipped == pew && hm.Cash == cash0, $"(\"{bought}\", cash {cash0} -> {hm.Cash})");
+            DemoCheck("the vendor sells it for its price: it is in the pack and in the hand", bought.Contains("Bought Pew Pistol") && pew != null && pack.Equipped == pew && cash0 - hm.Cash == Vendor.PewPrice, $"(\"{bought}\", cash {cash0} -> {hm.Cash})");
             var gc = player.GetComponent<GunController>();
-            DemoCheck("the pew is in his hand with a full magazine", gc != null && gc.Gun != null && gc.Held != null && gc.Gun.Magazine.Rounds == 10);
+            DemoCheck("the pew is in his hand with a full magazine of eight and two spare clips", gc != null && gc.Gun != null && gc.Held != null && gc.Gun.Magazine.Rounds == 8 && gc.Gun.Magazine.Reserve == 16);
             string again = BuyFrom(vendor, hm, pack, Vendor.PewIndex);
             DemoCheck("a second pew is refused (one each)", again.Contains("already") && pack.Items.Count(i => i && i.GetComponent<RangedWeapon>()) == 1, $"(\"{again}\")");
+            int cashClip = hm.Cash;
+            string fullPack = BuyFrom(vendor, hm, pack, Vendor.AmmoIndex);
+            DemoCheck("a pew with its clip and two spare ones is carrying the three clips a player may (the owner, 2026-10-19): the dealer refuses a fourth and takes no money", fullPack.Contains("three clips") && hm.Cash == cashClip && gc.Gun.Magazine.Reserve == 16, $"(\"{fullPack}\")");
+            gc.Gun.Magazine.SetReserve(8);                                               // (a spare clip used up: there is room for one)
+            string clip = BuyFrom(vendor, hm, pack, Vendor.AmmoIndex);
+            DemoCheck("a clip costs its price and puts eight rounds in the reserve of the pew", clip.Contains("Bought a clip") && cashClip - hm.Cash == Vendor.AmmoClipPrice && gc.Gun.Magazine.Reserve == 16, $"(\"{clip}\", cash {cashClip} -> {hm.Cash}, reserve {gc.Gun.Magazine.Reserve})");
+            hm.TrySpend(hm.Cash);
+            gc.Gun.Magazine.SetReserve(8);
+            string brokeClip = BuyFrom(vendor, hm, pack, Vendor.AmmoIndex);
+            DemoCheck("with no cash left no clip is sold, and the reserve stays", brokeClip.Contains("Not enough cash") && gc.Gun.Magazine.Reserve == 8, $"(\"{brokeClip}\")");
 
             // ---- try it on the dummy
             var rig = FindFirstObjectByType<CameraFollow>();
@@ -166,13 +184,16 @@ namespace BuildingEscape.EditorTools
             Signal("h_ready");
             yield return WaitSig("c_ready", 150);
 
+            hm.TrySpend(hm.Cash); hm.AddCash(Vendor.PewPrice + Vendor.AmmoClipPrice + 300);        // (what the team has to spend: the pew costs money now)
+            Signal("h_cash");
+
             // ---- the client buys the pew
             yield return WaitSig("c_bought", 120);
             var clientPlayer = NetPlayer.All.FirstOrDefault(p => !p.IsOwner);
             var cpack = clientPlayer ? clientPlayer.GetComponent<Backpack>() : null;
             var pew = cpack != null ? cpack.Items.FirstOrDefault(i => i && i.GetComponent<RangedWeapon>()) : null;
             DemoNetCheck("host: the client's pack holds a pew and has it equipped", pew != null && cpack.Equipped == pew);
-            DemoNetCheck("host: it cost the team nothing", hm.Cash == 0, $"(cash {hm.Cash})");
+            DemoNetCheck("host: it cost the team the pew's price", hm.Cash == Vendor.AmmoClipPrice + 300, $"(cash {hm.Cash})");
             yield return new WaitForSeconds(0.5f);
             var cgc = clientPlayer ? clientPlayer.GetComponent<GunController>() : null;
             DemoNetCheck("host: the pew is in the client's hand here", cgc != null && cgc.Gun != null && cgc.Held != null);
@@ -180,6 +201,11 @@ namespace BuildingEscape.EditorTools
             float h0 = dummy != null ? dummy.Health : -1f;
             int accepted0 = RunSync.Instance.GunShotsAccepted;
             Signal("h_bought_ok");
+
+            // ---- the client buys a clip: the host takes the money and every machine adds the rounds to the reserve of his pew
+            yield return WaitSig("c_clip", 120);
+            DemoNetCheck("host: the clip cost its price and the client's pew has eight more spare rounds here too", hm.Cash == 300 && cgc != null && cgc.Gun != null && cgc.Gun.Magazine.Reserve == 24, $"(cash {hm.Cash}, reserve {(cgc != null && cgc.Gun != null ? cgc.Gun.Magazine.Reserve : -1)})");
+            Signal("h_clip_ok");
 
             // ---- the client fires two bullets at the dummy
             yield return WaitSig("c_shot", 120);
@@ -212,6 +238,8 @@ namespace BuildingEscape.EditorTools
             yield return WaitFor(() => tm.ResumeLevel == 5, 30, "the host's resume level");
             DemoNetCheck("client: the host's state reaches here: the demo is over and the pew is for sale", TowerRules.DemoOver(tm.ResumeLevel) && Vendor.PewForSale(tm.ResumeLevel));
             Signal("c_ready");
+            yield return WaitSig("h_cash", 60);
+            yield return WaitFor(() => hm.Cash == Vendor.PewPrice + Vendor.AmmoClipPrice + 300, 30, "the team's cash");
 
             // ---- stand at the counter and buy it
             var me = NetPlayer.Local;
@@ -228,9 +256,14 @@ namespace BuildingEscape.EditorTools
             yield return new WaitForSeconds(0.6f);
             var pew = pack.Items.First(i => i && i.GetComponent<RangedWeapon>());
             var gc = me.GetComponent<GunController>();
-            DemoNetCheck("client: bought it: it is in the pack, in the hand, for nothing", pack.Equipped == pew && gc != null && gc.Gun != null && gc.Held != null && hm.Cash == 0, $"(cash {hm.Cash})");
+            DemoNetCheck("client: bought it: it is in the pack and in the hand, and the team paid the pew's price", pack.Equipped == pew && gc != null && gc.Gun != null && gc.Held != null && hm.Cash == Vendor.AmmoClipPrice + 300 && gc.Gun.Magazine.Reserve == 16, $"(cash {hm.Cash})");
             Signal("c_bought");
             yield return WaitSig("h_bought_ok", 60);
+            RunSync.Instance.RequestBuy(Vendor.AmmoIndex);
+            yield return WaitFor(() => gc.Gun != null && gc.Gun.Magazine.Reserve == 24, 20, "the clip in the reserve");
+            DemoNetCheck("client: the clip he bought added eight rounds to the reserve, for its price", gc.Gun.Magazine.Reserve == 24 && hm.Cash == 300, $"(reserve {gc.Gun.Magazine.Reserve}, cash {hm.Cash})");
+            Signal("c_clip");
+            yield return WaitSig("h_clip_ok", 60);
 
             // ---- the dummy
             var dummy = TrainingDummy.Current;

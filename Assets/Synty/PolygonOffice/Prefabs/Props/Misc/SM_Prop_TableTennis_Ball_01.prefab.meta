@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: e0f6fc1c8f4b8494bb2cef7645cd3b08
+timeCreated: 1578614177
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 100100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 159492
+  packageName: POLYGON - Office Pack - Art by Synty
+  packageVersion: 1.9.4
+  assetPath: Assets/Synty/PolygonOffice/Prefabs/Props/Misc/SM_Prop_TableTennis_Ball_01.prefab
+  uploadId: 976702

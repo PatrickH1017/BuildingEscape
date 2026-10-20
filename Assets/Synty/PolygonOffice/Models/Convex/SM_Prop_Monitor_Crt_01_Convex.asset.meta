@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: ee39d9aa8d48c8a4c874407eb1d3c84f
+timeCreated: 1579556416
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 43741367567126312
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 159492
+  packageName: POLYGON - Office Pack - Art by Synty
+  packageVersion: 1.9.4
+  assetPath: Assets/Synty/PolygonOffice/Models/Convex/SM_Prop_Monitor_Crt_01_Convex.asset
+  uploadId: 976702

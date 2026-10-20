@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 74bd651d6da66d945ba3ffe0b73e3a6d
+timeCreated: 1579571632
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 43386572427523374
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 159492
+  packageName: POLYGON - Office Pack - Art by Synty
+  packageVersion: 1.9.4
+  assetPath: Assets/Synty/PolygonOffice/Models/Convex/SM_Prop_Knife_Holder_01_Convex.asset
+  uploadId: 976702

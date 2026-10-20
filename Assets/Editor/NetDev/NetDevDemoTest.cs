@@ -37,7 +37,7 @@ namespace BuildingEscape.EditorTools
             Check("demo: floor 4 is the end of the demo and nothing else is", TowerRules.IsDemoEnd(4) && !TowerRules.IsDemoEnd(3) && !TowerRules.IsDemoEnd(5) && !TowerRules.IsDemoEnd(0));
             Check("demo: floors 5 and up are beyond it, the docks and floors 1-4 are not", TowerRules.Beyond(5) && TowerRules.Beyond(13) && !TowerRules.Beyond(4) && !TowerRules.Beyond(0) && !TowerRules.Beyond(1));
             Check("demo: it is over once the floor to climb to is 5", TowerRules.DemoOver(5) && !TowerRules.DemoOver(4) && !TowerRules.DemoOver(1));
-            Check("demo: the other rules did not change (group ends, down, the boss floor)", TowerRules.IsGroupEnd(3) && TowerRules.IsGroupEnd(6) && TowerRules.DownFrom(4) == 0
+            Check("demo: the other rules did not change (group ends, down, the boss floor)", TowerRules.IsGroupEnd(3) && TowerRules.IsGroupEnd(6) && TowerRules.DownFrom(4, true) == 0
                 && TowerRules.UpFrom(13, true, 13) == -1 && TowerRules.ResumeAfterLeaving(4, true) == 5);
 
             Check("demo: the HUD counts the docks and floors 1-4 only (5 stops), or all 14 without the limit", TowerRules.DemoStops(14) == 5 && TowerRules.DemoStops(14, 13) == 14 && TowerRules.DemoStops(3) == 3);
@@ -48,10 +48,11 @@ namespace BuildingEscape.EditorTools
 
             // ---- the vendor
             var c = Vendor.Catalog;
-            Check("vendor: the pew is the eighth entry, for nothing, a gun; the seven others are where they were", c.Length == 8 && Vendor.PewIndex == 7 && c[7].name == "Pew Pistol" && c[7].price == 0 && c[7].isGun
+            Check("vendor: the pew is the eighth entry, for money (not free any more), a gun; a clip of ammunition follows it, then the ammunition of the other guns; the seven others are where they were", c.Length == 16 && Vendor.PewIndex == 7 && Vendor.AmmoIndex == 8 && c[7].name == "Pew Pistol" && c[7].price == Vendor.PewPrice && Vendor.PewPrice > 0 && c[7].isGun
+                && c[8].isAmmo && c[8].price == Vendor.AmmoClipPrice && Vendor.AmmoClipPrice > 0 && c[8].rounds == RangedWeapon.Specs[(int)RangedWeapon.Kind.Pew].magazine && !c[8].isGun
                 && c[0].name == "Coffee Mug" && c[0].price == 60 && c[4].name == "Crowbar" && c[4].price == 400 && c[6].name == "Hatchet" && c[6].price == 550 && !c[0].isGun && !c[4].isGun);
-            Check("vendor: the pew is for sale once floor 4 is finished (the next floor is 5), not before", !Vendor.PewForSale(1) && !Vendor.PewForSale(4) && Vendor.PewForSale(5) && Vendor.PewForSale(13)
-                && Vendor.FreePewAfterFloor == 4);
+            Check("vendor: the pew is for sale once floor 3 is finished (the next floor is 4), not before", !Vendor.PewForSale(1) && !Vendor.PewForSale(3) && Vendor.PewForSale(4) && Vendor.PewForSale(5) && Vendor.PewForSale(13)
+                && Vendor.PewAfterFloor == 3);
             Check("vendor: its weight is the pew's (2.6 lbs) and its name is the one the pickup has", Mathf.Approximately(RangedWeapon.Specs[(int)c[7].gun].weight, 1.2f)
                 && RangedWeapon.Specs[(int)c[7].gun].name == "Pew");
         }

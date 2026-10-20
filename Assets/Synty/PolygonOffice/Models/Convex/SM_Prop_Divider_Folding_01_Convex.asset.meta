@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: d1fee360bad9e6b4694cbfc7d0da3c64
+timeCreated: 1579571227
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 43172773179338656
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 159492
+  packageName: POLYGON - Office Pack - Art by Synty
+  packageVersion: 1.9.4
+  assetPath: Assets/Synty/PolygonOffice/Models/Convex/SM_Prop_Divider_Folding_01_Convex.asset
+  uploadId: 976702

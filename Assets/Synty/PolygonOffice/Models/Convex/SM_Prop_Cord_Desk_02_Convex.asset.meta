@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: af318291ddb77774c821af2c271be00a
+timeCreated: 1579556460
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 43710553233253210
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 159492
+  packageName: POLYGON - Office Pack - Art by Synty
+  packageVersion: 1.9.4
+  assetPath: Assets/Synty/PolygonOffice/Models/Convex/SM_Prop_Cord_Desk_02_Convex.asset
+  uploadId: 976702

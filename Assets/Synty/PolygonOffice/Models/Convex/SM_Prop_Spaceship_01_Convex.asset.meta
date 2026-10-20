@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 70722df04371aa54d9a256af9120414d
+timeCreated: 1579556409
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 43099465898508244
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 159492
+  packageName: POLYGON - Office Pack - Art by Synty
+  packageVersion: 1.9.4
+  assetPath: Assets/Synty/PolygonOffice/Models/Convex/SM_Prop_Spaceship_01_Convex.asset
+  uploadId: 976702

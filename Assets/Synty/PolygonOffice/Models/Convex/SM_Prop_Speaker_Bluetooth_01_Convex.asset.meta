@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 83f659874deccc3499c7b0b83e1db5fb
+timeCreated: 1579556324
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 43008068005710856
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 159492
+  packageName: POLYGON - Office Pack - Art by Synty
+  packageVersion: 1.9.4
+  assetPath: Assets/Synty/PolygonOffice/Models/Convex/SM_Prop_Speaker_Bluetooth_01_Convex.asset
+  uploadId: 976702

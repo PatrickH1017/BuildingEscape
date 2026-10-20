@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 8bc975821b1b7804d9d3902f12a1bb4e
+timeCreated: 1579571823
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 43804793391960524
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 159492
+  packageName: POLYGON - Office Pack - Art by Synty
+  packageVersion: 1.9.4
+  assetPath: Assets/Synty/PolygonOffice/Models/Convex/SM_Prop_Broom_01_Convex.asset
+  uploadId: 976702

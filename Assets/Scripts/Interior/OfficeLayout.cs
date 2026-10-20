@@ -69,6 +69,8 @@ namespace BuildingEscape
     public sealed class RoomInfo
     {
         public string theme;
+        /// <summary>null, "suite" (an executive suite) or "server" (the server room): the rooms the security computer locks (OfficePlanner.Roles.cs).</summary>
+        public string role;
         public int kind;                 // 0 room, 1 open zone, 2 corridor / lobby
         public Rc bounds;                // world
         public int cellX, cellY;
@@ -93,10 +95,14 @@ namespace BuildingEscape
         public readonly List<float[]> waypoints = new List<float[]>();
         /// <summary>World rectangles that must stay walkable (doorways, gaps); used by the tests.</summary>
         public readonly List<Rc> clear = new List<Rc>();
+        /// <summary>World rectangles of doorways whose door NEVER opens (the restrooms: the owner, 2026-10-17 night, "Players should not be allowed to enter the restroom"): FloorGenerator builds them as locked doors.</summary>
+        public readonly List<Rc> deadDoors = new List<Rc>();
         /// <summary>The guard outpost (the room with the guard on duty, in a cell of its own); null on a floor without one.</summary>
         public OutpostInfo outpost;
-        /// <summary>The floor safe of this floor; null when this floor has none.</summary>
-        public SafeSpot safe;
+        /// <summary>The safes of this floor, in order (floors 1 and 2 have one, floors 3 and up several); empty when the floor has none.</summary>
+        public readonly List<SafeSpot> safes = new List<SafeSpot>();
+        /// <summary>The first safe of this floor (the one a floor always had); null when this floor has none.</summary>
+        public SafeSpot safe => safes.Count > 0 ? safes[0] : null;
         /// <summary>What this layout was planned from (the maze, the elevator's cell, the cell size); the room numbers follow the maze.</summary>
         public PlanInput input;
     }
@@ -133,6 +139,8 @@ namespace BuildingEscape
         public RoomInfo room;
         public int roomIndex;
         public float x, y, z, yaw;
+        /// <summary>Which safe of the floor this is (0 first).</summary>
+        public int index;
     }
 
     /// <summary>A prop placed in a room, in the room's own frame.</summary>
@@ -216,6 +224,8 @@ namespace BuildingEscape
         public bool isRing;
         /// <summary>Solid blocks inside the room that nobody can stand in (local rectangles).</summary>
         public readonly List<Rc> blocks = new List<Rc>();
+        /// <summary>The strips of floor in front of wall-mounted safety gear (extinguisher, axe case, pull station): nothing solid and taller than 0.3 m is put on them (local rectangles; <see cref="Mount"/> with clear above 0 adds one).</summary>
+        public readonly List<Rc> reachZones = new List<Rc>();
 
         public System.Random rng => pl.rng;
 
@@ -309,6 +319,7 @@ namespace BuildingEscape
                     for (int i = 0; i < blocks.Count; i++) if (blocks[i].Overlaps(rc)) return null;
                     for (int i = 0; i < lanes.Count; i++) if (lanes[i].Overlaps(rc)) return null;
                     for (int i = 0; i < floor.Count; i++) if (Conflict(floor[i], rc, solid)) return null;
+                    if (solid && ph > 0.3f) for (int i = 0; i < reachZones.Count; i++) if (reachZones[i].Overlaps(rc, 0.02f)) return null;
                 }
             }
             var it = new Item { def = def, rc = rc, elev = elev, h = ph, lx = lx, lz = lz, localYaw = localYaw, solid = solid, mount = mount };
@@ -316,7 +327,7 @@ namespace BuildingEscape
             var wrc = ToWorldRect(rc);
             float yaw = ((90f * turns + localYaw) % 360f + 360f) % 360f;
             bool onFloor = elev <= 0f && !mount;
-            bool hide = solid && onFloor && ph >= 0.9f && Math.Max(fx, fz) >= 0.4f && def.cat != PropCat.Chair;
+            bool hide = solid && onFloor && ph >= HideMinHeight && Math.Max(fx, fz) >= 0.4f && def.cat != PropCat.Chair;
             var pc = new Piece
             {
                 def = def, key = def.key, x = wx, y = elev, z = wz, yaw = yaw, rc = wrc, h = ph,
@@ -328,6 +339,12 @@ namespace BuildingEscape
             if (hide) hides.Add(it);
             return it;
         }
+
+        /// <summary>
+        /// How tall a piece of furniture must be to duck behind. It was 0.9 m while the desks were 0.95 m; the Synty office pack's desks and tables are 0.75 m (a person crouches behind a desk all the same), so it is
+        /// 0.7 m now and the hiding places per room stay about what they were (the owner, 2026-10-17 night: "use the office assets"; the rules stay).
+        /// </summary>
+        public const float HideMinHeight = 0.7f;
 
         static int FaceQ(char side) => side == 'S' ? 0 : side == 'N' ? 2 : side == 'W' ? 1 : 3;
 
@@ -365,8 +382,8 @@ namespace BuildingEscape
             return res;
         }
 
-        /// <summary>Hangs a flat prop on a wall at the given height (no floor space used). Skips doorways and tall furniture.</summary>
-        public Item Mount(char side, string key, float along, float height, float gap = 0.0f)
+        /// <summary>Hangs a flat prop on a wall at the given height (no floor space used). Skips doorways and tall furniture. With <paramref name="clear"/> above 0 (safety gear: extinguisher, axe case, pull station) the floor in front of it, 0.9 m out and that far to either side, must be free of anything solid too, so that it can be reached.</summary>
+        public Item Mount(char side, string key, float along, float height, float gap = 0.0f, float clear = 0f)
         {
             var def = PropTable.Get(key);
             float pw = def.W, pd = def.D;
@@ -397,6 +414,31 @@ namespace BuildingEscape
             }
             for (int i = 0; i < floor.Count; i++)
                 if (floor[i].h > height - 0.05f && floor[i].rc.Overlaps(deep, 0.02f)) return null;
+            Rc zone = rc;
+            if (clear > 0f)
+            {
+                // safety gear stays reachable: nothing solid in the strip in front of it (0.9 m out, a little wider than the item itself)
+                const float reach = 0.9f;
+                switch (side)
+                {
+                    case 'S': zone.z1 = rc.z0 + reach; zone.x0 -= clear; zone.x1 += clear; break;
+                    case 'N': zone.z0 = rc.z1 - reach; zone.x0 -= clear; zone.x1 += clear; break;
+                    case 'W': zone.x1 = rc.x0 + reach; zone.z0 -= clear; zone.z1 += clear; break;
+                    default: zone.x0 = rc.x1 - reach; zone.z0 -= clear; zone.z1 += clear; break;
+                }
+                for (int i = 0; i < floor.Count; i++)
+                    if (floor[i].solid && floor[i].h > 0.3f && floor[i].rc.Overlaps(zone, 0.02f)) return null;
+            }
+            // nothing hangs there already (a poster, a clock, an extinguisher, an axe case): two things never overlap on a wall, so an axe always has a clear bit of wall of its own
+            var wrc = ToWorldRect(rc);
+            float top = height + def.H;
+            var all = pl.layout.pieces;
+            for (int i = 0; i < all.Count; i++)
+            {
+                var p = all[i];
+                if (p.mount && p.y < top - 0.02f && p.y + p.h > height + 0.02f && p.rc.Overlaps(wrc, 0.02f)) return null;
+            }
+            if (clear > 0f) reachZones.Add(zone);
             return PutDef(def, lx, lz, ly, height, false, true, 0);
         }
 
@@ -429,6 +471,7 @@ namespace BuildingEscape
             for (int i = 0; i < lanes.Count; i++) if (lanes[i].Overlaps(rc)) return null;
             for (int i = 0; i < blocks.Count; i++) if (blocks[i].Overlaps(rc)) return null;
             for (int i = 0; i < floor.Count; i++) if (floor[i].solid && floor[i].rc.Overlaps(rc, 0.02f)) return null;
+            for (int i = 0; i < reachZones.Count; i++) if (reachZones[i].Overlaps(rc, 0.02f)) return null;
             var def = new PropDef("panel", null, fx, height, fz, 1f, 0, true, PropCat.Furniture, 0, 1f, 1);
             var it = new Item { def = def, rc = rc, elev = 0f, h = height, lx = lx, lz = lz, localYaw = 0f, solid = true, mount = false };
             ToWorld(lx, lz, out var wx, out var wz);
@@ -438,6 +481,19 @@ namespace BuildingEscape
             pl.layout.pieces.Add(pc);
             floor.Add(it); hides.Add(it);
             return it;
+        }
+
+        /// <summary>Can solid furniture stand on this local rectangle: inside the room, clear of the keep-outs, the blocks and the aisles, and of the solid things already placed? (A whole cluster is tested before it is built.)</summary>
+        public bool CanPlaceRect(Rc rc)
+        {
+            const float e = 0.005f;
+            if (rc.x0 < -w / 2 - e || rc.x1 > w / 2 + e || rc.z0 < -d / 2 - e || rc.z1 > d / 2 + e) return false;
+            for (int i = 0; i < keep.Count; i++) if (keep[i].Overlaps(rc)) return false;
+            for (int i = 0; i < blocks.Count; i++) if (blocks[i].Overlaps(rc)) return false;
+            for (int i = 0; i < lanes.Count; i++) if (lanes[i].Overlaps(rc)) return false;
+            for (int i = 0; i < floor.Count; i++) if (floor[i].solid && floor[i].rc.Overlaps(rc, 0.02f)) return false;
+            for (int i = 0; i < reachZones.Count; i++) if (reachZones[i].Overlaps(rc, 0.02f)) return false;
+            return true;
         }
 
         /// <summary>Reserves floor space (keeps other furniture away) for a treasure.</summary>

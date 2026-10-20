@@ -78,6 +78,30 @@ namespace BuildingEscape
             Play(Pick(c.whoosh), pos, 0.6f, Random.Range(0.95f, 1.1f), false);
         }
 
+        /// <summary>The arm of a punch going through the air: a quicker, quieter whoosh.</summary>
+        public static void PunchWhoosh(Vector3 pos)
+        {
+            var c = Catalog; if (c == null) return;
+            Play(Pick(c.whoosh), pos, 0.4f, Random.Range(1.2f, 1.35f), false);
+        }
+
+        /// <summary>A teammate's swing or punch, heard from where he stands: a spatial sound, so only a teammate who is near is heard (the owner, 2026-10-18: "Players should hear teammates hits including melee if nearby").</summary>
+        public static void RemoteWhoosh(Vector3 pos, bool punch)
+        {
+            var c = Catalog; if (c == null) return;
+            Play(Pick(c.whoosh), pos, punch ? 0.4f : 0.6f, punch ? Random.Range(1.2f, 1.35f) : Random.Range(0.95f, 1.1f), true, 22f, 3f);
+        }
+
+        /// <summary>A fist landing: a dull thump.</summary>
+        public static void PunchHit(Vector3 pos) => PlaySound(SoundId.Punch, pos, 1f, Random.Range(0.92f, 1.08f), true, 24f, 3f);
+
+        /// <summary>The sound of a blow by what threw it: <paramref name="kind"/> 0-2 is a weapon (<see cref="MeleeWeapon.Kind"/>), <see cref="MeleeWeapon.PunchKind"/> a fist.</summary>
+        public static void MeleeHitAt(byte kind, bool killed, Vector3 pos)
+        {
+            if (kind == MeleeWeapon.PunchKind) PunchHit(pos);
+            else if (kind <= 2) MeleeHit((MeleeWeapon.Kind)kind, killed, pos);
+        }
+
         /// <summary>A weapon landing on a guard. A killing blow is heavier: finisher plus bone / gore layer.</summary>
         public static void MeleeHit(MeleeWeapon.Kind kind, bool killed, Vector3 pos)
         {

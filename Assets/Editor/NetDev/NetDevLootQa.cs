@@ -102,13 +102,13 @@ namespace BuildingEscape.EditorTools
                     int onDuty = guards.Count(g => g.name == "Guard_Outpost");
                     LqCheck($"{tag}: guards patrol the floor, all on the NavMesh", guards.Count >= 3 && offNav == 0, $"({guards.Count} guards, {offNav} off the NavMesh)");
                     LqCheck($"{tag}: exactly one guard is on duty in the outpost", onDuty == 1, $"({onDuty})");
-                    LqCheck($"{tag}: guards are {(floor >= 4 ? "all armed" : "unarmed")}", floor >= 4 ? armed == guards.Count : armed == 0, $"({armed} of {guards.Count} armed)");
+                    LqCheck($"{tag}: {(floor >= 3 ? "some guards are armed, not all of them" : "no guard is armed")}", floor >= 3 ? armed >= 1 && armed < guards.Count : armed == 0, $"({armed} of {guards.Count} armed)");
                     LqCheck($"{tag}: the guards' elevator and two stairwells are there", gen.HasGuardShaft && gen.StairCount == 2, $"(shaft {gen.HasGuardShaft}, stairs {gen.StairCount})");
 
                     bool hasRoom = gen.TryGetOutpostRoom(out var room);
-                    var pews = FindObjectsByType<RangedWeapon>(FindObjectsSortMode.None).Where(g => g && g.isActiveAndEnabled).ToList();
+                    var pews = FindObjectsByType<RangedWeapon>(FindObjectsInactive.Include, FindObjectsSortMode.None).Where(g => g && g.kind == RangedWeapon.Kind.Pew && !FloorSafe.HoldsGun(g.gameObject)).ToList();          // (the pew in the shut gun safe is out of the world until it is hacked open; the pistols in the floor safes are counted apart)
                     int pewsInOutpost = hasRoom ? pews.Count(g => g.transform.position.x > room.x0 - 0.5f && g.transform.position.x < room.x1 + 0.5f && g.transform.position.z > room.z0 - 0.5f && g.transform.position.z < room.z1 + 0.5f) : 0;
-                    LqCheck($"{tag}: the outpost {(floor == 4 ? "holds exactly one pew, nothing else on the floor does" : "holds no pew")}", hasRoom && (floor == 4 ? pewsInOutpost == 1 && pews.Count == 1 : pews.Count == 0), $"(outpost {hasRoom}, pews on the floor {pews.Count}, in the outpost {pewsInOutpost})");
+                    LqCheck($"{tag}: the outpost {(floor == OutpostLoot.PewFloor ? "holds exactly one pew, nothing else on the floor does" : "holds no pew")}", hasRoom && (floor == OutpostLoot.PewFloor ? pewsInOutpost == 1 && pews.Count == 1 : pews.Count == 0), $"(outpost {hasRoom}, pews on the floor {pews.Count}, in the outpost {pewsInOutpost})");
                 }
             }
             Log($"[LootQa] part 1 looked at {floorsLooked} floors ({seeds.Length} seeds x 4)");

@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: fece99f5cfc9b6b4e8251f00d4226fcd
+timeCreated: 1579571629
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 43493015941480894
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 159492
+  packageName: POLYGON - Office Pack - Art by Synty
+  packageVersion: 1.9.4
+  assetPath: Assets/Synty/PolygonOffice/Models/Convex/SM_Prop_CoffeeMachine_Dripper_01_Convex.asset
+  uploadId: 976702

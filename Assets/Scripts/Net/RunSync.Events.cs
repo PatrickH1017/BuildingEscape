@@ -35,6 +35,21 @@ namespace BuildingEscape.Net
             np.GetComponent<Backpack>().ApplyEquipped(id >= 0 ? NetIds.Get<Pickup>(id) : null);
         }
 
+        // ------------------------------------------------------------------ ammunition
+
+        /// <summary>Host: the dealer sold a clip to this player. Every machine (the host's too, through the call below) adds the rounds to the reserve of the pew in that player's pack.</summary>
+        public void AnnounceAmmo(int slot, int rounds, RangedWeapon.Kind kind = RangedWeapon.Kind.Pew)
+        {
+            if (IsServer && rounds > 0) AmmoBoughtRpc((byte)slot, (byte)Mathf.Min(255, rounds), (byte)kind);
+        }
+
+        [Rpc(SendTo.ClientsAndHost)]
+        void AmmoBoughtRpc(byte slot, byte rounds, byte kind)
+        {
+            var np = NetPlayer.BySlot(slot);
+            if (np && np.TryGetComponent(out Backpack bp) && kind < RangedWeapon.Specs.Length) Vendor.GiveAmmo(bp, rounds, (RangedWeapon.Kind)kind);
+        }
+
         // ------------------------------------------------------------------ carrying
 
         [Rpc(SendTo.ClientsAndHost)]
@@ -116,6 +131,32 @@ namespace BuildingEscape.Net
             if (tm && tm.generator) tm.generator.SpawnKeyFromNet(id, pos);
         }
 
+        /// <summary>Host: an armed guard went down and dropped a clip of his gun's ammunition (<see cref="GuardDrops"/>); the clients make the same one, with this network id.</summary>
+        public void BroadcastSpawnClip(int id, Vector3 pos, byte kind, byte rounds)
+        {
+            if (IsServer && NetworkManager.ConnectedClientsIds.Count > 1) SpawnClipRpc((ushort)id, pos, kind, rounds);
+        }
+
+        [Rpc(SendTo.NotServer)]
+        void SpawnClipRpc(ushort id, Vector3 pos, byte kind, byte rounds)
+        {
+            if (!IsFinite(pos) || kind >= RangedWeapon.Specs.Length) return;
+            GuardDrops.SpawnFromNet(id, pos, (RangedWeapon.Kind)kind, rounds);
+        }
+
+        /// <summary>Host: a shotgun or a sniper rifle blew this player up (<see cref="HeistManager.Blast"/>); every other machine plays the blast. <paramref name="slot"/> -1: the offline player.</summary>
+        public void BroadcastBlast(int slot, Vector3 pos)
+        {
+            if (IsServer && NetworkManager.ConnectedClientsIds.Count > 1) BlastRpc((sbyte)slot, pos);
+        }
+
+        [Rpc(SendTo.NotServer)]
+        void BlastRpc(sbyte slot, Vector3 pos)
+        {
+            if (!IsFinite(pos)) return;
+            BlastFx.Play(pos, HudTheme.PlayerColour(slot + 1));
+        }
+
         public void BroadcastToast(string text)
         {
             if (IsServer && !string.IsNullOrEmpty(text)) ToastRpc(text);
@@ -166,6 +207,23 @@ namespace BuildingEscape.Net
             if (doors) doors.NetSet(door, open);
         }
 
+        /// <summary>Host -> everyone (or the one client that just joined): these doors are locked / unlocked by the security computer.</summary>
+        [Rpc(SendTo.ClientsAndHost)]
+        void ComputerLockRpc(ushort[] door, bool locked, int floor, byte epoch)
+        {
+            if (epoch != Epoch) return;
+            var doors = DoorManager.Active;
+            if (doors) doors.NetSetComputerLocked(door, locked, floor);
+        }
+
+        [Rpc(SendTo.SpecifiedInParams)]
+        void ComputerLockStatesRpc(ushort[] door, int floor, byte epoch, RpcParams rp = default)
+        {
+            if (epoch != Epoch) return;
+            var doors = DoorManager.Active;
+            if (doors) doors.NetSetComputerLocked(door, true, floor);
+        }
+
         /// <summary>Host -> one client that asked: the doors players have opened on this floor.</summary>
         [Rpc(SendTo.SpecifiedInParams)]
         void DoorStatesRpc(ushort[] open, byte epoch, RpcParams rp = default)
@@ -191,10 +249,17 @@ namespace BuildingEscape.Net
         }
 
         [Rpc(SendTo.ClientsAndHost)]
-        void SwungRpc(byte slot)
+        void SwungRpc(byte slot, byte kind)
         {
             var np = NetPlayer.BySlot(slot);
-            if (np && !np.IsOwner && np.TryGetComponent(out MeleeController melee)) melee.PlayRemoteSwing();
+            if (np && !np.IsOwner && np.TryGetComponent(out MeleeController melee)) melee.PlayRemoteSwing(kind);
+        }
+
+        [Rpc(SendTo.ClientsAndHost)]
+        void MeleeHitRpc(byte slot, byte kind, bool killed, Vector3 at)
+        {
+            var np = NetPlayer.BySlot(slot);
+            if (np && !np.IsOwner && np.TryGetComponent(out MeleeController melee)) melee.PlayRemoteHit(kind, killed, at);
         }
 
         // ------------------------------------------------------------------ floors

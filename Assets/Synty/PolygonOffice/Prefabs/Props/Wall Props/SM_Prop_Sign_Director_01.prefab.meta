@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: d2cb814e8c0ad0b469a58f05c9ae37d1
+timeCreated: 1575504952
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 100100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 159492
+  packageName: POLYGON - Office Pack - Art by Synty
+  packageVersion: 1.9.4
+  assetPath: Assets/Synty/PolygonOffice/Prefabs/Props/Wall Props/SM_Prop_Sign_Director_01.prefab
+  uploadId: 976702

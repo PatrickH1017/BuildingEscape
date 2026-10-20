@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: ee0def5ff617a524887687b5f3e84bc3
+timeCreated: 1579566019
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 43006302072492180
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 159492
+  packageName: POLYGON - Office Pack - Art by Synty
+  packageVersion: 1.9.4
+  assetPath: Assets/Synty/PolygonOffice/Models/Convex/SM_Bld_Window_Net_Corner_01_Convex.asset
+  uploadId: 976702

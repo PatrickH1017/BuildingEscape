@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 319af8dd00b4ca9438679fc9bd423b44
+timeCreated: 1579571845
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 43885784011691170
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 159492
+  packageName: POLYGON - Office Pack - Art by Synty
+  packageVersion: 1.9.4
+  assetPath: Assets/Synty/PolygonOffice/Models/Convex/SM_Prop_Bunting_03_Convex.asset
+  uploadId: 976702

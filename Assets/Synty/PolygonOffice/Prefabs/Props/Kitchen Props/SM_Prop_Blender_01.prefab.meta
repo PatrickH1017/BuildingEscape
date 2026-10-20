@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 3a04d7ac33eeb7c43bf09f56e3dbcf95
+timeCreated: 1574900477
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 100100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 159492
+  packageName: POLYGON - Office Pack - Art by Synty
+  packageVersion: 1.9.4
+  assetPath: Assets/Synty/PolygonOffice/Prefabs/Props/Kitchen Props/SM_Prop_Blender_01.prefab
+  uploadId: 976702

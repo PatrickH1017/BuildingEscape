@@ -1,0 +1,167 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d8441f348f9fb6d4db3e975aac8cd080, type: 3}
+  m_Name: OfficeCatalog
+  m_EditorClassIdentifier: 
+  desk1: {fileID: 5835211177665344659, guid: eba40b33cd75dfc4e86e9604170d19f9, type: 3}
+  desk2: {fileID: 4162566305189541030, guid: 067fb86e8e4f5744a82f28c508805f86, type: 3}
+  pc: {fileID: 3397794668357964319, guid: a5ac041b79f79364ca8481b503332787, type: 3}
+  printer: {fileID: 924301326717782217, guid: aae064ec06860f04787f3ee19de1c0c1, type: 3}
+  props:
+  - key: desk_1
+    prefab: {fileID: 8957275475651382418, guid: a640dae6100b53b4ca9bb92c46773972, type: 3}
+  - key: desk_2
+    prefab: {fileID: 3958309247798301498, guid: 967f27315cdc09c4690d53105ddd4956, type: 3}
+  - key: desk_3
+    prefab: {fileID: 8970352612326234679, guid: aeec122b5cfbc844894e42eb2bd55386, type: 3}
+  - key: chair_office
+    prefab: {fileID: 693322340144808405, guid: eac496dabf87c6e4098dd8cfa5f37ccc, type: 3}
+  - key: chair_std
+    prefab: {fileID: 211260291240662588, guid: 615251885f1a6ab458e28dd5d6c6da64, type: 3}
+  - key: chair_modern
+    prefab: {fileID: 6028681964923378670, guid: 40bcb035c364d4b43a5976a35c7fa660, type: 3}
+  - key: chair_simple
+    prefab: {fileID: 4782796004413089033, guid: f68bfe219b543b747b5834a1b4403166, type: 3}
+  - key: stool
+    prefab: {fileID: 4242657542864175446, guid: 478487cf6300fec47a11ab3d795be258, type: 3}
+  - key: monitor_new
+    prefab: {fileID: 4957400001754959986, guid: 435ccff05efc97e4f8eb9212bce6f158, type: 3}
+  - key: monitor_old
+    prefab: {fileID: 1176271974739730283, guid: a2c9e035f53a5144e9e19418b131c2f2, type: 3}
+  - key: keyboard
+    prefab: {fileID: 3515388588732114866, guid: 4f0decf06c4a82947b05e0f13c3ff038, type: 3}
+  - key: mouse
+    prefab: {fileID: 6122886380407386896, guid: d3c21da7f014ddf4cac46e46f889b009, type: 3}
+  - key: phone
+    prefab: {fileID: 7610345134387402476, guid: 95d7dcfcb3189ab4c86b35b6c76dd40e, type: 3}
+  - key: stapler
+    prefab: {fileID: 3157376685515044691, guid: 9334802947a112d489eb0ad702ab585a, type: 3}
+  - key: tape
+    prefab: {fileID: 6411234172136756196, guid: e5e3f50da533d5d47aadb127d27cce39, type: 3}
+  - key: notepad
+    prefab: {fileID: 7771834551110331328, guid: 794ca9ac3e34a6c42bd845432f87cd68, type: 3}
+  - key: papers
+    prefab: {fileID: 2512959679473070732, guid: 8e84ca73543071240ba2039c509d539c, type: 3}
+  - key: pencil_holder
+    prefab: {fileID: 4614135868670668708, guid: 27e85d63cb9b30b4d9acc2497f67048b, type: 3}
+  - key: cup
+    prefab: {fileID: 5079649206799541107, guid: 1799cc7c56e44b14399f4ecdabd365a2, type: 3}
+  - key: bookshelf
+    prefab: {fileID: 5003677952847945096, guid: ba80b85bf77952144a7c91245a33d968, type: 3}
+  - key: bookshelf_locked
+    prefab: {fileID: 7830451069015520827, guid: 8a482249a59d4014c981a62156c484a8, type: 3}
+  - key: shelf
+    prefab: {fileID: 1469056589813633687, guid: 66db9ad9447bb6c4cb0892a19dccca07, type: 3}
+  - key: shelf_low
+    prefab: {fileID: 8894449980116481040, guid: 4f62bf55507131d428a39fda2161c745, type: 3}
+  - key: shelf_box
+    prefab: {fileID: 4965504952640764165, guid: e7f65dd45ef89dc4fb6d5db55058f16d, type: 3}
+  - key: cabinet_med
+    prefab: {fileID: 5140844979117814351, guid: 1630afabe1cc030489542c43308060c8, type: 3}
+  - key: cabinet_small
+    prefab: {fileID: 3246363884881794126, guid: c959caebf4e276b47ab5362e36335720, type: 3}
+  - key: counter_a1
+    prefab: {fileID: 6170245672704727299, guid: d5eb863b95f7f7d499b790abbcff5e72, type: 3}
+  - key: counter_a2
+    prefab: {fileID: 4408749763306841332, guid: 1f21e7a312001c547822a48066b5a1a7, type: 3}
+  - key: counter_b1
+    prefab: {fileID: 4160093217471374546, guid: 57bf20d29879c8441ac3b0f893f9d10e, type: 3}
+  - key: counter_b2
+    prefab: {fileID: 4110690166768391586, guid: 67562ca15dae7f44087f6eb76468c6a3, type: 3}
+  - key: table_box
+    prefab: {fileID: 2231658772713932041, guid: 2441fd2cb3b5a7c43bab08d72dd45e87, type: 3}
+  - key: table_round
+    prefab: {fileID: 1776422555143718249, guid: d5506b9f7289f2846a573b5d346d1f44, type: 3}
+  - key: coffee_table
+    prefab: {fileID: 9102261706776915727, guid: 2b9316c92bd90bc4dba7fd67e6afec09, type: 3}
+  - key: coffee_machine
+    prefab: {fileID: 7791722115893786378, guid: 79e5fecc08a749941bdef448897de6f3, type: 3}
+  - key: microwave
+    prefab: {fileID: 8472065439549666630, guid: 29c0775bda4f15a4c972a05239145e8a, type: 3}
+  - key: printer
+    prefab: {fileID: 2811408189750377104, guid: d0a525aa373c7b945b29bbbacabf73b2, type: 3}
+  - key: projector
+    prefab: {fileID: 1190960778625261545, guid: 8d4969e2fe31ce74c92cec5bb038ebe4, type: 3}
+  - key: wall_tv
+    prefab: {fileID: 7579493446111446874, guid: 500e25948fbfa3c4a9bf620c6601bde6, type: 3}
+  - key: whiteboard
+    prefab: {fileID: 7170065718348854297, guid: 222cb652f40eb5c46bb42c9f185af0db, type: 3}
+  - key: clock
+    prefab: {fileID: 7386852494112565894, guid: 077eb31668b6a20409273c674a9ef4b7, type: 3}
+  - key: ac_unit
+    prefab: {fileID: 5120842594320875293, guid: a8a1ab089f8320b498643b66b2db4c68, type: 3}
+  - key: painting
+    prefab: {fileID: 8229265224472104520, guid: a3862a85dc82a1e478bba0d9b5241d73, type: 3}
+  - key: painting_small
+    prefab: {fileID: 7617004452992806232, guid: e58f3a007909fa84ba968739582b4af6, type: 3}
+  - key: trash_bin
+    prefab: {fileID: 7602342695349368770, guid: 60a81d054e8b7894482c2fe57553d989, type: 3}
+  - key: trash_small
+    prefab: {fileID: 8903516023095244506, guid: ecc14f0acfe79f9438b09817f25f3745, type: 3}
+  - key: box
+    prefab: {fileID: 3598195653540808849, guid: ec9f1d628d275974dab15260848fefbd, type: 3}
+  - key: briefcase
+    prefab: {fileID: 739452338329536689, guid: 7f74448ef4246e547921d8b2ddcb3006, type: 3}
+  - key: plant_small
+    prefab: {fileID: 1929323652270254930, guid: 93e95a25893f69d46aba08851115522c, type: 3}
+  - key: plant_big
+    prefab: {fileID: 8131893678826367280, guid: fafabe7404ac4ea4dbb60c79886779a4, type: 3}
+  - key: lamp
+    prefab: {fileID: 2527264123409622065, guid: 69fae7714546f6942abab8f0e225babb, type: 3}
+  - key: conf_table
+    prefab: {fileID: 4509613768403488414, guid: 900432286b70dd3448b0884c911e1f6d, type: 3}
+  - key: sofa1
+    prefab: {fileID: 889681684003750072, guid: 744fdfc5e08624943b22ba3c3e353e07, type: 3}
+  - key: sofa2
+    prefab: {fileID: 2330439250971987755, guid: 9cf94939f3dfab54eb62e181bdc60594, type: 3}
+  - key: sofa3
+    prefab: {fileID: 2696183153033968488, guid: 4c2b4033ea200a340bdf5dd2b0145174, type: 3}
+  - key: lounge_chair
+    prefab: {fileID: 4134415438953675538, guid: 3461c8d14bc13bb4384505ad2b8b974f, type: 3}
+  - key: fatboy
+    prefab: {fileID: 2267830050928295589, guid: 2c6803eaefbe99844936e0fdb90f45b0, type: 3}
+  - key: water
+    prefab: {fileID: 3281542857924279648, guid: 135f561a417209449aa3f0e15225613e, type: 3}
+  - key: credenza
+    prefab: {fileID: 9198732267505218595, guid: c53fe300edecc524f9f511dc58792d47, type: 3}
+  - key: kitchen_unit
+    prefab: {fileID: 2124532145571123032, guid: ed097709fffbe46488ab5df91f69939c, type: 3}
+  - key: copier
+    prefab: {fileID: 924301326717782217, guid: aae064ec06860f04787f3ee19de1c0c1, type: 3}
+  - key: fridge
+    prefab: {fileID: 4539018100729812022, guid: ba9199147aa40894ca7f66b182e48c40, type: 3}
+  - key: kcab
+    prefab: {fileID: 4483397428621078262, guid: d5d787b8a2e39b24d8a9c7e01c2506a6, type: 3}
+  - key: ksink
+    prefab: {fileID: 824473728791416875, guid: 2dd8446d5d47e76478a67a28ebf6f864, type: 3}
+  - key: kstorage
+    prefab: {fileID: 4345780748978648619, guid: eb96fed80528b944f9220025e7cfec34, type: 3}
+  - key: kshelve
+    prefab: {fileID: 8682189951514457253, guid: 3a91f2e419e4058488ed8b7621e9abdc, type: 3}
+  - key: cs_counter
+    prefab: {fileID: 3807875377541899586, guid: 5ffacfcacfdce4e48beffd6f659becf2, type: 3}
+  - key: cs_display
+    prefab: {fileID: 1211141288747244480, guid: 5694f18ffe599954a9e6ec0a17a7af68, type: 3}
+  - key: cs_register
+    prefab: {fileID: 8963118830393029464, guid: 71f4703c0dba7de4a83b27f2781bad88, type: 3}
+  - key: cs_table
+    prefab: {fileID: 5643922535563859072, guid: 597097aa60fdf33429bf89ca26cd23ad, type: 3}
+  - key: cs_chair
+    prefab: {fileID: 2793230939928119737, guid: 5aab8f7dda1f96a4a8dab9d3158e3acf, type: 3}
+  - key: cs_pot
+    prefab: {fileID: 6428624735215567318, guid: b23c6045a911bba46bd3d207a02a7e11, type: 3}
+  - key: cs_menu
+    prefab: {fileID: 3067338635385862092, guid: 5917caaf620aa184689ef525bb042504, type: 3}
+  - key: pastry
+    prefab: {fileID: 282134045124258089, guid: 3992b20181de7ce45a779d260d7c1f37, type: 3}
+  - key: takeaway
+    prefab: {fileID: 6030651554573356640, guid: 5875d5ad855813645836363a3c0a7470, type: 3}

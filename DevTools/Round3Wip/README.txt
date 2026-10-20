@@ -1,0 +1,2 @@
+﻿UPDATE 2026-10-17 18:58: the swing doors (R12b: DoorSlide.cs, SlidingDoor.cs, FloorGenerator.Doors.cs, NetDevR3.cs, NetDevR3Test.cs) were APPLIED to the real project too. Everything in this folder is therefore in the real Assets already.
+UPDATE 2026-10-17 18:50: everything in this folder was APPLIED to the real project's Assets at 18:50 (R14, R12 slide, R10, their tests). This folder is now only a copy, kept so the work survives a lost scratch tree. See DEVELOPER_NOTES.md 2.23 (hand-off block 'HAND-OFF (written 2026-10-17 about 18:50').

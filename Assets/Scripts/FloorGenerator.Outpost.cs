@@ -26,7 +26,7 @@ namespace BuildingEscape
         OutpostController outpostCtl;          // the controller of the floor that is being built / on show
         SlidingDoor outpostDoor;
         int outpostDoorIndex = -1;
-        FloorSafe floorSafe;
+        readonly List<FloorSafe> floorSafes = new List<FloorSafe>();          // the floor's safes, as they are built (floors 3 and up have several)
         Rc outpostArea;                        // the outside of the outpost's walls (world), to keep random spots out of it
         bool hasOutpostArea;
         int intelNow;                          // the run's seed for the safes, as this floor was built
@@ -56,7 +56,7 @@ namespace BuildingEscape
 
         void ResetOutpost()
         {
-            outpostCtl = null; outpostDoor = null; outpostDoorIndex = -1; floorSafe = null;
+            outpostCtl = null; outpostDoor = null; outpostDoorIndex = -1; floorSafes.Clear();
             hasOutpostArea = false;
         }
 
@@ -81,32 +81,44 @@ namespace BuildingEscape
         /// worked out. A note in an outpost may name a safe on a floor that has not been built yet, so a floor that is not on show is planned
         /// again from its seed (the planner is pure and the floor's shape follows from the seed, so it is exactly the floor that will be built).
         /// </summary>
-        public string SafeRoomLabel(int floor)
+        public string SafeRoomLabel(int floor) => SafeRoomLabel(floor, 0);
+
+        /// <summary>The number of the room safe number <paramref name="index"/> (0 first) of floor <paramref name="floor"/> stands in, or null if there is no such safe or it cannot be worked out (see above).</summary>
+        public string SafeRoomLabel(int floor, int index)
         {
             int intel = intelNow;
             var tm = TowerManager.Instance;
             if (tm != null) intel = tm.IntelSeed;
-            if (!SafeRules.HasSafe(intel, floor)) return null;
+            if (index < 0 || index >= SafeRules.SafeCount(intel, floor)) return null;
             if (layout != null && layoutFloor == floor)
-                return layout.safe != null ? RoomNumbers.LabelOf(layout, layout.safe.room, floor) : null;       // the floor on show: its own plan
+            {
+                var onShow = layout.safes.Find(sp => sp.index == index);                // the floor on show: its own plan
+                return onShow != null ? RoomNumbers.LabelOf(layout, onShow.room, floor) : null;
+            }
             if (!haveBase || !furnishRooms || Mathf.Abs(cellSize - 18f) > 0.01f) return null;
-            if (safeLabels.TryGetValue(floor, out var cached)) return cached.Length == 0 ? null : cached;
+            int key = floor * SafeRules.MaxSafes + index;
+            string cached;
+            if (safeLabels.TryGetValue(key, out cached)) return cached.Length == 0 ? null : cached;
 
-            string label = null;
             try
             {
                 int seed = baseSeedSeen + floor * 7919;
                 SizeOfFloor(out int c, out int r);
                 var shape = FloorShape.Maze(new System.Random(seed), c, r, loopChance);
                 var dry = OfficePlanner.Build(shape.PlanFor(floor, seed, cellSize, wallHeight, intel));
-                if (dry.safe != null) label = RoomNumbers.LabelOf(dry, dry.safe.room, floor);
+                int count = SafeRules.SafeCount(intel, floor);
+                for (int i = 0; i < count; i++)
+                {
+                    var spot = dry.safes.Find(sp => sp.index == i);
+                    safeLabels[floor * SafeRules.MaxSafes + i] = spot != null ? (RoomNumbers.LabelOf(dry, spot.room, floor) ?? "") : "";
+                }
             }
             catch (System.Exception e)
             {
-                Debug.LogWarning("[Outpost] Could not work out where the safe of floor " + floor + " is: " + e.Message);
+                Debug.LogWarning("[Outpost] Could not work out where the safes of floor " + floor + " are: " + e.Message);
             }
-            safeLabels[floor] = label ?? "";
-            return label;
+            if (!safeLabels.TryGetValue(key, out cached)) { safeLabels[key] = ""; return null; }
+            return cached.Length == 0 ? null : cached;
         }
 
         // ------------------------------------------------------------------ materials
@@ -166,6 +178,8 @@ namespace BuildingEscape
                 case "label": m = Surface("OpLabel", new Color(0.88f, 0.88f, 0.84f), 0.2f, false); break;
                 case "bill": m = Surface("OpBill", new Color(0.45f, 0.66f, 0.45f), 0.1f, false); break;
                 case "band": m = Surface("OpBand", new Color(0.86f, 0.80f, 0.52f), 0.1f, false); break;
+                case "postit": m = Surface("OpPostIt", new Color(0.90f, 0.80f, 0.30f), 0.05f, true); break;       // (it glows a little: a post-it is meant to be seen in a dim room)
+                case "screen": m = Surface("OpScreen", new Color(0.10f, 0.22f, 0.40f), 0f, true); break;
                 case "wired":
                     m = Surface("OpWired", Color.white, 0.7f, false);
                     m.mainTexture = WireTexture();
@@ -259,9 +273,11 @@ namespace BuildingEscape
             var op = layout != null ? layout.outpost : null;
             if (op == null) return false;
             if (!NavMesh.SamplePosition(new Vector3(op.room.wx, 0f, op.room.wz), out var hit, 3f, NavMesh.AllAreas)) return false;
-            var ai = SpawnGuard("Guard_Outpost", new List<Vector3> { hit.position }, floor * 5 + 2);
+            var ai = SpawnGuard("Guard_Outpost", new List<Vector3> { hit.position }, floor * 5 + 2, ArmedGuards.RollFor(floor, new System.Random(unchecked(planSeed * 131 + floor * 17 + 3))));
             var room = op.bounds;
-            ai.noticeGate = p => room.Contains(p.x, p.z);
+            // blind and deaf outside the room while the door is locked; once it is unlocked (hacked) he notices what a guard notices anywhere and can leave the outpost to chase it, then walks back to his post
+            // (the owner, 2026-10-17 night: "The outpost guard should be able to leave the outpost ... players should try to lure the guard out of the outpost after hacking the door")
+            ai.noticeGate = p => room.Contains(p.x, p.z) || (outpostCtl != null && outpostCtl.Unlocked);
             ai.StandGuard(new Vector3(op.frontX, 0f, op.frontZ));       // looking out of the window
             return true;
         }
@@ -330,7 +346,7 @@ namespace BuildingEscape
         {
             if (layout == null || !Application.isPlaying) return;
             var op = layout.outpost;
-            if (op == null && floorSafe == null) return;
+            if (op == null && floorSafes.Count == 0) return;
 
             var root = new GameObject("Outpost");
             root.transform.SetParent(current, false);
@@ -338,7 +354,7 @@ namespace BuildingEscape
             outpostCtl = ctl;
             ctl.Floor = floor;
             ctl.RunSeed = intelNow;
-            ctl.Safe = floorSafe;
+            ctl.Safes.AddRange(floorSafes);
 
             if (op != null)
             {
@@ -349,9 +365,10 @@ namespace BuildingEscape
                     BuildKeypad(op, ctl, root.transform);
                     BuildBeacon(op, ctl, root.transform);
                     ctl.Door = outpostDoor;
+                    ctl.RoomBounds = op.bounds; ctl.HasRoomBounds = true;
                     ctl.DoorIndex = outpostDoorIndex;
                 }
-                OutpostStep("the alarm panel", floor, () => BuildAlarmPanel(op, ctl, root.transform));
+                // (the alarm-off button inside the outpost is gone: the owner asked for it removed, so the guards chasing the players cannot be called off)
             }
             ctl.Begin();
         }
@@ -585,19 +602,104 @@ namespace BuildingEscape
         GameObject BuildFloorSafePiece(Piece p, Transform parent)
         {
             int floor = layoutFloor;
+            int index = 0;                                                           // (which of the floor's safes this piece is: the planner numbered them)
+            if (layout != null)
+                for (int i = 0; i < layout.safes.Count; i++)
+                {
+                    var spot = layout.safes[i];
+                    if (ReferenceEquals(spot.piece, p) || (Mathf.Abs(spot.x - p.x) < 0.01f && Mathf.Abs(spot.z - p.z) < 0.01f)) { index = spot.index; break; }
+                }
             var mats = new FloorSafe.Mats
             {
                 steel = OMat("safeSteel"), dark = OMat("dark"), brass = OMat("brass"), lining = OMat("lining"), led = OMat("led")
             };
-            var safe = FloorSafe.Build(parent, p.x, p.z, p.yaw, floor, SafeRules.Code(intelNow, floor), mats);
-            floorSafe = safe;
+            bool tallSafe = SafeRules.IsWeaponFloor(floor) && SafeRules.HoldsTallGun(intelNow, floor, index);          // (a shotgun or a sniper rifle stands upright in a vertical safe: the owner, 2026-10-19)
+            var safe = FloorSafe.Build(parent, p.x, p.z, p.yaw, floor, index, SafeRules.Code(intelNow, floor, index), mats, tallSafe);
+            floorSafes.Add(safe);
             return safe.gameObject;
         }
 
         // ------------------------------------------------------------------ what the guards keep (after everything else)
 
+        /// <summary>How many loose melee weapons a floor has (the owner: floor 1 always one and sometimes two; floors 2-12 a chance of one, never two).</summary>
+        public static int LooseMeleeCount(int runSeed, int floor)
+        {
+            uint roll = SafeRules.Hash(runSeed, floor, 701) % 100U;
+            if (floor <= 1) return roll < 35U ? 2 : 1;
+            return roll < 50U ? 1 : 0;
+        }
+
+        /// <summary>Lays the floor's loose melee weapons (crowbar, bat, hatchet) on the floor at patrol spots. Uses only the run seed, never the floor's own random numbers.</summary>
+        void FillLooseMelee(int floor)
+        {
+            if (layout == null || !Application.isPlaying || !MeleeWeapon.Available) return;
+            int count = 0;                                  // (retired: weapons are only on the outpost's desk now, see OutpostLoot.Roll)
+            var spots = new System.Collections.Generic.List<float[]>();
+            foreach (var w in layout.waypoints) if (!InOutpost(new Vector3(w[0], 0f, w[1]))) spots.Add(w);
+            for (int i = 0; i < count && spots.Count > 0; i++)
+            {
+                int pick = (int)(SafeRules.Hash(intelNow, floor, 710 + i) % (uint)spots.Count);
+                var w = spots[pick];
+                spots.RemoveAt(pick);
+                var kind = (MeleeWeapon.Kind)(int)(SafeRules.Hash(intelNow, floor, 720 + i) % 3U);
+                float yaw = SafeRules.Hash(intelNow, floor, 730 + i) % 360U;
+                MeleeWeapon.Create(kind, new Vector3(w[0], 0.08f, w[1]), current, yaw);
+            }
+        }
+
         /// <summary>
-        /// Puts the outpost's things on its table and desk, and the cash in the floor's safe. What there is follows from <see cref="OutpostLoot.Roll"/>
+        /// The gun safe on the outpost's desk (the owner, 2026-10-18: "The pistol should be in a gun safe in the Outpost that you need to hack to get into"): a steel box with a hinged door, a keypad and a lamp. The
+        /// pew lies inside on the lining, out of the world until the safe is open (it is made now, so it has its network id like everything else): <see cref="GunSafeProp"/>.
+        /// </summary>
+        void BuildGunSafe(Vector3 at, float yaw, Transform parent, int floor)
+        {
+            var root = new GameObject("GunSafe");
+            root.transform.SetParent(parent, false);
+            root.transform.SetPositionAndRotation(at, Quaternion.Euler(0f, yaw, 0f));
+            var steel = OMat("safeSteel"); var dark = OMat("dark"); var lining = OMat("lining");
+            const float w = 0.56f, h = 0.36f, d = 0.40f, t = 0.03f;                        // the outside size and the thickness of the walls
+            Part(root.transform, "Bottom", new Vector3(0f, t * 0.5f, 0f), new Vector3(w, t, d), steel, PrimitiveType.Cube, true);
+            Part(root.transform, "Top", new Vector3(0f, h - t * 0.5f, 0f), new Vector3(w, t, d), steel);
+            Part(root.transform, "Back", new Vector3(0f, h * 0.5f, -d * 0.5f + t * 0.5f), new Vector3(w, h, t), steel, PrimitiveType.Cube, true);
+            Part(root.transform, "SideL", new Vector3(-w * 0.5f + t * 0.5f, h * 0.5f, 0f), new Vector3(t, h, d), steel);
+            Part(root.transform, "SideR", new Vector3(w * 0.5f - t * 0.5f, h * 0.5f, 0f), new Vector3(t, h, d), steel);
+            Part(root.transform, "Lining", new Vector3(0f, t + 0.005f, 0f), new Vector3(w - 2f * t, 0.01f, d - 2f * t), lining);
+            // the door hangs on its left edge (the hinge turns it); the keypad, the lamp and the handle are on its face
+            var hinge = new GameObject("Hinge").transform;
+            hinge.SetParent(root.transform, false);
+            hinge.localPosition = new Vector3(-w * 0.5f + t * 0.5f, h * 0.5f, d * 0.5f - t * 0.5f);
+            Part(hinge, "Door", new Vector3((w - t) * 0.5f, 0f, 0f), new Vector3(w - t, h - 0.01f, t), steel, PrimitiveType.Cube, true);
+            Part(hinge, "Keypad", new Vector3(w * 0.72f, 0.02f, t * 0.5f + 0.006f), new Vector3(0.11f, 0.15f, 0.012f), dark);
+            Part(hinge, "Lamp", new Vector3(w * 0.72f, 0.115f, t * 0.5f + 0.012f), new Vector3(0.03f, 0.03f, 0.012f), OMat("led"));
+            Part(hinge, "Handle", new Vector3(w * 0.28f, 0f, t * 0.5f + 0.02f), new Vector3(0.06f, 0.06f, 0.035f), OMat("brass"), PrimitiveType.Sphere);
+            // the pistol inside (dormant: it has its id already, like the cash in the floor safe)
+            var pew = RangedWeapon.Create(RangedWeapon.Kind.Pew, at + Quaternion.Euler(0f, yaw, 0f) * new Vector3(0f, t + 0.06f, 0.02f), parent, yaw, 0);      // (a gun found holds its one clip and no spare: the owner, 2026-10-19)
+            pew.SetActive(false);
+            var prop = root.AddComponent<GunSafeProp>();
+            prop.Init(outpostCtl, hinge, pew.GetComponent<Pickup>(), (int)(SafeRules.Hash(intelNow, floor, 910) & 0x7FFFFFFF));
+            if (outpostCtl != null) outpostCtl.GunSafe = prop;
+        }
+
+        /// <summary>The open hard case the floor-3 pew pistol lay in (before the gun safe took its place): a dark shell, red foam, the lid standing open at the back and two brass latches. Decoration, except for one thin box collider under the foam so that the pistol (a rigid body) lies on it.</summary>
+        void BuildPewCase(Vector3 at, float yaw, Transform parent)
+        {
+            var root = new GameObject("PewCase");
+            root.transform.SetParent(parent, false);
+            root.transform.SetPositionAndRotation(at, Quaternion.Euler(0f, yaw, 0f));
+            Part(root.transform, "Shell", new Vector3(0f, 0.035f, 0f), new Vector3(0.52f, 0.07f, 0.32f), OMat("dark"));
+            Part(root.transform, "Foam", new Vector3(0f, 0.074f, 0f), new Vector3(0.46f, 0.02f, 0.26f), OMat("alarmButton"));
+            var lid = Part(root.transform, "Lid", new Vector3(0f, 0.19f, -0.19f), new Vector3(0.52f, 0.28f, 0.03f), OMat("dark"));
+            lid.transform.localRotation = Quaternion.Euler(-12f, 0f, 0f);
+            Part(root.transform, "LidFoam", new Vector3(0f, 0.19f, -0.172f), new Vector3(0.46f, 0.23f, 0.01f), OMat("alarmButton")).transform.localRotation = Quaternion.Euler(-12f, 0f, 0f);
+            foreach (float x in new[] { -0.14f, 0.14f }) Part(root.transform, "Latch", new Vector3(x, 0.045f, 0.165f), new Vector3(0.05f, 0.03f, 0.012f), OMat("brass"));
+            // (the pistol is a rigid body: it has to land on the foam. Without something to land on it fell through the case onto the desk and lay hidden inside the shell, the open case looked empty)
+            var bed = root.AddComponent<BoxCollider>();
+            bed.center = new Vector3(0f, 0.05f, 0f);
+            bed.size = new Vector3(0.46f, 0.07f, 0.26f);
+        }
+
+        /// <summary>
+        /// Puts the outpost's things on its table and desk, and the cash (floors 1 and 2) or the pistols (floor 3 and up) in the floor's safes (and sometimes a gold watch in any of them). What there is follows from <see cref="OutpostLoot.Roll"/>
         /// (the run's seed and the floor), and this never touches the floor's own random numbers, so nothing else on the floor changes.
         /// </summary>
         void FillOutpost(int floor)
@@ -620,19 +722,18 @@ namespace BuildingEscape
                     return null;
                 }
 
-                if (stash.HasNote)
-                {
-                    var noteSlot = slots.Find(s => s.kind == "note");
-                    if (noteSlot != null) MakeNote(noteSlot, stash, floor, parent);
-                }
+                var computerSlot = slots.Find(s => s.kind == "computer");
+                if (computerSlot != null) MakeComputer(computerSlot, stash, floor, parent);
+                else Debug.LogWarning("[Outpost] The outpost of floor " + floor + " has no place for its computer.");
                 foreach (int w in stash.weapons)
                 {
-                    bool pew = w == OutpostLoot.PewKind;
-                    if (pew ? !RangedWeapon.Available : !MeleeWeapon.Available) continue;
+                    bool pew = w == OutpostLoot.PewKind, sniper = w == OutpostLoot.SniperKind;
+                    if ((pew || sniper) ? !RangedWeapon.Available || (sniper && !RangedWeapon.Has(RangedWeapon.Kind.Sniper)) : !MeleeWeapon.Available) continue;
                     var s = NextItemSlot();
                     if (s == null) break;
                     var at = new Vector3(s.x, s.y + 0.08f, s.z);
-                    if (pew) RangedWeapon.Create(RangedWeapon.Kind.Pew, at, parent, s.yaw);          // (a yaw is given: nothing here uses a random number)
+                    if (pew) BuildGunSafe(new Vector3(s.x, s.y, s.z), s.yaw, parent, floor);          // (the pistol is in a gun safe that has to be hacked open: GunSafeProp; a yaw is given, nothing here uses a random number)
+                    else if (sniper) RangedWeapon.Create(RangedWeapon.Kind.Sniper, at, parent, s.yaw, 0);          // (the sniper rifle lies on the desk in the open, not in a safe: the owner, 2026-10-19; a gun found holds its one clip and no spare)
                     else MeleeWeapon.Create((MeleeWeapon.Kind)w, at, parent, s.yaw);
                 }
                 for (int i = 0; i < stash.valuableKinds.Count; i++)
@@ -642,67 +743,73 @@ namespace BuildingEscape
                     MakeValuable(stash.valuableKinds[i], stash.valuableValues[i], new Vector3(s.x, s.y + 0.03f, s.z), s.yaw, parent);
                 }
             }
-            if (floorSafe != null)
+            floorSafes.Sort((a, b) => a.Index.CompareTo(b.Index));                 // (the same order on every machine: the things made now take their network ids in it)
+            foreach (var safe in floorSafes)
             {
-                var values = SafeRules.Split(SafeRules.Cash(floor), SafeRules.Bundles(floor));
-                floorSafe.FillWithCash(parent, values, OMat("bill"), OMat("band"));
+                if (SafeRules.IsWeaponFloor(floor))
+                {
+                    safe.FillWithGuns(parent, SafeRules.WeaponContents(intelNow, floor, safe.Index));          // (floor 3 and up: a gun in some of the safes - by luck -, armour in others, nothing in the rest...)
+                    safe.FillWithExtras(parent, SafeRules.HasSideCash(intelNow, floor, safe.Index) ? SafeRules.SideCash(floor) : 0, SafeRules.HasSideClip(intelNow, floor, safe.Index),
+                                        OMat("bill"), OMat("band"), OMat("dark"), OMat("brass"), SafeRules.ClipKindOf(intelNow, floor, safe.Index));            // (...and sometimes a bit of cash and a spare clip - for the gun in that safe -, each an item of its own)
+                }
+                else if (safe.Index == 0)
+                {
+                    var values = SafeRules.Split(SafeRules.Cash(floor), SafeRules.Bundles(floor));
+                    safe.FillWithCash(parent, values, OMat("bill"), OMat("band"));
+                }
+                if (SafeRules.HasSideWatch(intelNow, floor, safe.Index))
+                {
+                    // (any safe, cash or weapons: sometimes a gold watch - the same thing as the ones on the desks, an item of its own and the last thing made for this safe)
+                    var watchAt = safe.WatchSpot(out float watchYaw);
+                    safe.AddWatch(BuildValuable(ValuableKind.Watch, SafeRules.SideWatchValue(floor), watchAt, watchYaw, parent));
+                }
             }
         }
 
-        /// <summary>A sheet of paper on the desk. Point at it and press E to read it (<see cref="NoteProp"/>).</summary>
-        void MakeNote(Slot s, OutpostStash stash, int floor, Transform parent)
+
+        /// <summary>
+        /// The outpost's computer on its desk (the owner, 2026-10-17: the safes' room and code are no longer on a note, "a player should have to use the computer"): a flat monitor on a stand and a
+        /// keyboard, with a post-it stuck to the lower right corner of the monitor that says the user name and the password (dot lettering, a centimetre and a half tall). Point at it and press E
+        /// (<see cref="ComputerProp"/>). What it has on record is what the note used to say (<see cref="OutpostLoot.Roll"/>).
+        /// </summary>
+        void MakeComputer(Slot s, OutpostStash stash, int floor, Transform parent)
         {
-            var root = new GameObject("Note");
+            var root = new GameObject("Computer");
             root.transform.SetParent(parent, false);
-            root.transform.SetPositionAndRotation(new Vector3(s.x, s.y + 0.006f, s.z), Quaternion.Euler(0f, s.yaw, 0f));
-            var sheet = Part(root.transform, "Sheet", Vector3.zero, new Vector3(0.21f, 0.008f, 0.297f), OMat("paper"));
+            float lift = s.y < 0.2f ? 0.75f : 0f;                                          // (a place on the floor, not on a desk: it gets a little table)
+            root.transform.SetPositionAndRotation(new Vector3(s.x, s.y + lift + 0.004f, s.z), Quaternion.Euler(0f, s.yaw, 0f));
+            var dark = OMat("dark");
+            if (lift > 0f) Part(root.transform, "Table", new Vector3(0f, -lift * 0.5f, 0f), new Vector3(0.9f, lift, 0.6f), OMat("locker"), PrimitiveType.Cube, true);
+            Part(root.transform, "Base", new Vector3(0f, 0.008f, -0.17f), new Vector3(0.20f, 0.016f, 0.14f), dark);
+            Part(root.transform, "Neck", new Vector3(0f, 0.075f, -0.20f), new Vector3(0.045f, 0.12f, 0.03f), dark);
+            var frame = Part(root.transform, "Frame", new Vector3(0f, 0.285f, -0.20f), new Vector3(0.44f, 0.30f, 0.035f), dark);
+            Part(root.transform, "Screen", new Vector3(0f, 0.285f, -0.1805f), new Vector3(0.40f, 0.26f, 0.004f), OMat("screen"));
+            var keyboard = Part(root.transform, "Keyboard", new Vector3(0f, 0.012f, 0.10f), new Vector3(0.34f, 0.024f, 0.12f), dark);
+            Part(root.transform, "Keys", new Vector3(0f, 0.026f, 0.10f), new Vector3(0.31f, 0.004f, 0.09f), OMat("keycap"));
+
+            // the post-it on the monitor's frame, turned a little, with four lines of dot lettering (capitals and digits: see ComputerRules)
+            var login = ComputerRules.CredentialsFor(intelNow, floor);
+            var pivot = new GameObject("PostIt").transform;
+            pivot.SetParent(root.transform, false);
+            pivot.localPosition = new Vector3(0.135f, 0.2125f, -0.1795f);
+            pivot.localRotation = Quaternion.Euler(0f, 0f, -4f);
+            Part(pivot, "PostItPaper", Vector3.zero, new Vector3(0.135f, 0.125f, 0.003f), OMat("postit"));
             var ink = OMat("ink");
-            for (int line = 0; line < 5; line++)
-                Part(root.transform, "Line", new Vector3(0f, 0.0045f, 0.09f - line * 0.045f), new Vector3(0.15f - (line % 2) * 0.04f, 0.001f, 0.008f), ink);
-            Part(root.transform, "Mark", new Vector3(0.07f, 0.0045f, -0.12f), new Vector3(0.04f, 0.001f, 0.04f), OMat("seal"));
+            const float zText = 0.0022f;
+            DotLabel(pivot, "PostItUser", "USER", 0.0022f, new Vector3(0f, 0.047f, zText), ink);
+            DotLabel(pivot, "PostItUserName", login.user, 0.0031f, new Vector3(0f, 0.027f, zText), ink);
+            DotLabel(pivot, "PostItPass", "PASS", 0.0022f, new Vector3(0f, 0.0045f, zText), ink);
+            DotLabel(pivot, "PostItPassWord", login.pass, 0.0031f, new Vector3(0f, -0.0155f, zText), ink);
 
-            var box = sheet.GetComponent<Renderer>().bounds;
-            box.Expand(new Vector3(0.12f, 0.2f, 0.12f));
-            root.AddComponent<NoteProp>().Init(box, floor, stash.noteSafeFloor, intelNow, stash.noteGivesCode);
+            var box = frame.GetComponent<Renderer>().bounds;
+            box.Encapsulate(keyboard.GetComponent<Renderer>().bounds);
+            box.Expand(new Vector3(0.12f, 0.18f, 0.12f));
+            root.AddComponent<ComputerProp>().Init(box, floor, stash.noteSafeFloor, intelNow, stash.noteGivesCode);
+            BuildMicrophone(root.transform);                                               // (the PA's microphone, next to the computer)
         }
 
-        /// <summary>A small valuable to steal and bank: a cash envelope, a gold watch or a stack of casino chips.</summary>
-        void MakeValuable(int kind, int value, Vector3 pos, float yaw, Transform parent)
-        {
-            var root = new GameObject(OutpostLoot.ValuableName(kind));
-            root.transform.SetParent(parent, false);
-            root.transform.SetPositionAndRotation(pos, Quaternion.Euler(0f, yaw, 0f));
-            float weight;
-            Vector3 colliderCentre, colliderSize;
-            if (kind == (int)OutpostValuable.Watch)
-            {
-                Part(root.transform, "Strap", new Vector3(0f, 0.004f, 0f), new Vector3(0.026f, 0.006f, 0.20f), OMat("leather"));
-                Part(root.transform, "Face", new Vector3(0f, 0.01f, 0f), new Vector3(0.07f, 0.005f, 0.07f), OMat("gold"), PrimitiveType.Cylinder);
-                colliderCentre = new Vector3(0f, 0.008f, 0f); colliderSize = new Vector3(0.07f, 0.016f, 0.20f);
-                weight = 0.15f;
-            }
-            else if (kind == (int)OutpostValuable.Chips)
-            {
-                string[] colours = { "chipRed", "chipWhite", "chipBlue", "chipGreen" };
-                for (int i = 0; i < 4; i++)
-                    Part(root.transform, "Chip", new Vector3(0f, 0.006f + i * 0.0125f, 0f), new Vector3(0.085f, 0.006f, 0.085f), OMat(colours[(i + (int)yaw / 90) & 3]), PrimitiveType.Cylinder);
-                colliderCentre = new Vector3(0f, 0.025f, 0f); colliderSize = new Vector3(0.085f, 0.05f, 0.085f);
-                weight = 0.35f;
-            }
-            else
-            {
-                Part(root.transform, "Envelope", new Vector3(0f, 0.008f, 0f), new Vector3(0.24f, 0.016f, 0.16f), OMat("paper"));
-                Part(root.transform, "Seal", new Vector3(0f, 0.0175f, 0f), new Vector3(0.04f, 0.0015f, 0.04f), OMat("seal"), PrimitiveType.Cylinder);
-                colliderCentre = new Vector3(0f, 0.008f, 0f); colliderSize = new Vector3(0.24f, 0.016f, 0.16f);
-                weight = 0.2f;
-            }
-            var bc = root.AddComponent<BoxCollider>();
-            bc.center = colliderCentre; bc.size = colliderSize;
-            root.AddComponent<Rigidbody>().mass = 0.3f;
-            var pk = root.AddComponent<Pickup>();             // (registers its network id now, in the same order on every machine)
-            pk.weight = weight; pk.label = OutpostLoot.ValuableName(kind); pk.bankValue = value;
-            var th = root.AddComponent<Throwable>();
-            th.impactNoise = 4f; th.stunSeconds = 0.4f;
-        }
+        /// <summary>A small valuable of an outpost: a cash envelope, a gold watch or a stack of casino chips (the same things, made by the same code, as the ones on the desks: see <see cref="BuildValuable"/>).</summary>
+        void MakeValuable(int kind, int value, Vector3 pos, float yaw, Transform parent) =>
+            BuildValuable((ValuableKind)Mathf.Clamp(kind, 0, 2), value, pos, yaw, parent);
     }
 }

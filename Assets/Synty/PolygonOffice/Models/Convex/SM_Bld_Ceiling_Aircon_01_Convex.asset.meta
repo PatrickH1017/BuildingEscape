@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 42e137c58dc344d409c757010e22841b
+timeCreated: 1579574422
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 43114280766108116
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 159492
+  packageName: POLYGON - Office Pack - Art by Synty
+  packageVersion: 1.9.4
+  assetPath: Assets/Synty/PolygonOffice/Models/Convex/SM_Bld_Ceiling_Aircon_01_Convex.asset
+  uploadId: 976702

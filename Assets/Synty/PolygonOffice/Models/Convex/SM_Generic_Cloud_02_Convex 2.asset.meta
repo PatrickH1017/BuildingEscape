@@ -1,0 +1,17 @@
+fileFormatVersion: 2
+guid: 0ae3d44235a90264eaa6375766fcb26f
+timeCreated: 1579566442
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 43109455776171886
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 159492
+  packageName: POLYGON - Office Pack - Art by Synty
+  packageVersion: 1.9.4
+  assetPath: Assets/Synty/PolygonOffice/Models/Convex/SM_Generic_Cloud_02_Convex
+    2.asset
+  uploadId: 976702

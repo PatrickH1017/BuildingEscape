@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 2cfe6f42634219e45b0c47b8c535d75f
+timeCreated: 1579556379
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 43765769906329694
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 159492
+  packageName: POLYGON - Office Pack - Art by Synty
+  packageVersion: 1.9.4
+  assetPath: Assets/Synty/PolygonOffice/Models/Convex/SM_Prop_Pencil_Sharpener_01_Convex.asset
+  uploadId: 976702

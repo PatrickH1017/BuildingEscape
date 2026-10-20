@@ -56,6 +56,7 @@ namespace BuildingEscape.EditorTools
             var hm = HeistManager.Instance;
             var tm = TowerManager.Instance;
             yield return WaitFor(() => hm != null && tm != null && !tm.Loading && hm.Phase == HeistPhase.Hub, 60, "basement");
+            GuardVision.AlwaysShownForTests = true;           // (the test reads the drawn cone whatever the camera sees)
             var gen = FindFirstObjectByType<FloorGenerator>();
             hm.godMode = true; hm.freezeTimer = true;
             var player = WobblyPlayerRegistry.All[0];
@@ -82,7 +83,7 @@ namespace BuildingEscape.EditorTools
                     $"(count {gen.StairCount})");
                 ShaftCheck($"{f} each stairwell has its walls, a door and the word STAIRS", gen.StairCount == 2 && root.Find("Stairwell_0") != null && root.Find("Stairwell_1") != null
                     && root.Find("Stairwell_0").GetComponent<ElevatorDoor>() != null && root.Find("Stairwell_1").GetComponent<ElevatorDoor>() != null
-                    && root.GetComponentsInChildren<Transform>(true).Count(t => t.name == "StairSign") == 2);
+                    && root.GetComponentsInChildren<Transform>(true).Count(t => t.name == "sign_stairs_big") == 2);
                 var car = root.Find("GuestElevator");
                 ShaftCheck($"{f} its car stands in the middle of that cell, with its door", car != null && car.GetComponent<ElevatorDoor>() != null && ShaftFlat(car.position, gen.GuardShaftCentre) < 0.05f);
 
@@ -196,6 +197,8 @@ namespace BuildingEscape.EditorTools
                 var door = ctl.Door;
                 var outward = ctl.Outward;
                 var post = duty.transform.position;
+                // (this block tests the guard on duty alone: the floor's patrol guards are blind and deaf here, because which of them can see down the corridor in front of the outpost door depends on the layout, and one of them calling for backup is no fault of his)
+                foreach (var otherGuard in GuardAI.All) if (otherGuard && otherGuard != duty) otherGuard.noticeGate = blindPos => false;
                 ShaftCheck("gate: it is the room's rectangle", duty.noticeGate != null && duty.noticeGate(post) && !duty.noticeGate(door.Centre + outward * 2f) && duty.noticeGate(door.Centre - outward * 1f));
 
                 // ---- what he hears: the door is still shut
@@ -216,39 +219,36 @@ namespace BuildingEscape.EditorTools
                 ctl.HostHackResult(true);
                 yield return new WaitForSeconds(2f);
                 ShaftCheck("gate: the door is open", !door.IsShut);
+                // (the owner, 2026-10-17 night: "The outpost guard should be able to leave the outpost": once the lock is open the gate is open, he sees and hears like any guard and may chase out of the room)
+                var realGate = duty.noticeGate;
+                System.Func<Vector3, bool> roomOnly = p => room.Contains(p.x, p.z);
                 var cone = ConeOf(duty);
                 if (cone != null)
                 {
                     var wide = room.Grow(0.45f);
-                    bool all = cone.All(v => wide.Contains(v.x, v.z));
-                    ShaftCheck("gate: the cone he shows on the floor stops at the walls of his room, even with the door open", all);
-                    var saved0 = duty.noticeGate;
-                    duty.noticeGate = null;
-                    yield return new WaitForSeconds(0.25f);
-                    var cone2 = ConeOf(duty);
-                    bool reaches = cone2 != null && cone2.Any(v => !wide.Contains(v.x, v.z));
-                    duty.noticeGate = saved0;
-                    ShaftCheck("gate: without the gate the same cone would reach out through the open door", reaches);
-                    yield return new WaitForSeconds(0.25f);
+                    ShaftCheck("gate: once the lock is open the cone he shows on the floor reaches out through the open door (he can leave the outpost)", cone.Any(v => !wide.Contains(v.x, v.z)));
                 }
                 else Log("[Shaft] SKIP gate: the cone on the floor is not drawn in this run (no transparent shader)");
+                duty.noticeGate = roomOnly;       // (the rest of this block tests the calling, the hits and the knock-out inside the room, with the room-only gate as before)
 
                 var through = post + (door.Centre - post) * 1.6f;       // a spot out in the corridor, in line with the open door
                 GoTo(through);
                 yield return new WaitForSeconds(0.7f);
-                var saved = duty.noticeGate;
                 duty.noticeGate = null;
                 bool seenUngated = GuardSees(duty, player);
-                duty.noticeGate = saved;
-                bool seenGated = GuardSees(duty, player);
+                duty.noticeGate = realGate;
+                bool seenOpenGate = GuardSees(duty, player);
+                duty.noticeGate = roomOnly;
                 ShaftCheck("gate: out in the corridor, in line with the open door, an ordinary guard would see the player", seenUngated);
-                ShaftCheck("gate: the guard on duty does not", !seenGated);
+                ShaftCheck("gate: with the door unlocked the guard on duty sees him too (he may leave the outpost)", seenOpenGate);
+                bool seenGated = GuardSees(duty, player);
+                ShaftCheck("gate: (the room-only gate used for the rest of this block does not see him out there)", !seenGated);
                 yield return new WaitForSeconds(1.2f);
                 ShaftCheck("gate: and he does not start to call for backup", duty.State == GuardState.Patrol && !duty.IsCalling && !hm.BackupCalled, $"({duty.State})");
 
                 // ---- one step inside: he sees, stops and starts to call
                 GoTo(door.Centre - outward * 1.0f);
-                yield return new WaitForSeconds(0.7f);
+                for (float waited = 0f; waited < 4f && !duty.IsCalling; waited += Time.deltaTime) yield return null;       // (spotting takes a moment, longer the further away: GuardRules.SpotSeconds)
                 ShaftCheck("gate: one step inside the room he sees the player", GuardSees(duty, player));
                 ShaftCheck("gate: he stops and starts to call for backup", duty.State == GuardState.Calling && duty.IsCalling && !hm.BackupCalled, $"({duty.State})");
 
@@ -264,7 +264,7 @@ namespace BuildingEscape.EditorTools
 
                 // ---- in again, and a hit in time cuts the call; ten put him down for good, with no backup ever called
                 GoTo(door.Centre - outward * 1.0f);
-                yield return new WaitForSeconds(0.7f);
+                for (float waited = 0f; waited < 4f && !duty.IsCalling; waited += Time.deltaTime) yield return null;
                 ShaftCheck("knock-out: in the room again he calls again", duty.IsCalling, $"({duty.State})");
                 duty.WeaponHit(1f, player.gameObject, 1);
                 ShaftCheck("knock-out: one hit cuts the call", !duty.IsCalling && duty.State == GuardState.Stunned, $"({duty.State})");

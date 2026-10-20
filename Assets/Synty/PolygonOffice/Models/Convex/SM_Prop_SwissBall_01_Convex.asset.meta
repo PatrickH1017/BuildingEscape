@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 8ba6db54c1d096a4abef0120ae861a8c
+timeCreated: 1579571895
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 43535077023125078
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 159492
+  packageName: POLYGON - Office Pack - Art by Synty
+  packageVersion: 1.9.4
+  assetPath: Assets/Synty/PolygonOffice/Models/Convex/SM_Prop_SwissBall_01_Convex.asset
+  uploadId: 976702

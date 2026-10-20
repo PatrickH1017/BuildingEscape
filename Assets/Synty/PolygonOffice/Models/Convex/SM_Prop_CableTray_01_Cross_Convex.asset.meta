@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: a2bf39574438c944990ffcba5d38682a
+timeCreated: 1579574440
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 43837816906479166
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 159492
+  packageName: POLYGON - Office Pack - Art by Synty
+  packageVersion: 1.9.4
+  assetPath: Assets/Synty/PolygonOffice/Models/Convex/SM_Prop_CableTray_01_Cross_Convex.asset
+  uploadId: 976702

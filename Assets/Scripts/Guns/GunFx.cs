@@ -1,19 +1,21 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace BuildingEscape
 {
     /// <summary>
-    /// What a gunshot looks like, for the player's pew and the armed guards' alike: a flash at the muzzle (a glowing quad and a light that
-    /// lasts a few frames), a tracer from the muzzle to where the bullet landed, a spark where it hit something, and the brass the pack's
-    /// bullet model makes when it is thrown out of the gun. Everything is pooled (a fixed number of objects made once), so firing never
-    /// creates or destroys one. Purely visual: it reads nothing and decides nothing, so a client can play it for a shot the host fired.
+    /// What a gunshot looks like, for the player's guns and the armed guards' alike: a flash at the muzzle (a glowing quad and a light
+    /// that lasts a few frames), a tracer from the muzzle to where the bullet landed, a spark where it hit something, and the brass the pack's
+    /// cartridge model makes when it is thrown out of the gun (each kind of gun throws its own: a pistol's, a rifle's, a shotgun's shell). The extra pellets of a shotgun shot draw their tracers and sparks only
+    /// (<see cref="Pellet"/>). Everything is pooled (a fixed number of objects made once for each kind of case), so firing never creates or destroys one. Purely visual: it reads nothing and decides
+    /// nothing, so a client can play it for a shot the host fired.
     /// </summary>
     public sealed class GunFx : MonoBehaviour
     {
-        const int FlashSlots = 6, TracerSlots = 10, SparkSlots = 8, CasingSlots = 14;
+        const int FlashSlots = 6, TracerSlots = 14, SparkSlots = 12, CasingSlots = 14;
         const float FlashSeconds = 0.055f, TracerSeconds = 0.09f, SparkSeconds = 0.09f, CasingSeconds = 3.5f;
-        /// <summary>The pack's bullet is 2 cm long; the gun is scaled up about twice, and so are the cartridges.</summary>
-        const float CasingScale = 2.4f;
+        /// <summary>The Synty cartridge is 3.2 cm long and the gun is scaled down to about three quarters; the case is thrown out a little bigger than that (3.8 cm) so that it can be seen on the floor.</summary>
+        const float CasingScale = 1.2f;
 
         public static GunFx Instance { get; private set; }
 
@@ -24,16 +26,18 @@ namespace BuildingEscape
         sealed class Tracer { public LineRenderer line; public float from, until; }
         sealed class Spark { public Transform t; public Renderer r; public float until; }
         sealed class Casing { public Transform t; public Vector3 velocity, spin; public float until; public bool landed; }
+        sealed class CasingPool { public Casing[] items; public int next; }
 
         Flash[] flashes;
         Tracer[] tracers;
         Spark[] sparks;
-        Casing[] casings;
+        readonly Dictionary<GameObject, CasingPool> pools = new Dictionary<GameObject, CasingPool>();
+        readonly List<CasingPool> poolList = new List<CasingPool>();
         Material flashMat, lineMat, sparkMat;
         Texture2D soft;
         Camera cam;
         GameObject casingPrefab;
-        int nextFlash, nextTracer, nextSpark, nextCasing;
+        int nextFlash, nextTracer, nextSpark;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
         static void ResetStatics() => Instance = null;
@@ -123,24 +127,30 @@ namespace BuildingEscape
                 sparks[i] = new Spark { t = q.transform, r = q.GetComponent<Renderer>() };
                 q.SetActive(false);
             }
-            casings = new Casing[CasingSlots];
             var cat = RangedWeapon.Catalog;
             casingPrefab = cat ? cat.pewBullet : null;
+            PoolFor(casingPrefab);
+        }
+
+        /// <summary>The pool of empty cases made from this prefab (made the first time the kind of case is thrown, then reused); null when there is no prefab.</summary>
+        CasingPool PoolFor(GameObject prefab)
+        {
+            if (!prefab) return null;
+            if (pools.TryGetValue(prefab, out var pool)) return pool;
+            pool = new CasingPool { items = new Casing[CasingSlots] };
             for (int i = 0; i < CasingSlots; i++)
             {
-                Transform t = null;
-                if (casingPrefab)
-                {
-                    var c = Instantiate(casingPrefab, transform);
-                    foreach (var col in c.GetComponentsInChildren<Collider>(true)) Destroy(col);
-                    foreach (var rr in c.GetComponentsInChildren<Renderer>(true)) rr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-                    c.name = "casing " + i;
-                    c.transform.localScale = Vector3.one * CasingScale;
-                    c.SetActive(false);
-                    t = c.transform;
-                }
-                casings[i] = new Casing { t = t };
+                var c = Instantiate(prefab, transform);
+                foreach (var col in c.GetComponentsInChildren<Collider>(true)) Destroy(col);
+                foreach (var rr in c.GetComponentsInChildren<Renderer>(true)) rr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                c.name = "casing " + prefab.name + " " + i;
+                c.transform.localScale = Vector3.one * CasingScale;
+                c.SetActive(false);
+                pool.items[i] = new Casing { t = c.transform };
             }
+            pools[prefab] = pool;
+            poolList.Add(pool);
+            return pool;
         }
 
         GameObject MakeQuad(string name, Material mat, float size)
@@ -161,41 +171,30 @@ namespace BuildingEscape
 
         /// <summary>
         /// A shot: the flash at <paramref name="muzzle"/>, a tracer to <paramref name="end"/>, a spark there when the bullet hit something
-        /// (<paramref name="impact"/>), and a case thrown out to the right of the gun.
+        /// (<paramref name="impact"/>), and a case thrown out to the right of the gun - from <paramref name="casingFrom"/>, the slide's ejection port, when the gun has one (with a silencer on, the muzzle is the far end of it).
+        /// <paramref name="flashScale"/> is the gun's flash compared with the pistol's, <paramref name="casing"/> the case it throws (null: the pistol's).
         /// </summary>
-        public void Shot(Vector3 muzzle, Vector3 end, bool impact, Vector3 right)
+        public void Shot(Vector3 muzzle, Vector3 end, bool impact, Vector3 right, bool silenced = false, Vector3? casingFrom = null, float flashScale = 1f, GameObject casing = null)
         {
             float now = Time.time;
 
             var f = flashes[nextFlash++ % FlashSlots];
             f.t.gameObject.SetActive(true);
             f.t.position = muzzle;
-            f.t.localScale = Vector3.one * Random.Range(0.4f, 0.6f);
-            f.light.enabled = true;
+            f.t.localScale = Vector3.one * Random.Range(0.4f, 0.6f) * flashScale * (silenced ? 0.4f : 1f);        // (a silenced shot: a small flash that does not light the room)
+            f.light.enabled = !silenced;
             f.until = now + FlashSeconds;
             FlashesShown++;
 
-            var t = tracers[nextTracer++ % TracerSlots];
-            t.line.gameObject.SetActive(true);
-            t.line.SetPosition(0, muzzle);
-            t.line.SetPosition(1, end);
-            t.from = now; t.until = now + TracerSeconds;
-            TracersShown++;
+            AddTracer(muzzle, end, now);
+            if (impact) AddSpark(end, now);
 
-            if (impact)
+            var pool = PoolFor(casing ? casing : casingPrefab);
+            if (pool != null)
             {
-                var s = sparks[nextSpark++ % SparkSlots];
-                s.t.gameObject.SetActive(true);
-                s.t.position = end;
-                s.until = now + SparkSeconds;
-                SparksShown++;
-            }
-
-            var c = casings[nextCasing++ % CasingSlots];
-            if (c.t)
-            {
+                var c = pool.items[pool.next++ % CasingSlots];
                 c.t.gameObject.SetActive(true);
-                c.t.position = muzzle - (end - muzzle).normalized * 0.05f;
+                c.t.position = casingFrom ?? (muzzle - (end - muzzle).normalized * 0.05f);
                 c.t.rotation = Random.rotation;
                 c.velocity = right.normalized * Random.Range(1.6f, 2.6f) + Vector3.up * Random.Range(1.2f, 2.2f);
                 c.spin = Random.insideUnitSphere * 900f;
@@ -203,6 +202,33 @@ namespace BuildingEscape
                 c.landed = false;
                 CasingsShown++;
             }
+        }
+
+        /// <summary>One more pellet of a shotgun shot: a tracer from the muzzle and a spark where it landed (the flash and the case belong to the shot itself, see <see cref="Shot"/>).</summary>
+        public void Pellet(Vector3 muzzle, Vector3 end, bool impact)
+        {
+            float now = Time.time;
+            AddTracer(muzzle, end, now);
+            if (impact) AddSpark(end, now);
+        }
+
+        void AddTracer(Vector3 muzzle, Vector3 end, float now)
+        {
+            var t = tracers[nextTracer++ % TracerSlots];
+            t.line.gameObject.SetActive(true);
+            t.line.SetPosition(0, muzzle);
+            t.line.SetPosition(1, end);
+            t.from = now; t.until = now + TracerSeconds;
+            TracersShown++;
+        }
+
+        void AddSpark(Vector3 at, float now)
+        {
+            var s = sparks[nextSpark++ % SparkSlots];
+            s.t.gameObject.SetActive(true);
+            s.t.position = at;
+            s.until = now + SparkSeconds;
+            SparksShown++;
         }
 
         // ------------------------------------------------------------------ every frame
@@ -239,24 +265,28 @@ namespace BuildingEscape
                 if (cam) s.t.rotation = cam.transform.rotation;
                 s.t.localScale = Vector3.one * Mathf.Lerp(0.05f, 0.2f, 1f - (s.until - now) / SparkSeconds);
             }
-            for (int i = 0; i < casings.Length; i++)
+            for (int p = 0; p < poolList.Count; p++)
             {
-                var c = casings[i];
-                if (!c.t || !c.t.gameObject.activeSelf) continue;
-                if (now >= c.until) { c.t.gameObject.SetActive(false); continue; }
-                if (c.landed) continue;
-                var from = c.t.position;
-                c.velocity += Physics.gravity * dt;
-                var step = c.velocity * dt;
-                if (Physics.Raycast(from, step.normalized, out var hit, step.magnitude + 0.01f, ~0, QueryTriggerInteraction.Ignore))
+                var items = poolList[p].items;
+                for (int i = 0; i < items.Length; i++)
                 {
-                    c.landed = true;
-                    c.t.position = hit.point + hit.normal * 0.012f;
-                    c.t.rotation = Quaternion.LookRotation(Vector3.ProjectOnPlane(Random.onUnitSphere, hit.normal).normalized + hit.normal * 0.001f, hit.normal) * Quaternion.Euler(90f, 0f, 0f);
-                    continue;
+                    var c = items[i];
+                    if (!c.t || !c.t.gameObject.activeSelf) continue;
+                    if (now >= c.until) { c.t.gameObject.SetActive(false); continue; }
+                    if (c.landed) continue;
+                    var from = c.t.position;
+                    c.velocity += Physics.gravity * dt;
+                    var step = c.velocity * dt;
+                    if (Physics.Raycast(from, step.normalized, out var hit, step.magnitude + 0.01f, ~0, QueryTriggerInteraction.Ignore))
+                    {
+                        c.landed = true;
+                        c.t.position = hit.point + hit.normal * 0.012f;
+                        c.t.rotation = Quaternion.LookRotation(Vector3.ProjectOnPlane(Random.onUnitSphere, hit.normal).normalized + hit.normal * 0.001f, hit.normal) * Quaternion.Euler(90f, 0f, 0f);
+                        continue;
+                    }
+                    c.t.position = from + step;
+                    c.t.Rotate(c.spin * dt, Space.Self);
                 }
-                c.t.position = from + step;
-                c.t.Rotate(c.spin * dt, Space.Self);
             }
         }
 

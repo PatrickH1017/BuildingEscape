@@ -7,13 +7,13 @@ namespace BuildingEscape.EditorTools
 {
     /// <summary>
     /// Builds the Greybox tower scene (player, camera, HUD, managers). The floors themselves are
-    /// generated at runtime by FloorGenerator. Menu: Overtime Escape > Build Greybox Scene.
+    /// generated at runtime by FloorGenerator. Menu: Employees Take Revenge > Build Greybox Scene.
     /// </summary>
     public static class GreyboxBuilder
     {
         static readonly Dictionary<string, Material> mats = new();
 
-        [MenuItem("Overtime Escape/Build Greybox Scene")]
+        [MenuItem("Employees Take Revenge/Build Greybox Scene")]
         public static void Build()
         {
             var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
@@ -51,7 +51,7 @@ namespace BuildingEscape.EditorTools
         }
 
         /// <summary>Generates all 11 levels in edit mode and logs size / quota / guard numbers.</summary>
-        [MenuItem("Overtime Escape/Smoke Test Floors")]
+        [MenuItem("Employees Take Revenge/Smoke Test Floors")]
         public static void SmokeTest()
         {
             var go = new GameObject("SmokeTest");

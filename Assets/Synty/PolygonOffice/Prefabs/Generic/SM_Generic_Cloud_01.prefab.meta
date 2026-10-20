@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 8910963ef826c5048bc8082015201a9c
+timeCreated: 1575860996
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 100100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 159492
+  packageName: POLYGON - Office Pack - Art by Synty
+  packageVersion: 1.9.4
+  assetPath: Assets/Synty/PolygonOffice/Prefabs/Generic/SM_Generic_Cloud_01.prefab
+  uploadId: 976702

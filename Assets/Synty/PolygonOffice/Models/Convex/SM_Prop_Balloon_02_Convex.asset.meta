@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: ce301a78c1ecc174ca544e04b6a3f0c0
+timeCreated: 1579571842
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 43760002414457600
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 159492
+  packageName: POLYGON - Office Pack - Art by Synty
+  packageVersion: 1.9.4
+  assetPath: Assets/Synty/PolygonOffice/Models/Convex/SM_Prop_Balloon_02_Convex.asset
+  uploadId: 976702

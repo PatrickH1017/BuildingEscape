@@ -56,7 +56,7 @@ namespace BuildingEscape.EditorTools
             var helds = new List<HeldGun>();
             for (int i = 0; i < anims.Count; i++)
             {
-                var held = anims[i] ? HeldGun.Attach(anims[i], RangedWeapon.Kind.Pew) : null;
+                var held = anims[i] ? HeldGun.Attach(anims[i], RangedWeapon.Kind.Pew, true) : null;      // (silenced, like the player's own)
                 PewCheck($"look: the pew goes into the hand of {names[i]}", held != null, held != null ? "(" + held.ArmInfo() + ")" : "");
                 helds.Add(held);
             }

@@ -19,6 +19,7 @@ namespace BuildingEscape.EditorTools
                 if (s != PlayModeStateChange.EnteredPlayMode) return;
                 var mode = SessionState.GetString("netdev.mode", "");
                 if (mode == "") return;
+                IntroCinematic.SkipForTests = !mode.StartsWith("intro");     // (the run-start cinematic would cover every picture and hold the player still: only the intro scenarios want it)
                 var go = new GameObject("NetDevRunner");
                 go.AddComponent<NetDevRunner>().mode = mode;
             };
@@ -47,9 +48,69 @@ namespace BuildingEscape.EditorTools
             EditorSceneManager.OpenScene("Assets/Scenes/Greybox.unity");
             EditorApplication.isPlaying = true;
         }
+        public static void ComputerUi()
+        {
+            SessionState.SetString("netdev.mode", "computerui");
+            EditorSceneManager.OpenScene("Assets/Scenes/Greybox.unity");
+            EditorApplication.isPlaying = true;
+        }
+        public static void CoreLooks()
+        {
+            SessionState.SetString("netdev.mode", "corelooks");
+            EditorSceneManager.OpenScene("Assets/Scenes/Greybox.unity");
+            EditorApplication.isPlaying = true;
+        }
+        public static void RoomShots()
+        {
+            SessionState.SetString("netdev.mode", "roomshots");
+            EditorSceneManager.OpenScene("Assets/Scenes/Greybox.unity");
+            EditorApplication.isPlaying = true;
+        }
+        public static void FloatQa()
+        {
+            SessionState.SetString("netdev.mode", "floatqa");
+            EditorSceneManager.OpenScene("Assets/Scenes/Greybox.unity");
+            EditorApplication.isPlaying = true;
+        }
+        public static void Looks()
+        {
+            SessionState.SetString("netdev.mode", "looks");
+            EditorSceneManager.OpenScene("Assets/Scenes/Greybox.unity");
+            EditorApplication.isPlaying = true;
+        }
         public static void Doors()
         {
             SessionState.SetString("netdev.mode", "doors");
+            EditorSceneManager.OpenScene("Assets/Scenes/Greybox.unity");
+            EditorApplication.isPlaying = true;
+        }
+        public static void Probe()
+        {
+            SessionState.SetString("netdev.mode", "probe");
+            EditorSceneManager.OpenScene("Assets/Scenes/Greybox.unity");
+            EditorApplication.isPlaying = true;
+        }
+        public static void R7Look()
+        {
+            SessionState.SetString("netdev.mode", "r7look");
+            EditorSceneManager.OpenScene("Assets/Scenes/Greybox.unity");
+            EditorApplication.isPlaying = true;
+        }
+        public static void R7()
+        {
+            SessionState.SetString("netdev.mode", "r7");
+            EditorSceneManager.OpenScene("Assets/Scenes/Greybox.unity");
+            EditorApplication.isPlaying = true;
+        }
+        public static void R6()
+        {
+            SessionState.SetString("netdev.mode", "r6");
+            EditorSceneManager.OpenScene("Assets/Scenes/Greybox.unity");
+            EditorApplication.isPlaying = true;
+        }
+        public static void R5()
+        {
+            SessionState.SetString("netdev.mode", "r5");
             EditorSceneManager.OpenScene("Assets/Scenes/Greybox.unity");
             EditorApplication.isPlaying = true;
         }
@@ -95,6 +156,30 @@ namespace BuildingEscape.EditorTools
         }
         public static void DemoNet() => Start("demonet");
         public static void MeleeNet() => Start("meleenet");
+        public static void EtrCarry()
+        {
+            SessionState.SetString("netdev.mode", "etrcarry");
+            EditorSceneManager.OpenScene("Assets/Scenes/Greybox.unity");
+            EditorApplication.isPlaying = true;
+        }
+        public static void IntroTv()
+        {
+            SessionState.SetString("netdev.mode", "introtv");
+            EditorSceneManager.OpenScene("Assets/Scenes/Greybox.unity");
+            EditorApplication.isPlaying = true;
+        }
+        public static void EtrScan()
+        {
+            SessionState.SetString("netdev.mode", "etrscan");
+            EditorSceneManager.OpenScene("Assets/Scenes/Greybox.unity");
+            EditorApplication.isPlaying = true;
+        }
+        public static void Etr()
+        {
+            SessionState.SetString("netdev.mode", "etr");
+            EditorSceneManager.OpenScene("Assets/Scenes/Greybox.unity");
+            EditorApplication.isPlaying = true;
+        }
         public static void LootQa()
         {
             SessionState.SetString("netdev.mode", "lootqa");
@@ -120,9 +205,99 @@ namespace BuildingEscape.EditorTools
             EditorSceneManager.OpenScene("Assets/Scenes/Greybox.unity");
             EditorApplication.isPlaying = true;
         }
+        public static void InvUi()
+        {
+            SessionState.SetString("netdev.mode", "invui");
+            EditorSceneManager.OpenScene("Assets/Scenes/Greybox.unity");
+            EditorApplication.isPlaying = true;
+        }
+        public static void DoorsSlide()
+        {
+            SessionState.SetString("netdev.mode", "doorsslide");
+            EditorSceneManager.OpenScene("Assets/Scenes/Greybox.unity");
+            EditorApplication.isPlaying = true;
+        }
+        public static void CityLook()
+        {
+            SessionState.SetString("netdev.mode", "citylook");
+            EditorSceneManager.OpenScene("Assets/Scenes/Greybox.unity");
+            EditorApplication.isPlaying = true;
+        }
+        public static void WeaponSheet()
+        {
+            SessionState.SetString("netdev.mode", "weaponsheet");
+            EditorSceneManager.OpenScene("Assets/Scenes/Greybox.unity");
+            EditorApplication.isPlaying = true;
+        }
         public static void PewLook()
         {
             SessionState.SetString("netdev.mode", "pewlook");
+            EditorSceneManager.OpenScene("Assets/Scenes/Greybox.unity");
+            EditorApplication.isPlaying = true;
+        }
+        public static void MeleeLook()
+        {
+            SessionState.SetString("netdev.mode", "meleelook");
+            EditorSceneManager.OpenScene("Assets/Scenes/Greybox.unity");
+            EditorApplication.isPlaying = true;
+        }
+        public static void GunSheet()
+        {
+            SessionState.SetString("netdev.mode", "gunsheet");
+            EditorSceneManager.OpenScene("Assets/Scenes/Greybox.unity");
+            EditorApplication.isPlaying = true;
+        }
+        public static void Guns()
+        {
+            SessionState.SetString("netdev.mode", "guns");
+            EditorSceneManager.OpenScene("Assets/Scenes/Greybox.unity");
+            EditorApplication.isPlaying = true;
+        }
+        public static void GunUi()
+        {
+            SessionState.SetString("netdev.mode", "gunui");
+            EditorSceneManager.OpenScene("Assets/Scenes/Greybox.unity");
+            EditorApplication.isPlaying = true;
+        }
+        public static void GunSafes()
+        {
+            SessionState.SetString("netdev.mode", "gunsafes");
+            EditorSceneManager.OpenScene("Assets/Scenes/Greybox.unity");
+            EditorApplication.isPlaying = true;
+        }
+        public static void GunLook()
+        {
+            SessionState.SetString("netdev.mode", "gunlook");
+            EditorSceneManager.OpenScene("Assets/Scenes/Greybox.unity");
+            EditorApplication.isPlaying = true;
+        }
+        public static void GunItems()
+        {
+            SessionState.SetString("netdev.mode", "gunitems");
+            EditorSceneManager.OpenScene("Assets/Scenes/Greybox.unity");
+            EditorApplication.isPlaying = true;
+        }
+        public static void Checklist()
+        {
+            SessionState.SetString("netdev.mode", "checklist");
+            EditorSceneManager.OpenScene("Assets/Scenes/Greybox.unity");
+            EditorApplication.isPlaying = true;
+        }
+        public static void DockLook()
+        {
+            SessionState.SetString("netdev.mode", "docklook");
+            EditorSceneManager.OpenScene("Assets/Scenes/Greybox.unity");
+            EditorApplication.isPlaying = true;
+        }
+        public static void Armour()
+        {
+            SessionState.SetString("netdev.mode", "armour");
+            EditorSceneManager.OpenScene("Assets/Scenes/Greybox.unity");
+            EditorApplication.isPlaying = true;
+        }
+        public static void Combat()
+        {
+            SessionState.SetString("netdev.mode", "combat");
             EditorSceneManager.OpenScene("Assets/Scenes/Greybox.unity");
             EditorApplication.isPlaying = true;
         }
@@ -137,6 +312,14 @@ namespace BuildingEscape.EditorTools
             EditorSceneManager.OpenScene("Assets/Scenes/Greybox.unity");
             EditorApplication.isPlaying = true;
         }
+        public static void IntroOffline()
+        {
+            SessionState.SetString("netdev.mode", "introoffline");
+            EditorSceneManager.OpenScene("Assets/Scenes/Greybox.unity");
+            EditorApplication.isPlaying = true;
+        }
+        public static void IntroSolo() => Start("introsolo");
+        public static void VoiceRange() => Start("voicerange");
         public static void SockHost() => Start("sockhost");
         public static void SockClient() => Start("sockclient");
         public static void SteamHost() => Start("steamhost");
@@ -154,7 +337,8 @@ namespace BuildingEscape.EditorTools
         {
             DontDestroyOnLoad(gameObject);
             started = Time.realtimeSinceStartup;
-            if (mode != "offline" && mode != "sneak" && mode != "floors" && mode != "doors" && mode != "outpost" && mode != "pew" && mode != "pewlook" && mode != "ui" && mode != "menus" && mode != "shaft" && mode != "pewloot" && mode != "demo" && mode != "demoui" && mode != "lootqa")
+            GuardAI.DonutRollOverride = mode == "r7" ? -1f : 1f;           // (no donut breaks in the other scenarios: a guard standing still for 6 s could upset their timing)
+            if (mode != "offline" && mode != "sneak" && mode != "floors" && mode != "roomshots" && mode != "corelooks" && mode != "looks" && mode != "floatqa" && mode != "computerui" && mode != "r5" && mode != "r6" && mode != "r7" && mode != "r7look" && mode != "probe" && mode != "doors" && mode != "outpost" && mode != "pew" && mode != "pewlook" && mode != "weaponsheet" && mode != "meleelook" && mode != "gunsheet" && mode != "gunitems" && mode != "gunlook" && mode != "gunsafes" && mode != "guns" && mode != "gunui" && mode != "combat" && mode != "armour" && mode != "checklist" && mode != "docklook" && mode != "ui" && mode != "menus" && mode != "shaft" && mode != "pewloot" && mode != "demo" && mode != "demoui" && mode != "lootqa" && mode != "etr" && mode != "etrcarry" && mode != "etrscan" && mode != "introtv" && mode != "introoffline" && mode != "invui" && mode != "doorsslide" && mode != "citylook")
                 yield return WaitFor(() => NetSession.Instance != null && SceneManager.GetActiveScene().name == NetConst.MenuScene, 30, "menu");
             switch (mode)
             {
@@ -166,17 +350,46 @@ namespace BuildingEscape.EditorTools
                 case "toon": yield return ToonScenario(); break;
                 case "sneak": yield return SneakScenario(); break;
                 case "floors": yield return FloorsScenario(); break;
+                case "roomshots": yield return RoomShotsScenario(); break;
+                case "corelooks": yield return CoreLooksScenario(); break;
                 case "doors": yield return DoorsScenario(); break;
+                case "looks": yield return LooksScenario(); break;
+                case "floatqa": yield return FloatQaScenario(); break;
+                case "computerui": yield return ComputerUiScenario(); break;
+                case "r5": yield return R5Scenario(); break;
+                case "r6": yield return R6Scenario(); break;
+                case "r7": yield return R7Scenario(); break;
+                case "r7look": yield return R7LookScenario(); break;
+                case "probe": yield return ProbeScenario(); break;
                 case "outpost": yield return OutpostScenario(); break;
                 case "pew": yield return PewScenario(); break;
                 case "pewlook": yield return PewLookScenario(); break;
+                case "weaponsheet": yield return WeaponSheetScenario(); break;
+                case "meleelook": yield return MeleeLookScenario(); break;
+                case "gunsheet": yield return GunSheetScenario(); break;
+                case "gunitems": yield return GunItemsScenario(); break;
+                case "gunlook": yield return GunLookScenario(); break;
+                case "gunsafes": yield return GunSafesScenario(); break;
+                case "guns": yield return GunsScenario(); break;
+                case "gunui": yield return GunUiScenario(); break;
+                case "combat": yield return CombatScenario(); break;
+                case "armour": yield return ArmourScenario(); break;
+                case "docklook": yield return DockLookScenario(); break;
+                case "checklist": yield return ChecklistScenario(); break;
                 case "ui": yield return UiScenario(); break;
+                case "citylook": yield return CityLookScenario(); break;
+                case "doorsslide": yield return DoorsSlideScenario(); break;
+                case "invui": yield return InvUiScenario(); break;
                 case "shaft": yield return ShaftScenario(); break;
                 case "pewloot": yield return PewLootScenario(); break;
                 case "demo": yield return DemoScenario(); break;
                 case "demoui": yield return DemoUiScenario(); break;
                 case "meleenet": yield return System.Environment.GetEnvironmentVariable("BE_QA_ROLE") == "host" ? MeleeHostScenario() : MeleeClientScenario(); break;
                 case "lootqa": yield return LootQaScenario(); break;
+                case "etr": yield return EtrScenario(); break;
+                case "etrcarry": yield return EtrCarryScenario(); break;
+                case "etrscan": yield return EtrScanScenario(); break;
+                case "introtv": yield return EtrTvScenario(); break;
                 case "demonet": yield return System.Environment.GetEnvironmentVariable("BE_QA_ROLE") == "host" ? DemoHostScenario() : DemoClientScenario(); break;
                 case "gunnet": yield return System.Environment.GetEnvironmentVariable("BE_QA_ROLE") == "host" ? GunHostScenario() : GunClientScenario(); break;
                 case "outpostnet": yield return System.Environment.GetEnvironmentVariable("BE_QA_ROLE") == "host" ? OutpostNetHostScenario() : OutpostNetClientScenario(); break;
@@ -188,6 +401,9 @@ namespace BuildingEscape.EditorTools
                 case "armedhost": yield return ArmedHostScenario(); break;
                 case "armedclient": yield return ArmedClientScenario(); break;
                 case "offline": yield return OfflineScenario(); break;
+                case "introoffline": yield return IntroOfflineScenario(false); break;
+                case "introsolo": yield return IntroOfflineScenario(true); break;
+                case "voicerange": yield return System.Environment.GetEnvironmentVariable("BE_QA_ROLE") == "host" ? VoiceRangeHostScenario() : VoiceRangeClientScenario(); break;
                 case "voicehost": yield return VoiceScenario(true); break;
                 case "voiceclient": yield return VoiceScenario(false); break;
                 case "social": yield return SocialScenario(); break;

@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 98de183b4159dba4c9c8b1f3130a6e25
+timeCreated: 1579574405
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 43520567847903076
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 159492
+  packageName: POLYGON - Office Pack - Art by Synty
+  packageVersion: 1.9.4
+  assetPath: Assets/Synty/PolygonOffice/Models/Convex/SM_Prop_Pipe_01_Tee_Convex.asset
+  uploadId: 976702

@@ -14,7 +14,7 @@ namespace BuildingEscape
     /// <summary>
     /// References to the office asset-pack prefabs so the floor generator can use them at runtime.
     /// Lives at Assets/Resources/OfficeCatalog.asset, created automatically by the editor
-    /// (Overtime Escape > Setup Office Pack).
+    /// (Employees Take Revenge > Setup Office Pack).
     /// </summary>
     public class OfficeCatalog : ScriptableObject
     {

@@ -39,8 +39,25 @@ namespace BuildingEscape.EditorTools
             GuardShaftTest();
             PewLootTest();
             DemoRulesTest();
+            IntroRulesTest();
+            Round2Test();
+            RolesTest();
+            ElevatorTimingTest();
+            DockWorkersTest();
+            CoreRoomsTest();
+            VoiceRulesTest();
+            EtrRulesTest();
             HudUnitsTest();
             KeybindTest();
+            R3RulesTest();
+            Round5Test();
+            TerminalParseTest();
+            Round6Test();
+            Round7Test();
+            GunsTest();
+            GuardsTest();
+            ArmourTest();
+            ChecklistTest();
             string v = NetConst.BuildVersion;
             Check("allow", JoinPolicy.Evaluate(false, 1, v, v, true) == JoinVerdict.Allow);
             Check("five players is the limit", NetConst.MaxPlayers == 5);
@@ -94,7 +111,8 @@ namespace BuildingEscape.EditorTools
             Check("up needs the quota", TowerRules.UpFrom(1, false, 1) == -1 && TowerRules.UpFrom(1, true, 1) == 2);
             Check("no up from a group end", TowerRules.UpFrom(3, true, 4) == -1 && TowerRules.UpFrom(12, true, 13) == -1);
             Check("docks resume at the next floor", TowerRules.UpFrom(0, false, 4) == 4);
-            Check("down goes to the docks", TowerRules.DownFrom(5) == 0 && TowerRules.DownFrom(0) == -1 && TowerRules.DownFrom(13) == -1);
+            Check("down goes to the docks, but only once the quota is met", TowerRules.DownFrom(5, true) == 0 && TowerRules.DownFrom(1, true) == 0 && TowerRules.DownFrom(5, false) == -1
+                && TowerRules.DownFrom(1, false) == -1 && TowerRules.DownFrom(0, true) == -1 && TowerRules.DownFrom(0, false) == -1 && TowerRules.DownFrom(13, true) == -1);
             Check("no up from the boss floor", TowerRules.UpFrom(13, true, 13) == -1);
             Check("resume after leaving", TowerRules.ResumeAfterLeaving(3, true) == 4 && TowerRules.ResumeAfterLeaving(2, false) == 2);
             Check("labels", TowerRules.Label(0) == "Loading Docks" && TowerRules.Label(7) == "Floor 7" && TowerRules.Label(13).StartsWith("Floor 13"));
@@ -124,8 +142,18 @@ namespace BuildingEscape.EditorTools
             toon.model = "male_a";
             string ts = toon.Serialize();
             Check("toon model round trip", PlayerAppearance.TryParse(ts, out var t) && t.IsToon && t.model == "male_a" && t.Serialize() == ts);
-            Check("toon look carries the model", t.ToLook("x").model == "male_a" && PlayerAppearance.ForSlot(0).ToLook("x").model == null);
+            Check("toon look carries the model", t.ToLook("x").model == "male_a" && PlayerAppearance.ForSlot(0).ToLook("x").model == (CharacterCatalog.Instance != null ? PlayerAppearance.DefaultToons[0] : null));
             Check("old five-part string is a Party look", PlayerAppearance.TryParse("40E6B2-1-2-100-100", out var old) && !old.IsToon && old.model == null);
+            // the owner, 2026-10-17: "Make the toon the default character" - a player who never chose is a Tiny Toon person, a different one by slot, and it survives the network string
+            bool toonDefault = CharacterCatalog.Instance == null || CharacterCatalog.Instance.Find(PlayerAppearance.DefaultToons[0]) != null;
+            string[] want = PlayerAppearance.DefaultToons;
+            bool slotsOk = true;
+            for (int i = 0; i < 5; i++)
+            {
+                var d = PlayerAppearance.ForSlot(i);
+                slotsOk &= PlayerAppearance.TryParse(d.Serialize(), out var back) && back.model == d.model && (CharacterCatalog.Instance == null || (d.IsToon && d.model == want[i % want.Length]));
+            }
+            Check("the default look is a dock worker (the five defaults in slot order, then round again), kept by the network string", toonDefault && slotsOk);
             Check("rejects bad model ids", !PlayerAppearance.TryParse("40E6B2-1-2-100-100-Male-A", out _)
                 && !PlayerAppearance.TryParse("40E6B2-1-2-100-100-bad id", out _)
                 && !PlayerAppearance.TryParse("40E6B2-1-2-100-100-" + new string('a', 30), out _)
@@ -668,27 +696,29 @@ namespace BuildingEscape.EditorTools
         public static void GunTest()
         {
             var pew = RangedWeapon.Specs[(int)RangedWeapon.Kind.Pew];
-            Check("gun: the pew holds ten rounds and is reloaded after every ten shots", pew.magazine == 10);
+            int cap = pew.magazine;
+            Check("gun: the pew holds eight rounds and is reloaded after every eight shots (the owner, 2026-10-18)", cap == 8);
+            Check("gun: it comes with three clips in all: the one in the gun and two spare", pew.spareClips == 2 && (1 + pew.spareClips) * cap == 24);
 
-            // ten shots 0.3 s apart, then the click and the reload
+            // eight shots 0.3 s apart, then the click and the reload
             var m = RangedWeapon.NewMagazine(pew);
-            Check("gun: a new pew is full", m.Rounds == 10 && !m.Reloading && m.Capacity == 10);
+            Check("gun: a new pew is full and carries two spare clips", m.Rounds == cap && !m.Reloading && m.Capacity == cap && !m.InfiniteReserve && m.Reserve == 2 * cap && !m.OutOfAmmo);
             float t = 0f; bool ok = true; int fired = 0;
-            for (int i = 0; i < 10; i++)
+            for (int i = 0; i < cap; i++)
             {
                 var s = m.TryFire(t);
-                ok &= i < 9 ? s == GunMagazine.Shot.Fired : s == GunMagazine.Shot.FiredLast;
+                ok &= i < cap - 1 ? s == GunMagazine.Shot.Fired : s == GunMagazine.Shot.FiredLast;
                 if (s == GunMagazine.Shot.Fired || s == GunMagazine.Shot.FiredLast) fired++;
                 t += pew.fireInterval;
             }
-            Check("gun: ten shots in a row are ten bullets, the tenth is the last one", ok && fired == 10 && m.Rounds == 0 && m.Fired == 10);
-            Check("gun: the eleventh pull is only a click", m.TryFire(t + 0.1f) == GunMagazine.Shot.Empty && m.Fired == 10);
+            Check("gun: eight shots in a row are eight bullets, the eighth is the last one", ok && fired == cap && m.Rounds == 0 && m.Fired == cap);
+            Check("gun: the ninth pull is only a click", m.TryFire(t + 0.1f) == GunMagazine.Shot.Empty && m.Fired == cap);
             Check("gun: the reload does not start in the instant of the last shot", m.Tick(t - pew.fireInterval + 0.1f) == GunMagazine.Event.None && !m.Reloading);
             float reloadAt = t - pew.fireInterval + m.AutoReloadDelay;
             Check("gun: an empty magazine starts the reload by itself", m.Tick(reloadAt) == GunMagazine.Event.ReloadStarted && m.Reloading);
             Check("gun: nothing is fired while it reloads", m.TryFire(reloadAt + 1f) == GunMagazine.Shot.Reloading && m.Rounds == 0);
             Check("gun: the reload is not done early", m.Tick(reloadAt + pew.reloadSeconds - 0.05f) == GunMagazine.Event.None && m.Reloading);
-            Check("gun: the reload ends after its time with a full magazine", m.Tick(reloadAt + pew.reloadSeconds + 0.01f) == GunMagazine.Event.ReloadFinished && m.Rounds == 10 && !m.Reloading && m.Reloads == 1);
+            Check("gun: the reload ends after its time with a full magazine, taken out of a spare clip", m.Tick(reloadAt + pew.reloadSeconds + 0.01f) == GunMagazine.Event.ReloadFinished && m.Rounds == cap && !m.Reloading && m.Reloads == 1 && m.Reserve == cap);
             Check("gun: the progress of a reload runs from 0 to 1", Mathf.Approximately(m.ReloadProgress(reloadAt + pew.reloadSeconds + 1f), 0f)
                   && Mathf.Approximately(RangedWeapon.NewMagazine(pew).ReloadProgress(5f), 0f));
             var half = RangedWeapon.NewMagazine(pew); half.TryFire(0f); half.StartReload(1f);
@@ -698,8 +728,8 @@ namespace BuildingEscape.EditorTools
             // the pause between two shots
             m = RangedWeapon.NewMagazine(pew);
             Check("gun: the first shot is never too soon", m.TryFire(0f) == GunMagazine.Shot.Fired);
-            Check("gun: a second pull 0.1 s later is too soon (no round used)", m.TryFire(0.1f) == GunMagazine.Shot.TooSoon && m.Rounds == 9);
-            Check("gun: the fire interval is respected exactly", m.TryFire(pew.fireInterval - 0.01f) == GunMagazine.Shot.TooSoon && m.TryFire(pew.fireInterval) == GunMagazine.Shot.Fired && m.Rounds == 8);
+            Check("gun: a second pull 0.1 s later is too soon (no round used)", m.TryFire(0.1f) == GunMagazine.Shot.TooSoon && m.Rounds == cap - 1);
+            Check("gun: the fire interval is respected exactly", m.TryFire(pew.fireInterval - 0.01f) == GunMagazine.Shot.TooSoon && m.TryFire(pew.fireInterval) == GunMagazine.Shot.Fired && m.Rounds == cap - 2);
 
             // reloading by hand (R)
             m = RangedWeapon.NewMagazine(pew);
@@ -708,18 +738,41 @@ namespace BuildingEscape.EditorTools
             Check("gun: a part-used gun can be reloaded by hand", m.StartReload(2.1f) && m.Reloading);
             Check("gun: it cannot be reloaded twice at once", !m.StartReload(2.2f));
             m.CancelReload();
-            Check("gun: putting the gun away stops the reload (the rounds stay as they were)", !m.Reloading && m.Rounds == 7);
+            Check("gun: putting the gun away stops the reload (the rounds stay as they were)", !m.Reloading && m.Rounds == cap - 3);
             m.Fill();
-            Check("gun: refill (test menu) gives ten again", m.Rounds == 10);
+            Check("gun: refill (test menu) gives a full magazine again and leaves the spare clips alone", m.Rounds == cap && m.Reserve == 2 * cap);
+
+            // three clips in all: 24 shots, then the gun is dry until the dealer sells more
+            var all3 = RangedWeapon.NewMagazine(pew);
+            float clock = 0f; int shots = 0; bool dry = false;
+            for (int i = 0; i < 400 && !dry; i++)
+            {
+                clock += pew.fireInterval + 0.01f;
+                all3.Tick(clock);
+                if (all3.Reloading) { clock = all3.ReloadEndsAt + 0.01f; all3.Tick(clock); }
+                var shot = all3.TryFire(clock);
+                if (shot == GunMagazine.Shot.Fired || shot == GunMagazine.Shot.FiredLast) shots++;
+                else if (shot == GunMagazine.Shot.Empty) dry = true;
+            }
+            Check("gun: three clips are 24 shots, then the pew is dry", dry && shots == 24 && all3.Reserve == 0 && all3.Rounds == 0 && all3.OutOfAmmo && all3.Reloads == 2, $"(shots {shots}, reserve {all3.Reserve}, reloads {all3.Reloads})");
+            Check("gun: a dry pew cannot be reloaded and does not start a reload by itself", !all3.StartReload(clock) && !all3.CanReload && all3.Tick(clock + 5f) == GunMagazine.Event.None && !all3.Reloading);
+            Check("gun: a clip from the dealer puts eight rounds in the reserve, and the reload takes them", all3.AddReserve(cap) == cap && all3.Reserve == cap && all3.CanReload && !all3.OutOfAmmo
+                  && all3.StartReload(clock + 6f) && all3.Tick(clock + 6f + pew.reloadSeconds + 0.01f) == GunMagazine.Event.ReloadFinished && all3.Rounds == cap && all3.Reserve == 0);
+            var part = RangedWeapon.NewMagazine(pew);
+            part.TryFire(0f); part.TryFire(1f); part.TryFire(2f);
+            Check("gun: a reload of a part-used gun takes only the three missing rounds from the spare clips", part.StartReload(2.1f) && part.Tick(2.1f + pew.reloadSeconds + 0.01f) == GunMagazine.Event.ReloadFinished && part.Rounds == cap && part.Reserve == 2 * cap - 3);
+            var endless = new GunMagazine(10, 2.2f, 0.3f);
+            Check("gun: a magazine made without a reserve (an officer's) has an endless one, which no clip adds to", endless.InfiniteReserve && endless.AddReserve(5) == 0 && GuardGun.MagazineSize == 10);
+            Check("gun: the spare clips on the screen count a part of a clip as one", GunRules.SpareClips(0, cap) == 0 && GunRules.SpareClips(1, cap) == 1 && GunRules.SpareClips(cap, cap) == 1 && GunRules.SpareClips(cap + 1, cap) == 2 && GunRules.SpareClips(2 * cap, cap) == 2);
 
             // numbers: the pew is stronger than every melee weapon in every way that matters
             bool strongest = true;
             foreach (var mw in MeleeWeapon.Specs)
-                strongest &= pew.damage > mw.damage && pew.stun > mw.stun && pew.knock > mw.knock && pew.noise > mw.noise && pew.fireInterval < mw.cooldown;
-            Check("gun: the pew beats the crowbar, the bat and the hatchet in damage, stun, knock-back, noise and speed", strongest);
+                strongest &= pew.damage > mw.damage && pew.knock > mw.knock && pew.noise > mw.noise && pew.fireInterval < mw.cooldown;
+            Check("gun: the pew beats the crowbar, the bat and the hatchet in damage, knock-back, noise and speed (it does not stun: the owner, 2026-10-19)", strongest && pew.stun == 0f);
             Check("gun: a bullet counts as several hits on a guard", pew.guardHits >= 2);
-            Check("gun: two bullets knock a guard out (a melee weapon needs ten hits)", GunRules.BulletsToKill(10, pew.guardHits) == 2);
-            Check("gun: the boss takes more bullets", GunRules.BulletsToKill(30, pew.guardHits) == 6 && GunRules.BulletsToKill(10, 1) == 10 && GunRules.BulletsToKill(0, 0) == 1);
+            Check("gun: three bullets knock a guard out (a melee weapon needs ten hits; the owner, 2026-10-18: 3 shots to knock down a guard)", GunRules.BulletsToKill(10, pew.guardHits) == 3);
+            Check("gun: the boss takes more bullets", GunRules.BulletsToKill(30, pew.guardHits) == 8 && GunRules.BulletsToKill(10, 1) == 10 && GunRules.BulletsToKill(0, 0) == 1);
 
             // spread: inside the cone, even over it, and repeatable
             float maxR = 0f, sumX = 0f, sumY = 0f; int n = 4000; bool inside = true;

@@ -19,16 +19,16 @@ namespace BuildingEscape.EditorTools
     ///   4. a picture: each prefab is rendered on its own and its pixels are searched for magenta,
     ///      so a problem the name checks do not understand still shows up.
     ///
-    /// Overtime Escape menu: "Audit Rendering (find pink)" only reports; "Fix Pink Materials" converts the broken
+    /// Employees Take Revenge menu: "Audit Rendering (find pink)" only reports; "Fix Pink Materials" converts the broken
     /// materials in place (colour texture, tint, normal and emission maps, transparency are carried over).
     /// A report is written to Logs/RenderAudit.txt.
     /// </summary>
     public static class RenderAudit
     {
-        [MenuItem("Overtime Escape/Audit Rendering (find pink)", priority = 40)]
+        [MenuItem("Employees Take Revenge/Audit Rendering (find pink)", priority = 40)]
         static void MenuAudit() => Run(fix: false, picture: true);
 
-        [MenuItem("Overtime Escape/Fix Pink Materials (built-in pipeline)", priority = 41)]
+        [MenuItem("Employees Take Revenge/Fix Pink Materials (built-in pipeline)", priority = 41)]
         static void MenuFix() => Run(fix: true, picture: true);
 
         // batch-mode entry points

@@ -5,24 +5,18 @@ namespace BuildingEscape
 {
     /// <summary>
     /// How much there is to steal on a floor and where it lies. Plain data and arithmetic (no Unity types), so it can be tested outside Unity.
-    /// The room themes flag far more things as stealable than a floor should hold, so a floor picks a share of them. It picks to cover the
-    /// numbered rooms first (one thing in as many rooms as it can), so that opening a door has a fair chance of showing something, and only
-    /// then fills up with more things, at most <see cref="CellCap"/> in a cell. Then a few small valuables (a cash envelope, a gold watch,
-    /// casino chips) lie on the desks of rooms that have nothing else.
+    /// The small valuables (<see cref="Valuables"/>, <see cref="ValuablePlan"/>) lie on desks and tables, one in as many numbered rooms as possible first, so that
+    /// opening a door has a fair chance of showing something, and only then more, at most <see cref="CellCap"/> in a cell (<see cref="Pick"/>). The few big
+    /// treasures (a stapler, a trophy, an espresso machine, a server, a safe) stand on the planner's treasure spots - the ones that need two or three people to
+    /// carry only where there is room to carry them (<see cref="RoomForCarry"/>). Furniture is never loot (the owner, 2026-10-17).
     /// </summary>
     public static class LootPlan
     {
         /// <summary>The most stealable things picked in one 18 m cell.</summary>
         public const int CellCap = 4;
 
-        /// <summary>How many stealable pieces of furniture a floor holds: 56 on floor 1, 100 on floor 12 (as many as the rooms can offer).</summary>
-        public static int SmallTarget(int floor) => 52 + 4 * Math.Max(1, floor);
-
-        /// <summary>How many big treasures (a stapler, a trophy, a server...) a floor puts on the planner's treasure spots: 11 on floor 1, 22 on floor 12.</summary>
+        /// <summary>How many big treasures (a stapler, a trophy, a server...) a floor puts on the planner's treasure spots: 11 on floor 1, 22 on floor 12 (fewer if the heavy ones have no room).</summary>
         public static int TreasureCount(int floor) => 10 + Math.Max(1, floor);
-
-        /// <summary>The most small valuables left lying on desks: 12 on floor 1, 17 on floor 12 (fewer if there are not enough empty rooms with a desk).</summary>
-        public static int LooseCount(int floor) => 12 + Math.Max(1, floor) / 2;
 
         /// <summary>
         /// Chooses which of the candidates (in the order given, already shuffled) become loot: first one per group (a room), then the rest,
@@ -62,81 +56,77 @@ namespace BuildingEscape
             return -1;
         }
 
-        static int CellOf(float x, float z, float cellSize, int cols, int rows) =>
-            Math.Max(0, Math.Min(cols - 1, (int)(x / cellSize))) + cols * Math.Max(0, Math.Min(rows - 1, (int)(z / cellSize)));
-
         /// <summary>
-        /// Picks the stealable pieces of a floor: sets <see cref="Piece.picked"/> on the chosen ones (and clears it on the others) and returns how
-        /// many there are. <paramref name="rng"/> only shuffles the candidates.
+        /// The room (of any kind: an office, an open-plan area, a hallway, a lobby) that a point is in: the smallest one that holds it (the guard outpost lies inside its
+        /// cell's lobby). A point in a doorway - just outside every room - belongs to the smallest room within <paramref name="slack"/> metres. -1 when there is none.
+        /// The loot scanner uses it to tell which loot is in the room the player stands in.
         /// </summary>
-        public static int SelectSmall(Layout layout, Random rng, int floor, float cellSize, int cols, int rows)
+        public static int RoomAround(Layout layout, float x, float z, float slack = 0.6f)
         {
-            var cand = new List<Piece>();
-            foreach (var p in layout.pieces)
+            for (int pass = 0; pass < 2; pass++)
             {
-                p.picked = false;
-                if (p.loot && p.def.Lootable && !p.mount) cand.Add(p);
+                float grow = pass == 0 ? 0f : slack, area = float.MaxValue;
+                int best = -1;
+                for (int i = 0; i < layout.rooms.Count; i++)
+                {
+                    var b = layout.rooms[i].bounds.Grow(grow);
+                    if (!b.Contains(x, z)) continue;
+                    float a = b.W * b.D;
+                    if (a < area) { area = a; best = i; }
+                }
+                if (best >= 0) return best;
             }
-            for (int i = cand.Count - 1; i > 0; i--)
-            {
-                int j = rng.Next(i + 1);
-                var t = cand[i]; cand[i] = cand[j]; cand[j] = t;
-            }
-            var group = new int[cand.Count];
-            var cell = new int[cand.Count];
-            for (int i = 0; i < cand.Count; i++)
-            {
-                var p = cand[i];
-                cell[i] = CellOf(p.x, p.z, cellSize, cols, rows);
-                int room = RoomIndexAt(layout, p.x, p.z);
-                group[i] = room >= 0 ? room : -1 - cell[i];            // (a thing in a corridor or an open area stands for that cell)
-            }
-            var picked = Pick(cand.Count, group, cell, SmallTarget(floor), CellCap);
-            int got = 0;
-            for (int i = 0; i < cand.Count; i++) if (picked[i]) { cand[i].picked = true; got++; }
-            return got;
+            return -1;
+        }
+
+        // ------------------------------------------------------------------ room to carry a heavy treasure
+
+        /// <summary>How far a point is from a rectangle (0 inside it).</summary>
+        static float DistanceTo(Rc r, float x, float z)
+        {
+            float dx = Math.Max(Math.Max(r.x0 - x, 0f), x - r.x1), dz = Math.Max(Math.Max(r.z0 - z, 0f), z - r.z1);
+            return (float)Math.Sqrt(dx * dx + dz * dz);
         }
 
         /// <summary>
-        /// Where the small valuables lie: spare spots on desks and counters (<paramref name="spare"/>) in numbered rooms that hold nothing
-        /// else - no picked piece, none of <paramref name="taken"/> (the x, z of the treasures and anything else already put there) - at most
-        /// one to a room, at most <see cref="LooseCount"/>. <paramref name="rng"/> decides which rooms.
+        /// The free room round a point: how far, up to <paramref name="max"/> metres, a disc round (x, z) can grow before it touches solid furniture (taller than a
+        /// knee; <paramref name="ignore"/> is left out - the counter a thing stands on) or a partition wall (the beams over doorways are no wall to a person).
         /// </summary>
-        public static List<Slot> LooseSpots(Layout layout, List<Slot> spare, List<float[]> taken, Random rng, int floor)
+        public static float FreeRadius(Layout layout, float x, float z, float max, Piece ignore = null)
         {
-            var result = new List<Slot>();
-            if (layout == null || spare == null || spare.Count == 0) return result;
-            var busy = new HashSet<int>();
+            float best = max;
             foreach (var p in layout.pieces)
-                if (p.picked) { int r = RoomIndexAt(layout, p.x, p.z); if (r >= 0) busy.Add(r); }
-            if (taken != null)
-                foreach (var t in taken) { int r = RoomIndexAt(layout, t[0], t[1]); if (r >= 0) busy.Add(r); }
-            if (layout.safe != null) { int r = RoomIndexAt(layout, layout.safe.x, layout.safe.z); if (r >= 0) busy.Add(r); }
+            {
+                if (p == ignore || !p.solid || p.onTop || p.mount || p.h < 0.35f) continue;
+                float d = DistanceTo(p.rc, x, z);
+                if (d < best) best = d;
+            }
+            foreach (var w in layout.walls)
+            {
+                if (w.y0 > 1.0f || w.y1 < 0.5f) continue;
+                float d = DistanceTo(w.rc, x, z);
+                if (d < best) best = d;
+            }
+            return best;
+        }
 
-            var options = new List<Slot>();
-            var roomOf = new Dictionary<Slot, int>();
-            foreach (var s in spare)
+        /// <summary>
+        /// Can the people who must carry a treasure of <paramref name="lifters"/> hands get at it and walk it out? A thing for one needs nothing. For two or
+        /// three there must be free room to stand and lift on at least one side of it - a disc 0.8 m (0.95 m for three) wide round a point 1 m (1.15 m in front
+        /// of a counter) from it - and a thing standing on the floor must not be wedged in. The owner, 2026-10-17: "Carrying loot together was glitchy because a lot of items
+        /// where in places where two players couldn't fit together while carrying".
+        /// </summary>
+        public static bool RoomForCarry(Layout layout, Slot slot, int lifters)
+        {
+            if (lifters <= 1) return true;
+            float need = lifters >= 3 ? 0.95f : 0.80f, ahead = slot.host != null ? 1.15f : 1.0f;
+            if (slot.host == null && FreeRadius(layout, slot.x, slot.z, need) < need * 0.85f) return false;
+            for (int k = 0; k < 4; k++)
             {
-                if (s.host != null && s.host.picked) continue;          // (its desk piece went away as loot)
-                int r = RoomIndexAt(layout, s.x, s.z);
-                if (r < 0 || busy.Contains(r) || !RoomNumbers.IsNumbered(layout.rooms[r])) continue;
-                roomOf[s] = r;
-                options.Add(s);
+                float fx = k == 0 ? 1f : k == 2 ? -1f : 0f, fz = k == 1 ? 1f : k == 3 ? -1f : 0f;
+                if (FreeRadius(layout, slot.x + fx * ahead, slot.z + fz * ahead, need, slot.host) >= need) return true;
             }
-            for (int i = options.Count - 1; i > 0; i--)
-            {
-                int j = rng.Next(i + 1);
-                var t = options[i]; options[i] = options[j]; options[j] = t;
-            }
-            int want = LooseCount(floor);
-            var used = new HashSet<int>();
-            foreach (var s in options)
-            {
-                if (result.Count >= want) break;
-                if (!used.Add(roomOf[s])) continue;
-                result.Add(s);
-            }
-            return result;
+            return false;
         }
     }
 }

@@ -11,6 +11,12 @@ namespace BuildingEscape
     public class CameraFollow : MonoBehaviour
     {
         public Transform target;
+
+        /// <summary>
+        /// Spectating (the owner, 2026-10-18): while this is set the camera orbits THIS body instead of <see cref="target"/>. Only the picture follows it: everything that asks who is "viewed"
+        /// (the pack, the keys, the HUD) still looks at <see cref="target"/>, so a knocked-out player who watches a teammate cannot act through him. See <see cref="Spectator"/>.
+        /// </summary>
+        public Transform spectate;
         [Header("Framing")]
         public float headHeight = 1.35f;      // pivot above the capsule centre (just over the head)
         public float distance = 2.6f;
@@ -45,10 +51,11 @@ namespace BuildingEscape
         /// <summary>The camera sinks a little while the player it follows is crouched.</summary>
         Vector3 Pivot()
         {
-            if (!targetPlayer || targetPlayer.transform != target) targetPlayer = target.GetComponent<WobblyPlayer>();
+            var body = spectate ? spectate : target;
+            if (!targetPlayer || targetPlayer.transform != body) targetPlayer = body.GetComponent<WobblyPlayer>();
             bool crouched = targetPlayer && targetPlayer.IsCrouching;
             crouchDrop = Mathf.MoveTowards(crouchDrop, crouched ? 1f : 0f, Time.deltaTime * 5f);
-            return target.position + Vector3.up * (headHeight - 0.5f * crouchDrop);
+            return body.position + Vector3.up * (headHeight - 0.5f * crouchDrop);
         }
 
         void Update()

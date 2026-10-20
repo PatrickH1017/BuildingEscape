@@ -21,7 +21,7 @@ namespace BuildingEscape
         const float DigitPitch = DotSize * (RoomNumbers.GlyphColumns + 1);
         const float PlateMargin = 0.12f, PlateGap = 0.012f, LetterGap = 0.012f;   // plate and letters stand off the wall by a hair
 
-        static readonly Color PlateColour = new Color(0.10f, 0.13f, 0.18f), LetterColour = new Color(0.95f, 0.93f, 0.84f);
+        static readonly Color PlateColour = new Color(0.10f, 0.13f, 0.18f), LetterColour = new Color(0.95f, 0.93f, 0.84f), GoldColour = new Color(0.86f, 0.66f, 0.22f);
 
         /// <summary>Hangs a number plate over every numbered room's doorway (on the corridor side of the wall).</summary>
         void BuildRoomNumbers(Transform parent)
@@ -34,15 +34,17 @@ namespace BuildingEscape
             var normals = new List<Vector3>(plates.Count * 96);
             var plateTris = new List<int>(plates.Count * 6);
             var letterTris = new List<int>(plates.Count * 120);
-            foreach (var p in plates) AddPlate(p, verts, normals, plateTris, letterTris);
+            var goldTris = new List<int>();
+            foreach (var p in plates) AddPlate(p, verts, normals, plateTris, letterTris, goldTris);
 
             var mesh = new Mesh { name = "RoomNumbers" };
             if (verts.Count > 60000) mesh.indexFormat = IndexFormat.UInt32;
             mesh.SetVertices(verts);
             mesh.SetNormals(normals);
-            mesh.subMeshCount = 2;
+            mesh.subMeshCount = 3;
             mesh.SetTriangles(plateTris, 0);
             mesh.SetTriangles(letterTris, 1);
+            mesh.SetTriangles(goldTris, 2);
             mesh.RecalculateBounds();
 
             var go = new GameObject("RoomNumbers");
@@ -50,13 +52,13 @@ namespace BuildingEscape
             go.transform.SetPositionAndRotation(Vector3.zero, Quaternion.identity);   // the vertices are in world space, like every other box of the floor
             go.AddComponent<MeshFilter>().sharedMesh = mesh;
             var r = go.AddComponent<MeshRenderer>();
-            r.sharedMaterials = new[] { Flat(PlateColour, 0.35f), Flat(LetterColour, 0.2f) };
+            r.sharedMaterials = new[] { Flat(PlateColour, 0.35f), Flat(LetterColour, 0.2f), Flat(GoldColour, 0.3f) };
             r.shadowCastingMode = ShadowCastingMode.Off;
             r.receiveShadows = false;
             go.AddComponent<OwnedMesh>().mesh = mesh;                                  // freed with the floor
         }
 
-        void AddPlate(RoomNumbers.Plate p, List<Vector3> verts, List<Vector3> normals, List<int> plateTris, List<int> letterTris)
+        void AddPlate(RoomNumbers.Plate p, List<Vector3> verts, List<Vector3> normals, List<int> plateTris, List<int> letterTris, List<int> goldTris)
         {
             string text = p.label;
             float letters = text.Length * DigitPitch - DotSize;                         // no gap after the last digit
@@ -68,7 +70,8 @@ namespace BuildingEscape
             var up = Vector3.up;
             var centre = new Vector3(p.x, (p.y0 + p.y1) * 0.5f, p.z) + normal * PlateGap;   // the middle of the beam over the door
 
-            AddQuad(centre, right, up, width * 0.5f, height * 0.5f, normal, verts, normals, plateTris);
+            if (!p.painted) AddQuad(centre, right, up, width * 0.5f, height * 0.5f, normal, verts, normals, plateTris);      // (a suite's or the server room's number is painted on the wall: gold letters, no plate)
+            var letterList = p.painted ? goldTris : letterTris;
 
             // letters: runs of lit dots in each row become one quad each
             var face = centre + normal * LetterGap;
@@ -87,7 +90,7 @@ namespace BuildingEscape
                         float a = x0 + start * DotSize, b = x0 + col * DotSize;          // run from a to b
                         float t = top - row * DotSize;                                    // its top edge
                         var c = face + right * ((a + b) * 0.5f) + up * (t - DotSize * 0.5f);
-                        AddQuad(c, right, up, (b - a) * 0.5f, DotSize * 0.5f, normal, verts, normals, letterTris);
+                        AddQuad(c, right, up, (b - a) * 0.5f, DotSize * 0.5f, normal, verts, normals, letterList);
                     }
                 }
             }

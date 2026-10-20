@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: cdb99329ed4dd2b4e80f309da826be98
+timeCreated: 1579571863
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 43391060431330712
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 159492
+  packageName: POLYGON - Office Pack - Art by Synty
+  packageVersion: 1.9.4
+  assetPath: Assets/Synty/PolygonOffice/Models/Convex/SM_Prop_CoatRack_01_Convex.asset
+  uploadId: 976702

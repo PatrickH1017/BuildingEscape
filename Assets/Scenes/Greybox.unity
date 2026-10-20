@@ -912,7 +912,7 @@ MonoBehaviour:
   maxSpeed: 5
   turnSpeed: 8
   uprightStrength: 30
-  uprightDamping: 4
+  uprightDamping: 8
   footstepNoise: 3
   sprintNoise: 8
   crouchSpeedMultiplier: 0.55

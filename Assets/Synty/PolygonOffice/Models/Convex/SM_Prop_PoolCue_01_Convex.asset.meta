@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 884727bb22bdc034fa31aa77a57f0e0f
+timeCreated: 1579571878
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 43276074101270654
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 159492
+  packageName: POLYGON - Office Pack - Art by Synty
+  packageVersion: 1.9.4
+  assetPath: Assets/Synty/PolygonOffice/Models/Convex/SM_Prop_PoolCue_01_Convex.asset
+  uploadId: 976702

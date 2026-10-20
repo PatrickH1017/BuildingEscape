@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 00d0f889add6ea44a9c9e8f919e19a3a
+timeCreated: 1579572101
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 43048540627358370
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 159492
+  packageName: POLYGON - Office Pack - Art by Synty
+  packageVersion: 1.9.4
+  assetPath: Assets/Synty/PolygonOffice/Models/Convex/SM_Prop_Emergency_Axe_01_Convex.asset
+  uploadId: 976702

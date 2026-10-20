@@ -512,6 +512,11 @@ namespace BuildingEscape.EditorTools
             yield return Barrier("broken", Players);
 
             // ---------------- 7. the elevator rules
+            // the way back to the basement is shut until the quota is met (the owner, 2026-10-17): c1 asks for the docks at the panel and every machine sees nothing chosen
+            if (role == "c1") { Teleport(NearPanel()); yield return Settle(0.8f); RunSync.Instance.RequestPanel(ElevatorExtraction.SelectBase + 0); yield return Settle(1.0f); }
+            yield return Settle(1.5f);
+            Check("before the quota is met the panel refuses the Loading Docks, on every machine", ElevatorExtraction.Destination == -1 && hm.Phase == HeistPhase.Heist, $"dest={ElevatorExtraction.Destination} phase={hm.Phase}");
+            yield return Barrier("gate", Players);
             if (host) { hm.DebugCompleteFloor(); QaSignal("completed"); }
             yield return QaWait("completed", 60);
             yield return Settle(1.5f);

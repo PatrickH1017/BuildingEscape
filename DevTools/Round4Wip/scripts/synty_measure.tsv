@@ -1,0 +1,810 @@
+path	sx	sy	sz	cx	cz	minY	renderers
+Buildings/SM_Bld_Ceiling_01.prefab	2.500	0.034	2.500	-1.250	1.250	-0.034	1
+Buildings/SM_Bld_Ceiling_02.prefab	2.500	0.044	2.500	-1.250	1.250	-0.023	1
+Buildings/SM_Bld_Ceiling_Panel_01.prefab	2.500	0.039	2.500	-1.250	1.250	-0.039	1
+Buildings/SM_Bld_Ceiling_Panel_02.prefab	2.500	0.039	2.500	-1.250	1.250	-0.039	1
+Buildings/SM_Bld_Ceiling_Panel_Light_01.prefab	1.065	0.031	1.068	0.000	0.000	-0.031	1
+Buildings/SM_Bld_Ceiling_Panel_Light_02.prefab	1.080	0.032	2.160	0.000	0.004	-0.032	1
+Buildings/SM_Bld_Door_01.prefab	1.029	1.967	0.247	-0.488	-0.039	0.000	2
+Buildings/SM_Bld_Door_02.prefab	1.029	1.967	0.247	-0.488	-0.039	0.000	1
+Buildings/SM_Bld_Door_03.prefab	1.029	1.967	0.247	-0.488	-0.039	0.000	1
+Buildings/SM_Bld_Door_04.prefab	1.003	1.967	0.107	-0.501	-0.053	0.000	1
+Buildings/SM_Bld_Door_05.prefab	1.029	1.967	0.247	-0.488	-0.039	0.000	1
+Buildings/SM_Bld_Door_Large_01_L.prefab	0.974	2.452	0.172	-0.463	-0.033	0.000	2
+Buildings/SM_Bld_Door_Large_01_R.prefab	0.974	2.452	0.172	0.463	-0.033	0.000	2
+Buildings/SM_Bld_Elevator_01.prefab	2.458	3.002	2.477	-1.250	-1.239	-0.056	3
+Buildings/SM_Bld_FeatureWall_Slate_01.prefab	0.625	3.000	0.282	-0.312	0.291	0.000	1
+Buildings/SM_Bld_FeatureWall_Slate_02.prefab	0.625	3.000	0.282	-0.312	0.291	0.000	1
+Buildings/SM_Bld_FeatureWall_Square_01.prefab	2.318	2.648	0.159	-1.226	0.215	0.216	1
+Buildings/SM_Bld_FeatureWall_Square_02.prefab	1.100	3.000	0.076	-1.250	0.188	0.000	1
+Buildings/SM_Bld_FeatureWall_Wood_01.prefab	2.384	2.648	0.076	-1.259	0.174	0.216	1
+Buildings/SM_Bld_Floor_Carpet_01.prefab	2.500	0.000	2.500	-1.250	1.250	0.000	1
+Buildings/SM_Bld_Floor_Concrete_01.prefab	2.500	0.010	2.500	-1.250	1.250	0.000	1
+Buildings/SM_Bld_Floor_Grass_01.prefab	2.500	0.097	2.500	-1.250	1.250	-0.042	1
+Buildings/SM_Bld_Floor_Panel_01.prefab	2.500	0.371	0.228	-1.250	0.061	-0.371	1
+Buildings/SM_Bld_Floor_Tiles_01.prefab	2.500	0.000	2.500	-1.250	1.250	0.000	1
+Buildings/SM_Bld_Floor_Wood_01.prefab	2.500	0.000	2.500	-1.250	1.250	0.000	1
+Buildings/SM_Bld_GardenEdge_01.prefab	0.308	0.308	2.500	0.000	1.250	-0.154	1
+Buildings/SM_Bld_GardenEdge_Corner_01.prefab	0.414	0.441	0.396	-0.008	-0.003	-0.229	1
+Buildings/SM_Bld_Pillar_Exterior_01.prefab	0.428	3.007	0.428	0.000	0.000	0.000	1
+Buildings/SM_Bld_Pillar_Exterior_02.prefab	0.214	3.007	0.214	0.107	0.107	0.000	1
+Buildings/SM_Bld_Pillar_Exterior_03.prefab	0.428	3.007	0.214	0.000	0.107	0.000	1
+Buildings/SM_Bld_Pillar_Exterior_04.prefab	0.428	3.007	0.428	0.000	0.000	0.000	1
+Buildings/SM_Bld_Pillar_Interior_01.prefab	0.428	3.007	0.428	0.000	0.000	0.000	1
+Buildings/SM_Bld_Pillar_Interior_02.prefab	0.428	3.007	0.428	0.000	0.000	0.000	1
+Buildings/SM_Bld_Pillar_Interior_03.prefab	0.428	3.007	0.214	0.000	0.107	0.000	1
+Buildings/SM_Bld_Pillar_Interior_04.prefab	0.214	3.007	0.214	0.107	0.107	0.000	1
+Buildings/SM_Bld_Pillar_Metal_01.prefab	0.315	3.000	0.169	0.000	0.000	0.000	1
+Buildings/SM_Bld_Roof_01.prefab	2.500	0.000	2.500	-1.250	1.250	0.051	1
+Buildings/SM_Bld_Roof_Side_01.prefab	2.500	0.167	0.374	-1.250	0.000	0.000	1
+Buildings/SM_Bld_Roof_Side_02.prefab	2.500	0.167	0.374	-1.250	0.000	0.000	1
+Buildings/SM_Bld_Roof_Side_Corner_01.prefab	0.417	0.275	0.417	0.000	0.000	-0.032	1
+Buildings/SM_Bld_Stairs_Carpet_01.prefab	2.500	3.000	2.500	1.250	-1.250	-1.500	1
+Buildings/SM_Bld_Stairs_Carpet_02.prefab	2.500	1.827	2.500	-1.250	1.250	-0.327	1
+Buildings/SM_Bld_Stairs_Railing_01.prefab	0.152	2.725	3.125	0.126	-1.250	0.000	1
+Buildings/SM_Bld_Stairs_Railing_Corner_01.prefab	0.405	1.225	0.157	0.000	0.391	0.000	1
+Buildings/SM_Bld_Stairs_Railing_Corner_Straight_01.prefab	2.702	1.225	0.157	-1.149	0.391	0.000	1
+Buildings/SM_Bld_Stairs_Tiles_01.prefab	2.500	3.000	2.500	1.250	-1.250	-1.500	1
+Buildings/SM_Bld_Stairs_Tiles_02.prefab	2.500	1.827	2.500	-1.250	1.250	-0.327	1
+Buildings/SM_Bld_Stairs_Top_Cube_01.prefab	2.500	0.352	2.500	-1.250	1.250	-0.352	1
+Buildings/SM_Bld_Stairs_Wood_01.prefab	2.500	3.000	2.500	1.250	-1.250	-1.500	1
+Buildings/SM_Bld_Stairs_Wood_02.prefab	2.500	1.827	2.500	-1.250	1.250	-0.327	1
+Buildings/SM_Bld_Wall_Baseboard_01.prefab	2.500	2.997	0.164	-1.250	0.082	0.000	1
+Buildings/SM_Bld_Wall_Baseboard_Door_01.prefab	2.500	2.997	0.183	-1.250	0.091	0.000	1
+Buildings/SM_Bld_Wall_Baseboard_Door_Large_01.prefab	5.000	2.997	0.173	-2.500	0.087	0.000	2
+Buildings/SM_Bld_Wall_Baseboard_Elevator_01.prefab	2.800	2.997	2.725	-1.250	-1.137	0.000	3
+Buildings/SM_Bld_Wall_Baseboard_Window_01.prefab	2.500	2.997	0.170	-1.250	0.085	0.000	2
+Buildings/SM_Bld_Wall_Baseboard_Window_02.prefab	2.500	2.997	0.170	-1.250	0.085	0.000	2
+Buildings/SM_Bld_Wall_Baseboard_Window_03.prefab	5.000	2.997	0.173	-2.500	0.087	0.000	2
+Buildings/SM_Bld_Wall_Baseboard_Window_04.prefab	2.500	2.997	0.170	-1.250	0.085	0.000	2
+Buildings/SM_Bld_Wall_Blank_01.prefab	2.500	2.997	0.150	-1.250	0.075	0.000	1
+Buildings/SM_Bld_Wall_Blank_Door_01.prefab	2.500	2.997	0.183	-1.250	0.091	0.000	1
+Buildings/SM_Bld_Wall_Blank_Door_Large_01.prefab	5.000	2.997	0.173	-2.500	0.087	0.000	2
+Buildings/SM_Bld_Wall_Blank_Elevator_01.prefab	2.800	2.997	2.725	-1.250	-1.137	0.000	3
+Buildings/SM_Bld_Wall_Blank_Window_01.prefab	2.500	2.997	0.170	-1.250	0.085	0.000	2
+Buildings/SM_Bld_Wall_Blank_Window_02.prefab	2.500	2.997	0.170	-1.250	0.085	0.000	2
+Buildings/SM_Bld_Wall_Blank_Window_03.prefab	5.000	2.997	0.173	-2.500	0.087	0.000	2
+Buildings/SM_Bld_Wall_Blank_Window_04.prefab	2.500	2.997	0.170	-1.250	0.085	0.000	2
+Buildings/SM_Bld_Wall_Brick_01.prefab	2.500	2.997	0.150	-1.250	0.075	0.000	1
+Buildings/SM_Bld_Wall_Brick_Door_01.prefab	2.500	2.997	0.183	-1.250	0.091	0.000	1
+Buildings/SM_Bld_Wall_Brick_Door_Large_01.prefab	5.000	2.997	0.173	-2.500	0.087	0.000	2
+Buildings/SM_Bld_Wall_Brick_Elevator_01.prefab	2.800	2.997	2.725	-1.250	-1.137	0.000	3
+Buildings/SM_Bld_Wall_Brick_Window_01.prefab	2.500	2.997	0.170	-1.250	0.085	0.000	2
+Buildings/SM_Bld_Wall_Brick_Window_02.prefab	2.500	2.997	0.170	-1.250	0.085	0.000	2
+Buildings/SM_Bld_Wall_Brick_Window_03.prefab	5.000	2.997	0.173	-2.500	0.087	0.000	2
+Buildings/SM_Bld_Wall_Brick_Window_04.prefab	2.500	2.997	0.170	-1.250	0.085	0.000	2
+Buildings/SM_Bld_Wall_Glass_01.prefab	2.500	3.003	0.154	-1.250	0.077	0.000	2
+Buildings/SM_Bld_Wall_Glass_Door_01.prefab	2.500	3.003	0.207	-1.250	0.103	0.000	4
+Buildings/SM_Bld_Wall_Glass_Large_01.prefab	5.000	2.997	0.173	-2.500	0.087	0.000	2
+Buildings/SM_Bld_Wall_Glass_Large_Door_01.prefab	5.000	2.997	0.173	-2.500	0.087	0.000	2
+Buildings/SM_Bld_Wall_Glass_Large_Window_Blinds_Closed_01.prefab	4.901	2.991	0.187	-2.494	0.136	0.009	1
+Buildings/SM_Bld_Wall_Glass_Large_Window_Blinds_Down_01.prefab	4.901	2.991	0.077	-2.494	0.136	0.009	1
+Buildings/SM_Bld_Wall_Glass_Large_Window_Blinds_Open_01.prefab	4.901	2.991	0.208	-2.494	0.143	0.009	1
+Buildings/SM_Bld_Wall_Glass_Large_Window_Blinds_Up_01.prefab	4.901	1.780	0.161	-2.494	0.136	1.220	1
+Buildings/SM_Bld_Wall_Glass_Pillar_01.prefab	0.217	3.031	0.217	-0.109	0.109	-0.015	1
+Buildings/SM_Bld_Wall_Glass_Pillar_02.prefab	0.270	3.031	0.270	-0.083	0.083	-0.015	1
+Buildings/SM_Bld_Wall_Glass_Window_Blinds_Closed_01.prefab	2.206	2.826	0.131	-1.251	0.164	0.158	1
+Buildings/SM_Bld_Wall_Glass_Window_Blinds_Down_01.prefab	2.206	2.724	0.077	-1.251	0.136	0.143	1
+Buildings/SM_Bld_Wall_Glass_Window_Blinds_Open_01.prefab	2.206	2.820	0.146	-1.251	0.174	0.163	1
+Buildings/SM_Bld_Wall_Glass_Window_Blinds_Up_01.prefab	2.206	1.657	0.113	-1.251	0.160	1.230	1
+Buildings/SM_Bld_Wall_Trim_01.prefab	2.500	2.997	0.164	-1.250	0.082	0.000	1
+Buildings/SM_Bld_Wall_Trim_Door_01.prefab	2.500	2.997	0.183	-1.250	0.091	0.000	1
+Buildings/SM_Bld_Wall_Trim_Door_Large_01.prefab	5.000	2.997	0.173	-2.500	0.087	0.000	2
+Buildings/SM_Bld_Wall_Trim_Elevator_01.prefab	2.800	2.997	2.725	-1.250	-1.137	0.000	3
+Buildings/SM_Bld_Wall_Trim_Window_01.prefab	2.500	2.997	0.170	-1.250	0.085	0.000	2
+Buildings/SM_Bld_Wall_Trim_Window_02.prefab	2.500	2.997	0.170	-1.250	0.085	0.000	2
+Buildings/SM_Bld_Wall_Trim_Window_03.prefab	5.000	2.997	0.173	-2.500	0.087	0.000	2
+Buildings/SM_Bld_Wall_Trim_Window_04.prefab	2.500	2.997	0.170	-1.250	0.085	0.000	2
+Buildings/SM_Bld_Wall_Window_Blinds_Closed_01.prefab	1.150	1.267	0.187	-1.246	0.136	1.099	1
+Buildings/SM_Bld_Wall_Window_Blinds_Closed_02.prefab	2.237	1.267	0.187	-1.249	0.136	1.099	1
+Buildings/SM_Bld_Wall_Window_Blinds_Closed_03.prefab	3.635	2.991	0.187	-2.489	0.136	0.009	1
+Buildings/SM_Bld_Wall_Window_Blinds_Closed_04.prefab	1.150	2.991	0.187	-1.246	0.136	0.009	1
+Buildings/SM_Bld_Wall_Window_Blinds_Down_01.prefab	1.150	1.286	0.055	-1.246	0.136	1.081	1
+Buildings/SM_Bld_Wall_Window_Blinds_Down_02.prefab	2.237	1.286	0.055	-1.249	0.136	1.081	1
+Buildings/SM_Bld_Wall_Window_Blinds_Down_03.prefab	3.635	2.991	0.077	-2.489	0.136	0.009	1
+Buildings/SM_Bld_Wall_Window_Blinds_Down_04.prefab	1.150	2.991	0.077	-1.246	0.136	0.009	1
+Buildings/SM_Bld_Wall_Window_Blinds_Open_01.prefab	1.150	1.248	0.208	-1.246	0.143	1.118	1
+Buildings/SM_Bld_Wall_Window_Blinds_Open_02.prefab	2.237	1.248	0.208	-1.249	0.143	1.118	1
+Buildings/SM_Bld_Wall_Window_Blinds_Open_03.prefab	3.635	2.991	0.208	-2.489	0.143	0.009	1
+Buildings/SM_Bld_Wall_Window_Blinds_Open_04.prefab	1.150	2.991	0.208	-1.246	0.143	0.009	1
+Buildings/SM_Bld_Wall_Window_Blinds_Up_01.prefab	1.149	1.250	0.161	-1.246	0.136	1.116	1
+Buildings/SM_Bld_Wall_Window_Blinds_Up_02.prefab	2.236	1.250	0.161	-1.249	0.136	1.116	1
+Buildings/SM_Bld_Wall_Window_Blinds_Up_03.prefab	3.635	1.780	0.161	-2.489	0.136	1.220	1
+Buildings/SM_Bld_Wall_Window_Blinds_Up_04.prefab	1.150	1.780	0.161	-1.246	0.136	1.220	1
+Buildings/SM_Bld_WeatherCover_01.prefab	5.000	0.556	2.709	0.000	0.000	2.954	1
+Buildings/SM_Bld_Window_Awning_01.prefab	5.000	0.100	0.746	-2.500	0.547	0.000	1
+Buildings/SM_Bld_Window_Awning_Corner_01.prefab	2.350	0.100	2.327	1.325	1.337	0.000	1
+Buildings/SM_Bld_Window_Awning_Corner_02.prefab	0.920	0.100	0.920	0.460	0.460	0.000	1
+Buildings/SM_Bld_Window_Awning_Half_01.prefab	2.500	0.100	0.746	-1.250	0.547	0.000	1
+Buildings/SM_Bld_Window_Awning_Large_Down_01.prefab	2.520	3.259	1.303	-1.260	0.724	-0.105	1
+Buildings/SM_Bld_Window_Awning_Large_Up_01.prefab	2.520	3.132	1.303	-1.260	0.728	-0.041	1
+Buildings/SM_Bld_Window_Awning_Slates_01.prefab	5.000	1.159	3.490	-2.500	1.757	-0.317	1
+Buildings/SM_Bld_Window_Cover_Glass_01.prefab	2.500	2.379	0.136	-1.250	0.898	0.310	1
+Buildings/SM_Bld_Window_Cover_Glass_Gap_01.prefab	2.500	2.379	0.136	-1.250	0.898	0.310	1
+Buildings/SM_Bld_Window_Cover_Pole_01.prefab	0.507	3.000	0.753	0.000	0.454	0.000	1
+Buildings/SM_Bld_Window_Net_01.prefab	4.975	0.419	3.459	-2.585	1.981	-0.036	1
+Buildings/SM_Bld_Window_Net_Corner_01.prefab	3.763	0.303	3.605	1.811	1.894	0.080	1
+Buildings/SM_Bld_Window_Net_Corner_Pole_01.prefab	2.741	2.955	2.875	1.378	1.435	-0.011	1
+Buildings/SM_Bld_Window_Net_Half_01.prefab	2.488	0.419	3.498	-1.292	1.978	-0.036	1
+Buildings/SM_Bld_Window_Net_Pole_01.prefab	0.199	2.973	3.893	-0.090	1.996	-0.011	1
+Characters/SM_Chr_Attachment_Antlers_01.prefab	0.461	0.310	0.068	0.000	0.014	0.197	1
+Characters/SM_Chr_Attachment_Headset_01.prefab	0.058	0.108	0.149	-0.131	0.024	0.023	1
+Characters/SM_Chr_Attachment_Headset_02.prefab	0.313	0.291	0.221	-0.015	0.075	-0.032	1
+Characters/SM_Chr_Attachment_Identity_01.prefab	0.102	0.076	0.061	0.000	0.000	-0.038	1
+Characters/SM_Chr_Attachment_Nametag_01.prefab	0.102	0.062	0.057	0.000	0.000	-0.031	1
+Characters/SM_Chr_Attachment_Pens_01.prefab	0.097	0.131	0.047	0.000	0.000	-0.065	1
+Characters/SM_Chr_Boss_Female_01.prefab	2.049	1.974	0.644	0.000	-0.032	-0.107	18
+Characters/SM_Chr_Boss_Male_01.prefab	2.049	1.974	0.644	0.000	-0.032	-0.107	18
+Characters/SM_Chr_Business_Female_01.prefab	2.049	1.974	0.644	0.000	-0.032	-0.107	18
+Characters/SM_Chr_Business_Female_02.prefab	2.049	1.974	0.644	0.000	-0.032	-0.107	18
+Characters/SM_Chr_Business_Female_03.prefab	2.049	1.974	0.644	0.000	-0.032	-0.107	18
+Characters/SM_Chr_Business_Female_04.prefab	2.049	1.974	0.644	0.000	-0.032	-0.107	18
+Characters/SM_Chr_Business_Male_01.prefab	2.049	1.974	0.644	0.000	-0.032	-0.107	18
+Characters/SM_Chr_Business_Male_02.prefab	2.049	1.974	0.644	0.000	-0.032	-0.107	18
+Characters/SM_Chr_Business_Male_03.prefab	2.049	1.974	0.644	0.000	-0.032	-0.107	18
+Characters/SM_Chr_Business_Male_04.prefab	2.049	1.974	0.644	0.000	-0.032	-0.107	18
+Characters/SM_Chr_Cleaner_Female_01.prefab	2.049	1.974	0.644	0.000	-0.032	-0.107	18
+Characters/SM_Chr_Cleaner_Male_01.prefab	2.049	1.974	0.644	0.000	-0.032	-0.107	18
+Characters/SM_Chr_Developer_Female_01.prefab	2.049	1.974	0.644	0.000	-0.032	-0.107	18
+Characters/SM_Chr_Developer_Female_02.prefab	2.049	1.974	0.644	0.000	-0.032	-0.107	18
+Characters/SM_Chr_Developer_Male_01.prefab	2.049	1.974	0.644	0.000	-0.032	-0.107	18
+Characters/SM_Chr_Developer_Male_02.prefab	2.049	1.974	0.644	0.000	-0.032	-0.107	18
+Characters/SM_Chr_Security_Female_01.prefab	2.049	1.974	0.644	0.000	-0.032	-0.107	18
+Characters/SM_Chr_Security_Male_01.prefab	2.049	1.974	0.644	0.000	-0.032	-0.107	18
+Generic/SM_Generic_Cloud_01.prefab	6.678	1.651	1.608	0.000	0.000	0.000	1
+Generic/SM_Generic_Cloud_02.prefab	7.292	1.705	2.571	0.000	0.000	0.000	1
+Generic/SM_Generic_Cloud_03.prefab	7.030	1.984	3.887	0.000	0.000	0.000	1
+Generic/SM_Generic_Grass_Patch_01.prefab	3.092	0.726	2.570	0.000	0.000	0.023	1
+Generic/SM_Generic_Grass_Patch_02.prefab	2.805	0.920	2.163	0.000	0.000	0.000	1
+Generic/SM_Generic_Grass_Patch_03.prefab	1.114	1.159	1.292	0.000	0.000	0.000	1
+Generic/SM_Generic_Ground_01.prefab	5.526	0.258	5.677	0.000	0.000	0.000	1
+Generic/SM_Generic_Ground_02.prefab	5.526	0.258	5.677	0.000	0.000	0.000	1
+Generic/SM_Generic_Small_Rocks_01.prefab	1.306	0.095	1.632	-0.170	0.002	-0.025	1
+Generic/SM_Generic_Small_Rocks_02.prefab	2.041	0.095	1.970	0.011	-0.026	-0.025	1
+Generic/SM_Generic_Small_Rocks_03.prefab	0.482	0.102	0.325	0.000	0.000	0.000	1
+Generic/SM_Generic_Small_Rocks_04.prefab	0.357	0.099	0.743	0.000	0.000	0.000	1
+Generic/SM_Generic_Small_Rocks_05.prefab	0.261	0.084	0.252	0.000	0.000	0.000	1
+Generic/SM_Generic_Tree_01.prefab	1.812	3.296	1.705	0.060	0.048	-0.131	1
+Generic/SM_Generic_Tree_02.prefab	1.391	3.512	1.470	0.000	0.000	-0.131	1
+Generic/SM_Generic_Tree_03.prefab	1.732	3.493	1.542	0.000	0.000	-0.159	1
+Generic/SM_Generic_Tree_04.prefab	1.816	3.220	1.536	-0.288	0.000	-0.131	1
+Generic/SM_Generic_TreeDead_01.prefab	2.028	5.237	3.002	-0.454	0.216	-0.087	1
+Generic/SM_Generic_TreeStump_01.prefab	0.778	0.498	0.821	0.000	0.000	0.000	1
+Props/Bathroom/SM_Prop_Bathroom_Light_01.prefab	2.500	0.298	0.200	-1.250	0.100	-0.298	1
+Props/Bathroom/SM_Prop_Bathroom_Mirror_01.prefab	2.500	1.814	0.042	-1.250	0.021	0.889	1
+Props/Bathroom/SM_Prop_Bathroom_Sink_01.prefab	2.500	1.147	0.807	-1.250	0.404	0.000	1
+Props/Bathroom/SM_Prop_Bathroom_Sink_02.prefab	2.500	1.227	0.806	-1.250	0.403	0.000	1
+Props/Bathroom/SM_Prop_HandDryer_01.prefab	0.423	1.144	0.369	0.000	0.185	0.000	1
+Props/Bathroom/SM_Prop_HandDryer_02.prefab	0.336	0.292	0.294	0.000	0.147	-0.146	1
+Props/Bathroom/SM_Prop_PaperTowel_Dispenser_01.prefab	0.313	0.431	0.147	0.000	0.074	-0.215	1
+Props/Bathroom/SM_Prop_Soap_Dispenser_01.prefab	0.151	0.439	0.156	0.000	0.078	-0.015	1
+Props/Bathroom/SM_Prop_Toilet_01.prefab	0.436	1.147	0.716	-0.008	0.354	0.000	4
+Props/Bathroom/SM_Prop_Toilet_Paper_01.prefab	0.266	0.199	0.196	0.000	0.098	-0.118	1
+Props/Bathroom/SM_Prop_Toilet_Paper_02.prefab	0.527	0.740	0.222	0.000	0.111	-0.463	1
+Props/Bathroom/SM_Prop_ToiletStalls_01.prefab	2.150	2.200	1.551	1.000	0.775	0.000	3
+Props/Bathroom/SM_Prop_Urinal_01.prefab	0.418	1.264	0.472	0.000	0.219	-0.170	1
+Props/Bathroom/SM_Prop_Urinal_02.prefab	2.318	1.509	0.439	0.000	0.202	0.000	1
+Props/Bathroom/SM_Prop_VendingMachine_01.prefab	1.200	1.988	0.800	0.000	0.000	0.000	2
+Props/Desk Props/SM_Prop_Alcohol_Bottle_01.prefab	0.127	0.430	0.127	0.000	0.000	0.000	1
+Props/Desk Props/SM_Prop_Alcohol_Glass_01.prefab	0.132	0.129	0.132	0.000	0.000	0.000	1
+Props/Desk Props/SM_Prop_Book_Group_01.prefab	0.906	0.287	0.258	0.000	0.000	-0.003	1
+Props/Desk Props/SM_Prop_Book_Group_02.prefab	0.982	0.306	0.272	0.000	0.000	-0.005	1
+Props/Desk Props/SM_Prop_Book_Group_03.prefab	0.968	0.303	0.272	0.000	0.000	-0.003	1
+Props/Desk Props/SM_Prop_Book_Group_04.prefab	0.391	0.187	0.433	0.000	0.000	0.000	1
+Props/Desk Props/SM_Prop_Book_Group_05.prefab	0.387	0.368	0.281	0.000	0.009	0.000	1
+Props/Desk Props/SM_Prop_Book_Group_06.prefab	0.243	0.380	0.272	-0.093	0.006	0.000	1
+Props/Desk Props/SM_Prop_Book_Group_07.prefab	0.366	0.380	0.272	0.000	0.006	0.000	1
+Props/Desk Props/SM_Prop_Book_Group_08.prefab	0.404	0.174	0.394	0.000	0.000	0.000	1
+Props/Desk Props/SM_Prop_Book_Magazine_01.prefab	0.308	0.028	0.387	0.002	0.000	0.000	1
+Props/Desk Props/SM_Prop_Book_Magazine_02.prefab	0.308	0.028	0.387	0.002	0.000	0.000	1
+Props/Desk Props/SM_Prop_Book_Phone_01.prefab	0.239	0.044	0.268	0.000	0.000	0.000	1
+Props/Desk Props/SM_Prop_Book_Phone_Open_01.prefab	0.501	0.062	0.270	0.000	0.000	0.000	1
+Props/Desk Props/SM_Prop_Bottle_01.prefab	0.104	0.317	0.103	0.004	-0.002	0.000	1
+Props/Desk Props/SM_Prop_Box_01.prefab	0.435	0.363	0.670	0.000	0.000	0.000	2
+Props/Desk Props/SM_Prop_Calculator_01.prefab	0.123	0.027	0.185	0.000	0.000	0.000	1
+Props/Desk Props/SM_Prop_Calculator_02.prefab	0.149	0.061	0.224	0.000	-0.019	0.000	1
+Props/Desk Props/SM_Prop_Can_Soda_01.prefab	0.110	0.195	0.108	-0.002	0.000	0.000	1
+Props/Desk Props/SM_Prop_Card_Reader_01.prefab	0.185	0.047	0.140	0.000	0.020	0.000	1
+Props/Desk Props/SM_Prop_CardRoller_01.prefab	0.205	0.194	0.164	0.000	0.000	0.000	1
+Props/Desk Props/SM_Prop_Cd_01.prefab	0.144	0.007	0.137	0.000	0.000	0.000	1
+Props/Desk Props/SM_Prop_Cellotape_01.prefab	0.201	0.117	0.066	-0.001	0.000	0.000	1
+Props/Desk Props/SM_Prop_Cellphone_01.prefab	0.126	0.028	0.230	0.000	0.000	0.000	1
+Props/Desk Props/SM_Prop_Cellphone_02.prefab	0.091	0.036	0.192	0.000	0.003	0.003	1
+Props/Desk Props/SM_Prop_Clipboard_01.prefab	0.276	0.050	0.432	0.000	0.172	0.000	1
+Props/Desk Props/SM_Prop_Coffee_Tray_01.prefab	0.388	0.100	0.388	0.000	0.000	0.000	1
+Props/Desk Props/SM_Prop_Coffee_Tray_01_Full.prefab	0.388	0.263	0.388	0.000	0.000	0.000	1
+Props/Desk Props/SM_Prop_Computer_Keyboard_01.prefab	0.655	0.037	0.207	0.000	0.000	0.000	1
+Props/Desk Props/SM_Prop_Computer_Keyboard_02.prefab	0.655	0.037	0.207	0.000	0.000	0.000	1
+Props/Desk Props/SM_Prop_Computer_Monitor_01.prefab	0.659	0.504	0.260	0.000	-0.002	0.000	1
+Props/Desk Props/SM_Prop_Computer_Monitor_02.prefab	0.711	0.572	0.215	0.000	0.000	0.000	1
+Props/Desk Props/SM_Prop_Computer_Monitor_03.prefab	0.711	0.585	0.215	0.000	0.000	0.000	1
+Props/Desk Props/SM_Prop_Computer_Monitor_04.prefab	0.848	0.636	0.154	0.000	0.003	0.000	1
+Props/Desk Props/SM_Prop_Computer_Monitor_05.prefab	1.027	0.595	0.220	0.000	0.013	0.000	1
+Props/Desk Props/SM_Prop_Computer_Monitor_Curved_01.prefab	1.048	0.555	0.214	0.000	0.013	0.000	1
+Props/Desk Props/SM_Prop_Computer_Monitor_Double_01.prefab	1.388	0.835	0.450	0.004	0.152	-0.140	1
+Props/Desk Props/SM_Prop_Computer_Monitor_Triple_01.prefab	1.928	0.841	0.606	0.007	0.229	-0.140	1
+Props/Desk Props/SM_Prop_Computer_Mouse_01.prefab	0.114	0.039	0.164	0.012	0.017	0.000	1
+Props/Desk Props/SM_Prop_Computer_Mouse_02.prefab	0.085	0.037	0.129	0.000	0.000	0.000	1
+Props/Desk Props/SM_Prop_Computer_Mouse_03.prefab	0.085	0.037	0.129	0.000	0.000	0.000	1
+Props/Desk Props/SM_Prop_Computer_Mousepad_01.prefab	0.420	0.008	0.334	0.000	0.000	0.000	1
+Props/Desk Props/SM_Prop_Computer_Mousepad_02.prefab	0.547	0.008	0.334	0.000	0.000	0.000	1
+Props/Desk Props/SM_Prop_Computer_Mousepad_03.prefab	0.306	0.037	0.341	0.006	0.019	0.000	1
+Props/Desk Props/SM_Prop_Computer_Setup_01.prefab	0.864	0.572	0.574	0.068	0.034	0.000	1
+Props/Desk Props/SM_Prop_Computer_Setup_02.prefab	0.921	0.636	0.564	-0.036	0.177	0.000	1
+Props/Desk Props/SM_Prop_Computer_Tower_01.prefab	0.219	0.514	0.510	0.000	0.004	0.000	1
+Props/Desk Props/SM_Prop_Computer_Tower_02.prefab	0.261	0.556	0.527	0.000	0.012	0.000	1
+Props/Desk Props/SM_Prop_Computer_Tower_Flat_01.prefab	0.556	0.161	0.527	0.000	0.000	0.000	1
+Props/Desk Props/SM_Prop_Computer_Tower_Modern_01.prefab	0.232	0.639	0.714	0.000	0.000	0.000	2
+Props/Desk Props/SM_Prop_Console_MegaCube_01.prefab	0.192	0.187	0.204	0.000	0.006	0.000	1
+Props/Desk Props/SM_Prop_Console_PlayBox_01.prefab	0.359	0.080	0.320	0.000	-0.014	0.000	1
+Props/Desk Props/SM_Prop_Controller_01.prefab	0.245	0.105	0.186	0.000	-0.005	-0.003	1
+Props/Desk Props/SM_Prop_Controller_02.prefab	0.222	0.045	0.110	0.000	0.000	0.000	1
+Props/Desk Props/SM_Prop_Cord_01.prefab	1.180	0.069	1.220	0.000	0.000	0.000	1
+Props/Desk Props/SM_Prop_Cord_Board_01.prefab	0.758	0.137	0.377	0.000	0.000	-0.015	1
+Props/Desk Props/SM_Prop_Cord_Desk_01.prefab	0.758	0.843	0.602	0.000	0.000	-0.015	1
+Props/Desk Props/SM_Prop_Cord_Desk_02.prefab	0.352	0.780	0.420	-0.028	0.121	-0.007	1
+Props/Desk Props/SM_Prop_Cord_Pile_01.prefab	1.000	0.184	0.582	0.000	0.000	-0.013	1
+Props/Desk Props/SM_Prop_Cord_Wall_01.prefab	1.018	0.415	0.654	0.012	-0.035	-0.013	1
+Props/Desk Props/SM_Prop_Cup_Boss_01.prefab	0.210	0.158	0.154	-0.039	0.000	0.000	1
+Props/Desk Props/SM_Prop_Cup_Coffee_Disposable_Cap_01.prefab	0.180	0.050	0.180	0.000	0.000	-0.011	1
+Props/Desk Props/SM_Prop_Cup_Coffee_Disposable_Closed_01.prefab	0.180	0.225	0.180	0.000	0.000	0.000	1
+Props/Desk Props/SM_Prop_Cup_Coffee_Disposable_Open_01.prefab	0.164	0.182	0.164	0.000	0.000	0.000	1
+Props/Desk Props/SM_Prop_Cup_Coffee_Disposable_Open_Full_01.prefab	0.164	0.182	0.164	0.000	0.000	0.000	1
+Props/Desk Props/SM_Prop_Cup_Coffee_Disposable_Open_Mellow_01.prefab	0.164	0.182	0.164	0.000	0.000	0.000	1
+Props/Desk Props/SM_Prop_Cup_Lid_01.prefab	0.155	0.349	0.155	0.000	0.000	0.000	1
+Props/Desk Props/SM_Prop_Cup_Paper_01.prefab	0.138	0.132	0.138	0.000	0.000	0.000	1
+Props/Desk Props/SM_Prop_Cup_Pens_01.prefab	0.210	0.290	0.154	-0.039	0.000	0.000	1
+Props/Desk Props/SM_Prop_Cup_Red_01.prefab	0.164	0.218	0.164	0.000	0.000	0.000	1
+Props/Desk Props/SM_Prop_Cup_Styrofoam_01.prefab	0.124	0.168	0.124	0.000	0.000	0.000	1
+Props/Desk Props/SM_Prop_Desklamp_01.prefab	0.382	0.401	0.280	0.000	0.095	0.000	1
+Props/Desk Props/SM_Prop_Desklamp_02.prefab	0.172	0.420	0.303	0.000	0.107	0.000	1
+Props/Desk Props/SM_Prop_Desklamp_03.prefab	0.182	0.378	0.271	0.000	0.053	0.000	1
+Props/Desk Props/SM_Prop_Desklamp_04.prefab	0.205	0.405	0.265	0.000	0.086	0.000	1
+Props/Desk Props/SM_Prop_DeskLamp_05.prefab	0.248	0.698	0.704	0.000	0.116	0.000	4
+Props/Desk Props/SM_Prop_DeskLamp_06.prefab	0.214	0.485	0.247	0.000	0.000	0.000	1
+Props/Desk Props/SM_Prop_DeskLamp_07.prefab	0.171	0.485	0.198	0.000	0.000	0.000	1
+Props/Desk Props/SM_Prop_DeskLamp_08.prefab	0.212	0.392	0.389	0.000	0.102	0.000	1
+Props/Desk Props/SM_Prop_DeskToy_NewtownsCradle_01.prefab	0.428	0.383	0.265	0.000	0.000	0.000	6
+Props/Desk Props/SM_Prop_DeskToy_Orbiter_01.prefab	0.441	0.460	0.270	0.000	0.000	0.000	3
+Props/Desk Props/SM_Prop_Dvd_01.prefab	0.144	0.007	0.137	0.000	0.000	0.000	1
+Props/Desk Props/SM_Prop_EnergyDrink_01.prefab	0.118	0.286	0.103	0.000	0.000	0.000	1
+Props/Desk Props/SM_Prop_Eraser_01.prefab	0.107	0.038	0.059	0.000	0.000	0.000	1
+Props/Desk Props/SM_Prop_Eraser_02.prefab	0.176	0.038	0.053	0.000	0.000	0.000	1
+Props/Desk Props/SM_Prop_Eraser_03.prefab	0.185	0.033	0.058	0.000	0.000	0.000	1
+Props/Desk Props/SM_Prop_Fan_Desk_01.prefab	0.671	0.873	0.480	0.000	-0.033	-0.013	3
+Props/Desk Props/SM_Prop_Fan_USB_01.prefab	0.133	0.287	0.068	-0.039	-0.012	-0.031	2
+Props/Desk Props/SM_Prop_FaxMachine_01.prefab	0.665	0.408	0.621	0.059	0.048	-0.004	1
+Props/Desk Props/SM_Prop_Figure_Cowgirl_01.prefab	0.191	0.232	0.193	0.000	0.000	0.000	1
+Props/Desk Props/SM_Prop_Figure_Goblin_01.prefab	0.216	0.239	0.162	0.000	0.000	0.000	1
+Props/Desk Props/SM_Prop_Figure_Knight_01.prefab	0.120	0.221	0.215	0.000	0.000	0.000	1
+Props/Desk Props/SM_Prop_Figure_Viking_01.prefab	0.119	0.210	0.161	0.000	0.000	0.000	1
+Props/Desk Props/SM_Prop_Flash_Drive_01.prefab	0.033	0.018	0.085	0.000	0.009	0.000	1
+Props/Desk Props/SM_Prop_Flash_Drive_02.prefab	0.033	0.018	0.085	0.000	0.009	0.000	1
+Props/Desk Props/SM_Prop_FloppyDisk_01.prefab	0.160	0.016	0.160	0.000	0.000	0.000	1
+Props/Desk Props/SM_Prop_Folder_Holder_01.prefab	0.092	0.356	0.329	0.000	0.000	0.000	1
+Props/Desk Props/SM_Prop_Folder_Holder_02.prefab	0.092	0.409	0.329	0.000	0.000	0.000	1
+Props/Desk Props/SM_Prop_Folder_Holder_03.prefab	0.092	0.397	0.329	0.000	0.000	0.000	1
+Props/Desk Props/SM_Prop_Folder_Holder_04.prefab	0.099	0.434	0.329	0.000	0.000	0.000	1
+Props/Desk Props/SM_Prop_Folder_Manila_01.prefab	0.382	0.026	0.307	-0.002	-0.148	0.000	1
+Props/Desk Props/SM_Prop_Folder_Manila_02.prefab	0.409	0.026	0.307	0.000	-0.148	0.000	1
+Props/Desk Props/SM_Prop_Folder_Manila_03.prefab	0.425	0.073	0.307	0.000	-0.148	0.000	1
+Props/Desk Props/SM_Prop_Folder_Manila_04.prefab	0.427	0.039	0.409	0.000	-0.115	0.000	1
+Props/Desk Props/SM_Prop_Folder_PVC_01.prefab	0.113	0.403	0.379	0.000	0.000	0.000	1
+Props/Desk Props/SM_Prop_Folder_PVC_02.prefab	0.429	0.415	0.386	0.011	0.000	-0.006	1
+Props/Desk Props/SM_Prop_FolderTray_01.prefab	0.389	0.125	0.504	0.000	0.000	0.000	1
+Props/Desk Props/SM_Prop_FolderTray_02.prefab	0.389	0.126	0.504	0.000	0.000	0.000	1
+Props/Desk Props/SM_Prop_FolderTray_03.prefab	0.389	0.125	0.504	0.000	0.000	0.000	1
+Props/Desk Props/SM_Prop_FolderTray_04.prefab	0.466	0.145	0.504	-0.033	0.000	-0.004	1
+Props/Desk Props/SM_Prop_FootRest_01.prefab	0.509	0.167	0.237	0.000	0.000	0.000	1
+Props/Desk Props/SM_Prop_Globe_01.prefab	0.423	0.584	0.354	-0.025	0.000	0.000	1
+Props/Desk Props/SM_Prop_GraphicsTablet_01.prefab	0.453	0.023	0.303	0.000	0.000	0.000	1
+Props/Desk Props/SM_Prop_GraphicsTablet_02.prefab	0.967	0.029	0.570	0.000	0.000	0.000	1
+Props/Desk Props/SM_Prop_GraphicsTablet_03.prefab	0.967	0.221	0.543	0.000	0.001	0.000	1
+Props/Desk Props/SM_Prop_GraphicsTablet_04.prefab	0.967	0.524	0.357	0.000	-0.019	-0.001	1
+Props/Desk Props/SM_Prop_GraphicsTablet_Stylus_01.prefab	0.025	0.021	0.193	0.000	0.007	-0.011	1
+Props/Desk Props/SM_Prop_GraphicsTablet_StylusStand_01.prefab	0.084	0.066	0.073	0.000	0.000	0.000	1
+Props/Desk Props/SM_Prop_Guillotine_01.prefab	0.617	0.244	0.806	0.297	0.350	-0.061	2
+Props/Desk Props/SM_Prop_Guillotine_02.prefab	0.356	0.137	0.547	-0.003	0.000	0.000	2
+Props/Desk Props/SM_Prop_HDD_01.prefab	0.167	0.048	0.251	0.000	0.000	0.000	1
+Props/Desk Props/SM_Prop_HDD_Dock_01.prefab	0.264	0.300	0.176	0.000	0.006	0.000	1
+Props/Desk Props/SM_Prop_HDD_USB_01.prefab	0.084	0.273	0.231	0.000	0.000	0.000	1
+Props/Desk Props/SM_Prop_HDD_USB_02.prefab	0.163	0.046	0.217	0.000	0.000	0.000	1
+Props/Desk Props/SM_Prop_HDD_USB_03.prefab	0.114	0.034	0.161	0.000	0.000	0.000	1
+Props/Desk Props/SM_Prop_Headphones_01.prefab	0.286	0.269	0.154	0.000	0.000	-0.126	1
+Props/Desk Props/SM_Prop_Headphones_02.prefab	0.286	0.269	0.154	0.000	0.000	-0.126	1
+Props/Desk Props/SM_Prop_Headset_01.prefab	0.286	0.269	0.244	0.000	0.045	-0.126	1
+Props/Desk Props/SM_Prop_Headset_02.prefab	0.286	0.269	0.244	0.000	0.045	-0.126	1
+Props/Desk Props/SM_Prop_HolePunch_01.prefab	0.212	0.140	0.154	0.000	0.000	0.000	2
+Props/Desk Props/SM_Prop_ID_Card_01.prefab	0.151	0.008	0.093	0.000	0.000	0.000	1
+Props/Desk Props/SM_Prop_Inhaler_01.prefab	0.057	0.156	0.088	0.000	0.000	-0.026	1
+Props/Desk Props/SM_Prop_Jellybeans_01.prefab	0.215	0.312	0.215	0.000	0.000	0.000	1
+Props/Desk Props/SM_Prop_Joystick_01.prefab	0.184	0.248	0.184	0.000	0.000	0.000	2
+Props/Desk Props/SM_Prop_Joystick_02.prefab	0.230	0.280	0.227	0.000	0.000	0.000	2
+Props/Desk Props/SM_Prop_Laptop_01.prefab	0.519	0.370	0.442	0.000	-0.027	0.000	1
+Props/Desk Props/SM_Prop_Laptop_02.prefab	0.519	0.370	0.442	0.000	-0.027	0.000	1
+Props/Desk Props/SM_Prop_Laptop_Folding_01.prefab	0.519	0.372	0.483	0.000	-0.034	0.000	2
+Props/Desk Props/SM_Prop_Laptop_Folding_02.prefab	0.519	0.372	0.483	0.000	-0.034	0.000	2
+Props/Desk Props/SM_Prop_LaptopStand_01.prefab	0.436	0.206	0.310	0.000	0.037	0.000	1
+Props/Desk Props/SM_Prop_LaptopStand_02.prefab	0.436	0.206	0.316	0.000	0.040	0.000	1
+Props/Desk Props/SM_Prop_Microphone_01.prefab	0.159	0.852	0.620	0.000	0.074	0.000	5
+Props/Desk Props/SM_Prop_Microphone_02.prefab	0.221	0.788	0.620	0.000	0.074	0.000	5
+Props/Desk Props/SM_Prop_Microphone_03.prefab	0.348	0.450	0.344	0.000	0.057	-0.003	1
+Props/Desk Props/SM_Prop_Mints_01.prefab	0.243	0.080	0.243	0.000	0.000	0.000	1
+Props/Desk Props/SM_Prop_Modem_01.prefab	0.259	0.065	0.201	0.000	0.000	0.000	1
+Props/Desk Props/SM_Prop_Modem_02.prefab	0.300	0.248	0.267	0.000	0.001	0.000	1
+Props/Desk Props/SM_Prop_Modem_03.prefab	0.412	0.375	0.241	0.000	0.000	0.000	1
+Props/Desk Props/SM_Prop_Modem_04.prefab	0.211	0.105	0.162	0.000	-0.008	0.000	1
+Props/Desk Props/SM_Prop_Monitor_Crt_01.prefab	0.506	0.534	0.547	0.000	-0.102	0.000	1
+Props/Desk Props/SM_Prop_NamePlate_01.prefab	0.206	0.067	0.059	0.000	0.000	0.000	1
+Props/Desk Props/SM_Prop_Napkins_01.prefab	0.259	0.040	0.296	0.000	0.000	0.000	1
+Props/Desk Props/SM_Prop_Napkins_02.prefab	0.226	0.047	0.252	-0.033	0.007	0.000	1
+Props/Desk Props/SM_Prop_Neon_Cactus_01.prefab	0.289	0.555	0.173	0.002	0.000	0.000	1
+Props/Desk Props/SM_Prop_NetCable_01.prefab	0.439	0.039	0.464	0.000	0.000	0.000	1
+Props/Desk Props/SM_Prop_NetCable_02.prefab	0.431	0.116	0.468	0.000	0.000	0.000	1
+Props/Desk Props/SM_Prop_NetCable_03.prefab	0.420	0.173	0.416	0.000	0.000	0.000	1
+Props/Desk Props/SM_Prop_Note_01.prefab	0.148	0.156	0.049	-0.001	0.024	-0.129	1
+Props/Desk Props/SM_Prop_Note_02.prefab	0.150	0.158	0.049	0.000	0.024	-0.134	1
+Props/Desk Props/SM_Prop_Note_03.prefab	0.144	0.150	0.049	0.000	0.024	-0.126	1
+Props/Desk Props/SM_Prop_Note_04.prefab	0.146	0.153	0.049	0.001	0.024	-0.123	1
+Props/Desk Props/SM_Prop_Note_05.prefab	0.146	0.091	0.143	0.001	0.000	0.000	1
+Props/Desk Props/SM_Prop_Note_06.prefab	0.143	0.030	0.130	0.000	-0.007	0.000	1
+Props/Desk Props/SM_Prop_Note_07.prefab	0.146	0.053	0.137	0.001	-0.003	0.000	1
+Props/Desk Props/SM_Prop_NotePad_01.prefab	0.172	0.042	0.266	0.000	0.000	0.000	1
+Props/Desk Props/SM_Prop_NotePad_02.prefab	0.289	0.024	0.243	0.000	0.000	0.000	1
+Props/Desk Props/SM_Prop_Paper_01.prefab	0.221	0.012	0.333	0.000	0.000	0.000	1
+Props/Desk Props/SM_Prop_Paper_02.prefab	0.221	0.012	0.333	0.000	0.000	0.000	1
+Props/Desk Props/SM_Prop_Paper_03.prefab	0.221	0.012	0.333	0.000	0.000	0.000	1
+Props/Desk Props/SM_Prop_Paper_04.prefab	0.263	0.017	0.263	-0.014	0.035	0.000	1
+Props/Desk Props/SM_Prop_Paper_05.prefab	0.231	0.026	0.310	-0.002	-0.002	0.000	1
+Props/Desk Props/SM_Prop_Paper_06.prefab	0.226	0.018	0.341	0.003	0.004	0.000	1
+Props/Desk Props/SM_Prop_Paper_Lewd_Copy_01.prefab	0.221	0.012	0.333	0.000	0.000	0.000	1
+Props/Desk Props/SM_Prop_Paper_Lewd_Copy_02.prefab	0.221	0.012	0.333	0.000	0.000	0.000	1
+Props/Desk Props/SM_Prop_Paper_Pile_01.prefab	0.267	0.115	0.362	0.000	0.000	0.000	1
+Props/Desk Props/SM_Prop_Paper_Pile_02.prefab	0.267	0.194	0.362	0.000	0.000	0.000	1
+Props/Desk Props/SM_Prop_Paper_Pile_03.prefab	0.283	0.368	0.368	0.000	0.000	0.000	1
+Props/Desk Props/SM_Prop_Paper_Plane_01.prefab	0.194	0.087	0.343	0.000	0.092	-0.078	1
+Props/Desk Props/SM_Prop_PaperShredder_01.prefab	0.344	0.479	0.235	0.000	0.011	0.000	1
+Props/Desk Props/SM_Prop_PaperTray_01_Empty_01.prefab	0.349	0.307	0.456	0.000	-0.015	0.000	1
+Props/Desk Props/SM_Prop_PaperTray_01_Full_01.prefab	0.349	0.307	0.456	0.000	-0.015	0.000	1
+Props/Desk Props/SM_Prop_Pen_01.prefab	0.030	0.205	0.026	0.000	0.000	-0.110	1
+Props/Desk Props/SM_Prop_Pen_02.prefab	0.025	0.177	0.022	0.000	0.000	-0.081	1
+Props/Desk Props/SM_Prop_Pen_03.prefab	0.029	0.219	0.022	-0.005	0.000	-0.106	1
+Props/Desk Props/SM_Prop_Pen_04.prefab	0.065	0.252	0.056	0.000	0.000	-0.135	1
+Props/Desk Props/SM_Prop_Pen_05.prefab	0.053	0.221	0.046	0.000	0.000	-0.104	1
+Props/Desk Props/SM_Prop_Pen_06.prefab	0.024	0.235	0.024	-0.001	0.000	-0.122	1
+Props/Desk Props/SM_Prop_Pencil_01.prefab	0.022	0.191	0.019	0.000	0.000	-0.096	1
+Props/Desk Props/SM_Prop_Pencil_02.prefab	0.022	0.191	0.019	0.000	0.000	-0.096	1
+Props/Desk Props/SM_Prop_Pencil_Sharpener_01.prefab	0.063	0.030	0.063	0.000	0.000	0.000	1
+Props/Desk Props/SM_Prop_Pencil_Sharpener_02.prefab	0.116	0.171	0.208	0.000	-0.041	0.000	1
+Props/Desk Props/SM_Prop_PencilCup_01.prefab	0.133	0.235	0.154	0.000	0.000	0.000	1
+Props/Desk Props/SM_Prop_Phone_Conference_01.prefab	0.508	0.092	0.540	0.000	-0.018	-0.001	1
+Props/Desk Props/SM_Prop_Phone_Desk_01.prefab	0.449	0.285	0.403	0.080	-0.127	-0.003	1
+Props/Desk Props/SM_Prop_Phone_Portable_01_Base_01.prefab	0.137	0.079	0.129	0.000	-0.009	0.000	1
+Props/Desk Props/SM_Prop_Phone_Portable_01_Handset_01.prefab	0.082	0.231	0.048	0.000	0.011	0.031	1
+Props/Desk Props/SM_Prop_Phone_Rotary_01.prefab	0.445	0.167	0.349	0.066	-0.074	-0.003	1
+Props/Desk Props/SM_Prop_Photo_01.prefab	0.428	0.388	0.206	0.000	0.000	-0.006	1
+Props/Desk Props/SM_Prop_Photo_02.prefab	0.361	0.285	0.253	0.000	0.000	-0.003	1
+Props/Desk Props/SM_Prop_Photo_03.prefab	0.348	0.388	0.210	0.000	0.000	-0.006	1
+Props/Desk Props/SM_Prop_Photo_04.prefab	0.251	0.256	0.211	0.000	0.000	-0.006	1
+Props/Desk Props/SM_Prop_Photo_05.prefab	0.251	0.290	0.213	0.000	0.000	-0.006	1
+Props/Desk Props/SM_Prop_Photo_06.prefab	0.444	0.281	0.176	0.000	0.000	-0.003	1
+Props/Desk Props/SM_Prop_Pills_01.prefab	0.105	0.168	0.105	0.000	0.000	0.000	1
+Props/Desk Props/SM_Prop_Pills_02.prefab	0.072	0.131	0.072	0.000	0.000	0.000	1
+Props/Desk Props/SM_Prop_Prank_Cushion_01.prefab	0.317	0.125	0.401	0.000	-0.042	-0.060	1
+Props/Desk Props/SM_Prop_Printer_01.prefab	1.105	0.270	0.324	-0.025	0.000	0.000	2
+Props/Desk Props/SM_Prop_Printer_3D_01.prefab	0.600	0.700	0.709	0.000	-0.055	0.000	1
+Props/Desk Props/SM_Prop_Printer_3D_Toy_01.prefab	0.112	0.221	0.078	0.000	0.000	0.000	1
+Props/Desk Props/SM_Prop_Printer_Mini_01.prefab	0.433	0.363	0.621	0.000	0.000	0.000	1
+Props/Desk Props/SM_Prop_Projector_01.prefab	0.412	0.132	0.348	0.000	0.011	0.000	1
+Props/Desk Props/SM_Prop_Projector_01_Angled.prefab	0.412	0.147	0.355	0.000	0.006	-0.002	1
+Props/Desk Props/SM_Prop_Projector_02.prefab	0.277	0.119	0.244	0.000	0.006	0.000	1
+Props/Desk Props/SM_Prop_PuzzleCube_01.prefab	0.100	0.100	0.100	0.000	0.000	0.000	1
+Props/Desk Props/SM_Prop_Radio_01.prefab	0.386	0.408	0.140	-0.001	0.011	0.000	1
+Props/Desk Props/SM_Prop_Radio_02.prefab	0.676	0.278	0.294	0.000	0.009	0.000	1
+Props/Desk Props/SM_Prop_Ruler_01.prefab	0.600	0.024	0.068	0.000	0.000	0.000	1
+Props/Desk Props/SM_Prop_Scissors_01.prefab	0.170	0.041	0.403	0.014	0.020	-0.021	2
+Props/Desk Props/SM_Prop_Scissors_02.prefab	0.162	0.041	0.330	0.002	0.015	-0.021	2
+Props/Desk Props/SM_Prop_SD_Card_01.prefab	0.060	0.015	0.073	0.000	0.000	0.000	1
+Props/Desk Props/SM_Prop_Spaceship_01.prefab	0.248	0.250	0.379	0.000	0.000	0.000	1
+Props/Desk Props/SM_Prop_Speaker_Bluetooth_01.prefab	0.119	0.272	0.119	0.000	0.000	0.000	1
+Props/Desk Props/SM_Prop_Speaker_Bluetooth_02.prefab	0.400	0.150	0.095	0.000	0.000	0.000	1
+Props/Desk Props/SM_Prop_Speaker_Computer_01.prefab	0.150	0.267	0.094	0.000	0.000	0.000	1
+Props/Desk Props/SM_Prop_Stapler_01.prefab	0.080	0.097	0.285	0.000	-0.001	0.000	2
+Props/Desk Props/SM_Prop_Trophy_01.prefab	0.321	0.471	0.242	0.000	0.000	0.000	1
+Props/Desk Props/SM_Prop_Typewriter_01.prefab	0.552	0.209	0.424	0.000	-0.107	0.000	1
+Props/Desk Props/SM_Prop_VCR_01.prefab	0.411	0.100	0.282	0.000	0.000	0.000	1
+Props/Desk Props/SM_Prop_VHS_Tape_01.prefab	0.241	0.033	0.133	0.000	0.000	0.000	1
+Props/Desk Props/SM_Prop_Webcam_01.prefab	0.129	0.055	0.039	0.000	0.005	0.000	1
+Props/Desk Props/SM_Prop_Webcam_02.prefab	0.170	0.217	0.168	0.000	-0.007	0.000	1
+Props/Exterior/SM_Prop_Benchseat_01.prefab	1.954	0.991	0.646	0.000	0.000	0.000	1
+Props/Exterior/SM_Prop_BikeStand_01.prefab	0.670	1.206	0.757	0.000	0.000	0.000	1
+Props/Exterior/SM_Prop_Concrete_Cube_01.prefab	0.517	0.517	0.517	0.000	0.000	0.000	1
+Props/Exterior/SM_Prop_Flowers_01.prefab	0.570	0.745	0.341	-0.031	0.037	-0.377	1
+Props/Exterior/SM_Prop_Flowers_02.prefab	0.610	0.326	0.605	-0.016	-0.004	-0.085	1
+Props/Exterior/SM_Prop_LampPost_01.prefab	0.425	3.521	0.840	0.000	0.271	0.000	1
+Props/Exterior/SM_Prop_Outdoor_Seat_01.prefab	5.000	0.719	1.705	0.000	-0.160	0.000	1
+Props/Exterior/SM_Prop_Pole_01.prefab	0.384	0.992	0.384	0.000	0.000	0.000	1
+Props/Exterior/SM_Prop_PowerBox_02.prefab	0.387	1.292	0.263	0.000	0.000	0.000	1
+Props/Exterior/SM_Prop_Sculpture_01.prefab	2.126	2.093	2.126	0.000	0.000	0.000	1
+Props/Exterior/SM_Prop_Sculpture_02.prefab	1.264	2.437	1.264	0.000	0.000	0.000	1
+Props/Exterior/SM_Prop_Sculpture_Base_01.prefab	1.671	0.450	1.671	0.000	0.000	-0.139	1
+Props/Exterior/SM_Prop_Small_Hedge_01.prefab	2.500	0.671	0.835	0.000	-0.005	0.000	1
+Props/Exterior/SM_Prop_Spouting_01.prefab	0.246	3.000	0.213	0.000	0.000	0.000	1
+Props/Exterior/SM_Prop_Spouting_02.prefab	0.198	3.000	0.198	0.000	0.000	0.000	1
+Props/Exterior/SM_Prop_Spouting_03.prefab	0.656	3.000	0.198	-0.229	0.000	0.000	1
+Props/Exterior/SM_Prop_Spouting_Top_01.prefab	0.356	0.228	0.227	0.000	0.000	2.887	1
+Props/Exterior/SM_Prop_Trashbin_01.prefab	0.624	1.137	0.476	0.000	0.000	0.000	1
+Props/Exterior/SM_Prop_Tree_Round_01.prefab	1.101	1.701	1.061	0.000	0.000	0.000	1
+Props/Furniture/SM_Prop_Cabinets_01.prefab	0.480	1.512	0.564	0.000	0.000	0.000	1
+Props/Furniture/SM_Prop_Cabinets_02.prefab	0.651	0.757	0.851	0.000	0.000	0.000	1
+Props/Furniture/SM_Prop_Cabinets_03.prefab	0.480	1.189	0.564	0.000	0.000	0.000	1
+Props/Furniture/SM_Prop_Chair_01.prefab	0.534	0.972	0.635	0.000	0.000	0.000	1
+Props/Furniture/SM_Prop_Chair_02.prefab	0.679	1.010	0.687	0.000	0.000	0.000	1
+Props/Furniture/SM_Prop_Chair_03.prefab	0.679	1.056	0.717	0.000	0.000	0.000	1
+Props/Furniture/SM_Prop_Chair_04.prefab	0.679	1.078	0.708	0.000	0.000	0.000	1
+Props/Furniture/SM_Prop_Chair_05.prefab	0.732	0.939	0.732	0.000	0.000	0.000	1
+Props/Furniture/SM_Prop_Chair_06.prefab	0.732	1.086	0.732	0.000	0.000	0.000	1
+Props/Furniture/SM_Prop_Chair_07.prefab	0.675	1.082	0.696	0.000	0.000	0.000	1
+Props/Furniture/SM_Prop_Chair_08.prefab	0.722	1.160	0.726	0.000	0.000	0.000	1
+Props/Furniture/SM_Prop_Chair_09.prefab	0.534	0.834	0.580	0.000	0.000	0.000	1
+Props/Furniture/SM_Prop_Chair_10.prefab	0.704	1.261	0.704	0.000	0.000	0.000	1
+Props/Furniture/SM_Prop_Chair_11.prefab	0.482	0.730	0.458	0.000	0.000	0.000	1
+Props/Furniture/SM_Prop_Chair_BeanBag_01.prefab	0.809	0.662	0.826	0.000	0.000	-0.047	1
+Props/Furniture/SM_Prop_Chair_BeanBag_02.prefab	1.133	0.778	1.137	0.000	0.000	-0.047	1
+Props/Furniture/SM_Prop_Chair_BeanBag_03.prefab	0.835	0.618	0.822	0.000	0.000	-0.047	1
+Props/Furniture/SM_Prop_Chair_BeanBag_04.prefab	1.134	0.895	1.058	0.000	0.000	-0.061	1
+Props/Furniture/SM_Prop_CoffeeTable_01.prefab	1.048	0.424	0.711	-0.073	0.000	0.000	1
+Props/Furniture/SM_Prop_CoffeeTable_02.prefab	0.965	0.510	0.695	0.000	0.000	0.000	1
+Props/Furniture/SM_Prop_CoffeeTable_03.prefab	0.695	0.533	0.695	0.000	0.000	0.000	1
+Props/Furniture/SM_Prop_Couch_01.prefab	1.159	1.002	0.900	0.000	0.023	0.000	1
+Props/Furniture/SM_Prop_Couch_02.prefab	1.942	0.944	0.925	0.000	0.034	0.000	1
+Props/Furniture/SM_Prop_Couch_03.prefab	2.298	0.952	0.808	-0.003	0.000	0.000	2
+Props/Furniture/SM_Prop_Couch_04.prefab	1.828	0.910	0.933	0.000	-0.052	0.000	1
+Props/Furniture/SM_Prop_Couch_05.prefab	0.947	1.209	0.926	0.000	0.000	-0.012	1
+Props/Furniture/SM_Prop_Couch_06.prefab	1.102	0.977	0.827	0.000	0.000	0.000	1
+Props/Furniture/SM_Prop_CubicalWall_01.prefab	2.000	1.331	0.071	1.000	0.000	0.022	1
+Props/Furniture/SM_Prop_CubicalWall_01_Half.prefab	1.000	1.331	0.071	0.500	0.000	0.022	1
+Props/Furniture/SM_Prop_CubicalWall_Pillar_01.prefab	0.107	1.409	0.107	0.000	0.000	0.000	1
+Props/Furniture/SM_Prop_CubicalWall_Pillar_Tall_01.prefab	0.107	2.001	0.107	0.000	0.000	0.000	1
+Props/Furniture/SM_Prop_CubicalWall_Tall_01.prefab	2.000	1.923	0.071	1.000	0.000	0.022	1
+Props/Furniture/SM_Prop_CubicalWall_Tall_01_Half.prefab	1.000	1.923	0.071	0.500	0.000	0.022	1
+Props/Furniture/SM_Prop_Desk_01.prefab	1.958	0.750	0.885	0.000	0.000	0.000	1
+Props/Furniture/SM_Prop_Desk_02.prefab	1.958	0.750	1.958	0.000	0.000	0.000	1
+Props/Furniture/SM_Prop_Desk_03.prefab	2.180	0.750	0.954	0.000	0.000	0.000	1
+Props/Furniture/SM_Prop_Desk_04.prefab	2.063	0.750	0.886	0.000	0.000	0.000	1
+Props/Furniture/SM_Prop_Desk_05.prefab	2.742	0.750	2.084	0.000	0.000	0.000	1
+Props/Furniture/SM_Prop_Desk_06.prefab	3.139	0.928	1.783	-0.039	-0.217	0.000	1
+Props/Furniture/SM_Prop_Desk_Standing_01.prefab	1.600	1.025	0.834	0.000	0.017	0.000	1
+Props/Furniture/SM_Prop_Desk_Treadmill_01.prefab	0.891	0.268	1.801	0.000	0.468	0.000	1
+Props/Furniture/SM_Prop_Divider_01.prefab	2.500	1.500	0.050	1.250	0.025	0.000	1
+Props/Furniture/SM_Prop_Divider_Folding_01.prefab	1.734	1.950	0.065	0.867	0.033	0.000	3
+Props/Furniture/SM_Prop_Divider_Folding_01_Preset.prefab	1.568	1.950	0.373	0.750	0.184	0.000	1
+Props/Furniture/SM_Prop_Divider_Half_01.prefab	1.250	1.500	0.050	0.625	0.025	0.000	1
+Props/Furniture/SM_Prop_Shelf_01.prefab	1.181	1.806	0.478	-0.019	0.000	0.000	1
+Props/Furniture/SM_Prop_Shelf_02.prefab	2.213	1.598	0.508	0.000	0.000	0.000	1
+Props/Furniture/SM_Prop_Shelf_03.prefab	1.207	1.929	0.508	0.000	0.000	0.000	1
+Props/Furniture/SM_Prop_Shelf_04.prefab	1.102	1.092	0.664	0.000	0.000	0.000	1
+Props/Furniture/SM_Prop_Shelf_05.prefab	1.365	1.522	0.448	0.000	0.000	0.000	1
+Props/Furniture/SM_Prop_Shelf_06.prefab	1.404	0.893	0.382	0.000	0.000	0.000	1
+Props/Furniture/SM_Prop_Shelf_07.prefab	3.068	1.673	0.478	0.000	0.000	0.000	1
+Props/Furniture/SM_Prop_Table_01.prefab	2.105	0.750	1.299	0.000	0.000	0.000	1
+Props/Furniture/SM_Prop_Table_02.prefab	1.327	0.750	1.268	0.000	0.000	0.000	1
+Props/Furniture/SM_Prop_Table_03.prefab	1.872	0.750	0.877	0.000	0.000	0.000	1
+Props/Furniture/SM_Prop_Table_Conference_01.prefab	4.055	0.750	2.218	0.000	0.000	0.000	1
+Props/Furniture/SM_Prop_Table_Conference_02.prefab	4.041	0.754	1.378	0.000	0.000	0.000	1
+Props/Furniture/SM_Prop_Table_Conference_03.prefab	4.055	0.905	1.860	0.000	0.000	0.000	1
+Props/Furniture/SM_Prop_Table_Drafting_01.prefab	1.633	1.324	0.842	0.000	0.030	0.000	1
+Props/Furniture/SM_Prop_Table_Round_01.prefab	1.170	0.750	1.183	0.000	0.000	0.000	1
+Props/Furniture/SM_Prop_Table_Round_02.prefab	1.296	0.750	1.296	0.000	0.000	0.000	1
+Props/Furniture/SM_Prop_TableFootball_01.prefab	1.432	0.891	1.503	0.000	0.000	0.000	7
+Props/Furniture/SM_Prop_TableTennis_01.prefab	4.055	1.042	2.014	0.000	0.000	-0.002	1
+Props/Kitchen Props/SM_Prop_Blender_01.prefab	0.279	0.459	0.294	0.023	0.021	0.000	3
+Props/Kitchen Props/SM_Prop_Cake_01.prefab	0.563	0.374	0.535	0.000	0.000	0.000	1
+Props/Kitchen Props/SM_Prop_ChoppingBoard_01.prefab	0.889	0.083	0.626	0.000	-0.008	0.000	1
+Props/Kitchen Props/SM_Prop_ChoppingBoard_02.prefab	0.666	0.048	0.378	0.000	0.000	0.000	1
+Props/Kitchen Props/SM_Prop_CoffeeMachine_01.prefab	1.039	0.817	0.876	0.000	0.095	0.000	3
+Props/Kitchen Props/SM_Prop_CoffeeMachine_Dripper_01.prefab	0.360	0.610	0.474	0.000	-0.042	0.000	1
+Props/Kitchen Props/SM_Prop_CoffeeMachine_Dripper_01_Pot_01.prefab	0.263	0.272	0.357	0.000	0.047	0.000	3
+Props/Kitchen Props/SM_Prop_CoffeeMachine_Small_01.prefab	0.596	0.702	0.994	-0.001	0.009	0.000	2
+Props/Kitchen Props/SM_Prop_Container_01.prefab	0.202	0.289	0.202	0.000	0.000	0.000	1
+Props/Kitchen Props/SM_Prop_Cup_01.prefab	0.210	0.158	0.154	-0.039	0.000	0.000	1
+Props/Kitchen Props/SM_Prop_Cup_02.prefab	0.192	0.158	0.154	-0.030	0.000	0.000	1
+Props/Kitchen Props/SM_Prop_Cup_03.prefab	0.186	0.112	0.163	-0.023	0.000	0.000	1
+Props/Kitchen Props/SM_Prop_Cup_Saucer_03.prefab	0.231	0.021	0.200	0.000	0.000	0.000	1
+Props/Kitchen Props/SM_Prop_Dishes_01.prefab	0.435	0.033	0.435	0.000	0.000	0.000	1
+Props/Kitchen Props/SM_Prop_Dishes_02.prefab	0.435	0.033	0.435	0.000	0.000	0.000	1
+Props/Kitchen Props/SM_Prop_Dishes_03.prefab	0.343	0.088	0.343	0.000	0.000	0.000	1
+Props/Kitchen Props/SM_Prop_Dishes_04.prefab	0.258	0.089	0.258	0.000	0.000	0.000	1
+Props/Kitchen Props/SM_Prop_Donut_01.prefab	0.218	0.068	0.218	0.000	0.000	0.000	1
+Props/Kitchen Props/SM_Prop_Donut_Box_01.prefab	0.536	0.365	0.432	0.005	0.006	0.000	1
+Props/Kitchen Props/SM_Prop_Donut_Choc_01.prefab	0.218	0.068	0.218	0.000	0.000	0.000	1
+Props/Kitchen Props/SM_Prop_Donut_Cream_01.prefab	0.218	0.068	0.218	0.000	0.000	0.000	1
+Props/Kitchen Props/SM_Prop_Donut_Pink_01.prefab	0.218	0.068	0.218	0.000	0.000	0.000	1
+Props/Kitchen Props/SM_Prop_Donut_Pink_02.prefab	0.218	0.068	0.210	0.000	-0.004	0.000	1
+Props/Kitchen Props/SM_Prop_Fridge_01.prefab	1.250	1.958	0.726	0.000	0.063	0.000	4
+Props/Kitchen Props/SM_Prop_Fridge_02.prefab	0.934	2.153	0.847	0.000	0.073	0.000	3
+Props/Kitchen Props/SM_Prop_FruitBowl_01.prefab	0.430	0.230	0.401	0.000	-0.030	0.014	1
+Props/Kitchen Props/SM_Prop_JellyStapler_01.prefab	0.563	0.246	0.535	0.000	0.000	0.000	1
+Props/Kitchen Props/SM_Prop_Kettle_01.prefab	0.388	0.396	0.278	-0.048	0.000	0.044	2
+Props/Kitchen Props/SM_Prop_Kettle_01_Base_01.prefab	0.293	0.063	0.279	0.000	0.000	0.000	1
+Props/Kitchen Props/SM_Prop_Kitchen_Cabinet_01.prefab	1.000	1.044	0.713	0.500	0.357	0.000	3
+Props/Kitchen Props/SM_Prop_Kitchen_Counter_01.prefab	1.000	0.950	1.033	0.500	0.516	0.000	4
+Props/Kitchen Props/SM_Prop_Kitchen_CounterSink_01.prefab	1.000	1.467	1.033	0.500	0.516	0.000	3
+Props/Kitchen Props/SM_Prop_Kitchen_CounterSink_Dishes_01.prefab	0.607	0.284	0.487	0.492	0.620	0.772	1
+Props/Kitchen Props/SM_Prop_Knife_Holder_01.prefab	0.188	0.478	0.402	0.000	-0.005	0.000	1
+Props/Kitchen Props/SM_Prop_Knife_Holder_02.prefab	0.710	0.615	0.083	0.000	0.042	-0.360	1
+Props/Kitchen Props/SM_Prop_Lunchbox_01.prefab	0.360	0.140	0.314	-0.004	-0.003	0.000	3
+Props/Kitchen Props/SM_Prop_Lunchbox_Plastic_01.prefab	0.360	0.174	0.353	0.000	0.015	0.000	3
+Props/Kitchen Props/SM_Prop_Microwave_01.prefab	0.571	0.286	0.471	0.000	0.018	0.000	3
+Props/Kitchen Props/SM_Prop_Milk_01.prefab	0.174	0.412	0.174	0.000	0.000	0.000	1
+Props/Kitchen Props/SM_Prop_Milk_Claimed_01.prefab	0.190	0.414	0.213	-0.008	0.019	0.000	1
+Props/Kitchen Props/SM_Prop_MiniFridge_01.prefab	0.772	1.307	0.770	0.000	0.044	0.000	3
+Props/Kitchen Props/SM_Prop_Pot_01.prefab	0.611	0.349	0.452	0.000	0.000	0.000	2
+Props/Kitchen Props/SM_Prop_Pot_Spilled_01.prefab	0.805	0.419	1.025	0.036	0.149	-0.016	1
+Props/Kitchen Props/SM_Prop_Sandwich_01.prefab	0.177	0.096	0.273	0.000	0.000	0.000	1
+Props/Kitchen Props/SM_Prop_Sandwich_02.prefab	0.201	0.167	0.213	0.000	0.000	0.000	1
+Props/Kitchen Props/SM_Prop_Sink_01.prefab	0.790	1.069	0.790	0.000	0.000	0.000	1
+Props/Kitchen Props/SM_Prop_Toast_01.prefab	0.172	0.022	0.178	0.000	0.000	0.000	1
+Props/Kitchen Props/SM_Prop_Toast_02.prefab	0.170	0.022	0.178	0.001	0.000	0.000	1
+Props/Kitchen Props/SM_Prop_Toast_03.prefab	0.172	0.022	0.178	0.000	0.000	0.000	1
+Props/Kitchen Props/SM_Prop_Toaster_01.prefab	0.214	0.229	0.395	0.000	0.012	0.000	1
+Props/Kitchen Props/SM_Prop_Toaster_02.prefab	0.401	0.240	0.327	0.000	0.013	0.000	1
+Props/Misc/SM_Prop_Air_Horn_01.prefab	0.138	0.307	0.232	0.000	0.054	0.000	1
+Props/Misc/SM_Prop_ArcadeMachine_01.prefab	0.897	1.927	1.002	0.000	0.007	0.000	3
+Props/Misc/SM_Prop_Balloon_01.prefab	0.469	1.848	0.493	0.000	0.000	-0.924	1
+Props/Misc/SM_Prop_Balloon_02.prefab	1.214	1.653	1.298	-0.028	-0.007	-0.667	1
+Props/Misc/SM_Prop_Bin_01.prefab	0.451	0.438	0.460	0.000	0.000	0.000	1
+Props/Misc/SM_Prop_Bin_02.prefab	0.439	0.702	0.435	0.000	0.000	0.000	1
+Props/Misc/SM_Prop_Bin_03.prefab	0.298	0.565	0.383	0.000	0.000	0.012	1
+Props/Misc/SM_Prop_Bin_Rubbish_01.prefab	0.327	0.310	0.348	0.000	0.000	-0.155	1
+Props/Misc/SM_Prop_Briefcase_01.prefab	0.527	0.469	0.136	0.004	0.000	-0.007	2
+Props/Misc/SM_Prop_Briefcase_02.prefab	0.547	0.466	0.130	0.000	0.000	0.000	1
+Props/Misc/SM_Prop_Briefcase_03.prefab	0.505	0.514	0.145	0.000	0.000	0.000	1
+Props/Misc/SM_Prop_Briefcase_Laptop_01.prefab	0.658	0.170	0.573	0.000	0.000	0.000	1
+Props/Misc/SM_Prop_Broom_01.prefab	0.222	1.032	0.070	0.000	0.000	-0.516	1
+Props/Misc/SM_Prop_Bucket_01.prefab	0.476	0.513	0.469	0.009	0.000	0.000	1
+Props/Misc/SM_Prop_Bucket_02.prefab	0.524	0.710	0.504	0.000	0.000	0.000	1
+Props/Misc/SM_Prop_Bunting_01.prefab	2.794	0.626	0.026	0.000	0.000	-0.601	1
+Props/Misc/SM_Prop_Bunting_02.prefab	2.794	0.626	0.026	0.000	0.000	-0.601	1
+Props/Misc/SM_Prop_Bunting_03.prefab	2.794	0.626	0.026	0.000	0.000	-0.601	1
+Props/Misc/SM_Prop_Camera_Tripod_01.prefab	0.663	1.499	0.588	0.000	-0.088	-0.001	1
+Props/Misc/SM_Prop_Camera_Tripod_02.prefab	0.678	1.921	0.815	0.000	0.016	-0.003	1
+Props/Misc/SM_Prop_CardboardBox_01.prefab	0.330	0.275	0.472	0.000	0.000	0.000	1
+Props/Misc/SM_Prop_CardboardBox_02.prefab	0.330	0.275	0.472	0.000	0.000	0.000	1
+Props/Misc/SM_Prop_CardboardBox_03.prefab	0.609	0.346	0.830	0.000	0.000	0.000	1
+Props/Misc/SM_Prop_CardboardBox_04.prefab	0.524	0.418	0.499	0.000	0.000	0.000	1
+Props/Misc/SM_Prop_CardboardBox_05.prefab	0.329	0.317	0.514	0.000	0.000	0.000	1
+Props/Misc/SM_Prop_CardboardBox_Stack_01.prefab	1.010	0.917	1.044	0.000	0.000	0.000	1
+Props/Misc/SM_Prop_Cart_01.prefab	0.527	0.926	1.157	0.000	0.000	0.000	1
+Props/Misc/SM_Prop_Cart_02.prefab	0.642	0.933	1.056	0.000	0.000	0.000	1
+Props/Misc/SM_Prop_CoatRack_01.prefab	0.741	2.023	0.741	-0.004	0.000	0.000	2
+Props/Misc/SM_Prop_Fan_Pedistal_01.prefab	0.690	1.512	0.690	0.000	0.000	0.000	3
+Props/Misc/SM_Prop_Fish_01.prefab	0.031	0.089	0.170	0.000	-0.018	-0.044	1
+Props/Misc/SM_Prop_Fish_01_Preset.prefab	1.285	1.341	0.667	0.000	0.000	0.000	3
+Props/Misc/SM_Prop_Fishtank_01.prefab	1.285	1.341	0.667	0.000	0.000	0.000	2
+Props/Misc/SM_Prop_GreenScreen_01.prefab	3.556	2.347	2.061	0.000	0.590	-0.010	1
+Props/Misc/SM_Prop_GreenScreen_02.prefab	0.859	0.025	1.215	0.000	0.000	-0.013	1
+Props/Misc/SM_Prop_Janitor_Bucket_01.prefab	0.486	0.692	0.487	-0.013	-0.001	0.000	1
+Props/Misc/SM_Prop_Janitor_Cart_01.prefab	1.603	1.302	0.787	0.000	0.000	0.000	1
+Props/Misc/SM_Prop_Jukebox_01.prefab	1.180	1.628	0.793	0.009	0.036	0.000	1
+Props/Misc/SM_Prop_Minigolf_Ball_01.prefab	0.067	0.070	0.070	0.000	0.000	-0.035	1
+Props/Misc/SM_Prop_Minigolf_Club_01.prefab	0.155	0.981	0.043	0.034	0.000	-0.714	1
+Props/Misc/SM_Prop_Minigolf_Flag_01.prefab	0.447	1.229	0.065	-0.213	-0.003	0.000	1
+Props/Misc/SM_Prop_Minigolf_Green_01.prefab	1.017	0.091	2.678	0.000	-1.339	0.000	1
+Props/Misc/SM_Prop_Mop_01.prefab	0.499	1.600	0.698	0.000	0.000	0.000	1
+Props/Misc/SM_Prop_Mop_02.prefab	0.269	1.711	0.257	0.000	-0.005	-0.855	1
+Props/Misc/SM_Prop_OHP_01.prefab	0.608	0.976	0.559	-0.027	0.000	0.000	1
+Props/Misc/SM_Prop_Pallet_01.prefab	1.441	0.235	1.418	0.000	0.000	0.000	1
+Props/Misc/SM_Prop_Pan_01.prefab	0.595	0.084	0.332	0.131	0.000	0.000	1
+Props/Misc/SM_Prop_PaperRoll_01.prefab	0.177	0.129	0.229	-0.006	0.000	0.000	1
+Props/Misc/SM_Prop_Papers_01.prefab	1.704	0.022	0.949	0.000	0.000	0.004	1
+Props/Misc/SM_Prop_Papers_02.prefab	1.053	0.022	0.558	0.000	0.000	0.005	1
+Props/Misc/SM_Prop_Papers_03.prefab	0.526	0.017	0.550	0.000	0.000	0.005	1
+Props/Misc/SM_Prop_Party_Hat_01.prefab	0.170	0.256	0.170	0.000	0.000	0.000	1
+Props/Misc/SM_Prop_Party_Hat_02.prefab	0.170	0.256	0.170	0.000	0.000	0.000	1
+Props/Misc/SM_Prop_Party_Hat_03.prefab	0.170	0.256	0.170	0.000	0.000	0.000	1
+Props/Misc/SM_Prop_Photocopier_01.prefab	1.409	1.073	0.597	-0.144	0.015	0.000	2
+Props/Misc/SM_Prop_Photocopier_02.prefab	0.874	0.679	0.601	0.123	0.017	0.000	2
+Props/Misc/SM_Prop_Plant_01.prefab	0.678	1.012	0.736	-0.026	-0.020	0.000	1
+Props/Misc/SM_Prop_Plant_02.prefab	0.496	1.046	0.433	-0.048	-0.015	0.000	1
+Props/Misc/SM_Prop_Plant_03.prefab	0.462	0.301	0.194	0.000	0.000	0.000	1
+Props/Misc/SM_Prop_Plant_04.prefab	0.755	1.158	0.578	0.003	-0.027	0.000	1
+Props/Misc/SM_Prop_Plant_05.prefab	1.133	1.077	0.588	0.000	0.000	0.000	1
+Props/Misc/SM_Prop_Plant_06.prefab	1.522	1.335	1.635	-0.046	-0.030	0.000	1
+Props/Misc/SM_Prop_Plant_07.prefab	2.435	1.511	1.427	0.000	0.000	0.000	1
+Props/Misc/SM_Prop_Plant_08.prefab	0.327	0.388	0.349	-0.011	0.007	0.000	1
+Props/Misc/SM_Prop_Plant_09.prefab	0.312	0.369	0.325	0.000	0.000	0.000	1
+Props/Misc/SM_Prop_Plant_10.prefab	0.457	0.529	0.506	-0.019	-0.020	-0.021	1
+Props/Misc/SM_Prop_Plant_11.prefab	0.219	0.306	0.208	-0.006	0.000	0.000	1
+Props/Misc/SM_Prop_Plant_12.prefab	1.805	1.728	1.800	-0.034	0.004	0.000	1
+Props/Misc/SM_Prop_Plant_13.prefab	1.377	1.395	1.429	0.012	0.092	0.000	1
+Props/Misc/SM_Prop_Plant_14.prefab	1.580	2.497	1.639	0.012	0.117	0.000	1
+Props/Misc/SM_Prop_Plant_Flowers_01.prefab	0.243	0.714	0.232	0.006	0.000	-0.005	1
+Props/Misc/SM_Prop_Plant_Flowers_02.prefab	0.281	0.919	0.242	0.017	-0.005	-0.005	1
+Props/Misc/SM_Prop_PoolBall_01.prefab	0.084	0.089	0.084	0.000	0.000	-0.044	1
+Props/Misc/SM_Prop_PoolBall_02.prefab	0.084	0.089	0.084	0.000	0.000	-0.044	1
+Props/Misc/SM_Prop_PoolBall_03.prefab	0.084	0.089	0.084	0.000	0.000	-0.044	1
+Props/Misc/SM_Prop_PoolBall_04.prefab	0.084	0.089	0.084	0.000	0.000	-0.044	1
+Props/Misc/SM_Prop_PoolCue_01.prefab	0.051	0.044	1.727	0.000	0.673	-0.022	1
+Props/Misc/SM_Prop_PoolTable_01.prefab	3.330	0.888	1.882	0.000	0.000	0.000	1
+Props/Misc/SM_Prop_PoolTable_02.prefab	3.330	0.890	1.882	-0.001	0.002	0.000	1
+Props/Misc/SM_Prop_PoolTriangle_01.prefab	0.467	0.053	0.539	0.067	0.000	0.000	1
+Props/Misc/SM_Prop_Powerbox_01.prefab	0.962	1.146	0.775	0.000	0.000	0.000	1
+Props/Misc/SM_Prop_Presentation_Chart_01.prefab	1.218	1.821	1.065	0.000	-0.266	0.000	1
+Props/Misc/SM_Prop_Propane_01.prefab	0.348	0.479	0.348	0.000	0.000	0.000	1
+Props/Misc/SM_Prop_Rolling_TV_01.prefab	1.272	1.853	0.838	0.000	0.110	0.000	1
+Props/Misc/SM_Prop_Rubbish_01.prefab	0.142	0.124	0.150	0.000	-0.004	-0.071	1
+Props/Misc/SM_Prop_Rubbish_02.prefab	0.197	0.081	0.165	0.000	-0.016	-0.068	1
+Props/Misc/SM_Prop_Rug_01.prefab	2.950	0.037	3.413	0.000	0.000	0.000	1
+Props/Misc/SM_Prop_Rug_02.prefab	1.596	0.037	3.413	0.073	0.000	0.000	1
+Props/Misc/SM_Prop_Rug_03.prefab	1.031	0.043	2.194	-0.008	0.000	0.000	1
+Props/Misc/SM_Prop_Rug_04.prefab	1.068	0.078	2.240	0.022	0.023	0.000	1
+Props/Misc/SM_Prop_Server_Cabinet_01.prefab	0.934	2.034	1.000	0.000	0.000	0.000	1
+Props/Misc/SM_Prop_Server_Cabinet_01_Full.prefab	0.934	2.034	1.000	0.000	0.000	0.000	1
+Props/Misc/SM_Prop_Server_Cabinet_02.prefab	0.934	2.034	1.000	0.000	0.000	0.000	1
+Props/Misc/SM_Prop_Server_Cabinet_02_Full.prefab	0.934	2.034	1.000	0.000	0.000	0.000	1
+Props/Misc/SM_Prop_Server_Cabinet_03.prefab	0.567	0.816	0.766	0.000	0.000	0.000	1
+Props/Misc/SM_Prop_Server_Cabinet_03_Full.prefab	0.567	0.816	0.766	0.000	0.000	0.000	1
+Props/Misc/SM_Prop_Server_Node_01.prefab	0.798	0.200	0.700	0.000	0.000	0.000	1
+Props/Misc/SM_Prop_Server_Node_02.prefab	0.735	0.100	0.700	0.000	0.000	0.000	1
+Props/Misc/SM_Prop_Server_Node_03.prefab	0.409	0.081	0.700	0.000	0.000	-0.006	1
+Props/Misc/SM_Prop_Sign_Wetfloor_01.prefab	0.430	0.786	0.459	0.000	0.000	0.000	1
+Props/Misc/SM_Prop_Snack_01.prefab	0.306	0.136	0.343	0.000	0.000	-0.015	1
+Props/Misc/SM_Prop_Snack_02.prefab	0.306	0.136	0.343	0.000	0.000	-0.015	1
+Props/Misc/SM_Prop_Snack_03.prefab	0.306	0.136	0.343	0.000	0.000	-0.015	1
+Props/Misc/SM_Prop_Snack_04.prefab	0.306	0.136	0.343	0.000	0.000	-0.015	1
+Props/Misc/SM_Prop_Snack_05.prefab	0.306	0.136	0.343	0.000	0.000	-0.015	1
+Props/Misc/SM_Prop_Snack_06.prefab	0.243	0.136	0.343	0.000	0.000	-0.015	1
+Props/Misc/SM_Prop_Snack_07.prefab	0.075	0.046	0.194	0.000	0.000	0.000	1
+Props/Misc/SM_Prop_Snack_08.prefab	0.243	0.132	0.343	0.000	0.000	-0.015	1
+Props/Misc/SM_Prop_Snack_09.prefab	0.075	0.046	0.194	0.000	0.000	0.000	1
+Props/Misc/SM_Prop_Snack_10.prefab	0.075	0.046	0.194	0.000	0.000	0.000	1
+Props/Misc/SM_Prop_Snack_11.prefab	0.075	0.046	0.194	0.000	0.000	0.000	1
+Props/Misc/SM_Prop_Snack_12.prefab	0.075	0.046	0.194	0.000	0.000	0.000	1
+Props/Misc/SM_Prop_Snack_13.prefab	0.075	0.046	0.194	0.000	0.000	0.000	1
+Props/Misc/SM_Prop_Snack_14.prefab	0.306	0.136	0.343	0.000	0.000	-0.015	1
+Props/Misc/SM_Prop_Snack_15.prefab	0.075	0.046	0.194	0.000	0.000	0.000	1
+Props/Misc/SM_Prop_Snack_16.prefab	0.075	0.046	0.194	0.000	0.000	0.000	1
+Props/Misc/SM_Prop_Snack_17.prefab	0.075	0.046	0.194	0.000	0.000	0.000	1
+Props/Misc/SM_Prop_Snack_18.prefab	0.075	0.046	0.194	0.000	0.000	0.000	1
+Props/Misc/SM_Prop_SprayBottle_01.prefab	0.037	0.269	0.096	0.000	0.000	0.000	1
+Props/Misc/SM_Prop_SwissBall_01.prefab	0.690	0.681	0.692	0.000	0.000	-0.340	1
+Props/Misc/SM_Prop_TableFootball_Ball_01.prefab	0.200	0.200	0.200	0.000	0.000	-0.100	1
+Props/Misc/SM_Prop_TableTennis_Ball_01.prefab	0.067	0.070	0.070	0.000	0.000	-0.035	1
+Props/Misc/SM_Prop_TableTennis_Paddle_01.prefab	0.243	0.384	0.026	0.000	0.000	-0.068	1
+Props/Misc/SM_Prop_Vacuum_01.prefab	0.926	1.283	0.674	-0.058	0.107	-0.018	1
+Props/Misc/SM_Prop_WaterCooler_01.prefab	0.570	1.681	0.473	-0.059	0.010	0.000	2
+Props/Misc/SM_Prop_Whiteboard_01.prefab	1.497	1.023	0.057	0.000	0.028	-0.512	1
+Props/Misc/SM_Prop_Whiteboard_02.prefab	1.627	1.906	0.709	0.000	0.000	0.000	2
+Props/Misc/SM_Prop_Xmas_Present_01.prefab	0.701	0.314	0.545	-0.039	0.051	0.000	1
+Props/Misc/SM_Prop_Xmas_Present_02.prefab	0.486	0.458	0.437	0.000	0.000	0.000	1
+Props/Misc/SM_Prop_Xmas_Present_03.prefab	0.492	0.552	0.492	0.000	0.000	0.000	1
+Props/Misc/SM_Prop_Xmas_Present_04.prefab	0.623	0.300	0.516	0.000	-0.001	0.000	1
+Props/Misc/SM_Prop_Xmas_Present_05.prefab	0.622	0.340	0.444	0.000	0.000	0.000	1
+Props/Misc/SM_Prop_Xmas_Tree_01.prefab	1.651	2.991	1.701	-0.033	0.013	-0.001	1
+Props/Misc/SM_Prop_Xmas_Tree_02.prefab	1.651	2.672	1.639	-0.033	0.044	-0.001	1
+Props/Misc/SM_Prop_Xmas_Tree_Base_01.prefab	0.557	0.424	0.519	-0.001	0.000	0.000	1
+Props/Misc/SM_Wep_ToyGun_OneShot_01.prefab	0.057	0.208	0.280	0.000	0.088	-0.106	4
+Props/Misc/SM_Wep_ToyGun_Rifle_01.prefab	0.099	0.258	1.037	-0.001	0.257	-0.126	4
+Props/Misc/SM_Wep_ToyGun_Shotgun_01.prefab	0.056	0.192	0.636	0.000	0.229	-0.103	3
+Props/Misc/SM_Wep_ToyGun_SMG_01.prefab	0.097	0.327	0.636	0.009	0.022	-0.220	4
+Props/Roof Props/SM_Bld_Ceiling_Aircon_01.prefab	0.946	0.083	0.946	0.000	0.000	-0.083	1
+Props/Roof Props/SM_Prop_CableTray_01_Cable_End_01.prefab	0.395	1.151	0.325	0.173	0.005	-1.009	1
+Props/Roof Props/SM_Prop_CableTray_01_Cable_End_02.prefab	0.227	0.982	0.325	0.089	0.005	0.027	1
+Props/Roof Props/SM_Prop_CableTray_01_Cross.prefab	4.014	0.712	4.014	2.002	0.002	-0.040	1
+Props/Roof Props/SM_Prop_CableTray_01_Curve.prefab	2.282	0.712	2.286	1.136	0.866	-0.040	1
+Props/Roof Props/SM_Prop_CableTray_01_Curve_Reverse.prefab	2.282	0.712	2.287	1.136	-0.866	-0.040	1
+Props/Roof Props/SM_Prop_CableTray_01_Long.prefab	6.014	0.712	0.554	3.002	0.000	-0.040	1
+Props/Roof Props/SM_Prop_CableTray_01_Short.prefab	2.014	0.712	0.554	1.002	0.000	-0.040	1
+Props/Roof Props/SM_Prop_CableTray_01_ShortHalf.prefab	1.014	0.171	0.474	0.502	0.000	0.000	1
+Props/Roof Props/SM_Prop_CableTray_01_Tee.prefab	4.014	0.712	2.286	2.002	0.866	-0.040	1
+Props/Roof Props/SM_Prop_CeilingFan_01.prefab	2.354	0.527	2.354	0.000	0.000	-0.527	2
+Props/Roof Props/SM_Prop_CeilingFan_02.prefab	1.804	0.527	2.080	-0.275	0.002	-0.527	2
+Props/Roof Props/SM_Prop_Ducting_01_Cross.prefab	3.000	1.016	2.000	1.500	0.000	-0.344	1
+Props/Roof Props/SM_Prop_Ducting_01_Curve.prefab	1.845	1.016	1.844	0.922	0.578	-0.344	1
+Props/Roof Props/SM_Prop_Ducting_01_Curve_Cross.prefab	3.000	1.016	2.000	1.500	0.000	-0.344	1
+Props/Roof Props/SM_Prop_Ducting_01_Curve_Tee.prefab	3.000	1.016	1.344	1.500	-0.328	-0.344	1
+Props/Roof Props/SM_Prop_Ducting_01_Curve_Tee_Reverse.prefab	3.000	1.016	1.344	1.500	0.328	-0.344	1
+Props/Roof Props/SM_Prop_Ducting_01_Long.prefab	3.000	1.016	0.689	1.500	0.000	-0.344	1
+Props/Roof Props/SM_Prop_Ducting_01_RightAngle.prefab	1.044	1.044	0.689	0.522	0.000	-0.344	1
+Props/Roof Props/SM_Prop_Ducting_01_RightAngle_Vent.prefab	1.044	1.127	0.689	0.522	0.000	-0.783	1
+Props/Roof Props/SM_Prop_Ducting_01_Short.prefab	1.000	1.016	0.689	0.500	0.000	-0.344	1
+Props/Roof Props/SM_Prop_Ducting_01_Short_T_Vent.prefab	1.000	0.891	0.689	0.500	0.000	-0.547	1
+Props/Roof Props/SM_Prop_Ducting_01_Short_Vent.prefab	1.047	1.016	0.689	-0.523	0.000	-0.344	1
+Props/Roof Props/SM_Prop_Ducting_01_Tee.prefab	3.000	1.016	1.344	1.500	0.328	-0.344	1
+Props/Roof Props/SM_Prop_Ducting_02_Cap.prefab	0.160	0.984	1.303	0.000	0.000	-0.312	1
+Props/Roof Props/SM_Prop_Ducting_02_Corner.prefab	3.529	1.014	3.651	1.685	1.174	-0.342	1
+Props/Roof Props/SM_Prop_Ducting_02_Cross.prefab	3.080	1.014	2.000	1.460	0.000	-0.342	1
+Props/Roof Props/SM_Prop_Ducting_02_Curve.prefab	1.446	0.984	1.651	0.643	0.174	-0.312	1
+Props/Roof Props/SM_Prop_Ducting_02_Long.prefab	3.080	1.014	1.303	1.460	0.000	-0.342	1
+Props/Roof Props/SM_Prop_Ducting_02_RightAngle_Capped.prefab	1.808	1.014	1.303	0.824	0.000	-0.342	1
+Props/Roof Props/SM_Prop_Ducting_02_RightAngle_Large.prefab	3.731	1.014	3.651	1.786	1.174	-0.342	1
+Props/Roof Props/SM_Prop_Ducting_02_RightAngle_Uncapped.prefab	1.728	1.014	1.303	0.864	0.000	-0.342	1
+Props/Roof Props/SM_Prop_Ducting_02_Short.prefab	1.080	1.014	1.303	0.460	0.000	-0.342	1
+Props/Roof Props/SM_Prop_Ducting_02_Short_Half.prefab	0.580	0.984	1.303	0.210	0.000	-0.312	1
+Props/Roof Props/SM_Prop_Ducting_02_T.prefab	3.080	1.014	1.651	1.460	0.174	-0.342	1
+Props/Roof Props/SM_Prop_Ducting_02_Vent_Large.prefab	1.451	0.780	1.451	0.650	0.000	-0.413	1
+Props/Roof Props/SM_Prop_Ducting_02_Vent_Side.prefab	1.080	1.014	1.303	0.460	0.000	-0.342	1
+Props/Roof Props/SM_Prop_Ducting_02_Vent_Small.prefab	1.080	1.201	1.303	0.460	0.000	-0.530	1
+Props/Roof Props/SM_Prop_Light_01.prefab	0.203	0.890	0.203	0.000	0.000	-0.899	1
+Props/Roof Props/SM_Prop_Light_02.prefab	0.250	0.805	0.250	0.000	0.000	-0.824	1
+Props/Roof Props/SM_Prop_Light_03.prefab	0.250	1.314	0.250	0.000	0.000	-1.334	1
+Props/Roof Props/SM_Prop_Light_04.prefab	0.583	1.103	0.583	0.000	0.000	-1.122	1
+Props/Roof Props/SM_Prop_Light_05.prefab	0.668	1.316	0.583	0.000	0.000	-1.316	1
+Props/Roof Props/SM_Prop_Light_06.prefab	0.503	0.161	0.503	0.000	0.000	-0.161	1
+Props/Roof Props/SM_Prop_Light_07.prefab	0.799	0.161	0.799	0.000	0.000	-0.062	1
+Props/Roof Props/SM_Prop_Light_08.prefab	0.558	0.627	1.162	0.000	0.531	-0.450	1
+Props/Roof Props/SM_Prop_Light_Fluorescent_01.prefab	1.926	0.509	0.266	0.000	0.000	-0.509	1
+Props/Roof Props/SM_Prop_Pipe_01_Cap.prefab	0.056	0.379	0.379	0.000	0.000	-0.190	1
+Props/Roof Props/SM_Prop_Pipe_01_Cross.prefab	1.528	0.379	1.028	0.736	-0.014	-0.190	1
+Props/Roof Props/SM_Prop_Pipe_01_Curve.prefab	0.928	0.379	0.940	0.436	0.280	-0.190	1
+Props/Roof Props/SM_Prop_Pipe_01_Long.prefab	1.528	0.379	0.379	0.736	0.000	-0.190	1
+Props/Roof Props/SM_Prop_Pipe_01_RightAngle.prefab	0.540	0.528	0.379	0.270	0.000	-0.150	1
+Props/Roof Props/SM_Prop_Pipe_01_Short.prefab	0.528	0.379	0.379	0.236	0.000	-0.190	1
+Props/Roof Props/SM_Prop_Pipe_01_Tee.prefab	1.528	0.379	0.717	0.736	0.169	-0.190	1
+Props/Roof Props/SM_Prop_Projector_01_Ceiling.prefab	0.412	0.235	0.360	0.000	-0.005	-0.235	1
+Props/Roof Props/SM_Prop_Rug_05.prefab	2.061	0.043	2.194	-0.016	0.000	0.000	1
+Props/Roof Props/SM_Prop_Security_Camera_02.prefab	0.297	0.511	0.257	0.000	0.000	-0.511	1
+Props/Roof Props/SM_Prop_Sprinkler.prefab	0.169	0.171	0.149	0.000	0.000	-0.171	1
+Props/Roof Props/SM_Prop_Streamer_01.prefab	0.080	0.788	0.097	0.000	-0.008	-0.788	1
+Props/Roof Props/SM_Prop_Streamer_02.prefab	0.075	1.023	0.080	0.000	0.000	-1.023	1
+Props/Wall Props/SM_Prop_Aircon_01.prefab	1.842	0.448	0.448	0.000	0.224	-0.448	1
+Props/Wall Props/SM_Prop_AirVent_01.prefab	1.074	1.060	0.552	0.000	0.232	-0.530	1
+Props/Wall Props/SM_Prop_AirVent_02.prefab	1.219	0.811	0.522	0.000	0.000	0.000	1
+Props/Wall Props/SM_Prop_AirVent_Wall_01.prefab	0.849	0.425	0.047	0.000	0.024	-0.213	1
+Props/Wall Props/SM_Prop_Blackboard_01.prefab	1.516	1.080	0.040	0.000	0.000	-0.500	1
+Props/Wall Props/SM_Prop_Calender_01.prefab	0.482	0.336	0.023	0.000	0.011	-0.276	1
+Props/Wall Props/SM_Prop_Card_Scanner_01.prefab	0.071	0.226	0.050	0.000	0.025	-0.113	1
+Props/Wall Props/SM_Prop_Card_Scanner_02.prefab	0.097	0.198	0.050	0.000	0.025	-0.099	1
+Props/Wall Props/SM_Prop_Certificate_01.prefab	0.347	0.445	0.042	0.000	0.021	-0.006	1
+Props/Wall Props/SM_Prop_Child_Art_01.prefab	0.344	0.474	0.050	0.000	0.025	-0.237	1
+Props/Wall Props/SM_Prop_Clock_01.prefab	0.391	0.372	0.054	0.000	0.027	-0.186	3
+Props/Wall Props/SM_Prop_Clock_02 1.prefab	0.430	0.267	0.030	0.000	0.015	-0.134	1
+Props/Wall Props/SM_Prop_CorkBoard_01.prefab	2.045	1.820	0.172	0.000	0.086	-0.464	1
+Props/Wall Props/SM_Prop_CorkBoard_02.prefab	2.045	1.737	0.150	0.000	0.075	-0.381	1
+Props/Wall Props/SM_Prop_CorkBoard_03.prefab	2.045	1.629	0.104	0.000	0.052	-0.273	1
+Props/Wall Props/SM_Prop_Darkboard_01.prefab	0.714	0.679	0.334	0.000	0.167	-0.339	1
+Props/Wall Props/SM_Prop_Elevator_Button_01.prefab	0.173	0.286	0.076	0.000	0.038	0.012	1
+Props/Wall Props/SM_Prop_Elevator_Button_02.prefab	0.317	0.583	0.070	0.000	0.035	-0.292	1
+Props/Wall Props/SM_Prop_Emergency_Axe_01.prefab	0.975	0.696	0.131	0.000	0.065	-0.505	1
+Props/Wall Props/SM_Prop_Employee_Wall_01.prefab	2.450	1.420	0.144	0.000	-0.003	-0.963	1
+Props/Wall Props/SM_Prop_Fire_Detector_01.prefab	0.327	0.327	0.091	0.000	0.045	-0.163	1
+Props/Wall Props/SM_Prop_Fire_Extinguisher_01.prefab	0.301	0.533	0.164	0.000	0.000	0.000	1
+Props/Wall Props/SM_Prop_FireAlarm_Switch_01.prefab	0.198	0.198	0.062	0.000	0.031	-0.099	1
+Props/Wall Props/SM_Prop_Keypad_01.prefab	0.198	0.198	0.062	0.000	0.031	-0.099	1
+Props/Wall Props/SM_Prop_Poster_01.prefab	0.831	1.105	0.083	0.001	0.038	-0.985	1
+Props/Wall Props/SM_Prop_Poster_02.prefab	0.956	0.556	0.082	0.000	0.031	-0.470	1
+Props/Wall Props/SM_Prop_Poster_03.prefab	0.792	0.559	0.060	0.003	0.027	-0.444	1
+Props/Wall Props/SM_Prop_Poster_04.prefab	0.649	0.462	0.055	-0.003	0.025	-0.341	1
+Props/Wall Props/SM_Prop_Poster_Stocks_01.prefab	0.928	0.592	0.049	0.000	0.025	-0.296	1
+Props/Wall Props/SM_Prop_ProjectorScreen_01.prefab	2.614	1.557	0.072	0.000	0.036	-0.779	1
+Props/Wall Props/SM_Prop_ProjectorScreen_02_Down.prefab	2.701	2.601	0.158	0.000	0.071	-2.601	1
+Props/Wall Props/SM_Prop_ProjectorScreen_02_Up.prefab	2.701	0.984	0.158	0.000	0.071	-0.984	1
+Props/Wall Props/SM_Prop_Security_Camera_01.prefab	0.181	0.421	0.585	0.000	0.276	-0.081	2
+Props/Wall Props/SM_Prop_Shelf_Wall_01.prefab	1.459	0.528	0.336	0.000	0.000	0.000	1
+Props/Wall Props/SM_Prop_Shelf_Wall_02.prefab	2.119	0.705	0.437	0.000	0.219	-0.050	1
+Props/Wall Props/SM_Prop_Shelf_Wall_03.prefab	1.603	0.351	0.437	0.001	0.219	-0.351	1
+Props/Wall Props/SM_Prop_Sign_Director_01.prefab	0.571	0.160	0.036	0.000	0.018	-0.080	1
+Props/Wall Props/SM_Prop_Sign_Exit_01.prefab	0.432	0.212	0.054	0.000	0.018	-0.092	1
+Props/Wall Props/SM_Prop_Sign_HR_Dep_01.prefab	0.347	0.160	0.036	0.000	0.018	-0.080	1
+Props/Wall Props/SM_Prop_Sign_Kitchen_01.prefab	0.434	0.160	0.036	0.000	0.018	-0.080	1
+Props/Wall Props/SM_Prop_Sign_Manager_01.prefab	0.571	0.160	0.036	0.000	0.018	-0.080	1
+Props/Wall Props/SM_Prop_Sign_OutofOrder_01.prefab	0.517	0.326	0.047	0.000	0.024	-0.163	1
+Props/Wall Props/SM_Prop_Sign_Receptionist_01.prefab	0.584	0.148	0.036	0.000	0.018	-0.074	1
+Props/Wall Props/SM_Prop_Sign_Sales_01.prefab	0.401	0.160	0.036	0.000	0.018	-0.080	1
+Props/Wall Props/SM_Prop_Sign_Stairs_01.prefab	0.401	0.160	0.036	0.000	0.018	-0.080	1
+Props/Wall Props/SM_Prop_Sign_Toilets_01.prefab	0.465	0.385	0.026	0.000	0.013	-0.193	1
+Props/Wall Props/SM_Prop_Sign_Toilets_02.prefab	0.465	0.124	0.026	0.000	0.013	-0.062	1
+Props/Wall Props/SM_Prop_Sign_Toilets_Disabled_01.prefab	0.240	0.261	0.026	0.000	0.013	-0.130	1
+Props/Wall Props/SM_Prop_Sign_Toilets_Female_01.prefab	0.233	0.261	0.026	0.000	0.013	-0.130	1
+Props/Wall Props/SM_Prop_Sign_Toilets_Male_01.prefab	0.240	0.261	0.026	0.000	0.013	-0.130	1
+Props/Wall Props/SM_Prop_Socket_Floor_01.prefab	0.118	0.044	0.183	0.000	0.000	-0.022	1
+Props/Wall Props/SM_Prop_Socket_Switch_01.prefab	0.122	0.203	0.057	0.000	0.000	-0.101	1
+Props/Wall Props/SM_Prop_Socket_Wall_01.prefab	0.122	0.203	0.052	0.000	0.000	-0.101	1
+Props/Wall Props/SM_Prop_Socket_Wall_02.prefab	0.122	0.203	0.052	0.000	0.000	-0.101	1
+Props/Wall Props/SM_Prop_TV_Wall_01.prefab	1.550	1.019	0.240	0.000	0.109	-0.510	1
+Props/Wall Props/SM_Prop_Wall_Electronics_01.prefab	0.222	1.695	0.197	0.000	0.098	0.000	1
+Props/Wall Props/SM_Prop_WallDressing_01.prefab	2.272	0.813	0.082	-0.002	0.031	0.030	1
+Props/Wall Props/SM_Prop_WallDressing_02.prefab	0.903	0.763	0.061	-0.003	0.029	0.030	1
+Props/Wall Props/SM_Prop_WallDressing_03.prefab	1.862	0.986	0.134	0.100	0.067	0.002	1
+Props/Wall Props/SM_Prop_WallDressing_04.prefab	1.729	0.952	0.123	0.000	0.059	0.011	1

@@ -108,7 +108,7 @@ namespace BuildingEscape.EditorTools
                 DoorCheck("night: flat, dim ambient light (not the daylight skybox)", RenderSettings.ambientMode == UnityEngine.Rendering.AmbientMode.Flat
                     && RenderSettings.ambientLight.grayscale < 0.45f && RenderSettings.ambientLight.grayscale > 0.12f, $"({RenderSettings.ambientLight})");
                 float maxY = 0f;
-                if (floorRoot) foreach (var r in floorRoot.GetComponentsInChildren<Renderer>()) if (r.bounds.max.y > maxY) maxY = r.bounds.max.y;
+                if (floorRoot) foreach (var r in floorRoot.GetComponentsInChildren<Renderer>()) { if (gen.Scenery && r.transform.IsChildOf(gen.Scenery)) continue; if (r.bounds.max.y > maxY) maxY = r.bounds.max.y; }       // (the city outside the windows reaches far above)
                 DoorCheck("night: nothing but the ceiling reaches above the walls", maxY < gen.wallHeight + 0.6f, $"(top at {maxY:0.00} m)");
             }
 

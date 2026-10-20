@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 3bbec77cb08d40549829628e1503e452
+timeCreated: 1579571645
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 43610605492229136
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 159492
+  packageName: POLYGON - Office Pack - Art by Synty
+  packageVersion: 1.9.4
+  assetPath: Assets/Synty/PolygonOffice/Models/Convex/SM_Prop_ChoppingBoard_02_Convex.asset
+  uploadId: 976702

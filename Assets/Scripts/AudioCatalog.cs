@@ -4,7 +4,7 @@ namespace BuildingEscape
 {
     /// <summary>
     /// The sound effects the game uses (Footsteps Volume 02 + Deadly Kombat packs).
-    /// Lives at Assets/Resources/AudioCatalog.asset, created by the editor (Overtime Escape > Setup Audio).
+    /// Lives at Assets/Resources/AudioCatalog.asset, created by the editor (Employees Take Revenge > Setup Audio).
     /// </summary>
     public class AudioCatalog : ScriptableObject
     {
@@ -22,6 +22,12 @@ namespace BuildingEscape
         public AudioClip[] gunReload;
         [Tooltip("Drawing the gun (equipping it), and the rustle of a guard bringing his up to aim.")]
         public AudioClip[] gunEquip, gunAim;
+
+        [Header("Guns: the assault rifle and the shotgun of the same pack (the owner, 2026-10-19)")]
+        [Tooltip("The assault rifle's sounds (the pack's Assault Rifle folder): gunshots with their tails, the reload in order (magazine out, drawn, in, charge), drawing it and bringing it up. The sniper rifle uses them too.")]
+        public AudioClip[] rifleShot, rifleTail, rifleReload, rifleEquip, rifleAim;
+        [Tooltip("The shotgun's sounds (the pack's Shotgun folder): gunshots with their tails, the reload in order (charge, pump back, shell drawn, chambering, pump forward), drawing it and bringing it up.")]
+        public AudioClip[] shotgunShot, shotgunTail, shotgunReload, shotgunEquip, shotgunAim;
 
         // ---- Placeholders. While these are empty the game plays sounds and music it generates in code (see SoundBank and
         // ---- MusicDirector). Drop real clips in and they are used instead, with no other change.

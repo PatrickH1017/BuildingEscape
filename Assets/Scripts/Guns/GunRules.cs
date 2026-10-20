@@ -32,6 +32,24 @@ namespace BuildingEscape
         /// <summary>When the last round has been fired, the reload starts by itself after this many seconds (the gun has to be reloaded after every magazine).</summary>
         public float AutoReloadDelay = 0.25f;
 
+        /// <summary>An unlimited magazine: shots take no rounds (the basement: the owner, 2026-10-17, "unlimited ammo in the basement"). The fire interval still counts.</summary>
+        public bool Unlimited;
+
+        /// <summary>
+        /// The rounds in the spare clips (the owner, 2026-10-18: "8 bullets per clip and 3 clips total"): a reload takes what it needs from them, and with none left an empty gun only clicks until more are
+        /// bought. A gun that never runs short (an armed officer's) keeps the default, an endless reserve.
+        /// </summary>
+        public bool InfiniteReserve = true;
+        public int Reserve { get; private set; }
+
+        /// <summary>
+        /// The most rounds a player may carry for this gun, the clip in it counted (the owner, 2026-10-19: "A player should be allowed to have three gun clips max"): <see cref="GunRules.MaxClips"/> clips of it. A gun with no
+        /// limit (an officer's, whose reserve is endless anyway) keeps the default.
+        /// </summary>
+        public int MaxRounds = int.MaxValue;
+        /// <summary>How many more rounds can be taken before the limit: what is in the gun and in the reserve counts. None for a gun with an endless reserve.</summary>
+        public int Room => InfiniteReserve ? 0 : Math.Max(0, MaxRounds - Rounds - Reserve);
+
         public int Rounds { get; private set; }
         public bool Reloading { get; private set; }
         public float ReloadStartedAt { get; private set; }
@@ -58,9 +76,9 @@ namespace BuildingEscape
         public Shot TryFire(float now)
         {
             if (Reloading) return Shot.Reloading;
-            if (Rounds <= 0) return Shot.Empty;
+            if (Rounds <= 0 && !Unlimited) return Shot.Empty;
             if (now < NextShotAt) return Shot.TooSoon;
-            Rounds--;
+            if (!Unlimited) Rounds--;
             Fired++;
             NextShotAt = now + FireInterval;
             return Rounds == 0 ? Shot.FiredLast : Shot.Fired;
@@ -69,7 +87,7 @@ namespace BuildingEscape
         /// <summary>Start a reload (by hand, or because the trigger was pulled on an empty gun). False when it is full or already going.</summary>
         public bool StartReload(float now)
         {
-            if (Reloading || Rounds >= Capacity) return false;
+            if (!CanReload) return false;
             Reloading = true;
             ReloadStartedAt = now;
             ReloadEndsAt = now + ReloadSeconds;
@@ -86,7 +104,13 @@ namespace BuildingEscape
             {
                 if (now < ReloadEndsAt) return Event.None;
                 Reloading = false;
-                Rounds = Capacity;
+                if (InfiniteReserve) Rounds = Capacity;
+                else
+                {
+                    int take = Math.Min(Capacity - Rounds, Reserve);                 // (only what is missing: nothing is wasted)
+                    Rounds += take;
+                    Reserve -= take;
+                }
                 Reloads++;
                 return Event.ReloadFinished;
             }
@@ -94,13 +118,37 @@ namespace BuildingEscape
             return Event.None;
         }
 
-        /// <summary>Fill the magazine at once (a test).</summary>
+        /// <summary>Fill the magazine at once (a test). The spare clips are not touched.</summary>
         public void Fill() { Rounds = Capacity; Reloading = false; }
+
+        /// <summary>Can a reload start now: the gun is not full, not reloading already, and there is a clip to load (always, for an endless reserve)? Never in the basement, where the magazine is never short.</summary>
+        public bool CanReload => !Reloading && Rounds < Capacity && !Unlimited && (InfiniteReserve || Reserve > 0);
+
+        /// <summary>The magazine is empty and so is the reserve: the trigger only clicks until the dealer sells more.</summary>
+        public bool OutOfAmmo => !Unlimited && !InfiniteReserve && Rounds <= 0 && Reserve <= 0 && !Reloading;
+
+        /// <summary>Give the gun a real reserve of this many rounds (the player's pistol; a new one comes with two spare clips).</summary>
+        public void SetReserve(int rounds) { InfiniteReserve = false; Reserve = Math.Max(0, rounds); }
+
+        /// <summary>More rounds in the reserve (a clip from the dealer). Returns how many were added: none for a gun with an endless reserve.</summary>
+        public int AddReserve(int rounds)
+        {
+            if (InfiniteReserve || rounds <= 0) return 0;
+            rounds = Math.Min(rounds, Room);                                  // (no more than the limit: the rest is not taken)
+            Reserve += rounds;
+            return rounds;
+        }
     }
 
     /// <summary>The other pure rules of guns: where a shot with some spread goes, and which guards carry one.</summary>
     public static class GunRules
     {
+        /// <summary>The most clips of a gun a player may carry, the one in the gun included (the owner, 2026-10-19: "A player should be allowed to have three gun clips max").</summary>
+        public const int MaxClips = 3;
+
+        /// <summary>Ammunition is unlimited in the basement (the Loading Docks, floor 0); on every other floor a magazine is a magazine, and it is full again each time a floor starts.</summary>
+        public static bool UnlimitedAmmo(int floor) => floor <= 0;
+
         /// <summary>
         /// A random direction inside a cone: the angles, in degrees, to turn the aim sideways (<paramref name="yaw"/>) and up
         /// (<paramref name="pitch"/>). Even over the disc, so a bullet is as likely to land anywhere inside the cone. The same seed always
@@ -115,9 +163,30 @@ namespace BuildingEscape
             pitch = radius * (float)Math.Sin(around);
         }
 
+        /// <summary>
+        /// The seed of pellet number <paramref name="index"/> of a shot: the shot's own seed spread out (a prime apart), so that no two pellets of a shot share an angle. The shooter's machine and the host both work it out from the
+        /// seed the shot carries, so a shotgun's pellets land in the same places for both.
+        /// </summary>
+        public static int PelletSeed(int shotSeed, int index) => unchecked(shotSeed + index * 7919);
+
+        /// <summary>How many spare clips these spare rounds make (a part of a clip counts as one): the "2 clips" on the screen.</summary>
+        public static int SpareClips(int reserveRounds, int capacity) => capacity <= 0 ? 0 : (Math.Max(0, reserveRounds) + capacity - 1) / capacity;
+
         /// <summary>A guard is a worse shot the further away the player is: the cone he fires into at this distance.</summary>
         public static float GuardCone(float baseDegrees, float perMetreDegrees, float distance) =>
             baseDegrees + perMetreDegrees * Math.Max(0f, distance);
+
+        /// <summary>
+        /// How fast an armed officer goes for a player on this floor (the owner, 2026-10-18: "Officers with weapons should be more aggressive (faster to attack as the floors go up)"): the multipliers for the time he takes
+        /// to aim, the pause between two shots and the reload. On the first armed floor they are a little under 1 (he was a bit slower before), on <see cref="ArmedRules.TopFloor"/> and above they are at their smallest.
+        /// </summary>
+        public static void GuardTempo(int floor, int firstArmedFloor, out float aim, out float shot, out float reload)
+        {
+            float t = (floor <= firstArmedFloor || ArmedRules.TopFloor <= firstArmedFloor) ? 0f : Math.Min(1f, (floor - firstArmedFloor) / (float)(ArmedRules.TopFloor - firstArmedFloor));
+            aim = 0.8f + (0.3f - 0.8f) * t;
+            shot = 0.9f + (0.55f - 0.9f) * t;
+            reload = 0.95f + (0.7f - 0.95f) * t;
+        }
 
         /// <summary>How many bullets knock a guard out: he goes down after <paramref name="hitsToKill"/> hits and a bullet counts as <paramref name="hitsPerBullet"/>.</summary>
         public static int BulletsToKill(int hitsToKill, int hitsPerBullet) =>
@@ -136,6 +205,9 @@ namespace BuildingEscape
     {
         /// <summary>"No floor": nobody is armed by the floor rule.</summary>
         public const int Never = int.MaxValue;
+
+        /// <summary>The highest office floor (the boss is above it): armed officers are at their fastest from here (<see cref="GunRules.GuardTempo"/>).</summary>
+        public const int TopFloor = 12;
 
         /// <summary>
         /// Guards on <paramref name="floor"/> are armed when the floor is at or above the first armed floor, or when test mode arms

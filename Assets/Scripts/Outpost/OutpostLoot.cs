@@ -13,7 +13,7 @@ namespace BuildingEscape
         public int noteSafeFloor;
         /// <summary>Does the note give the safe's code (otherwise it only names the room)?</summary>
         public bool noteGivesCode;
-        /// <summary>Weapons, as <see cref="MeleeWeapon.Kind"/> numbers (0 crowbar, 1 bat, 2 hatchet) or <see cref="OutpostLoot.PewKind"/> (3, the pistol).</summary>
+        /// <summary>Weapons, as <see cref="MeleeWeapon.Kind"/> numbers (0 crowbar, 1 bat, 2 hatchet) or <see cref="OutpostLoot.PewKind"/> (3, the pistol) or <see cref="OutpostLoot.SniperKind"/> (7, the sniper rifle).</summary>
         public readonly List<int> weapons = new List<int>();
         /// <summary>Small valuables, as <see cref="OutpostValuable"/> numbers, and what each is worth.</summary>
         public readonly List<int> valuableKinds = new List<int>();
@@ -29,15 +29,20 @@ namespace BuildingEscape
     /// Not every outpost has everything: the note exists only where a safe's note was placed (<see cref="SafeRules.NoteFor"/>), and the
     /// weapons and the valuables are rolled. Higher floors have better weapons (a hatchet needs the fourth floor), more of them, and
     /// valuables worth more (they follow the floor's quota). **The outpost of floor <see cref="PewFloor"/> always holds the pew pistol**
-    /// (the owner's request, 2026-10-16: the guards are armed from that floor, so the players get a gun there, 100 % of the time).
+    /// (the owner's requests: 2026-10-16 "100 % of the time", and 2026-10-17 moved from floor 4 to floor 3 "so that players can buy the pistol after completing the
+    /// third floor": the vendor sells it from then on, <see cref="Vendor.PewAfterFloor"/>, and the guards are armed from the floor after it).
     /// </summary>
     public static class OutpostLoot
     {
         public const int CrowbarKind = 0, BatKind = 1, HatchetKind = 2;
         /// <summary>The pew pistol in a stash's weapon list (not a melee weapon: it is made by <c>RangedWeapon.Create</c>).</summary>
         public const int PewKind = 3;
-        /// <summary>The floor whose outpost always holds a pew (the first floor with armed guards, <see cref="ArmedGuards.DefaultFirstArmedFloor"/>).</summary>
-        public const int PewFloor = ArmedGuards.DefaultFirstArmedFloor;
+        /// <summary>The floor whose outpost always holds a pew: floor 3, the floor where the guards are first armed (<see cref="ArmedGuards.DefaultFirstArmedFloor"/>; the owner, 2026-10-19: "The first level(3rd floor) of armed guards should have pistols").</summary>
+        public const int PewFloor = 3;
+        /// <summary>The sniper rifle in a stash's weapon list: its number among what a safe holds (<see cref="SafeRules.GunItem"/>: the pew 3, the sniper rifle 7), though no safe ever holds one.</summary>
+        public const int SniperKind = SafeRules.PewItem + 4;
+        /// <summary>The first floor whose outposts hold a sniper rifle, the floor that unlocks it (the owner, 2026-10-19: "The sniper and rocket launcher should be inside the outpost not in safes").</summary>
+        public const int SniperFloor = 10;
         /// <summary>The most things one outpost can hold (the planner makes this many places for them).</summary>
         public const int MaxItems = 6;
         public const int MaxWeapons = 2, MaxValuables = 3;
@@ -79,7 +84,7 @@ namespace BuildingEscape
             value = Math.Max(25, (int)(Math.Round(ValuableUnit(floor) * spread * kindFactor / 5.0) * 5.0));
         }
 
-        public static string WeaponName(int kind) => kind == PewKind ? "Pew" : kind == BatKind ? "Baseball Bat" : kind == HatchetKind ? "Hatchet" : "Crowbar";
+        public static string WeaponName(int kind) => kind == PewKind ? "Pew" : kind == SniperKind ? RangedWeapon.Specs[(int)RangedWeapon.Kind.Sniper].name : kind == BatKind ? "Baseball Bat" : kind == HatchetKind ? "Hatchet" : "Crowbar";
 
         /// <summary>What the outpost on this floor holds.</summary>
         public static OutpostStash Roll(int runSeed, int floor)
@@ -87,27 +92,25 @@ namespace BuildingEscape
             var stash = new OutpostStash();
             if (floor < 1) return stash;
 
-            // the note about a safe (one per outpost, if this outpost was given one)
+            // the computer's record of the safes (every outpost has one, about the safes of its own floor)
             int safeFloor = SafeRules.NoteFor(runSeed, floor);
             if (safeFloor > 0)
             {
                 stash.noteSafeFloor = safeFloor;
-                stash.noteGivesCode = SafeRules.NoteGivesCode(runSeed, safeFloor);
+                stash.noteGivesCode = SafeRules.RecordGivesCode(runSeed, safeFloor, 0);
             }
 
             // weapons: a note that gives no code means a crowbar is needed, and the guards often keep one close by
             var wanted = SafeRules.Unit(SafeRules.Hash(runSeed, floor, SaltWeapon)) * 100f;
-            bool noCodeNote = stash.HasNote && !stash.noteGivesCode;
+            bool noCodeNote = stash.HasNote && SafeRules.AnySafeNeedsCrowbar(runSeed, safeFloor);
             bool crowbarHere = noCodeNote && SafeRules.Hash(runSeed, floor, SaltCrowbar) % 100U < 60U;
             if (crowbarHere) stash.weapons.Add(CrowbarKind);
-            if (wanted < WeaponPercent(floor))
-            {
-                int count = 1;
-                if (floor >= 4 && SafeRules.Hash(runSeed, floor, SaltCount) % 100U < 25U) count = 2;
-                var weights = WeaponWeights(floor);
-                for (int i = 0; i < count && stash.weapons.Count < MaxWeapons; i++)
-                    stash.weapons.Add(PickWeapon(weights, SafeRules.Hash(runSeed, floor, SaltKind + i * 100)));
-            }
+            // the owner (2026-10-17 night): melee weapons are only ever on the outpost's desk; floor 1 has two of them, floors 2-12 a chance of one, never two
+            int melee = floor <= 1 ? 2 : (SafeRules.Hash(runSeed, floor, SaltWeapon + 700) % 100U < 50U ? 1 : 0);
+            if (floor > 1 && crowbarHere) melee = 0;                                      // (the crowbar the safe needs is the floor's one)
+            var weights = WeaponWeights(floor);
+            for (int i = 0; i < melee && stash.weapons.Count < MaxWeapons; i++)
+                stash.weapons.Add(PickWeapon(weights, SafeRules.Hash(runSeed, floor, SaltKind + i * 100)));
 
             // small valuables
             if (SafeRules.Hash(runSeed, floor, SaltValuables) % 100U < (uint)ValuablesPercent)
@@ -128,8 +131,9 @@ namespace BuildingEscape
 
             // the pistol: always, and first, so it is the first weapon put on a desk (a valuable is dropped before it ever is)
             if (floor == PewFloor) stash.weapons.Insert(0, PewKind);
+            if (floor >= SniperFloor) stash.weapons.Insert(0, SniperKind);          // (the sniper rifle: on every outpost from the floor that unlocks it, first on the desk; never in a safe - the owner, 2026-10-19: "The sniper and rocket launcher should be inside the outpost not in safes")
 
-            while (stash.ItemCount > MaxItems) stash.valuableKinds.RemoveAt(stash.valuableKinds.Count - 1);   // (1 + 2 + 3 = 6; with the pistol on floor 4 a valuable may go)
+            while (stash.ItemCount > MaxItems) stash.valuableKinds.RemoveAt(stash.valuableKinds.Count - 1);   // (1 + 2 + 3 = 6; with the pistol on floor 3 a valuable may go)
             while (stash.valuableValues.Count > stash.valuableKinds.Count) stash.valuableValues.RemoveAt(stash.valuableValues.Count - 1);
             return stash;
         }

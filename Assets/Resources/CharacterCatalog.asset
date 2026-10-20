@@ -13,31 +13,144 @@ MonoBehaviour:
   m_Name: CharacterCatalog
   m_EditorClassIdentifier: 
   characters:
+  - id: syn_cleaner_male_01
+    label: Dock worker 1
+    prefab: {fileID: 1353977574298584, guid: a690c3998952a6541bfa77d42dfe5078, type: 3}
+    role: 0
+    clips: 3
+    atlas: {fileID: 2800000, guid: 63070be2573ac6640a080b00e06cc159, type: 3}
+  - id: syn_boss_female_01
+    label: Dock worker 2
+    prefab: {fileID: 1975240265096882, guid: 886e38ce682403743b9b058cb21703f2, type: 3}
+    role: 0
+    clips: 4
+    atlas: {fileID: 2800000, guid: 63070be2573ac6640a080b00e06cc159, type: 3}
+  - id: syn_developer_male_02
+    label: Dock worker 3
+    prefab: {fileID: 1742387174060844, guid: 08a2f1fda95d8de42ba936230a0610fe, type: 3}
+    role: 0
+    clips: 3
+    atlas: {fileID: 2800000, guid: 63070be2573ac6640a080b00e06cc159, type: 3}
+  - id: syn_business_male_02
+    label: Dock worker 4
+    prefab: {fileID: 1652544263031632, guid: 3a07a1305adf7464bbd22995e1a94b51, type: 3}
+    role: 0
+    clips: 3
+    atlas: {fileID: 2800000, guid: 63070be2573ac6640a080b00e06cc159, type: 3}
+  - id: syn_business_female_01
+    label: Dock worker 5
+    prefab: {fileID: 1214972348348976, guid: 55048683fb58f1d468dcb88416e892ee, type: 3}
+    role: 0
+    clips: 4
+    atlas: {fileID: 2800000, guid: 63070be2573ac6640a080b00e06cc159, type: 3}
+  - id: syn_business_female_02
+    label: Dock worker 6
+    prefab: {fileID: 1977554221320892, guid: 88f81e1631ea70f458d192631bf8886d, type: 3}
+    role: 0
+    clips: 4
+    atlas: {fileID: 2800000, guid: 63070be2573ac6640a080b00e06cc159, type: 3}
+  - id: syn_business_female_03
+    label: Dock worker 7
+    prefab: {fileID: 1822189464268616, guid: f78a881d3ec75d945ac878527dc26674, type: 3}
+    role: 0
+    clips: 4
+    atlas: {fileID: 2800000, guid: 63070be2573ac6640a080b00e06cc159, type: 3}
+  - id: syn_business_female_04
+    label: Dock worker 8
+    prefab: {fileID: 1360405817128342, guid: 39959bef43f00bd4296c4c6bf8333a52, type: 3}
+    role: 0
+    clips: 4
+    atlas: {fileID: 2800000, guid: 63070be2573ac6640a080b00e06cc159, type: 3}
+  - id: syn_business_male_01
+    label: Dock worker 9
+    prefab: {fileID: 1454114287192450, guid: 3c5b1db0b16674f40a46b5819998a15f, type: 3}
+    role: 0
+    clips: 3
+    atlas: {fileID: 2800000, guid: 63070be2573ac6640a080b00e06cc159, type: 3}
+  - id: syn_business_male_03
+    label: Dock worker 10
+    prefab: {fileID: 1099670560160142, guid: 72eac7e5c7348c94d8915f3dcaa2f5eb, type: 3}
+    role: 0
+    clips: 3
+    atlas: {fileID: 2800000, guid: 63070be2573ac6640a080b00e06cc159, type: 3}
+  - id: syn_business_male_04
+    label: Dock worker 11
+    prefab: {fileID: 1293306985708040, guid: 1479c81f0e50d034fbd932f2971da914, type: 3}
+    role: 0
+    clips: 3
+    atlas: {fileID: 2800000, guid: 63070be2573ac6640a080b00e06cc159, type: 3}
+  - id: syn_cleaner_female_01
+    label: Dock worker 12
+    prefab: {fileID: 1207000675054372, guid: 93e1de5d7ab0d25408e36ac4a41850db, type: 3}
+    role: 0
+    clips: 4
+    atlas: {fileID: 2800000, guid: 63070be2573ac6640a080b00e06cc159, type: 3}
+  - id: syn_developer_female_01
+    label: Dock worker 13
+    prefab: {fileID: 1464604485386400, guid: 1a96e91537e0d7f48809b9484dff7f3e, type: 3}
+    role: 0
+    clips: 4
+    atlas: {fileID: 2800000, guid: 63070be2573ac6640a080b00e06cc159, type: 3}
+  - id: syn_developer_female_02
+    label: Dock worker 14
+    prefab: {fileID: 1371166957121120, guid: aa1d93d2d2812c647997998c269316dd, type: 3}
+    role: 0
+    clips: 4
+    atlas: {fileID: 2800000, guid: 63070be2573ac6640a080b00e06cc159, type: 3}
+  - id: syn_developer_male_01
+    label: Dock worker 15
+    prefab: {fileID: 1295359657651894, guid: 32b926586df8d6f49b0136c82d26645f, type: 3}
+    role: 0
+    clips: 3
+    atlas: {fileID: 2800000, guid: 63070be2573ac6640a080b00e06cc159, type: 3}
+  - id: syn_security_female_01
+    label: Syn Security Female 01
+    prefab: {fileID: 1861045244336520, guid: 06a87c8b15efd30448d53857e94c45e9, type: 3}
+    role: 1
+    clips: 4
+    atlas: {fileID: 2800000, guid: 63070be2573ac6640a080b00e06cc159, type: 3}
+  - id: syn_security_male_01
+    label: Syn Security Male 01
+    prefab: {fileID: 1611835758375592, guid: 1d5338d27c0839b46892a6390262c9d4, type: 3}
+    role: 1
+    clips: 3
+    atlas: {fileID: 2800000, guid: 63070be2573ac6640a080b00e06cc159, type: 3}
   - id: female
-    label: Toon 1
+    label: Female
     prefab: {fileID: 6252356961377389083, guid: 2db03e7c8a8135146b280e5da7e0289c, type: 3}
-    role: 0
+    role: 2
     clips: 1
+    atlas: {fileID: 0}
   - id: male_a
-    label: Toon 2
+    label: Male A
     prefab: {fileID: 7478225697116208144, guid: 6fb37f825ee63264b9c2600bf1a52006, type: 3}
-    role: 0
+    role: 2
     clips: 0
+    atlas: {fileID: 0}
   - id: male_b
-    label: Toon 3
+    label: Male B
     prefab: {fileID: 7447163605589988728, guid: 907fd825e3988774caab4234b943bf44, type: 3}
-    role: 0
+    role: 2
     clips: 0
+    atlas: {fileID: 0}
   - id: police
     label: Police
     prefab: {fileID: 8619338778009079851, guid: 47a3741b253f088469eedd6d403dd89a, type: 3}
-    role: 1
+    role: 2
     clips: 0
+    atlas: {fileID: 0}
+  - id: syn_boss_male_01
+    label: Syn Boss Male 01
+    prefab: {fileID: 1604611627540692, guid: 0636a8b0926172c499640f89dacb0a94, type: 3}
+    role: 2
+    clips: 3
+    atlas: {fileID: 2800000, guid: 63070be2573ac6640a080b00e06cc159, type: 3}
   - id: zombie
     label: Zombie
     prefab: {fileID: 856601670117699726, guid: b14953694d54eea4eb66f453e525024c, type: 3}
     role: 2
     clips: 2
+    atlas: {fileID: 0}
   atlas: {fileID: 2800000, guid: 7a97bf571a8477f449be264c891871e1, type: 3}
   male:
     idle: {fileID: 7400000, guid: 3a8302c5bd6eb324ab81ef3690282de3, type: 3}
@@ -45,6 +158,7 @@ MonoBehaviour:
     run: {fileID: 7400000, guid: 4565b88a84c4f7048b05a8ff423427fd, type: 3}
     death: {fileID: 7400000, guid: 874bb4a08f83e31499d47d1f599abebd, type: 3}
     attack: {fileID: 7400000, guid: 5beb6fa42173b3346911af16b235ffc7, type: 3}
+    jump: {fileID: 0}
     combatIdle: {fileID: 7400000, guid: c336b36f7aa9f7948bc0bd53e110a999, type: 3}
     combatRun: {fileID: 7400000, guid: 7afbe6873857cd64782ec781742471e0, type: 3}
     pistolIdle: {fileID: 7400000, guid: fa42887335d725043833d746d15bad21, type: 3}
@@ -56,6 +170,7 @@ MonoBehaviour:
     run: {fileID: 7400000, guid: 0847a0b7fc33c8a4fb959b7da2c742ef, type: 3}
     death: {fileID: 7400000, guid: 439cb5ba9185e744ab22f8b7c85de62d, type: 3}
     attack: {fileID: 7400000, guid: 9d953fa5dc3e2c943a2d0eee3a072c0d, type: 3}
+    jump: {fileID: 0}
     combatIdle: {fileID: 7400000, guid: db6b2a3bb2f40834d9f4f8320dc20656, type: 3}
     combatRun: {fileID: 7400000, guid: 5b7c6009246c70644acfab1158c5529d, type: 3}
     pistolIdle: {fileID: 0}
@@ -67,6 +182,31 @@ MonoBehaviour:
     run: {fileID: 7400000, guid: 7127da4a5abc12b47a9a29f859fa2a6b, type: 3}
     death: {fileID: 7400000, guid: eb6a7e4187641364aa026764fe99b26c, type: 3}
     attack: {fileID: 7400000, guid: 41ee23486f1e28540ba9809f8694edc3, type: 3}
+    jump: {fileID: 0}
+    combatIdle: {fileID: 0}
+    combatRun: {fileID: 0}
+    pistolIdle: {fileID: 0}
+    pistolRun: {fileID: 0}
+    pistolShoot: {fileID: 0}
+  humanMale:
+    idle: {fileID: -2576967968662016515, guid: 56fd86b76fc74d24d83522069f5deb9b, type: 3}
+    walk: {fileID: 3094330708855449807, guid: c133e3c197c12e04a9dd23bd0966910f, type: 3}
+    run: {fileID: 3094330708855449807, guid: 6deac83e30d8acd4cbb8c7d8a11545bd, type: 3}
+    death: {fileID: 0}
+    attack: {fileID: 0}
+    jump: {fileID: 8973767263969007744, guid: 2035f8d45874b4e47a2c15ea2fa026fb, type: 3}
+    combatIdle: {fileID: 0}
+    combatRun: {fileID: 0}
+    pistolIdle: {fileID: 0}
+    pistolRun: {fileID: 0}
+    pistolShoot: {fileID: 0}
+  humanFemale:
+    idle: {fileID: 3094330708855449807, guid: 0f69fd4f4ad106447896fb775199ed37, type: 3}
+    walk: {fileID: 3094330708855449807, guid: 2d87094962c8b48478651fa8fe1f7a5a, type: 3}
+    run: {fileID: 3094330708855449807, guid: 40786e67f3ceb094b9c00543f295cb5f, type: 3}
+    death: {fileID: 0}
+    attack: {fileID: 0}
+    jump: {fileID: 3094330708855449807, guid: d0d93c131bda12e4bb9798ea4aefb6cb, type: 3}
     combatIdle: {fileID: 0}
     combatRun: {fileID: 0}
     pistolIdle: {fileID: 0}

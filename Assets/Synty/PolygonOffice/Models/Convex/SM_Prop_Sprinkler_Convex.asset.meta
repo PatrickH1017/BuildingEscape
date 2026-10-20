@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 266b286d4129aa5499bf0420f4dedc2d
+timeCreated: 1579574433
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 43744755683791320
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 159492
+  packageName: POLYGON - Office Pack - Art by Synty
+  packageVersion: 1.9.4
+  assetPath: Assets/Synty/PolygonOffice/Models/Convex/SM_Prop_Sprinkler_Convex.asset
+  uploadId: 976702

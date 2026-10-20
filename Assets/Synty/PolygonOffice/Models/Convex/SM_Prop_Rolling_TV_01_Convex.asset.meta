@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 6e00ef8d1ee0b8e43b3c8ae8566f61dd
+timeCreated: 1579571821
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 43540930728751852
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 159492
+  packageName: POLYGON - Office Pack - Art by Synty
+  packageVersion: 1.9.4
+  assetPath: Assets/Synty/PolygonOffice/Models/Convex/SM_Prop_Rolling_TV_01_Convex.asset
+  uploadId: 976702

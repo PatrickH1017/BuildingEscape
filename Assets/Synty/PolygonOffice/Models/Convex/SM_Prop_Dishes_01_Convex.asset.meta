@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 87f0cc3b3161ec44089f1a971b12b1a6
+timeCreated: 1579571645
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 43449395539297176
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 159492
+  packageName: POLYGON - Office Pack - Art by Synty
+  packageVersion: 1.9.4
+  assetPath: Assets/Synty/PolygonOffice/Models/Convex/SM_Prop_Dishes_01_Convex.asset
+  uploadId: 976702

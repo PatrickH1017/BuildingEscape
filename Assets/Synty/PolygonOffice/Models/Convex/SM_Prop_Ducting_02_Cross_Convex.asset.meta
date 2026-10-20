@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: a98d2c1c585c2fc439917a45d5d1b57a
+timeCreated: 1579574404
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 43296103299720638
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 159492
+  packageName: POLYGON - Office Pack - Art by Synty
+  packageVersion: 1.9.4
+  assetPath: Assets/Synty/PolygonOffice/Models/Convex/SM_Prop_Ducting_02_Cross_Convex.asset
+  uploadId: 976702

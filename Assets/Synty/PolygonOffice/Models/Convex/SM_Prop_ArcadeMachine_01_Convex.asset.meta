@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 0ac4a5518e646574c8940075f0bd7334
+timeCreated: 1579571865
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 43561799328872728
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 159492
+  packageName: POLYGON - Office Pack - Art by Synty
+  packageVersion: 1.9.4
+  assetPath: Assets/Synty/PolygonOffice/Models/Convex/SM_Prop_ArcadeMachine_01_Convex.asset
+  uploadId: 976702

@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 79b2ccd192827fa4f895e5c9f4fe6c25
+timeCreated: 1579567432
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 43812796061880906
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 159492
+  packageName: POLYGON - Office Pack - Art by Synty
+  packageVersion: 1.9.4
+  assetPath: Assets/Synty/PolygonOffice/Models/Convex/SM_Prop_Urinal_01_Convex.asset
+  uploadId: 976702

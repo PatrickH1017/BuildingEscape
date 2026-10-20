@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: f1131424da4a84744a7536a4a18e8226
+timeCreated: 1579565837
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 43094684279884888
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 159492
+  packageName: POLYGON - Office Pack - Art by Synty
+  packageVersion: 1.9.4
+  assetPath: Assets/Synty/PolygonOffice/Models/Convex/SM_Bld_Window_Awning_Slates_01_Convex.asset
+  uploadId: 976702

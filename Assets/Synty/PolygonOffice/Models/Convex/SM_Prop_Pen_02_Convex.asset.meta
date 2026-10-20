@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 66af542b1a552fb42bb4ed4368945ee1
+timeCreated: 1579556373
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 43416381032409372
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 159492
+  packageName: POLYGON - Office Pack - Art by Synty
+  packageVersion: 1.9.4
+  assetPath: Assets/Synty/PolygonOffice/Models/Convex/SM_Prop_Pen_02_Convex.asset
+  uploadId: 976702

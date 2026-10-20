@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 718f7bca18ac2cd4ea50f1de7e105fcb
+timeCreated: 1579572123
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 43167495566776742
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 159492
+  packageName: POLYGON - Office Pack - Art by Synty
+  packageVersion: 1.9.4
+  assetPath: Assets/Synty/PolygonOffice/Models/Convex/SM_Prop_Card_Scanner_01_Convex.asset
+  uploadId: 976702

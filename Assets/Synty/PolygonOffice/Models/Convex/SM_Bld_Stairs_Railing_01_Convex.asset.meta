@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: fd6c2a930a4614c43b21e6c97528197b
+timeCreated: 1579556039
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 43081609575867876
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 159492
+  packageName: POLYGON - Office Pack - Art by Synty
+  packageVersion: 1.9.4
+  assetPath: Assets/Synty/PolygonOffice/Models/Convex/SM_Bld_Stairs_Railing_01_Convex.asset
+  uploadId: 976702

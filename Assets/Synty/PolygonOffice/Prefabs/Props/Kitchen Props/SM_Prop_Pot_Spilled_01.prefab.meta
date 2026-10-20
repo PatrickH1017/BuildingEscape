@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: ceceb15b611d6154393060f86dfd2a6f
+timeCreated: 1574900460
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 100100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 159492
+  packageName: POLYGON - Office Pack - Art by Synty
+  packageVersion: 1.9.4
+  assetPath: Assets/Synty/PolygonOffice/Prefabs/Props/Kitchen Props/SM_Prop_Pot_Spilled_01.prefab
+  uploadId: 976702

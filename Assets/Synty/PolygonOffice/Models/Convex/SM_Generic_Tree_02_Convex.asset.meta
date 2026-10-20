@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: df40f699fb4feb340bcb07be037b8d2a
+timeCreated: 1579566319
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 43386185194003598
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 159492
+  packageName: POLYGON - Office Pack - Art by Synty
+  packageVersion: 1.9.4
+  assetPath: Assets/Synty/PolygonOffice/Models/Convex/SM_Generic_Tree_02_Convex.asset
+  uploadId: 976702

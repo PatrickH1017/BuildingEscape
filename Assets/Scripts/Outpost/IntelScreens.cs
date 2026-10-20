@@ -14,10 +14,11 @@ namespace BuildingEscape
 
         public KeyCode journalKey = KeyCode.J;
 
-        string noteTitle = "", noteBody = "";
-        bool noteLearned;
-        int noteFloor;
         int openedFrame = -1;           // (the frame a screen came up in: the key that opened it must not also close it)
+        int journalTab;                 // (0 the safe notes, 1 the checklist: the owner, 2026-10-19)
+        /// <summary>Which tab of the journal is up (for tests).</summary>
+        public int JournalTab { get => journalTab; set => journalTab = value; }
+        readonly System.Collections.Generic.List<SafeIntel.Entry> journalShown = new System.Collections.Generic.List<SafeIntel.Entry>();      // the records of the safes of the floor the player is on
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
         static void ResetStatics() { Instance = null; }
@@ -34,24 +35,10 @@ namespace BuildingEscape
         void OnDestroy()
         {
             if (Instance == this) Instance = null;
-            OutpostUi.Hide(OutpostUi.Kind.Note);
             OutpostUi.Hide(OutpostUi.Kind.Journal);
         }
 
         // ------------------------------------------------------------------ opening
-
-        /// <summary>The local player reads a note (<paramref name="learned"/>: it taught him something new, so the journal grew).</summary>
-        public static void ShowNote(string title, string body, bool learned, int safeFloor)
-        {
-            if (Instance == null) Boot();
-            if (Instance == null || OutpostUi.Open) return;
-            Instance.noteTitle = title;
-            Instance.noteBody = body;
-            Instance.noteLearned = learned;
-            Instance.noteFloor = safeFloor;
-            Instance.openedFrame = Time.frameCount;
-            OutpostUi.Show(OutpostUi.Kind.Note);
-        }
 
         static WobblyPlayer LocalPlayer()
         {
@@ -70,6 +57,7 @@ namespace BuildingEscape
                 if (me && !me.InCustody && !me.IsHidden)
                 {
                     openedFrame = Time.frameCount;
+                    journalTab = 0;
                     OutpostUi.Show(OutpostUi.Kind.Journal);
                 }
             }
@@ -82,7 +70,7 @@ namespace BuildingEscape
         void LateUpdate()
         {
             var current = OutpostUi.Current;
-            if (current != OutpostUi.Kind.Note && current != OutpostUi.Kind.Journal) return;
+            if (current != OutpostUi.Kind.Journal) return;
 
             var me = LocalPlayer();
             bool fresh = Time.frameCount == openedFrame;       // (the key that opened a screen must not also close it)
@@ -95,83 +83,96 @@ namespace BuildingEscape
 
         // ------------------------------------------------------------------ drawing
 
-        static void Fill(Rect r, Color c)
-        {
-            var old = GUI.color;
-            GUI.color = c;
-            GUI.DrawTexture(r, Texture2D.whiteTexture);
-            GUI.color = old;
-        }
-
-        static GUIStyle paper;
-
-        static GUIStyle Paper(int size, FontStyle fontStyle, Color colour)
-        {
-            if (paper == null) paper = new GUIStyle(GUI.skin.label) { wordWrap = true, richText = false, alignment = TextAnchor.UpperLeft };
-            paper.fontSize = size;
-            paper.fontStyle = fontStyle;
-            paper.normal.textColor = colour;
-            return paper;
-        }
-
         void OnGUI()
         {
             var current = OutpostUi.Current;
-            if (current == OutpostUi.Kind.Note) DrawNote();
-            else if (current == OutpostUi.Kind.Journal) DrawJournal();
-        }
-
-        void DrawNote()
-        {
-            float s = Mathf.Clamp(Screen.height / 1080f, 0.75f, 2f);
-            float w = 560f * s, h = 420f * s;
-            var r = new Rect((Screen.width - w) * 0.5f, (Screen.height - h) * 0.5f, w, h);
-            Fill(new Rect(r.x - 5f * s, r.y - 5f * s, r.width + 10f * s, r.height + 10f * s), new Color(0.08f, 0.06f, 0.04f, 0.92f));
-            Fill(r, new Color(0.97f, 0.92f, 0.60f));
-            Fill(new Rect(r.x, r.y + 56f * s, r.width, 2f * s), new Color(0.75f, 0.35f, 0.30f, 0.9f));       // the red rule of a memo pad
-
-            var ink = new Color(0.16f, 0.12f, 0.08f);
-            GUI.Label(new Rect(r.x + 24f * s, r.y + 12f * s, w - 48f * s, 40f * s), noteTitle, Paper(Mathf.RoundToInt(28 * s), FontStyle.Bold, new Color(0.55f, 0.12f, 0.10f)));
-            GUI.Label(new Rect(r.x + 24f * s, r.y + 72f * s, w - 48f * s, h - 150f * s), noteBody, Paper(Mathf.RoundToInt(24 * s), FontStyle.Normal, ink));
-            if (noteLearned)
-                GUI.Label(new Rect(r.x + 24f * s, r.yMax - 66f * s, w - 200f * s, 30f * s), "Added to your journal  (J)", Paper(Mathf.RoundToInt(18 * s), FontStyle.Italic, new Color(0.15f, 0.45f, 0.20f)));
-            if (GUI.Button(new Rect(r.xMax - 150f * s, r.yMax - 56f * s, 130f * s, 38f * s), "Close  (Esc)")) OutpostUi.Hide(OutpostUi.Kind.Note);
+            if (current == OutpostUi.Kind.Journal) DrawJournal();
         }
 
         void DrawJournal()
         {
-            var entries = SafeIntel.Entries;
-            float s = Mathf.Clamp(Screen.height / 1080f, 0.75f, 2f);
-            float w = 640f * s;
-            float h = Mathf.Min(Screen.height - 80f, (210f + Mathf.Max(1, entries.Count) * 44f) * s);
+            MenuKit.Begin();
+            SafeIntel.OnFloor(HeistManager.Instance != null ? HeistManager.Instance.Floor : 0, journalShown);          // (the floor he is on and no other: the owner, 2026-10-18)
+            var entries = journalShown;
+            float s = HudTheme.S;
+            float w = 760f * s;
+            bool checklist = journalTab == 1;
+            int rowsShown = checklist ? ChecklistRules.Count : Mathf.Max(1, entries.Count);
+            float h = Mathf.Min(Screen.height - 80f, (276f + rowsShown * 46f) * s);
             var r = new Rect((Screen.width - w) * 0.5f, (Screen.height - h) * 0.5f, w, h);
-            Fill(new Rect(r.x - 4f * s, r.y - 4f * s, r.width + 8f * s, r.height + 8f * s), new Color(0.02f, 0.03f, 0.04f, 0.92f));
-            Fill(r, new Color(0.09f, 0.11f, 0.14f, 0.97f));
-
-            var title = Paper(Mathf.RoundToInt(26 * s), FontStyle.Bold, new Color(0.95f, 0.85f, 0.45f));
-            GUI.Label(new Rect(r.x + 24f * s, r.y + 14f * s, w - 48f * s, 38f * s), "NOTES - FLOOR SAFES", title);
-
-            var body = Paper(Mathf.RoundToInt(21 * s), FontStyle.Normal, new Color(0.90f, 0.92f, 0.94f));
-            float y = r.y + 64f * s;
-            if (entries.Count == 0)
+            if (Event.current.type == EventType.Repaint)
             {
-                GUI.Label(new Rect(r.x + 24f * s, y, w - 48f * s, 110f * s),
-                    "Nothing yet. Some floors have a safe full of cash. The guard outposts (the rooms with a long dark window, locked with a keypad) " +
-                    "sometimes keep a note about one: hack the lock, then read what is on the desks.", body);
-            }
-            else
-            {
-                for (int i = 0; i < entries.Count; i++)
+                MenuKit.Dim(0.35f);
+                HudTheme.Panel(r, 16f);
+                HudTheme.Text(new Rect(r.x + 28f * s, r.y + 18f * s, w - 56f * s, 40f * s), checklist ? "CHECKLIST  -  THIS FLOOR" : "NOTES  -  FLOOR SAFES", 26f, HudTheme.Bright, TextAnchor.MiddleLeft);
+                HudTheme.Rounded(new Rect(r.x + 30f * s, r.y + 62f * s, 56f * s, Mathf.Max(3f, 4f * s)), HudTheme.Quota, 1f);
+                float y = r.y + 126f * s;
+                if (checklist) DrawChecklist(r, y, s);
+                else if (entries.Count == 0)
                 {
-                    var e = entries[i];
-                    var line = Paper(Mathf.RoundToInt(22 * s), FontStyle.Bold, e.KnowsCode ? new Color(0.55f, 0.95f, 0.60f) : new Color(1f, 0.80f, 0.45f));
-                    GUI.Label(new Rect(r.x + 24f * s, y, w - 48f * s, 40f * s), SafeNotes.JournalLine(e.floor, e.room, e.code), line);
-                    y += 44f * s;
+                    MenuKit.Wrapped(new Rect(r.x + 28f * s, y, w - 56f * s, 110f * s),
+                        "Nothing yet. Every floor has a safe. The guard outposts (the rooms with a long dark window, locked with a keypad) " +
+                        "keep a record of the floor's safes on their computer: hack the lock, then log in at the computer (the log-in is on a post-it on its monitor).", 20f * s, HudTheme.Muted);
                 }
-                GUI.Label(new Rect(r.x + 24f * s, y + 6f * s, w - 48f * s, 70f * s),
-                    "A safe with no code is pried open with a crowbar (the crowbar may snap).", Paper(Mathf.RoundToInt(18 * s), FontStyle.Italic, new Color(0.7f, 0.75f, 0.8f)));
+                else
+                {
+                    for (int i = 0; i < entries.Count; i++)
+                    {
+                        var e = entries[i];
+                        var row = new Rect(r.x + 24f * s, y, w - 48f * s, 42f * s);
+                        MenuKit.Plate(row, 0.22f);
+                        HudTheme.Text(new Rect(row.x + 14f * s, row.y, row.width - 28f * s, row.height), SafeNotes.JournalLine(e.floor, e.index, e.count, e.room, e.code), 21f,
+                            e.KnowsCode ? HudTheme.Cash : HudTheme.Quota, TextAnchor.MiddleLeft, false);
+                        y += 46f * s;
+                    }
+                    MenuKit.Wrapped(new Rect(r.x + 28f * s, y + 8f * s, w - 56f * s, 70f * s), "A safe with no code is pried open with a crowbar (the crowbar may snap).", 18f * s, HudTheme.Dim);
+                }
             }
-            if (GUI.Button(new Rect(r.xMax - 170f * s, r.yMax - 52f * s, 150f * s, 36f * s), "Close  (J / Esc)")) OutpostUi.Hide(OutpostUi.Kind.Journal);
+            // the two tabs (a button answers in every kind of event, so they sit outside the paint)
+            if (MenuKit.Button(new Rect(r.x + 28f * s, r.y + 74f * s, 190f * s, 36f * s), "SAFE NOTES", checklist ? HudTheme.Dim : HudTheme.Info, 16f)) journalTab = 0;
+            if (MenuKit.Button(new Rect(r.x + 226f * s, r.y + 74f * s, 190f * s, 36f * s), "CHECKLIST", checklist ? HudTheme.Info : HudTheme.Dim, 16f)) journalTab = 1;
+            if (MenuKit.Button(new Rect(r.xMax - 226f * s, r.yMax - 62f * s, 200f * s, 44f * s), "CLOSE  (J / ESC)", HudTheme.Info, 17f)) OutpostUi.Hide(OutpostUi.Kind.Journal);
+        }
+
+        /// <summary>
+        /// The checklist (the owner, 2026-10-19): a line for each kind of thing on the floor - the text, then a check box. When all of a kind is collected the box is ticked in green and the text goes green with a green line through it. Nothing is tracked at the docks.
+        /// </summary>
+        void DrawChecklist(Rect r, float y, float s)
+        {
+            int floor = HeistManager.Instance != null ? HeistManager.Instance.Floor : 0;
+            for (int i = 0; i < ChecklistRules.Count; i++)
+            {
+                var kind = (ScanKind)i;
+                bool done = floor >= 1 && FloorChecklistTracker.IsDone(kind);
+                string label = ChecklistRules.Label(kind);
+                var row = new Rect(r.x + 24f * s, y, r.width - 48f * s, 42f * s);
+                MenuKit.Plate(row, 0.22f);
+                var text = new Rect(row.x + 14f * s, row.y, row.width - 28f * s, row.height);
+                HudTheme.Text(text, label, 21f, done ? HudTheme.Cash : HudTheme.Bright, TextAnchor.MiddleLeft, false);
+                float tw = HudTheme.Width(label, 21f);
+                if (done) DrawLine(new Vector2(text.x, row.center.y), new Vector2(text.x + tw, row.center.y), 3f * s, HudTheme.Cash);
+                var box = new Rect(text.x + tw + 18f * s, row.center.y - 15f * s, 30f * s, 30f * s);
+                HudTheme.Rounded(box, done ? HudTheme.Cash : HudTheme.Ink, 7f * s);
+                HudTheme.Rounded(new Rect(box.x + 3f * s, box.y + 3f * s, box.width - 6f * s, box.height - 6f * s), HudTheme.Track, 5f * s);
+                if (done)
+                {
+                    var c = box.center;
+                    DrawLine(new Vector2(c.x - 8f * s, c.y + 0f * s), new Vector2(c.x - 2.5f * s, c.y + 6f * s), 4f * s, HudTheme.Cash);
+                    DrawLine(new Vector2(c.x - 2.5f * s, c.y + 6f * s), new Vector2(c.x + 8.5f * s, c.y - 7f * s), 4f * s, HudTheme.Cash);
+                }
+                y += 46f * s;
+            }
+        }
+
+        /// <summary>A straight line of a given thickness between two points on screen.</summary>
+        static void DrawLine(Vector2 a, Vector2 b, float thickness, Color c)
+        {
+            var mid = (a + b) * 0.5f;
+            float len = (b - a).magnitude, angle = Mathf.Atan2(b.y - a.y, b.x - a.x) * Mathf.Rad2Deg;
+            var saved = GUI.matrix;
+            GUIUtility.RotateAroundPivot(angle, mid);
+            HudTheme.Rounded(new Rect(mid.x - len * 0.5f, mid.y - thickness * 0.5f, len, thickness), c, thickness * 0.5f);
+            GUI.matrix = saved;
         }
     }
 }

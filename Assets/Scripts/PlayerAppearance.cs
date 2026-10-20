@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Globalization;
 using UnityEngine;
 
@@ -32,13 +33,50 @@ namespace BuildingEscape
         /// <summary>True when this look is a Tiny Toon person (colour, face and hat then do not apply).</summary>
         public bool IsToon => !string.IsNullOrEmpty(model);
 
-        /// <summary>The pack look this player slot would get by default.</summary>
+        /// <summary>
+        /// The dock workers (the Synty office people) a player is by default, in slot order: the four characters the owner showed (the man with the cap, the blonde woman in dark grey, the man with glasses
+        /// and headphones, the man with the red beard and the vest) and the woman cleaner from his first picture (2026-10-17 night: "The Dock workers should be these character models"; before that
+        /// "Make the toon the default character").
+        /// </summary>
+        public static readonly string[] DefaultToons = { "syn_cleaner_male_01", "syn_boss_female_01", "syn_developer_male_02", "syn_business_male_02", "syn_cleaner_female_01" };
+
+        /// <summary>The dock worker a slot is by default, or null on a machine without the office pack (the slot's Party character stands in). An older catalog without the defaults offers whoever can be played.</summary>
+        public static string DefaultToon(int slot)
+        {
+            var cat = CharacterCatalog.Instance;
+            if (cat == null) return null;
+            var ids = new List<string>();
+            foreach (var id in DefaultToons) if (cat.Find(id) != null) ids.Add(id);
+            if (ids.Count == 0) foreach (var c in cat.Players()) ids.Add(c.id);
+            if (ids.Count == 0) return null;
+            return ids[((slot % ids.Count) + ids.Count) % ids.Count];
+        }
+
+        /// <summary>
+        /// A saved look whose character can no longer be played (the Party character, a Tiny Toon person: the office people are the playable characters now) becomes the first slot's dock worker; the rest
+        /// of the look (build, colours) is kept. A machine without the office pack keeps what it has.
+        /// </summary>
+        public static PlayerAppearance Migrated(PlayerAppearance a)
+        {
+            var cat = CharacterCatalog.Instance;
+            if (cat == null) return a;
+            var players = cat.Players();
+            if (players.Count == 0) return a;
+            foreach (var c in players) if (c.id == a.model) return a;
+            a.model = DefaultToon(0);
+            return a;
+        }
+
+        /// <summary>
+        /// The look this player slot has until the player chooses one: a Tiny Toon person (the body colour, face and hat are the slot's Party character's, kept for the
+        /// roster colours and for a machine without the toon pack).
+        /// </summary>
         public static PlayerAppearance ForSlot(int slot)
         {
             var looks = PartyCharacterFactory.PlayerLooks;
             var l = looks[((slot % looks.Length) + looks.Length) % looks.Length];
             int hat = System.Array.IndexOf(HatNames, l.hat);
-            return new PlayerAppearance { body = l.body, face = l.face, hat = Mathf.Max(0, hat), height = 1f, width = 1f };
+            return new PlayerAppearance { body = l.body, face = l.face, hat = Mathf.Max(0, hat), height = 1f, width = 1f, model = DefaultToon(slot) };
         }
 
         public CharacterLook ToLook(string name = "Player") =>
@@ -98,7 +136,9 @@ namespace BuildingEscape
             var forced = System.Environment.GetEnvironmentVariable("BE_TEST_LOOK");
             if (!string.IsNullOrEmpty(forced)) return TryParse(forced, out a);
 #endif
-            return TryParse(PlayerPrefs.GetString(PrefKey, ""), out a);
+            bool ok = TryParse(PlayerPrefs.GetString(PrefKey, ""), out a);
+            if (ok) a = Migrated(a);                         // (a look saved before the office people came: the Party character or a Tiny Toon person)
+            return ok;
         }
 
         public void Save()

@@ -117,7 +117,7 @@ namespace BuildingEscape
             var table = r.Wall('E', "desk_3", 0.2f);
             if (table != null)
             {
-                r.Put("chair_office", table.lx - table.def.D / 2 - 0.35f, table.lz, 90f);
+                r.Put("chair_office", table.lx - table.def.D / 2 - Tuck("chair_office"), table.lz, 90f);
                 if (op != null)
                     for (int row = 0; row < 2; row++)
                         for (int col = 0; col < 3; col++)
@@ -125,32 +125,32 @@ namespace BuildingEscape
                 r.Mount('E', "whiteboard", 0.2f, 1.25f);
             }
 
-            // the monitoring desks under the window, facing it; the note about a safe lies on the last of them
+            // the monitoring desks under the window, facing it; the computer with the record of a safe stands on the last of them
             var desks = new List<Item>();
             for (int i = 0; i < 3; i++)
             {
-                float x = -3.5f + 1.5f * i;
+                float x = -3.4f + 2.1f * i;                                 // (the pack's desks are 2 m wide)
                 var desk = r.Wall('S', "desk_1", x);
                 if (desk == null) continue;
                 desks.Add(desk);
                 float dd = desk.def.D;
-                r.Put("chair_office", x, desk.lz + dd / 2 + 0.30f, 180f);
-                r.Top(desk, "monitor_new", -0.45f, -dd / 2 + 0.2f);
-                r.Top(desk, i == 1 ? "monitor_old" : "monitor_new", 0.02f, -dd / 2 + 0.2f);
-                r.Top(desk, "keyboard", -0.22f, 0.12f);
-                r.Top(desk, "mouse", 0.2f, 0.12f);
-                if (i == 0) r.Top(desk, "phone", 0.52f, -0.02f);
-                if (i == 1) r.Top(desk, "papers", 0.55f, 0.0f, 90f);
+                r.Put("chair_office", x, desk.lz + dd / 2 + Tuck("chair_office"), 180f);
+                r.Top(desk, "monitor_new", -0.5f, -dd / 2 + 0.2f);
+                r.Top(desk, i == 1 ? "monitor_old" : "monitor_new", 0.3f, -dd / 2 + 0.2f);
+                r.Top(desk, "keyboard", -0.25f, 0.10f);
+                r.Top(desk, "mouse", 0.2f, 0.10f);
+                if (i == 0) r.Top(desk, "phone", 0.75f, 0.22f);
+                if (i == 1) r.Top(desk, "papers", 0.7f, 0.0f, 90f);
             }
             if (op != null && desks.Count > 0)
-                op.itemSlots.Insert(0, TopSlot(r, desks[desks.Count - 1], 0.5f, 0.02f, "note", 12f));
+                op.itemSlots.Insert(0, TopSlot(r, desks[desks.Count - 1], 0.5f, 0.0f, "computer", 0f));
 
             // lockers along the whole back wall and the west wall
             for (int i = 0; i < 7; i++) r.Wall('N', "locker2", -3.9f + 1.2f * i);
             r.Wall('W', "locker2", -1.5f);
 
             // monitors on the wall above them, a clock, a bin
-            for (int i = 0; i < 7; i++) r.Mount('N', "wall_tv", -3.9f + 1.2f * i, 2.2f);
+            for (int i = 0; i < 7; i += 2) r.Mount('N', "wall_tv", -3.9f + 1.2f * i, 2.2f);       // (the pack's wall screens are 1.5 m wide: one above every other locker)
             r.Mount('W', "wall_tv", -1.5f, 2.2f);
             MountAt(r, 'E', "clock", 2.1f, 2.4f, -2.2f);
             r.Wall('E', "trash_bin", 2.2f);
@@ -168,33 +168,47 @@ namespace BuildingEscape
         }
 
         /// <summary>
-        /// Puts the floor safe against a wall of one of the numbered rooms, if this floor has one. The room is picked with the roll the
-        /// caller supplied (offices, meeting rooms, storage and so on first); the spot is the first along the walls where the safe fits,
-        /// is clear of doorways, walls nothing off and is not on top of the room's patrol stop.
+        /// Puts the floor's safes against walls of numbered rooms, each in a room of its own (floors 1 and 2 have one safe, floors 3 and up several). The first is placed exactly as the one safe always was: the
+        /// room is picked with the roll the caller supplied (offices, meeting rooms, storage and so on first); the spot is the first along the walls where the safe fits, is clear of doorways, walls nothing
+        /// off and is not on top of the room's patrol stop. The others use rolls of their own and skip the rooms that already have a safe.
         /// </summary>
         void PlaceSafe()
         {
-            if (!inp.hasSafe) return;
-            var friendly = new List<RoomCtx>();
-            var others = new List<RoomCtx>();
-            foreach (var rc in allRooms)
+            int count = System.Math.Max(inp.safeCount, inp.hasSafe ? 1 : 0);
+            var used = new HashSet<RoomCtx>();
+            for (int n = 0; n < count; n++)
             {
-                if (!RoomNumbers.IsNumbered(rc.info)) continue;
-                (SafeFriendly(rc.theme) ? friendly : others).Add(rc);
-            }
-            foreach (var tier in new[] { friendly, others })
-                for (int k = 0; k < tier.Count; k++)
+                uint roll = n == 0 ? inp.safeRoll : SafeRules.Hash((int)inp.safeRoll, n, 991);
+                var suites = new List<RoomCtx>();
+                var friendly = new List<RoomCtx>();
+                var others = new List<RoomCtx>();
+                foreach (var rc in allRooms)
                 {
-                    var room = tier[(int)((inp.safeRoll + (uint)k) % (uint)tier.Count)];
-                    if (TryPlaceSafeIn(room)) return;
+                    if (!RoomNumbers.IsNumbered(rc.info) || used.Contains(rc)) continue;
+                    if (rc.info.role == RoleSuite) suites.Add(rc);
+                    else if (rc.info.role == RoleServer) { }                         // (the server room keeps its racks)
+                    else (SafeFriendly(rc.theme) ? friendly : others).Add(rc);
                 }
+                RoomCtx chosen = null;
+                foreach (var tier in new[] { suites, friendly, others })
+                {
+                    for (int k = 0; k < tier.Count && chosen == null; k++)
+                    {
+                        var room = tier[(int)((roll + (uint)k) % (uint)tier.Count)];
+                        if (TryPlaceSafeIn(room, roll, n)) chosen = room;
+                    }
+                    if (chosen != null) break;
+                }
+                if (chosen == null) break;
+                used.Add(chosen);
+            }
         }
 
-        bool TryPlaceSafeIn(RoomCtx room)
+        bool TryPlaceSafeIn(RoomCtx room, uint roll, int index)
         {
             var def = PropTable.Get("vault_safe");
             char[] sides = { 'N', 'E', 'W', 'S' };
-            int first = (int)((inp.safeRoll >> 8) % 4U);
+            int first = (int)((roll >> 8) % 4U);
             room.ToLocal(room.info.wx, room.info.wz, out var wpx, out var wpz);
             for (int si = 0; si < 4; si++)
             {
@@ -205,7 +219,7 @@ namespace BuildingEscape
                 if (hi < lo) continue;
                 const float step = 0.35f;
                 int steps = (int)((hi - lo) / step) + 1;
-                int start = (int)((inp.safeRoll >> 16) % (uint)steps);
+                int start = (int)((roll >> 16) % (uint)steps);
                 for (int i = 0; i < steps; i++)
                 {
                     float along = lo + ((start + i) % steps) * step;
@@ -222,17 +236,16 @@ namespace BuildingEscape
                         default: sxl -= fd; break;
                     }
                     if (!room.IsFree(sxl, szl, 0.35f) || !room.ComputeReach().Seen(sxl, szl, 0.1f)) { room.RemoveItem(it); continue; }
-                    layout.safe = new SafeSpot
+                    layout.safes.Add(new SafeSpot
                     {
                         piece = it.piece, room = room.info, roomIndex = layout.rooms.IndexOf(room.info),
-                        x = it.piece.x, y = 0f, z = it.piece.z, yaw = it.piece.yaw
-                    };
+                        x = it.piece.x, y = 0f, z = it.piece.z, yaw = it.piece.yaw, index = index
+                    });
                     return true;
                 }
             }
             return false;
         }
-
         // ------------------------------------------------------------------ after everything is placed
 
         /// <summary>
@@ -246,8 +259,8 @@ namespace BuildingEscape
             var live = new HashSet<Piece>(layout.pieces);
             op.itemSlots.RemoveAll(s => s.host != null && !live.Contains(s.host));
 
-            int wanted = OutpostLoot.MaxItems + 1;                  // the note's place and one for each thing
-            bool hasNote = op.itemSlots.Exists(s => s.kind == "note");
+            int wanted = OutpostLoot.MaxItems + 1;                  // the computer's place and one for each thing
+            bool hasNote = op.itemSlots.Exists(s => s.kind == "computer");
             if (op.itemSlots.Count >= wanted && hasNote) return;
 
             RoomCtx room = null;
@@ -262,7 +275,7 @@ namespace BuildingEscape
             {
                 if (!room.FindFreeReach(reach, around[i][0], around[i][1], out var fx, out var fz, 0.6f)) continue;
                 room.ToWorld(fx, fz, out var wx, out var wz);
-                string kind = hasNote ? "item" : "note";
+                string kind = hasNote ? "item" : "computer";
                 hasNote = true;
                 op.itemSlots.Add(new Slot { x = wx, y = 0f, z = wz, yaw = 0f, kind = kind, room = room.name });
             }

@@ -1,0 +1,843 @@
+using System;
+using System.Collections.Generic;
+
+namespace BuildingEscape
+{
+    /// <summary>The furnishing of each kind of room. Every theme works in the room's canonical frame (door on the south wall).</summary>
+    public sealed partial class OfficePlanner
+    {
+        // ------------------------------------------------------------------ small helpers
+
+        static void Fwd(float yaw, out float fx, out float fz)
+        {
+            int q = (((int)Math.Round(yaw / 90f)) % 4 + 4) % 4;
+            RoomCtx.RotQ(q, 0f, 1f, out fx, out fz);
+        }
+
+        float Rnd(float a, float b) => a + (float)rng.NextDouble() * (b - a);
+        bool Chance(double p) => rng.NextDouble() < p;
+        T OneOf<T>(params T[] xs) => xs[rng.Next(xs.Length)];
+
+        /// <summary>First of the keys that fits against the wall at that spot.</summary>
+        Item TryWall(RoomCtx r, char side, string[] keys, float along)
+        {
+            foreach (var k in keys)
+            {
+                var it = r.Wall(side, k, along);
+                if (it != null) return it;
+            }
+            return null;
+        }
+
+        /// <summary>A desk with a chair, screen, keyboard and bits of paper. Its front (the user's side) faces <paramref name="yaw"/>.</summary>
+        Item Station(RoomCtx r, float lx, float lz, float yaw, string deskKey, bool chair = true, double lootBase = 1.0)
+        {
+            var desk = r.Put(deskKey, lx, lz, yaw);
+            if (desk == null) return null;
+            float dw = desk.def.W, dd = desk.def.D;
+            Fwd(yaw, out var fx, out var fz);
+            if (chair) r.Put(OneOf("chair_office", "chair_std", "chair_office"), lx + fx * (dd / 2 + 0.30f), lz + fz * (dd / 2 + 0.30f), yaw + 180f);
+            float mu = deskKey == "desk_3" ? -0.45f : -0.15f;
+            var mon = r.Top(desk, Chance(0.3) ? "monitor_old" : "monitor_new", mu, -dd / 2 + 0.22f);
+            r.Loot(mon, 0.30 * lootBase);
+            r.Loot(r.Top(desk, "keyboard", mu, 0.12f), 0.12 * lootBase);
+            r.Top(desk, "mouse", mu + 0.36f, 0.12f);
+            if (Chance(0.55)) r.Loot(r.Top(desk, "phone", dw / 2 - 0.30f, -0.02f, 0f), 0.35 * lootBase);
+            if (Chance(0.55)) r.Top(desk, "papers", -dw / 2 + 0.28f, -0.02f, OneOf(0f, 90f));
+            if (Chance(0.35)) r.Top(desk, "pencil_holder", -dw / 2 + 0.14f, -dd / 2 + 0.14f);
+            if (Chance(0.35)) r.Loot(r.Top(desk, "notepad", mu + 0.7f, 0.1f, OneOf(0f, 15f, -15f)), 0.3 * lootBase);
+            if (Chance(0.30)) r.Loot(r.Top(desk, "stapler", dw / 2 - 0.15f, 0.2f, OneOf(0f, 90f)), 0.4 * lootBase);
+            if (Chance(0.30)) r.MugSlot(desk, dw / 2 - 0.12f, 0.15f);
+            return desk;
+        }
+
+        /// <summary>Two rows of workstations back to back with a divider, like a cubicle cluster. The long axis runs along local x.</summary>
+        void Island(RoomCtx r, float cx, float cz, int nx, string deskKey = "desk_1")
+        {
+            var def = PropTable.Get(deskKey);
+            float dw = def.W, dd = def.D, len = nx * dw;
+            r.Panel(cx, cz, len + 0.1f, 0.06f, 'x', 1.4f);
+            for (int side = 1; side >= -1; side -= 2)
+                for (int i = 0; i < nx; i++)
+                {
+                    float x = cx - len / 2 + dw / 2 + i * dw;
+                    float z = cz + side * (0.05f + dd / 2);
+                    Station(r, x, z, side > 0 ? 0f : 180f, deskKey);
+                }
+            for (int e = -1; e <= 1; e += 2) r.Panel(cx + e * (len / 2 + 0.03f), cz, 2.6f, 0.06f, 'z', 1.4f);
+            for (int i = 1; i < nx; i++)
+            {
+                float x = cx - len / 2 + i * dw;
+                for (int side = -1; side <= 1; side += 2) r.Panel(x, cz + side * 0.65f, 1.2f, 0.06f, 'z', 1.4f);
+            }
+        }
+
+        void Plant(RoomCtx r, char side, float along)
+        {
+            r.Wall(side, Chance(0.45) ? "plant_big" : "plant_small", along);
+        }
+
+        /// <summary>Plants in the four corners that fit.</summary>
+        void CornerPlants(RoomCtx r, double chance, bool bigOnes = false)
+        {
+            string key = bigOnes ? "plant_big" : "plant_small";
+            float hx = r.w / 2, hz = r.d / 2, m = PropTable.Get(key).W / 2 + 0.03f;
+            if (r.HasWall('N') && r.HasWall('W') && Chance(chance)) r.Put(key, -hx + m, hz - m, 0f);
+            if (r.HasWall('N') && r.HasWall('E') && Chance(chance)) r.Put(key, hx - m, hz - m, 0f);
+            if (r.HasWall('S') && r.HasWall('W') && Chance(chance)) r.Put(key, -hx + m, -hz + m, 0f);
+            if (r.HasWall('S') && r.HasWall('E') && Chance(chance)) r.Put(key, hx - m, -hz + m, 0f);
+        }
+
+        void WallArt(RoomCtx r, char side, float from, float to, float step, double chance = 0.8)
+        {
+            for (float a = from; a <= to; a += step)
+                if (Chance(chance))
+                {
+                    if (Chance(0.7)) r.Mount(side, "painting", a, 1.5f);
+                    else r.Mount(side, "painting_small", a, 1.6f);
+                }
+        }
+
+        // ------------------------------------------------------------------ dispatch
+
+        void Furnish(RoomCtx r)
+        {
+            switch (r.theme)
+            {
+                case "hub": ThHub(r); break;
+                case "hall": if (r.longHall) ThLongHall(r); else ThHall(r); break;
+                case "office": ThOffice(r); break;
+                case "conference": case "meeting": ThConference(r); break;
+                case "break": ThBreak(r); break;
+                case "storage": ThStorage(r); break;
+                case "copy": ThCopy(r); break;
+                case "server": ThServer(r); break;
+                case "lounge": ThLounge(r); break;
+                case "training": ThTraining(r); break;
+                case "open": ThOpen(r); break;
+                case "nook": ThNook(r); break;
+                case "longopen": ThLongOpen(r); break;
+                case "canteen": ThCanteen(r); break;
+                case "cafe_counter": ThCafeCounter(r); break;
+                case "cafe_seating": ThCafeSeating(r); break;
+                case "lobby": ThLobby(r); break;
+                case "service": ThService(r); break;
+                case "outpost": ThOutpost(r); break;
+            }
+        }
+
+        static int HideNeed(RoomCtx r) => r.kind == 0 ? 2 : r.kind == 1 ? 3 : (r.isRing ? 3 : 0);
+
+        /// <summary>
+        /// Final pass over a furnished room: furniture nobody can walk up to goes, every room gets enough places to
+        /// duck behind (that a person can actually reach), and treasure spots nobody can get to are dropped.
+        /// </summary>
+        public static readonly Dictionary<string, int> Stats = new Dictionary<string, int>();
+        static void Stat(string k, int n) { if (n == 0) return; Stats.TryGetValue(k, out var o); Stats[k] = o + n; }
+
+        void Settle(RoomCtx r)
+        {
+            var g = r.ComputeReach();
+            Stat(r.theme + ".rooms", 1);
+            Stat(r.theme + ".removed", r.RemoveUnreachable(g));
+            int need = HideNeed(r);
+            for (int pass = 0; pass < 3 && r.hides.Count < need; pass++)
+            {
+                g = r.ComputeReach();
+                Stat(r.theme + ".addhides", 1);
+                AddHides(r, g, need);
+                g = r.ComputeReach();
+                Stat(r.theme + ".removed2", r.RemoveUnreachable(g));
+            }
+            if (r.hides.Count < need) Stat(r.theme + ".SHORT", 1);
+            r.reach = r.ComputeReach();
+            r.FilterSlots(r.reach);
+        }
+
+        /// <summary>Adds cabinets / shelves along the walls (or a free-standing screen) until the room has enough hiding places.</summary>
+        void AddHides(RoomCtx r, ReachGrid g, int need)
+        {
+            string[] keys = { "cabinet_med", "bookshelf", "cabinet_med", "shelf", "cabinet_small" };
+            char[] sides = { 'N', 'E', 'W', 'S' };
+            for (int guard = 0; guard < 14 && r.hides.Count < need; guard++)
+            {
+                string key = keys[guard % keys.Length];
+                bool placed = false;
+                foreach (char side in sides)
+                {
+                    if (!r.HasWall(side)) continue;
+                    float len = (side == 'N' || side == 'S') ? r.w : r.d;
+                    for (float a = -len / 2 + 0.5f; a <= len / 2 - 0.5f; a += 0.4f)
+                    {
+                        var it = r.Wall(side, key, a);
+                        if (it == null) continue;
+                        if (!g.SeenNear(it.rc, 0.3f)) { r.RemoveItem(it); continue; }
+                        placed = true; break;
+                    }
+                    if (placed) break;
+                }
+                if (placed) continue;
+                // no wall space left: a free-standing screen
+                for (float x = -r.w / 2 + 0.6f; x <= r.w / 2 - 0.6f && !placed; x += 0.5f)
+                    for (float z = r.d / 2 - 0.5f; z >= -r.d / 2 + 0.5f && !placed; z -= 0.5f)
+                    {
+                        var it = r.Panel(x, z, 1.4f, 0.06f, 'x', 1.6f);
+                        if (it == null) continue;
+                        if (!g.SeenNear(it.rc, 0.3f)) { r.RemoveItem(it); continue; }
+                        placed = true;
+                    }
+                if (!placed) break;
+            }
+        }
+
+        // ------------------------------------------------------------------ corridors
+
+        void ThHub(RoomCtx r)
+        {
+            // the junction stays open; just a plant in each corner of the square (against the partition corners)
+            float h = r.w / 2 - 0.25f;
+            foreach (var sx in new[] { -1f, 1f })
+                foreach (var sz in new[] { -1f, 1f })
+                    if (Chance(0.55)) r.Put(Chance(0.5) ? "plant_small" : "plant_big", sx * (h - 0.1f), sz * (h - 0.1f), 0f);
+        }
+
+        void ThHall(RoomCtx r)
+        {
+            // r.w = across (4.4 or 4.0), r.d = outward from the junction
+            if (r.openLane) { HallDecorOpen(r); return; }
+            foreach (char side in new[] { 'W', 'E' })
+            {
+                if (!r.HasWall(side)) continue;
+                float z = -r.d / 2 + 0.9f;
+                int run = 0;
+                while (z < r.d / 2 - 0.6f && run < 12)
+                {
+                    run++;
+                    int kind = rng.Next(10);
+                    Item it = null; float used = 0.8f;
+                    if (kind <= 1) { it = r.Wall(side, "plant_big", z + 0.4f); used = 0.9f; }
+                    else if (kind == 2) { it = r.Wall(side, "water", z + 0.25f); used = 0.6f; r.Loot(it, 0.5); }
+                    else if (kind == 3) { it = r.Wall(side, "sofa1", z + 0.62f); used = 1.3f; }
+                    else if (kind == 4) { it = r.Wall(side, "cabinet_med", z + 0.3f); used = 0.7f; }
+                    else if (kind == 5) { it = r.Wall(side, "bookshelf", z + 0.6f); used = 1.3f; }
+                    else if (kind == 6) { it = r.Wall(side, "trash_bin", z + 0.2f); used = 0.5f; }
+                    else if (kind == 7) { it = r.Wall(side, "plant_small", z + 0.2f); used = 0.5f; }
+                    if (it != null && it.def.key == "sofa1" && Chance(0.5)) r.Wall(side, "plant_small", z + 1.45f);
+                    z += used + Rnd(0.5f, 1.4f);
+                }
+                WallArt(r, side, -r.d / 2 + 1.5f, r.d / 2 - 0.9f, 2.3f, 0.75);
+            }
+            if (!r.endGap && r.HasWall('N'))
+            {
+                // dead end: a bench or a cooler and a big painting
+                if (Chance(0.5)) { r.Wall('N', "sofa2", 0f); r.Mount('N', "painting", 0f, 1.6f); }
+                else { r.Wall('N', "water", -0.6f); r.Wall('N', "plant_big", 0.8f); r.Mount('N', "clock", 0f, 2.0f); }
+            }
+            else if (r.HasWall('N'))
+            {
+                r.Mount('N', "ac_unit", -1.9f, 2.7f);
+            }
+        }
+
+        void HallDecorOpen(RoomCtx r)
+        {
+            // an arm of an open-plan hall: nothing beside it, so only the end wall
+            if (!r.endGap && r.HasWall('N'))
+            {
+                r.Wall('N', "plant_big", -1.0f); r.Wall('N', "plant_big", 1.0f);
+                r.Mount('N', "painting", 0f, 1.6f);
+            }
+        }
+
+        void ThLongHall(RoomCtx r)
+        {
+            // the corridor of a split cell: w = 17.6 along the corridor, d = 4.4 across; both long sides are partitions
+            foreach (char side in new[] { 'S', 'N' })
+            {
+                float x = -r.w / 2 + 0.6f;
+                int run = 0;
+                while (x < r.w / 2 - 0.6f && run < 40)
+                {
+                    run++;
+                    int kind = rng.Next(10);
+                    Item it = null; float used = 0.8f;
+                    if (kind <= 1) { it = r.Wall(side, "plant_big", x + 0.4f); used = 0.9f; }
+                    else if (kind == 2) { it = r.Wall(side, "water", x + 0.25f); used = 0.6f; r.Loot(it, 0.5); }
+                    else if (kind == 3) { it = r.Wall(side, "sofa2", x + 1.0f); used = 2.1f; }
+                    else if (kind == 4) { it = r.Wall(side, "cabinet_med", x + 0.3f); used = 0.7f; }
+                    else if (kind == 5) { it = r.Wall(side, "trash_bin", x + 0.2f); used = 0.5f; }
+                    x += used + Rnd(0.6f, 1.6f);
+                }
+                WallArt(r, side, -r.w / 2 + 1.5f, r.w / 2 - 1.5f, 2.6f, 0.7);
+            }
+            if (!r.endGapA && r.HasWall('W')) { r.Wall('W', "plant_big", 0f); r.Mount('W', "painting", 0f, 1.6f); }
+            if (!r.endGapB && r.HasWall('E')) { r.Wall('E', "plant_big", 0f); r.Mount('E', "painting", 0f, 1.6f); }
+        }
+
+        // ------------------------------------------------------------------ offices
+
+        void ThOffice(RoomCtx r)
+        {
+            bool bigRoom = r.w >= 5f && r.d >= 5f;
+            if (bigRoom) ExecOffice(r);
+            else if (r.w >= r.d) RowOffice(r);
+            else NarrowOffice(r);
+            CornerPlants(r, 0.5);
+        }
+
+        void ExecOffice(RoomCtx r)
+        {
+            float hx = r.w / 2, hz = r.d / 2;
+            float zd = hz - 1.95f;
+            var desk = r.Put("desk_3", 0.4f, zd, 0f);
+            if (desk != null)
+            {
+                float dd = desk.def.D;
+                r.Put("chair_office", 0.4f, zd + dd / 2 + 0.32f, 180f);
+                r.Put("chair_modern", -0.35f, zd - dd / 2 - 0.55f, 0f);
+                r.Put("chair_modern", 1.15f, zd - dd / 2 - 0.55f, 0f);
+                r.Loot(r.Top(desk, "monitor_new", -0.5f, -dd / 2 + 0.2f), 0.4);
+                r.Top(desk, "keyboard", -0.5f, 0.12f);
+                r.Top(desk, "mouse", -0.1f, 0.12f);
+                r.Loot(r.Top(desk, "phone", 0.8f, -0.02f), 0.4);
+                r.Top(desk, "notepad", 0.1f, 0.15f, 10f);
+                r.Top(desk, "pencil_holder", -1.0f, -0.1f);
+                if (Chance(0.6)) { var b = r.Top(desk, "briefcase", 0.55f, 0.02f); if (b != null) { b.piece.loot = true; } }
+                r.MugSlot(desk, 1.0f, 0.1f);
+                if (Chance(0.6)) r.BigSlot("stapler", 0.4f + 0.95f, zd + 0.05f, desk.Top);
+            }
+            // bookshelves along the west wall, cabinets under the painting
+            r.Wall('W', "bookshelf", hz - 1.2f); r.Wall('W', "bookshelf", hz - 2.5f); r.Wall('W', "cabinet_med", hz - 3.4f);
+            if (r.Wall('W', "bookshelf", hz - 4.4f) == null) r.Wall('W', "cabinet_small", hz - 4.2f);
+            // a sofa with a coffee table on the east wall
+            var sofa = r.Wall('E', OneOf("sofa2", "sofa2", "sofa1"), -0.6f);
+            if (sofa != null)
+            {
+                r.Put("coffee_table", hx - sofa.def.D - 0.35f - 0.32f, -0.6f, 90f);
+                r.Mount('E', "clock", -0.6f, 2.1f);
+            }
+            r.Wall('E', "plant_big", 0.9f);
+            r.Mount('N', "painting", 0.4f, 1.6f);
+            if (Chance(0.5)) { r.Reserve(hx - 0.95f, hz - 0.9f, 1.5f, 1.5f); r.BigSlot("safe", hx - 0.95f, hz - 0.9f); }
+            r.Mount('S', "painting_small", -hx + 1.2f, 1.6f);
+        }
+
+        void RowOffice(RoomCtx r)
+        {
+            // wide and shallow: the desk sits against the north wall, the worker faces it
+            float hx = r.w / 2, hz = r.d / 2;
+            var desk = r.Put(OneOf("desk_2", "desk_1", "desk_3"), Rnd(-0.6f, 0.9f), hz - 0.40f, 180f);
+            if (desk != null)
+            {
+                float dd = desk.def.D, dw = desk.def.W;
+                r.Put("chair_office", desk.lx, desk.lz - dd / 2 - 0.30f, 0f);
+                r.Loot(r.Top(desk, "monitor_new", -0.15f, -dd / 2 + 0.2f), 0.35);
+                r.Top(desk, "keyboard", -0.15f, 0.12f);
+                r.Top(desk, "mouse", 0.2f, 0.12f);
+                r.Loot(r.Top(desk, "phone", dw / 2 - 0.3f, 0f), 0.3);
+                r.Top(desk, "papers", -dw / 2 + 0.3f, 0f);
+                r.MugSlot(desk, dw / 2 - 0.15f, 0.1f);
+                r.Mount('N', "painting", desk.lx, 1.55f);
+            }
+            r.Wall('W', "bookshelf", 0.0f);
+            r.Wall('E', "cabinet_med", -0.2f); r.Wall('E', "cabinet_med", 0.4f);
+            r.Wall('S', Chance(0.5) ? "bookshelf" : "shelf", -hx + 0.8f);
+            r.Wall('S', "plant_big", hx - 0.6f);
+            if (r.w > 5.5f) { r.Put("table_box", hx - 1.6f, 0.0f, 0f); r.Put("chair_simple", hx - 1.6f, 0.65f, 180f); }
+        }
+
+        void NarrowOffice(RoomCtx r)
+        {
+            // narrow and deep: the desk at the far end, shelves along the sides
+            float hx = r.w / 2, hz = r.d / 2;
+            var desk = r.Put("desk_2", 0.0f, hz - 0.45f, 180f);
+            if (desk != null)
+            {
+                float dd = desk.def.D, dw = desk.def.W;
+                r.Put("chair_office", 0f, desk.lz - dd / 2 - 0.30f, 0f);
+                r.Loot(r.Top(desk, "monitor_new", -0.15f, -dd / 2 + 0.2f), 0.35);
+                r.Top(desk, "keyboard", -0.15f, 0.12f);
+                r.Top(desk, "mouse", 0.2f, 0.12f);
+                r.Loot(r.Top(desk, "phone", dw / 2 - 0.3f, 0f), 0.3);
+                r.MugSlot(desk, dw / 2 - 0.15f, 0.1f);
+                r.Mount('N', "painting", 0f, 1.55f);
+            }
+            r.Wall('W', "bookshelf", 0.2f);
+            r.Wall('E', "cabinet_med", 0.5f); r.Wall('E', "cabinet_med", -0.2f);
+            r.Wall('W', "bookshelf", -1.2f);
+            r.Wall('E', "plant_big", -1.3f);
+        }
+
+        // ------------------------------------------------------------------ meeting rooms
+
+        void ThConference(RoomCtx r)
+        {
+            if (r.HasWall('N') && r.w >= 5.8f && r.d >= 5.8f) { ConferenceWide(r); return; }
+            float hx = r.w / 2, hz = r.d / 2;
+            float tz = 0.1f;
+            var t = r.Put("conf_table", 0f, tz, 0f);
+            if (t != null)
+            {
+                float tw = t.def.W, td = t.def.D;
+                foreach (float z in new[] { -0.9f, 0.1f, 1.1f })
+                {
+                    r.Put("chair_modern", -(tw / 2 + 0.38f), tz + z, 90f);
+                    r.Put("chair_modern", tw / 2 + 0.38f, tz + z, 270f);
+                }
+                r.Put("chair_office", 0f, tz + td / 2 + 0.45f, 180f);
+                r.Put("chair_modern", 0f, tz - td / 2 - 0.45f, 0f);
+                var proj = r.Top(t, "projector", 0f, 0f); r.Loot(proj, 0.8);
+                r.Loot(r.Top(t, "notepad", -0.3f, -0.7f, 20f), 0.3);
+                r.Loot(r.Top(t, "notepad", 0.3f, 0.6f, -10f), 0.3);
+                r.Top(t, "cup", 0.25f, -0.4f);
+                r.MugSlot(t, -0.2f, 0.9f);
+            }
+            if (r.HasWall('N'))
+            {
+                var cred = r.Wall('N', "credenza", 0f);
+                if (cred != null)
+                {
+                    r.BigSlot("trophy", cred.lx + 0.5f, cred.lz, cred.Top);
+                    r.Top(cred, "cup", -0.8f, 0f);
+                    r.Mount('N', "wall_tv", 0f, 1.5f);
+                }
+                else r.Mount('N', "wall_tv", 0f, 1.5f);
+            }
+            if (r.HasWall('W')) r.Mount('W', "whiteboard", 0f, 1.0f);
+            if (r.HasWall('E')) r.Mount('E', "painting", 0f, 1.6f);
+            CornerPlants(r, 0.8, true);
+        }
+
+        /// <summary>A big meeting room: the table lies across the room, so the people on the door side face the TV on the far wall.</summary>
+        void ConferenceWide(RoomCtx r)
+        {
+            var cred = r.Wall('N', "credenza", 0f);
+            r.Mount('N', "wall_tv", 0f, 1.5f);
+            if (cred != null)
+            {
+                r.BigSlot("trophy", cred.lx + 0.5f, cred.lz, cred.Top);
+                r.Top(cred, "cup", -0.8f, 0f);
+            }
+            float tz = 0.05f;    // 1.7 m between the table and the console behind it, the door-side chairs clear of the doorway
+            var t = r.Put("conf_table", 0f, tz, 90f);
+            if (t != null)
+            {
+                float length = t.def.D, depth = t.def.W;      // 2.93 along x, 1.46 across
+                foreach (float x in new[] { -1.0f, 0f, 1.0f })
+                {
+                    r.Put("chair_modern", x, tz - depth / 2 - 0.38f, 0f);     // door side: looks at the screen
+                    r.Put("chair_modern", x, tz + depth / 2 + 0.38f, 180f);   // screen side
+                }
+                r.Put("chair_office", -(length / 2 + 0.45f), tz, 90f);
+                r.Put("chair_modern", length / 2 + 0.45f, tz, 270f);
+                var proj = r.Top(t, "projector", 0f, 0f); r.Loot(proj, 0.8);
+                r.Loot(r.Top(t, "notepad", -0.3f, -0.7f, 20f), 0.3);
+                r.Loot(r.Top(t, "notepad", 0.3f, 0.6f, -10f), 0.3);
+                r.Top(t, "cup", 0.25f, -0.4f);
+                r.MugSlot(t, -0.2f, 0.9f);
+            }
+            if (r.HasWall('W')) r.Mount('W', "whiteboard", 0f, 1.0f);
+            if (r.HasWall('E')) r.Mount('E', "painting", 0f, 1.6f);
+            CornerPlants(r, 0.8, true);
+        }
+
+        void ThTraining(RoomCtx r)
+        {
+            float hx = r.w / 2, hz = r.d / 2;
+            // a board on the north wall, rows of desks facing it
+            if (r.HasWall('N')) r.Mount('N', "whiteboard", 0f, 1.0f);
+            else if (r.HasWall('E')) r.Mount('E', "whiteboard", 0f, 1.0f);
+            float[] rowsZ = { -0.4f, 1.15f };
+            // desks on both sides of a centre aisle
+            float aisle = r.lanes.Count > 0 ? 1.5f : 0.8f;
+            var xs = new List<float>();
+            for (int k = 0; k < 8; k++)
+            {
+                float x = aisle + 0.1f + 0.74f + k * 1.75f;
+                if (x + 0.74f > hx - 0.3f) break;
+                xs.Add(x); xs.Add(-x);
+            }
+            for (int row = 0; row < rowsZ.Length; row++)
+                foreach (float x in xs)
+                {
+                    var d = r.Put("desk_1", x, rowsZ[row], 180f);
+                    if (d == null) continue;
+                    r.Put(OneOf("chair_std", "chair_simple"), x, rowsZ[row] - d.def.D / 2 - 0.30f, 0f);
+                    r.Loot(r.Top(d, "monitor_old", -0.1f, -0.15f), 0.2);
+                    r.Top(d, "keyboard", -0.1f, 0.12f);
+                    if (Chance(0.4)) r.Top(d, "notepad", 0.4f, 0.1f, 8f);
+                }
+            var teacher = r.Put("desk_2", 1.2f, hz - 0.5f, 180f);
+            if (teacher != null)
+            {
+                r.Put("chair_office", teacher.lx, teacher.lz - 0.6f, 0f);
+                r.Loot(r.Top(teacher, "projector", 0f, 0f), 0.7);
+            }
+            r.Wall('W', "bookshelf", hz - 1.0f); r.Wall('E', "cabinet_med", hz - 1.0f);
+            CornerPlants(r, 0.6);
+        }
+
+        // ------------------------------------------------------------------ break room, storage, copy, server
+
+        void ThBreak(RoomCtx r)
+        {
+            float hx = r.w / 2, hz = r.d / 2;
+            // kitchen run along the north wall (or the east wall in a deep room)
+            char kside = r.HasWall('N') ? 'N' : 'E';
+            float len = kside == 'N' ? r.w : r.d;
+            float cur = -len / 2 + 0.15f;
+            Item fridge = r.Wall(kside, "fridge", cur + 0.81f); if (fridge != null) cur += fridge.def.W + 0.03f;
+            var c1 = r.Wall(kside, "counter_a2", cur + 0.5f); if (c1 != null) cur += 1.0f;
+            var sink = r.Wall(kside, "ksink", cur + 0.9f); if (sink != null) cur += 1.8f;
+            var c2 = r.Wall(kside, "counter_a2", cur + 0.5f); if (c2 != null) cur += 1.0f;
+            var c3 = r.Wall(kside, "counter_a2", cur + 0.5f); if (c3 != null) cur += 1.0f;
+            if (c1 != null) r.Loot(r.Top(c1, "microwave", 0f, 0.05f), 0.55);
+            if (c3 != null) { r.Loot(r.Top(c3, "coffee_machine", 0f, 0.05f), 0.8); r.MugSlot(c3, 0.3f, 0.2f); }
+            if (c2 != null) { r.Top(c2, "cup", 0.1f, 0f); r.MugSlot(c2, -0.2f, 0.2f); }
+            if (c1 != null && Chance(0.5)) r.BigSlot("espresso", c1.lx, c1.lz, c1.Top);
+            // tables with chairs
+            int tables = r.w >= 5f && r.d >= 5f ? 2 : 1;
+            for (int i = 0; i < tables; i++)
+            {
+                float tx = tables == 1 ? 0f : (i == 0 ? -1.5f : 1.5f);
+                float tz = -0.6f;
+                var t = r.Put("cs_table", tx, tz, 0f);
+                if (t == null) continue;
+                float off = t.def.W / 2 + 0.36f;
+                r.Put("chair_simple", tx - off, tz, 90f); r.Put("chair_simple", tx + off, tz, 270f);
+                r.Put("chair_simple", tx, tz - off, 0f); r.Put("chair_simple", tx, tz + off, 180f);
+                r.Top(t, "cup", 0.2f, 0.1f);
+                if (Chance(0.5)) r.MugSlot(t, -0.15f, -0.1f);
+            }
+            if (r.HasWall('W')) { r.Wall('W', "water", hz - 1.0f); }
+            if (r.HasWall('E') && kside == 'N') r.Wall('E', "trash_bin", -hz + 2.2f);
+            if (r.HasWall('W')) r.Mount('W', "clock", -0.5f, 2.1f);
+            if (r.HasWall('S')) r.Mount('S', "painting_small", -hx + 1.3f, 1.6f);
+            CornerPlants(r, 0.5);
+        }
+
+        void ThStorage(RoomCtx r)
+        {
+            float hx = r.w / 2, hz = r.d / 2;
+            // shelving along the two long walls
+            bool wide = r.w >= r.d;
+            char s1 = wide ? 'N' : 'W', s2 = wide ? 'S' : 'E';
+            float len = wide ? r.w : r.d;
+            foreach (char side in new[] { s1, s2 })
+            {
+                if (!r.HasWall(side)) continue;
+                r.Run(side, new[] { "shelf", "shelf", "cabinet_med", "shelf" }, -len / 2 + 0.15f, len / 2 - 0.15f, true);
+            }
+            // boxes stacked on the floor
+            int boxes = 4 + rng.Next(4);
+            for (int i = 0; i < boxes; i++)
+            {
+                var b = r.PutSafe("box", Rnd(-hx + 1.2f, hx - 1.2f), Rnd(-hz + 1.2f, hz - 1.2f), OneOf(0f, 90f));
+                if (b != null) r.Loot(b, 0.35);
+            }
+            if (r.w > 4f && r.d > 4f && r.HasWall('E')) r.Wall('E', "kshelve", 0f);
+            r.Mount('S', "clock", hx - 1f, 2.1f);
+        }
+
+        void ThCopy(RoomCtx r)
+        {
+            float hx = r.w / 2, hz = r.d / 2;
+            bool wide = r.w >= r.d;
+            char back = wide ? 'N' : 'N';
+            float len = r.w;
+            var p1 = r.Wall('N', "printer", -len / 2 + 0.9f); r.Loot(p1, 0.8);
+            var cp = r.Wall('N', "copier", -len / 2 + 2.2f); r.Loot(cp, 0.9);
+            var p2 = r.Wall('N', "printer", len / 2 - 1.0f); r.Loot(p2, 0.6);
+            r.Wall('N', "cabinet_med", 0.9f);
+            if (r.HasWall('W')) r.Wall('W', "shelf", 0.0f);
+            if (r.HasWall('E')) { var t = r.Wall('E', "table_box", 0.2f); if (t != null) { r.Top(t, "papers", 0f, 0f); } }
+            r.Wall('E', "trash_bin", -hz + 0.9f);
+            r.PutSafe("box", -hx + 1.0f, -hz + 1.2f, 0f);
+            r.Mount('N', "clock", 0.3f, 2.2f);
+            CornerPlants(r, 0.3);
+        }
+
+        void ThServer(RoomCtx r)
+        {
+            float hx = r.w / 2, hz = r.d / 2;
+            bool wide = r.w >= r.d;
+            // racks along the walls
+            foreach (char side in new[] { 'N', 'E', 'W' })
+            {
+                float len = (side == 'N') ? r.w : r.d;
+                float a0 = side == 'N' ? -len / 2 + 0.3f : -len / 2 + 1.9f;
+                r.Run(side, new[] { "shelf" }, a0, len / 2 - 0.3f);
+            }
+            // the prototype server itself, with space around it
+            float sx = hx - 1.4f, sz = 0.2f;
+            r.Reserve(sx, sz, 1.5f, 1.5f);
+            r.BigSlot("server", sx, sz);
+            r.Mount('N', "ac_unit", 0f, 2.6f);
+            if (r.w > 4f) r.PutSafe("box", -hx + 1.2f, -hz + 1.1f, 0f);
+        }
+
+        // ------------------------------------------------------------------ lounge, nook, open plan
+
+        void ThLounge(RoomCtx r)
+        {
+            if (r.HasWall('N') && r.d >= 5.8f && r.w >= 4.8f) LoungeTv(r); else LoungeCompact(r);
+        }
+
+        /// <summary>
+        /// The TV on a console against the far wall; the sofa faces it across a coffee table, with an armchair on each side,
+        /// a floor lamp, a bean bag, the water cooler and a bookcase around the edges.
+        /// </summary>
+        void LoungeTv(RoomCtx r)
+        {
+            float hx = r.w / 2, hz = r.d / 2;
+            var console = r.Wall('N', "credenza", 0f);
+            float consD = console != null ? console.def.D : 0.1f;
+            r.Mount('N', "wall_tv", 0f, console != null ? 1.45f : 1.4f);
+            // (1.5 m between the table and the console, and a metre and a half down each side, so people can walk round)
+            float zt = hz - consD - 1.5f - 0.315f;                 // coffee table
+            var table = r.Put("coffee_table", 0f, zt, 0f);
+            float zs = zt - 0.315f - 0.40f - 0.505f;               // the sofa looks north at the TV
+            var sofa = r.Put("sofa3", 0f, zs, 0f);
+            r.Put("lounge_chair", -1.35f, zt, 90f);                // the armchairs face each other across the table
+            r.Put("lounge_chair", 1.35f, zt, 270f);
+            if (table != null) { r.Top(table, "cup", 0.4f, 0f); if (Chance(0.5)) r.Top(table, "papers", -0.35f, 0f, 20f); }
+            r.Put("lamp", 1.85f, zs, 0f);
+            r.Put("fatboy", hx - 1.1f, -hz + 1.7f, 0f);
+            if (r.HasWall('W'))
+            {
+                r.Wall('W', "water", -hz + 1.0f);
+                r.Mount('W', "painting", 0.3f, 1.6f);
+            }
+            if (r.HasWall('E')) { r.Mount('E', "painting", -0.4f, 1.6f); r.Mount('E', "clock", 1.4f, 2.1f); }
+            if (r.HasWall('S'))
+            {
+                r.Mount('S', "painting", -hx + 1.3f, 1.6f);
+                r.Wall('S', "plant_big", hx - 0.5f); r.Wall('S', "plant_big", -hx + 0.5f);
+            }
+        }
+
+        /// <summary>A small lounge: the sofa against one side wall, the TV on the opposite wall, a coffee table between.</summary>
+        void LoungeCompact(RoomCtx r)
+        {
+            float hx = r.w / 2, hz = r.d / 2;
+            char sofaSide = r.HasWall('E') ? 'E' : 'W';
+            char tvSide = sofaSide == 'E' ? 'W' : 'E';
+            var sofa = r.Wall(sofaSide, "sofa2", 0f);
+            if (r.HasWall(tvSide)) r.Mount(tvSide, "wall_tv", 0f, 1.4f);
+            if (sofa != null)
+            {
+                float tx = sofaSide == 'E' ? hx - sofa.def.D - 0.35f - 0.32f : -hx + sofa.def.D + 0.35f + 0.32f;
+                var table = r.Put("coffee_table", tx, 0f, 90f);
+                if (table != null) r.Top(table, "cup", 0f, 0f);
+            }
+            r.Put("fatboy", sofaSide == 'E' ? -hx + 1.2f : hx - 1.2f, hz - 1.3f, 0f);
+            if (r.HasWall('N'))
+            {
+                r.Wall('N', "water", sofaSide == 'E' ? hx - 0.8f : -hx + 0.8f);
+                r.Wall('N', "plant_big", sofaSide == 'E' ? -hx + 0.6f : hx - 0.6f);
+                r.Mount('N', "painting", 0f, 1.6f);
+            }
+            if (r.HasWall('S')) r.Mount('S', "painting", -hx + 1.3f, 1.6f);
+            r.Put("lamp", sofaSide == 'E' ? hx - 0.5f : -hx + 0.5f, hz - 0.5f, 0f);
+        }
+
+        void ThNook(RoomCtx r)
+        {
+            float hx = r.w / 2, hz = r.d / 2;
+            if (r.HasWall('N')) { r.Wall('N', "bookshelf", -1.2f); r.Wall('N', "bookshelf", 0.05f); r.Wall('N', "cabinet_med", 1.0f); }
+            if (r.HasWall('E')) r.Wall('E', "sofa1", -0.3f);
+            r.Put("lounge_chair", 0.4f, 0.4f, 90f);
+            r.Put("coffee_table", 1.6f, 0.4f, 90f);
+            r.Put("lamp", hx - 0.5f, hz - 0.5f, 0f);
+            r.Mount('E', "painting", 1.6f, 1.6f);
+            CornerPlants(r, 0.7, true);
+        }
+
+        void ThOpen(RoomCtx r)
+        {
+            float hx = r.w / 2, hz = r.d / 2;
+            Island(r, -0.4f, 0.1f, 2);
+            if (r.w > 6.0f) Island(r, 2.35f, 0.1f, 1);
+            // storage along the back walls
+            if (r.HasWall('N')) r.Run('N', new[] { "bookshelf", "cabinet_med", "cabinet_med", "printer", "shelf" }, -hx + 0.3f, hx - 0.3f, true);
+            if (r.HasWall('E')) r.Run('E', new[] { "cabinet_med", "shelf", "cabinet_med" }, -hz + 0.5f, hz - 1.6f, true);
+            if (r.HasWall('N')) r.Mount('N', "clock", 0f, 2.3f);
+            CornerPlants(r, 0.6);
+        }
+
+        void ThLongOpen(RoomCtx r)
+        {
+            // a long room: an island of workstations on each side of the cross aisle, storage along the back wall
+            float hx = r.w / 2, hz = r.d / 2;
+            foreach (int s in new[] { -1, 1 })
+            {
+                float a0 = 2.0f, a1 = hx - 0.7f;
+                int nx = Math.Min(4, (int)Math.Floor((a1 - a0) / 1.48f));
+                if (nx < 1) continue;
+                float len = nx * 1.48f;
+                Island(r, s * (a0 + len / 2), 0.0f, nx);
+            }
+            r.Run('N', new[] { "bookshelf", "cabinet_med", "cabinet_med", "printer", "shelf", "cabinet_med" }, -hx + 0.3f, hx - 0.3f, true);
+            r.Mount('N', "clock", 0f, 2.3f);
+            CornerPlants(r, 0.6);
+        }
+
+        void ThCanteen(RoomCtx r)
+        {
+            float hx = r.w / 2, hz = r.d / 2;
+            // serving counter along the back wall
+            float cur = -hx + 0.3f;
+            r.Wall('N', "fridge", cur + 0.81f); cur += 1.65f;
+            for (int i = 0; i < 3; i++) { var c = r.Wall('N', "counter_a2", cur + 0.5f); if (c != null) { cur += 1.0f; if (i == 1) r.Loot(r.Top(c, "coffee_machine", 0f, 0f), 0.8); else r.MugSlot(c, 0f, 0.1f); } }
+            var sk = r.Wall('N', "ksink", cur + 0.9f); if (sk != null) cur += 1.8f;
+            for (int i = 0; i < 3; i++) { var c = r.Wall('N', "counter_a2", cur + 0.5f); if (c != null) { cur += 1.0f; if (i == 0) r.Loot(r.Top(c, "microwave", 0f, 0f), 0.6); } }
+            // dining tables
+            for (float x = -hx + 2.0f; x < hx - 1.5f; x += 3.2f)
+                foreach (float z in new[] { -0.9f, 1.0f })
+                {
+                    if (r.InLane(x, 1.1f)) continue;
+                    var t = r.Put("cs_table", x, z, 0f);
+                    if (t == null) continue;
+                    float off = t.def.W / 2 + 0.36f;
+                    r.Put("chair_simple", x - off, z, 90f); r.Put("chair_simple", x + off, z, 270f);
+                    r.Put("chair_simple", x, z - off, 0f); r.Put("chair_simple", x, z + off, 180f);
+                    if (Chance(0.4)) r.MugSlot(t, 0f, 0f);
+                }
+            r.Mount('S', "clock", hx - 3f, 2.1f);
+            CornerPlants(r, 0.5, true);
+        }
+
+        // ------------------------------------------------------------------ coffee shop (first floor)
+
+        void ThCafeCounter(RoomCtx r)
+        {
+            float hx = r.w / 2, hz = r.d / 2;
+            // the order counter along the north wall with the register and a coffee machine, a pastry case beside it
+            var counter = r.Wall('N', "cs_counter", hx - 2.3f);
+            if (counter != null)
+            {
+                float cw = counter.def.W;
+                var reg = r.Top(counter, "cs_register", cw / 2 - 0.6f, 0f, 180f);
+                r.Loot(r.Top(counter, "coffee_machine", -cw / 2 + 0.5f, 0f), 0.8);
+                r.Loot(r.Top(counter, "takeaway", 0.2f, 0.1f), 0.7);
+                r.Loot(r.Top(counter, "takeaway", 0.5f, 0.1f), 0.5);
+                r.MugSlot(counter, -0.3f, 0.2f);
+                r.Mount('N', "cs_menu", counter.lx, 2.15f);
+            }
+            var disp = r.Wall('E', "cs_display", -0.2f);
+            if (disp != null)
+            {
+                r.Loot(r.Top(disp, "pastry", -0.6f, 0.1f), 0.8);
+                r.Loot(r.Top(disp, "pastry", 0.2f, 0.1f), 0.8);
+                r.Loot(r.Top(disp, "pastry", 0.8f, -0.1f), 0.6);
+            }
+            if (r.HasWall('S')) { }
+            r.Put("cs_pot", -hx + 0.6f, hz - 0.6f, 0f);
+            r.Wall('E', "cs_pot", -hz + 0.6f);
+            r.Mount('E', "painting", 2.0f, 1.7f);
+            // a couple of seats at the window end
+            var t = r.Put("cs_table", -1.8f, -0.4f, 0f);
+            if (t != null)
+            {
+                float off = t.def.W / 2 + 0.36f;
+                r.Put("cs_chair", -1.8f - off, -0.4f, 90f); r.Put("cs_chair", -1.8f + off, -0.4f, 270f);
+            }
+        }
+
+        void ThCafeSeating(RoomCtx r)
+        {
+            float hx = r.w / 2, hz = r.d / 2;
+            for (float x = -1.5f; x <= 1.6f; x += 3.0f)
+                for (float z = -1.5f; z <= 1.6f; z += 3.0f)
+                {
+                    var t = r.Put("cs_table", x, z, 0f);
+                    if (t == null) continue;
+                    float off = t.def.W / 2 + 0.36f;
+                    r.Put("cs_chair", x - off, z, 90f); r.Put("cs_chair", x + off, z, 270f);
+                    r.Put("cs_chair", x, z - off, 0f); r.Put("cs_chair", x, z + off, 180f);
+                    r.Loot(r.Top(t, "takeaway", 0.1f, 0.05f), 0.25);
+                    if (Chance(0.5)) r.MugSlot(t, -0.2f, 0.1f);
+                }
+            if (r.HasWall('N')) { r.Wall('N', "cs_pot", -hx + 0.7f); r.Wall('N', "cs_pot", hx - 0.7f); r.Mount('N', "painting", 0f, 1.7f); }
+            if (r.HasWall('E')) { r.Wall('E', "cs_pot", 0f); r.Mount('E', "painting", 2.0f, 1.7f); }
+            if (r.HasWall('E')) r.Wall('E', "trash_bin", -hz + 0.6f);
+        }
+
+        // ------------------------------------------------------------------ elevator lobbies
+
+        void ThLobby(RoomCtx r)
+        {
+            // the lobby around the service elevator: waiting area on the west side, reception desk on the south side,
+            // plants and art by the doorways. (The ring is 17.6 m across with the shaft in the middle.)
+            float h = Inner;
+            // west wall: two sofas with a coffee table between and lounge chairs
+            if (r.HasWall('W'))
+            {
+                r.Wall('W', "sofa2", 3.2f); r.Wall('W', "sofa2", -3.2f);
+                r.Put("coffee_table", -h + 1.0f + 0.35f + 0.32f, 0f, 90f);
+                r.Wall('W', "plant_big", 5.8f); r.Wall('W', "plant_big", -5.8f);
+                r.Mount('W', "painting", 3.2f, 1.7f); r.Mount('W', "painting", -3.2f, 1.7f);
+                r.Mount('W', "clock", 0f, 2.1f);
+            }
+            // south wall: reception counter facing the room, with the staff side towards the wall (room for a chair behind)
+            float x = -h + 3.4f;
+            float back = -h + 1.75f;
+            for (int i = 0; i < 4; i++)
+            {
+                string ck = i == 0 ? "counter_b2" : "counter_b1";
+                var cd = PropTable.Get(ck);
+                var c = r.Put(ck, x + cd.W / 2, back + cd.D / 2, 0f);
+                if (c != null)
+                {
+                    x += cd.W;
+                    if (i == 1) { r.Loot(r.Top(c, "monitor_new", -0.1f, 0.0f, 180f), 0.4); r.Top(c, "keyboard", -0.1f, 0.25f, 180f); }
+                    if (i == 2) r.Loot(r.Top(c, "phone", 0f, 0f, 180f), 0.4);
+                }
+            }
+            r.Put("chair_office", -h + 3.4f + 1.5f, back - 0.55f, 0f);
+            r.Mount('S', "painting", -h + 4.8f, 1.8f);
+            // gaps: plants beside them
+            r.Wall('S', "plant_big", h - 0.7f);
+            r.Wall('N', "plant_big", -h + 0.7f); r.Wall('N', "plant_big", h - 0.7f);
+            r.Wall('E', "plant_big", -h + 0.7f); r.Wall('E', "plant_big", h - 0.7f);
+            r.Wall('N', "water", -h + 2.0f); r.Wall('N', "sofa2", -h + 5.0f);
+            r.Wall('E', "sofa2", h - 4.5f);
+            r.Mount('N', "painting", -h + 5.0f, 1.8f);
+            r.Mount('N', "clock", h - 4.0f, 2.2f);
+            r.Mount('E', "painting", h - 4.5f, 1.8f);
+            r.Wall('N', "cabinet_med", h - 2.9f);
+            // more waiting areas, built onto the sofas already along the walls (so nothing blocks the way round the ring):
+            // a coffee table in front of each sofa on the east and north sides, an armchair at the end of it, a lamp, art above
+            var east = r.Wall('E', "sofa2", -h + 4.5f);
+            foreach (float ez in new[] { h - 4.5f, -h + 4.5f })
+            {
+                float tx = h - 1.01f - 0.35f - 0.32f;
+                var t = r.Put("coffee_table", tx, ez, 90f);
+                if (t == null) continue;
+                r.Top(t, "cup", 0f, 0.25f); if (Chance(0.5)) r.Top(t, "papers", 0f, -0.25f, 90f);
+                r.Put("lounge_chair", tx, ez + (ez > 0 ? 1.6f : -1.6f), ez > 0 ? 180f : 0f);
+                r.Mount('E', "painting", ez, 1.7f);
+            }
+            var nt = r.Put("coffee_table", -h + 5.0f, h - 1.01f - 0.35f - 0.32f, 0f);
+            if (nt != null) r.Top(nt, "cup", 0.3f, 0f);
+            r.Put("lamp", -h + 5.0f + 1.9f, h - 0.5f, 0f);
+        }
+
+        void ThService(RoomCtx r)
+        {
+            // around the guest elevator: a loading area, shelves and crates along the outer walls
+            float h = Inner;
+            foreach (char side in new[] { 'N', 'S', 'E', 'W' })
+            {
+                if (!r.HasWall(side)) continue;
+                r.Run(side, new[] { "shelf", "cabinet_med", "shelf", "box", "cabinet_med" }, -h + 0.4f, h - 0.4f, true, 0.2f);
+            }
+            for (int i = 0; i < 6; i++)
+            {
+                var b = r.PutSafe("box", Rnd(-h + 1.5f, h - 1.5f), Rnd(-h + 1.5f, h - 1.5f), OneOf(0f, 90f));
+                if (b != null) r.Loot(b, 0.4);
+            }
+            r.Mount('N', "ac_unit", 0f, 2.7f);
+        }
+    }
+}

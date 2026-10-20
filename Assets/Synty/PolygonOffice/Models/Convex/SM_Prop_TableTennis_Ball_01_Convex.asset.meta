@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 078d5603e7c5732449676120199c429b
+timeCreated: 1579571885
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 43581221883412394
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 159492
+  packageName: POLYGON - Office Pack - Art by Synty
+  packageVersion: 1.9.4
+  assetPath: Assets/Synty/PolygonOffice/Models/Convex/SM_Prop_TableTennis_Ball_01_Convex.asset
+  uploadId: 976702

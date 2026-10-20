@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: ecc85f2b380cfe34294d1b47c52542de
+timeCreated: 1574900438
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 100100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 159492
+  packageName: POLYGON - Office Pack - Art by Synty
+  packageVersion: 1.9.4
+  assetPath: Assets/Synty/PolygonOffice/Prefabs/Props/Wall Props/SM_Prop_AirVent_01.prefab
+  uploadId: 976702

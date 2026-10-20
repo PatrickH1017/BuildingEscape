@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: b8d3493492f93a149a7cfe4bd497ce9e
+timeCreated: 1579571211
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 43444356947759780
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 159492
+  packageName: POLYGON - Office Pack - Art by Synty
+  packageVersion: 1.9.4
+  assetPath: Assets/Synty/PolygonOffice/Models/Convex/SM_Prop_Chair_BeanBag_04_Convex.asset
+  uploadId: 976702

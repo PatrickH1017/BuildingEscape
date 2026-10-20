@@ -16,6 +16,8 @@ namespace BuildingEscape
         GuardAI ai;
         NavMeshAgent agent;
         CharacterAnimator anim;
+        Transform donut;
+        float nextMunch;
 
         /// <summary>The guard's animation driver (his model), or null while there is none.</summary>
         public CharacterAnimator Anim => anim;
@@ -39,14 +41,34 @@ namespace BuildingEscape
             var vision = GetComponent<GuardVision>();
             if (!vision) vision = gameObject.AddComponent<GuardVision>();
             vision.Init(anim);
-            // armed guards (the floor rule, or the test menu): the pew in his hand
-            var hm = HeistManager.Instance;
-            if (!GetComponent<GuardGun>() && ArmedGuards.ShouldArm(hm ? hm.Floor : 0)) gameObject.AddComponent<GuardGun>();
+            donut = GuardDonut.Attach(anim);                   // (hidden until he stops for one: GuardAI.Eating)
+            ApplyLoadout();                                    // the shield on his chest and the gun in his hand: what the host decided (GuardAI.Loadout)
+        }
+
+        GuardLoadout applied = GuardLoadout.Unarmed;
+        Transform vest;
+
+        /// <summary>Puts on him what his loadout says (the owner, 2026-10-19: guards by floor with a gun and a light / medium / heavy shield or none): the vest of his tier and, when he is armed, the gun of his kind. A puppet gets its loadout from the host's snapshot.</summary>
+        void ApplyLoadout()
+        {
+            var l = ai.Loadout;
+            applied = l;
+            if (vest) { Destroy(vest.gameObject); vest = null; }
+            if (!ai.IsBoss && l.Shield != ShieldTier.None) vest = GuardArmour.AddVest(anim, transform, l.Shield);
+            ai.SyncGun();
         }
 
         void Update()
         {
             if (!anim) return;
+            if (ai.Loadout != applied) ApplyLoadout();         // (the host told a puppet what he carries, or the test menu armed him)
+            bool eat = ai.Eating && !ai.Dead;
+            if (donut && donut.gameObject.activeSelf != eat) donut.gameObject.SetActive(eat);
+            if (eat && Time.time >= nextMunch)
+            {
+                nextMunch = Time.time + 1.0f + 0.5f * Random.value;
+                GameAudio.PlaySound(SoundId.Munch, transform.position + Vector3.up * 1.5f, 0.6f, Random.Range(0.92f, 1.08f), true, 14f, 2f);
+            }
             if (ai.State == GuardState.Stunned) { anim.Fall(); return; }
             anim.Recover();
             float v = ai.CurrentSpeed; // a puppet has no agent running

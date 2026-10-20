@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: b76b1545674cbe64cbaa251fb638a382
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 2100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 245895
+  packageName: Walkie-Talkie Radios
+  packageVersion: 1.0
+  assetPath: Assets/SpawnCampGames/WalkieTalkie/Materials/LCDScreen.mat
+  uploadId: 559961

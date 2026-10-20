@@ -10,7 +10,7 @@ namespace BuildingEscape.EditorTools
     /// the preview matches what you will get in game for that level.
     /// The preview is never saved with the scene and is removed automatically when you enter
     /// Play mode or close the scene.
-    /// Menu: Overtime Escape > Floor Preview.
+    /// Menu: Employees Take Revenge > Floor Preview.
     /// </summary>
     [InitializeOnLoad]
     public class FloorPreviewWindow : EditorWindow
@@ -33,14 +33,14 @@ namespace BuildingEscape.EditorTools
             EditorSceneManager.sceneClosing += (scene, removingScene) => ClearPreview();
         }
 
-        [MenuItem("Overtime Escape/Floor Preview", priority = 20)]
+        [MenuItem("Employees Take Revenge/Floor Preview", priority = 20)]
         static void Open()
         {
             var w = GetWindow<FloorPreviewWindow>("Floor Preview");
             w.minSize = new Vector2(300, 260);
         }
 
-        [MenuItem("Overtime Escape/Clear Floor Preview", priority = 21)]
+        [MenuItem("Employees Take Revenge/Clear Floor Preview", priority = 21)]
         static void ClearMenu()
         {
             ClearPreview();
@@ -58,7 +58,7 @@ namespace BuildingEscape.EditorTools
             {
                 EditorGUILayout.HelpBox(
                     "No FloorGenerator in the open scene.\nOpen Assets/Scenes/Greybox.unity " +
-                    "(or run Overtime Escape > Build Greybox Scene).", MessageType.Warning);
+                    "(or run Employees Take Revenge > Build Greybox Scene).", MessageType.Warning);
                 return;
             }
             if (EditorApplication.isPlayingOrWillChangePlaymode)

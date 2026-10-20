@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 121e8546811eeb04897db9fc3f37c96b
+timeCreated: 1579566324
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 43358723445082714
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 159492
+  packageName: POLYGON - Office Pack - Art by Synty
+  packageVersion: 1.9.4
+  assetPath: Assets/Synty/PolygonOffice/Models/Convex/SM_Generic_TreeDead_01_Convex.asset
+  uploadId: 976702

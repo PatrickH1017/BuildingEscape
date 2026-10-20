@@ -13,6 +13,10 @@ namespace BuildingEscape
     /// Repaint, and every widget takes its control id exactly once per event, so the ids stay in step). Sizes are in reference pixels
     /// (1080 high, see <see cref="HudTheme.S"/>); rectangles are in screen pixels.
     /// A widget that is scrolled out of view cannot be clicked: <see cref="Scroll"/> narrows <c>clip</c> to the part you can see.
+    ///
+    /// The blue look (the owner, 2026-10-18: "make the UI main color blue ... a bit cleaner/less cartooney", approved after a test): the same widgets and sizes with a light finish. Section headers are one
+    /// quiet tag colour (with a small dot in the section's colour) instead of a different candy chip each; button lettering is outlined in a dark shade of the button's own colour; pick-one pills and a group
+    /// of sliders use one size of lettering; a disabled button recedes instead of glowing.
     /// </summary>
     public static class MenuKit
     {
@@ -70,24 +74,20 @@ namespace BuildingEscape
         public static void Sheet(Rect panel, float radius = 24f)
         {
             if (Event.current.type != EventType.Repaint) return;
-            float s = S, rad = radius * s, ow = Mathf.Max(1.5f, 4f * s), g = 2.2f * s;
-            HudTheme.Rounded(new Rect(panel.x, panel.y + 6f * s, panel.width, panel.height), HudTheme.Alpha(HudTheme.Ink, 0.38f), rad);
-            HudTheme.Rounded(Grow(panel, g), HudTheme.Alpha(HudTheme.Cream, 0.62f), rad + g);
-            HudTheme.Rounded(panel, HudTheme.Ink, rad);
-            var inner = new Rect(panel.x + ow, panel.y + ow, panel.width - ow * 2f, panel.height - ow * 2f);
-            float lit = Mathf.Clamp(1f - 100f * s / Mathf.Max(1f, panel.height), 0.5f, 0.95f);
-            HudTheme.Fill(inner, HudTheme.Card, Mathf.Max(0f, rad - ow), true, lit);
+            float lit = Mathf.Clamp(1f - 100f * S / Mathf.Max(1f, panel.height), 0.5f, 0.95f);
+            HudTheme.Body(panel, HudTheme.Card, radius - 2f, 4f, 6f, true, 2.2f, lit);
         }
 
-        /// <summary>The title tab that sits across the top edge of a card.</summary>
+        /// <summary>The title tab that sits across the top edge of a card (a touch smaller than the size asked for: the blue look's ribbons are slimmer).</summary>
         public static void Ribbon(Rect panel, string title, Color fill, float size = 34f)
         {
             if (Event.current.type != EventType.Repaint) return;
             float s = S;
-            float rw = Mathf.Min(HudTheme.Width(title, size) + 90f * s, panel.width - 40f * s);
-            var r = new Rect(panel.center.x - rw * 0.5f, panel.y - 24f * s, rw, 52f * s);
-            HudTheme.Body(r, fill, 20f, 3.5f, 4f, true, 1.8f);
-            HudTheme.Text(r, title, size, HudTheme.Bright, TextAnchor.MiddleCenter);
+            size *= 0.88f;
+            float rw = Mathf.Min(HudTheme.Width(title, size) + 80f * s, panel.width - 40f * s);
+            var r = new Rect(panel.center.x - rw * 0.5f, panel.y - 22f * s, rw, 46f * s);
+            HudTheme.Body(r, fill, 23f, 3.5f, 3f, true, 1.6f);
+            HudTheme.Text(r, title, size, HudTheme.Bright, TextAnchor.MiddleCenter, true, HudTheme.Edge(fill));
         }
 
         /// <summary>A soft dark plate under a row of a list (a lobby, a player, a friend).</summary>
@@ -99,7 +99,7 @@ namespace BuildingEscape
         public static void Dim(float alpha)
         {
             if (Event.current.type == EventType.Repaint)
-                HudTheme.Rounded(new Rect(0f, 0f, Screen.width, Screen.height), new Color(0.05f, 0.03f, 0.16f, alpha), 0f);
+                HudTheme.Rounded(new Rect(0f, 0f, Screen.width, Screen.height), new Color(0.03f, 0.06f, 0.17f, alpha), 0f);
         }
 
         // ------------------------------------------------------------------ text
@@ -108,23 +108,29 @@ namespace BuildingEscape
         public static void Label(Rect r, string text, float size, Color colour, TextAnchor anchor = TextAnchor.MiddleLeft, bool outline = false) =>
             HudTheme.Text(r, text, size, colour, anchor, outline);
 
-        /// <summary>A section title: a small coloured chip with a thin rule running on to the right.</summary>
+        /// <summary>
+        /// A section title: a small quiet tag (one colour for every section, so the page is not a rainbow) with a dot in the section's own colour (<paramref name="accent"/>), and a thin rule running on to the right
+        /// (<paramref name="ink"/> is not used: the tag always has white lettering; it stays so that the call sites do not change).
+        /// </summary>
         public static void Header(Rect row, string title, Color accent, Color? ink = null)
         {
             if (Event.current.type != EventType.Repaint) return;
-            float s = S, h = Mathf.Min(row.height, 26f * s), w = HudTheme.Width(title, 15f) + 34f * s;
-            HudTheme.Chip(new Rect(row.x, row.y + (row.height - h) * 0.5f, w, h), title, accent, 15f, ink);
-            float rx = row.x + w + 8f * s;
-            if (rx < row.xMax - 4f * s) HudTheme.Rounded(new Rect(rx, row.center.y - 1.5f * s, row.xMax - rx, 3f * s), HudTheme.Alpha(HudTheme.Ink, 0.35f), 1.5f * s);
+            float s = S, h = Mathf.Min(row.height, 24f * s), dot = 9f * s, pad = h * 0.5f;
+            float w = HudTheme.Width(title, 14f) + pad * 2f + dot + 6f * s;
+            var chip = new Rect(row.x, row.y + (row.height - h) * 0.5f, w, h);
+            HudTheme.Pill(chip, HudTheme.Tag, 2.2f, 0f);
+            HudIcons.Dot(new Vector2(chip.x + pad + dot * 0.5f - 2f * s, chip.center.y), dot, accent);
+            HudTheme.TextPx(new Rect(chip.x + pad + dot + 4f * s, chip.y, chip.width - pad * 2f - dot - 4f * s + 4f * s, chip.height), title, 14f * s, HudTheme.Bright, TextAnchor.MiddleLeft, false);
+            float rx = chip.xMax + 8f * s;
+            if (rx < row.xMax - 4f * s) HudTheme.Rounded(new Rect(rx, row.center.y - 1f * s, row.xMax - rx, 2f * s), HudTheme.Alpha(HudTheme.Ink, 0.30f), 1f * s);
         }
 
         /// <summary>A pill with a status light and some words (Steam: signed in as ...).</summary>
         public static void StatusPill(Rect r, string text, Color light, float size = 15f)
         {
             if (Event.current.type != EventType.Repaint) return;
-            float s = S;
-            HudTheme.Pill(r, HudTheme.Shade(HudTheme.Card, 0.3f), 2.5f, 2f, 0f);
-            HudIcons.Dot(new Vector2(r.x + r.height * 0.55f, r.center.y), r.height * 0.42f, light);
+            HudTheme.Pill(r, HudTheme.Shade(HudTheme.Card, 0.3f), 2.5f, 0f, 0f);
+            HudIcons.Dot(new Vector2(r.x + r.height * 0.55f, r.center.y), r.height * 0.36f, light);
             HudTheme.Text(new Rect(r.x + r.height * 1.0f, r.y, r.width - r.height * 1.2f, r.height), text, size, HudTheme.Bright, TextAnchor.MiddleLeft, false);
         }
 
@@ -132,7 +138,7 @@ namespace BuildingEscape
         public static void Notice(Rect r, string text, Color fill, float size = 15f)
         {
             if (Event.current.type != EventType.Repaint) return;
-            HudTheme.Pill(r, fill, 2.5f, 2.5f, 0f);
+            HudTheme.Pill(r, fill, 2.5f, 0f, 0f);
             HudTheme.Text(r, text, size, fill == HudTheme.Quota ? HudTheme.Ink : HudTheme.Bright, TextAnchor.MiddleCenter, false);
         }
 
@@ -232,6 +238,9 @@ namespace BuildingEscape
             return clicked;
         }
 
+        /// <summary>The fill of a button that cannot be pressed: a quiet, muted version of the card, so it recedes instead of glowing.</summary>
+        static Color Off => Color.Lerp(HudTheme.Card, HudTheme.Dim, 0.5f);
+
         /// <summary>A chunky toon button; it grows under the mouse and sinks when pressed. Returns true when clicked.</summary>
         public static bool Button(Rect r, string text, Color fill, float size = 24f, bool enabled = true, TextAnchor anchor = TextAnchor.MiddleCenter)
         {
@@ -239,11 +248,12 @@ namespace BuildingEscape
             if (Event.current.type == EventType.Repaint)
             {
                 float s = S;
-                var rr = Grow(r, !enabled ? 0f : down ? -2f * s : hover ? 3f * s : 0f);
-                Color c = !enabled ? HudTheme.Dim : hover ? HudTheme.Light(fill, 0.16f) : fill;
-                HudTheme.Body(rr, c, Mathf.Min(18f, r.height / s * 0.3f), 3.5f, down ? 1f : enabled ? 4.5f : 2f, enabled, 0f);
+                var rr = Grow(r, !enabled ? 0f : down ? -1.5f * s : hover ? 2f * s : 0f);
+                Color c = !enabled ? Off : hover ? HudTheme.Light(fill, 0.14f) : fill;
+                HudTheme.Body(rr, c, Mathf.Min(16f, r.height / s * 0.28f), 3f, down ? 0.5f : enabled ? 3.5f : 1f, enabled, 0f);
                 var tr = anchor == TextAnchor.MiddleLeft ? new Rect(rr.x + 18f * s, rr.y, rr.width - 30f * s, rr.height) : new Rect(rr.x + 10f * s, rr.y, rr.width - 20f * s, rr.height);
-                HudTheme.Text(tr, text, size, enabled ? HudTheme.Bright : HudTheme.Muted, anchor);
+                if (enabled) HudTheme.Text(tr, text, size, HudTheme.Bright, anchor, true, HudTheme.Edge(c));
+                else HudTheme.Text(tr, text, size, HudTheme.Alpha(HudTheme.Muted, 0.8f), anchor, false);
             }
             return clicked;
         }
@@ -257,24 +267,26 @@ namespace BuildingEscape
                 float s = S;
                 var rr = Grow(r, down ? -1.5f * s : 0f);
                 Color fill = selected ? accent : hover ? HudTheme.Light(HudTheme.Card, 0.26f) : HudTheme.Light(HudTheme.Card, 0.14f);
-                HudTheme.Body(rr, fill, Mathf.Min(14f, r.height / s * 0.3f), 3f, down ? 0.5f : 2.5f, true, 0f);
-                HudTheme.Text(rr, text, size, selected ? HudTheme.Ink : HudTheme.Bright, TextAnchor.MiddleCenter, !selected);
+                HudTheme.Body(rr, fill, Mathf.Min(14f, r.height / s * 0.28f), 2.5f, down ? 0f : 2f, true, 0f);
+                HudTheme.Text(rr, text, size, selected ? HudTheme.Ink : HudTheme.Bright, TextAnchor.MiddleCenter, false);
             }
             return clicked;
         }
 
         /// <summary>
         /// A grid of pick-one pills laid out from the flow (<paramref name="columns"/> to a row); returns the index picked (the old one if no click).
+        /// All the pills use one size of lettering (the largest at which the longest label fits).
         /// </summary>
         public static int Choice(Flow f, string[] labels, int selected, int columns, Color accent, float rowHeight = 44f, float size = 17f, float gap = 8f)
         {
             if (labels == null || labels.Length == 0) return selected;
             float s = S, g = gap * s, cw = (f.w - g * (columns - 1)) / columns, ch = rowHeight * s;
             int rows = (labels.Length + columns - 1) / columns;
+            float common = HudTheme.FitPx(labels, size * s, cw - 14f * s) / s;
             for (int i = 0; i < labels.Length; i++)
             {
                 var r = new Rect(f.x + (i % columns) * (cw + g), f.y + (i / columns) * (ch + g), cw, ch);
-                if (Pick(r, labels[i], i == selected, accent, size)) selected = i;
+                if (Pick(r, labels[i], i == selected, accent, common)) selected = i;
             }
             f.y += rows * (ch + g) + 2f * s;
             return selected;
@@ -286,14 +298,13 @@ namespace BuildingEscape
             bool clicked = Press(r, true, out bool hover, out bool down);
             if (Event.current.type == EventType.Repaint)
             {
-                float s = S, ow = Mathf.Max(1.5f, 3f * s);
-                var rr = selected ? Grow(r, 1.5f * s) : hover ? Grow(r, 1.5f * s) : r;
-                HudTheme.Rounded(new Rect(rr.x, rr.y + 3f * s, rr.width, rr.height), HudTheme.Alpha(HudTheme.Ink, 0.38f), 11f * s);
-                if (selected) HudTheme.Rounded(Grow(rr, 4f * s), HudTheme.Cream, 14f * s);
+                float s = S, ow = Mathf.Max(1.5f, 2.5f * s);
+                var rr = selected || hover ? Grow(r, 1.5f * s) : r;
+                HudTheme.Rounded(new Rect(rr.x, rr.y + 2f * s, rr.width, rr.height), HudTheme.Alpha(HudTheme.Ink, 0.3f), 11f * s);
+                if (selected) HudTheme.Rounded(Grow(rr, 3f * s), HudTheme.Cream, 13f * s);
                 HudTheme.Rounded(rr, HudTheme.Ink, 11f * s);
                 var inner = new Rect(rr.x + ow, rr.y + ow, rr.width - ow * 2f, rr.height - ow * 2f);
-                HudTheme.Rounded(inner, c, 8f * s);
-                HudTheme.Rounded(new Rect(inner.x + 6f * s, inner.y + 4f * s, inner.width - 12f * s, 3f * s), new Color(1f, 1f, 1f, 0.3f), 1.5f * s);
+                HudTheme.Rounded(inner, c, 8.5f * s);
             }
             return clicked;
         }
@@ -307,8 +318,8 @@ namespace BuildingEscape
         {
             int id = GUIUtility.GetControlID(FocusType.Passive);
             var ev = Event.current;
-            float s = S, kd = Mathf.Min(r.height, 32f * s);
-            var track = new Rect(r.x + kd * 0.5f, r.center.y - 8f * s, r.width - kd, 16f * s);
+            float s = S, kd = Mathf.Min(r.height, 28f * s);
+            var track = new Rect(r.x + kd * 0.5f, r.center.y - 7f * s, r.width - kd, 14f * s);
             bool mine = GUIUtility.hotControl == id;
             switch (ev.GetTypeForControl(id))
             {
@@ -326,11 +337,11 @@ namespace BuildingEscape
                         float t = Mathf.InverseLerp(min, max, value);
                         HudTheme.Bar(track, t, accent, 2.5f);
                         var c = new Vector2(track.x + t * track.width, track.center.y);
-                        float d = kd * (mine ? 1.12f : Hit(r) ? 1.06f : 1f);
-                        HudTheme.Circle(c + new Vector2(0f, 3f * s), d, HudTheme.Alpha(HudTheme.Ink, 0.38f));
+                        float d = kd * (mine ? 1.1f : Hit(r) ? 1.05f : 1f);
+                        HudTheme.Circle(c + new Vector2(0f, 2f * s), d, HudTheme.Alpha(HudTheme.Ink, 0.3f));
                         HudTheme.Circle(c, d, HudTheme.Ink);
-                        HudTheme.Circle(c, d - 6.5f * s, HudTheme.Cream);
-                        HudTheme.Circle(c, d * 0.3f, accent);
+                        HudTheme.Circle(c, d - 5f * s, HudTheme.Cream);
+                        HudTheme.Circle(c, d * 0.26f, accent);
                     }
                     break;
             }
@@ -350,7 +361,7 @@ namespace BuildingEscape
                 float cw = HudTheme.Width(valueText, 15f) + 26f * s;
                 HudTheme.Chip(new Rect(top.xMax - cw, top.y + 1f * s, cw, 24f * s), valueText, accent, 15f);
             }
-            var bar = f.Row(34f, 10f);
+            var bar = f.Row(32f, 10f);
             return Slider(bar, value, min, max, accent);
         }
 
@@ -362,15 +373,15 @@ namespace BuildingEscape
             if (Event.current.type == EventType.Repaint)
             {
                 float s = S;
-                HudTheme.Rounded(row, HudTheme.Alpha(HudTheme.Ink, hover ? 0.3f : 0.18f), 14f * s);
+                HudTheme.Rounded(row, HudTheme.Alpha(HudTheme.Ink, hover ? 0.28f : 0.18f), 12f * s);
                 HudTheme.Text(new Rect(row.x + 16f * s, row.y, row.width - 120f * s, row.height), label, 18f, HudTheme.Bright, TextAnchor.MiddleLeft, false);
-                var sw = new Rect(row.xMax - 14f * s - 76f * s, row.center.y - 18f * s, 76f * s, 36f * s);
-                HudTheme.Pill(sw, value ? HudTheme.Good : HudTheme.Dim, 3f, 2.5f);
-                float kd = 26f * s, kx = value ? sw.xMax - 5f * s - kd : sw.x + 5f * s;
-                HudTheme.Circle(new Vector2(kx + kd * 0.5f, sw.center.y), kd + 4f * s, HudTheme.Ink);
+                var sw = new Rect(row.xMax - 14f * s - 72f * s, row.center.y - 16f * s, 72f * s, 32f * s);
+                HudTheme.Pill(sw, value ? HudTheme.Good : HudTheme.Dim, 2.5f, 1.5f);
+                float kd = 24f * s, kx = value ? sw.xMax - 4f * s - kd : sw.x + 4f * s;
+                HudTheme.Circle(new Vector2(kx + kd * 0.5f, sw.center.y), kd + 3f * s, HudTheme.Ink);
                 HudTheme.Circle(new Vector2(kx + kd * 0.5f, sw.center.y), kd - 1f * s, HudTheme.Cream);
                 var word = value ? new Rect(sw.x + 8f * s, sw.y, sw.width * 0.5f, sw.height) : new Rect(sw.xMax - 8f * s - sw.width * 0.5f, sw.y, sw.width * 0.5f, sw.height);
-                HudTheme.Text(word, value ? "ON" : "OFF", 13f, HudTheme.Bright, value ? TextAnchor.MiddleLeft : TextAnchor.MiddleRight);
+                HudTheme.Text(word, value ? "ON" : "OFF", 13f, HudTheme.Bright, value ? TextAnchor.MiddleLeft : TextAnchor.MiddleRight, true, HudTheme.Edge(value ? HudTheme.Good : HudTheme.Dim));
             }
             return value;
         }
@@ -389,13 +400,13 @@ namespace BuildingEscape
             bool focused = GUI.GetNameOfFocusedControl() == controlName;
             if (Event.current.type == EventType.Repaint)
             {
-                HudTheme.Rounded(new Rect(r.x, r.y + 3f * s, r.width, r.height), HudTheme.Alpha(HudTheme.Ink, 0.38f), 12f * s);
-                if (focused) HudTheme.Rounded(Grow(r, 3.5f * s), HudTheme.Info, 15f * s);
+                HudTheme.Rounded(new Rect(r.x, r.y + 2f * s, r.width, r.height), HudTheme.Alpha(HudTheme.Ink, 0.3f), 12f * s);
+                if (focused) HudTheme.Rounded(Grow(r, 3f * s), HudTheme.Info, 14f * s);
                 HudTheme.Rounded(r, HudTheme.Ink, 12f * s);
-                float ow = Mathf.Max(1.5f, 3f * s);
-                HudTheme.Rounded(new Rect(r.x + ow, r.y + ow, r.width - ow * 2f, r.height - ow * 2f), HudTheme.Cream, 9f * s);
+                float ow = Mathf.Max(1.5f, 2.5f * s);
+                HudTheme.Rounded(new Rect(r.x + ow, r.y + ow, r.width - ow * 2f, r.height - ow * 2f), HudTheme.Cream, 9.5f * s);
                 if (string.IsNullOrEmpty(value) && !focused && !string.IsNullOrEmpty(hint))
-                    HudTheme.Text(new Rect(r.x + 16f * s, r.y, r.width - 28f * s, r.height), hint, 17f, HudTheme.Alpha(HudTheme.Ink, 0.4f), TextAnchor.MiddleLeft, false);
+                    HudTheme.Text(new Rect(r.x + 16f * s, r.y, r.width - 28f * s, r.height), hint, 17f, HudTheme.Alpha(HudTheme.Ink, 0.45f), TextAnchor.MiddleLeft, false);
             }
             if (fieldStyle == null)
             {
@@ -457,7 +468,7 @@ namespace BuildingEscape
                 if (max <= 0f) return;
 
                 // the bar: a thin track at the right edge and a thumb as tall as the share of the page that is in view
-                var track = new Rect(view.xMax - 11f * s, view.y + 4f * s, 9f * s, view.height - 8f * s);
+                var track = new Rect(view.xMax - 11f * s, view.y + 4f * s, 8f * s, view.height - 8f * s);
                 float thumbH = Mathf.Max(40f * s, track.height * view.height / contentH);
                 float thumbY = track.y + (track.height - thumbH) * (pos / max);
                 var thumb = new Rect(track.x, thumbY, track.width, thumbH);
@@ -487,8 +498,8 @@ namespace BuildingEscape
                         if (mine) { GUIUtility.hotControl = 0; ev.Use(); }
                         break;
                     case EventType.Repaint:
-                        HudTheme.Rounded(track, HudTheme.Alpha(HudTheme.Ink, 0.4f), track.width * 0.5f);
-                        HudTheme.Body(thumb, mine ? HudTheme.Light(HudTheme.Info, 0.2f) : HudTheme.Info, 4.5f, 1.5f, 0f, false, 0f);
+                        HudTheme.Rounded(track, HudTheme.Alpha(HudTheme.Ink, 0.35f), track.width * 0.5f);
+                        HudTheme.Body(thumb, mine ? HudTheme.Light(HudTheme.Info, 0.2f) : HudTheme.Info, 4f, 1.8f, 0f, false, 0f);
                         break;
                 }
             }

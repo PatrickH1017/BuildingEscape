@@ -29,6 +29,7 @@ namespace BuildingEscape.Net
         {
             Instance = this;
             SpawnSnapshots();
+            IntroCinematic.Arm(transform);       // (the run-start cinematic: DEVELOPER_NOTES 2.19)
         }
 
         public override void OnNetworkDespawn()
@@ -54,6 +55,7 @@ namespace BuildingEscape.Net
                 if (started.Value && expected.Value != NetworkManager.ConnectedClientsIds.Count) expected.Value = NetworkManager.ConnectedClientsIds.Count;
                 HostPublishState();
                 HostSendSnapshots();
+                IntroServerTick();
             }
             else { ClientApplyState(); }
         }

@@ -114,38 +114,45 @@ namespace BuildingEscape
 
         // ---------------------------------------------------------------- officers
 
-        /// <summary>A ring of keys on a belt: a handful of small metallic clinks. Running makes more of them.</summary>
+        /// <summary>
+        /// A ring of keys on a belt: a handful of small metallic clinks, more of them (and closer together) when he runs. The owner, 2026-10-17: "the key jingle sound is a little off".
+        /// The first version gave every clink its own random pitch (2.3 to 5.4 kHz) and four inharmonic overtones up to 14 kHz, so the ring sounded like a handful of unrelated bells.
+        /// Now every key rings at one of a few tuned pitches (E7, G7, A7, B7, D8: a pentatonic cluster that agrees with itself, a hair out of tune each) with one soft overtone, a short
+        /// soft attack and a tiny click, the later ones quieter as the ring settles, all rounded off a little above 8 kHz.
+        /// </summary>
         public static float[] Keys(int variant, bool run)
         {
             var r = new SynthRandom(300 + variant * 31 + (run ? 7 : 0));
-            int n = Dsp.Samples(run ? 0.55f : 0.42f);
+            int n = Dsp.Samples(run ? 0.60f : 0.50f);
             var o = new float[n];
-            int clinks = run ? 9 + r.Int(5) : 5 + r.Int(3);
-            // inharmonic partials, like a small bar of metal
-            float[] ratio = { 1f, 2.76f, 5.40f, 8.93f }, amp = { 1f, 0.55f, 0.28f, 0.12f };
+            int clinks = run ? 8 + r.Int(4) : 4 + r.Int(3);
+            float[] tuned = { 2637f, 3136f, 3520f, 3951f, 4699f };        // the tuned pitches
+            float[] ratio = { 1f, 2.32f }, amp = { 1f, 0.30f };             // a small bar of metal: the first overtone a little more than an octave up
             for (int c = 0; c < clinks; c++)
             {
-                int at = (int)(r.Value() * r.Value() * n * 0.55f);   // most of them close to the start
-                float f0 = r.Range(2300f, 5400f), gain = r.Range(0.35f, 1f), tau = r.Range(0.035f, 0.085f);
+                float t01 = (c + r.Value() * 0.6f) / clinks;                // the clinks are spread over the sound, bunched at the start (the ring settling)
+                int at = (int)(t01 * t01 * n * 0.6f);
+                float f0 = tuned[r.Int(tuned.Length)] * (1f + r.Range(-0.012f, 0.012f)), gain = r.Range(0.45f, 1f) * (1f - 0.35f * t01), tau = r.Range(0.030f, 0.060f);
                 for (int p = 0; p < ratio.Length; p++)
                 {
-                    float hz = f0 * ratio[p];
-                    if (hz > 14000f) break;
-                    float dec = Dsp.DecayPerSample(tau / (1f + p * 0.7f)), env = 1f, ph = 0f, dp = hz / SR;
+                    float dec = Dsp.DecayPerSample(tau / (1f + p * 0.8f)), env = 1f, ph = 0f, dp = f0 * ratio[p] / SR;
                     for (int i = 0; at + i < n && env > 0.001f; i++)
                     {
-                        o[at + i] += gain * amp[p] * Dsp.Sine(ph) * env;
+                        float attack = i < 24 ? i / 24f : 1f;               // (half a millisecond of attack: no click from the sine starting abruptly)
+                        o[at + i] += gain * amp[p] * Dsp.Sine(ph) * env * attack;
                         ph += dp; ph -= (int)ph;
                         env *= dec;
                     }
                 }
-                AddClick(o, at, r, 0.0012f, gain * 0.5f);
+                AddClick(o, at, r, 0.0010f, gain * 0.22f);
             }
+            var soften = new Svf();
+            soften.Set(8500f, 0.7f);
+            for (int i = 0; i < n; i++) o[i] = soften.Low(o[i]);
             Dsp.FadeEnds(o, 0.004f);
-            Dsp.Normalize(o, 0.85f);
+            Dsp.Normalize(o, 0.80f);
             return o;
         }
-
         /// <summary>Walkie-talkie static: wandering hiss, a few pops and, on some variants, a short key-up beep.</summary>
         public static float[] RadioStatic(int variant)
         {

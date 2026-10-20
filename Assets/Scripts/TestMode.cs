@@ -4,7 +4,7 @@ namespace BuildingEscape
 {
     /// <summary>
     /// Tester's cheat panel (F1). Only exists when Test Mode is switched on in the Unity editor
-    /// (menu: Overtime Escape > Test Mode), so normal play is untouched.
+    /// (menu: Employees Take Revenge > Test Mode), so normal play is untouched.
     /// Gives cash, weapons and loot, jumps between floors, completes quotas, stuns guards, god mode.
     /// </summary>
     public class TestMode : MonoBehaviour
@@ -28,7 +28,7 @@ namespace BuildingEscape
             var go = new GameObject("TestMode");
             DontDestroyOnLoad(go);
             go.AddComponent<TestMode>();
-            Debug.Log("Test Mode is ON - press F1 for the cheat panel. (Overtime Escape > Test Mode turns it off.)");
+            Debug.Log("Test Mode is ON - press F1 for the cheat panel. (Employees Take Revenge > Test Mode turns it off.)");
         }
 
         void OnDestroy() { PanelOpen = false; }
@@ -81,14 +81,17 @@ namespace BuildingEscape
             GUILayout.EndHorizontal();
 
             Header("Weapons (into your pack, equipped)");
-            if (!MeleeWeapon.Available) GUILayout.Label("Weapons not set up: run Overtime Escape > Setup Weapons");
+            if (!MeleeWeapon.Available) GUILayout.Label("Weapons not set up: run Employees Take Revenge > Setup Weapons");
             GUILayout.BeginHorizontal();
             foreach (MeleeWeapon.Kind k in System.Enum.GetValues(typeof(MeleeWeapon.Kind)))
                 if (GUILayout.Button(MeleeWeapon.Specs[(int)k].name) && pack && MeleeWeapon.Available) GiveWeapon(pack, k);
-            if (GUILayout.Button("Pew (gun)"))
+            GUILayout.EndHorizontal();
+            GUILayout.BeginHorizontal();
+            foreach (RangedWeapon.Kind gk in System.Enum.GetValues(typeof(RangedWeapon.Kind)))
             {
-                if (pack && RangedWeapon.Available) GivePew(pack);
-                else Say("The Guns pack is not set up: run Overtime Escape > Setup Weapons");
+                if (!GUILayout.Button(RangedWeapon.Specs[(int)gk].name)) continue;
+                if (pack && RangedWeapon.Available && RangedWeapon.Has(gk)) GiveGun(pack, gk);
+                else Say("The Guns pack is not set up: run Employees Take Revenge > Setup Weapons");
             }
             GUILayout.EndHorizontal();
             GunTools(pack);
@@ -203,18 +206,23 @@ namespace BuildingEscape
             GUILayout.Label($"Safe seed {seed}: " + (safeFloors.Length == 0 ? "no floor has a safe" : safeFloors.Length + " floor(s) have one"));
             foreach (int f in safeFloors)
             {
-                int source = SafeRules.SourceFloor(seed, f);
-                string room = gen ? gen.SafeRoomLabel(f) : null;
-                GUILayout.BeginHorizontal();
-                GUILayout.Label($"F{f}: room {room ?? "?"}, code {SafeRules.CodeText(SafeRules.Code(seed, f))}, " +
-                                $"note on F{source} ({(SafeRules.NoteGivesCode(seed, f) ? "gives the code" : "no code: crowbar")})");
-                if (GUILayout.Button("Go", GUILayout.Width(40))) { tm.GoToLevel(f); Say("Going to floor " + f); }
-                GUILayout.EndHorizontal();
+                int count = SafeRules.SafeCount(seed, f);
+                for (int i = 0; i < count; i++)
+                {
+                    string room = gen ? gen.SafeRoomLabel(f, i) : null;
+                    GUILayout.BeginHorizontal();
+                    GUILayout.Label($"F{f}" + (count > 1 ? $" safe {i + 1}/{count}" : "") + $": room {room ?? "?"}, code {SafeRules.CodeText(SafeRules.Code(seed, f, i))}, {(SafeRules.IsWeaponFloor(f) ? "a pistol" : "cash")}, " +
+                                    $"({(SafeRules.RecordGivesCode(seed, f, i) ? "code on record" : "no code: crowbar")})");
+                    if (i == 0 && GUILayout.Button("Go", GUILayout.Width(40))) { tm.GoToLevel(f); Say("Going to floor " + f); }
+                    GUILayout.EndHorizontal();
+                }
             }
             GUILayout.BeginHorizontal();
             if (GUILayout.Button("Learn every safe (journal)"))
             {
-                foreach (int f in safeFloors) SafeIntel.Add(f, gen ? gen.SafeRoomLabel(f) : null, SafeRules.Code(seed, f));
+                foreach (int f in safeFloors)
+                    for (int i = 0, n = SafeRules.SafeCount(seed, f); i < n; i++)
+                        SafeIntel.Add(f, i, n, gen ? gen.SafeRoomLabel(f, i) : null, SafeRules.Code(seed, f, i));
                 Say("The journal (J) lists every safe now");
             }
             if (GUILayout.Button("New safes (re-roll)")) { tm.RerollIntel(); Say("New safes - the floor is built again"); }
@@ -229,18 +237,21 @@ namespace BuildingEscape
                 if (GUILayout.Button("Trip the alarm")) outpost.HostHackResult(false);
                 if (pack && GUILayout.Button("To its door")) TeleportTo(pack, new Vector3(outpost.KeypadPosition.x, 1.1f, outpost.KeypadPosition.z) + outpost.Outward * 1.4f);
                 GUILayout.EndHorizontal();
+                if (outpost.PanelLamps != null && outpost.PanelLamps.Length > 0)      // (the outposts have no alarm panel any more; the row stays for a floor that builds one)
+                {
                 GUILayout.BeginHorizontal();
                 GUILayout.Label("Alarm panel: " + (outpost.AlertOn ? "ALERT (alarm or backup going)" : "quiet"));
                 if (GUILayout.Button("Press it")) { if (outpost.HostStandDown()) outpost.PlayStandDown(); else Say("Nothing to switch off"); }
                 if (pack && GUILayout.Button("To the panel")) TeleportTo(pack, new Vector3(outpost.PanelPosition.x, 1.1f, outpost.PanelPosition.z) - outpost.Outward * 1.2f);
                 GUILayout.EndHorizontal();
+                }
             }
             else GUILayout.Label("This level has no guard outpost.");
 
-            var safe = FloorSafe.Active;
-            if (safe)
+            foreach (var safe in FloorSafe.OnShow)
             {
-                GUILayout.Label($"This floor's safe: {(safe.IsOpen ? "OPEN" : "shut")}, code {SafeRules.CodeText(safe.Code)}, {safe.BundleCount} bundles");
+                if (!safe) continue;
+                GUILayout.Label($"This floor's safe {safe.Index + 1}: {(safe.IsOpen ? "OPEN" : "shut")}, code {SafeRules.CodeText(safe.Code)}, " + (safe.GunCount > 0 ? safe.GunCount + " pistol(s)" : safe.BundleCount + " bundles"));
                 GUILayout.BeginHorizontal();
                 if (!safe.IsOpen && GUILayout.Button("Open it")) safe.ApplyOpen(false);
                 if (pack && GUILayout.Button("To the safe")) TeleportTo(pack, new Vector3(safe.transform.position.x, 1.1f, safe.transform.position.z) + safe.transform.forward * 1.4f);
@@ -283,16 +294,32 @@ namespace BuildingEscape
 
         // ------------------------------------------------------------------ the pew and armed guards
 
-        void GivePew(Backpack pack)
+        void GiveGun(Backpack pack, RangedWeapon.Kind kind)
         {
-            var go = RangedWeapon.Create(RangedWeapon.Kind.Pew, SpawnPoint(pack), null);
+            var go = RangedWeapon.Create(kind, SpawnPoint(pack), null);
             var floor = FindFirstObjectByType<FloorGenerator>();
             if (floor && floor.Current) go.transform.SetParent(floor.Current, true);
             var p = go.GetComponent<Pickup>();
             if (!pack.TryStore(p)) { Say("Pack too full - dropped it in front of you (raise capacity)"); return; }
             pack.SetEquipped(p);
-            Say("Pew in your hand: LMB fires, R reloads");
+            RunUnlocks.Unlock(kind);                                       // (the dealer sells its ammunition now: it was "found")
+            Say(RangedWeapon.Specs[(int)kind].name + " in your hand: LMB fires, R reloads");
         }
+
+        void GiveArmour(Backpack pack, ShieldTier tier)
+        {
+            foreach (var held in pack.Snapshot())
+                if (held && held.TryGetComponent(out ArmourItem _)) { pack.Drop(held); Destroy(held.gameObject); }          // (one piece at a time: the old one goes)
+            if (tier == ShieldTier.None) { Say("No armour on you"); return; }
+            var go = ArmourItem.Create(tier, SpawnPoint(pack), null, 0f);
+            var floor = FindFirstObjectByType<FloorGenerator>();
+            if (floor && floor.Current) go.transform.SetParent(floor.Current, true);
+            if (!pack.TryStore(go.GetComponent<Pickup>())) { Say("Pack too full - dropped it in front of you (raise capacity)"); return; }
+            RunUnlocks.UnlockArmour(tier);                                 // (the dealer sells it now: it was "found")
+            Say(ArmourRules.Name(tier) + " on you: a guard's bullet knocks you down for " + Mathf.RoundToInt(ArmourRules.HitShare(tier) * 100f) + "% of the time");
+        }
+
+        void GivePew(Backpack pack) => GiveGun(pack, RangedWeapon.Kind.Pew);          // (the tests call it by this name)
 
         void GunTools(Backpack pack)
         {
@@ -301,10 +328,14 @@ namespace BuildingEscape
             if (gun != null)
             {
                 var m = gun.Magazine;
-                GUILayout.Label(m.Reloading ? "Pew: reloading ..." : $"Pew: {m.Rounds} / {m.Capacity} rounds (LMB fires, R reloads)");
-                if (GUILayout.Button("Refill the magazine")) m.Fill();
+                GUILayout.Label(m.Reloading ? gun.Data.name + ": reloading ..." : $"{gun.Data.name}: {m.Rounds} / {m.Capacity} rounds, {(m.InfiniteReserve ? "endless" : m.Reserve.ToString())} spare (LMB fires, R reloads)");
+                if (GUILayout.Button("Refill the magazine and the spare clips"))
+                {
+                    m.Fill();
+                    if (!m.InfiniteReserve) m.SetReserve(Mathf.Max(m.Reserve, RangedWeapon.Specs[(int)gun.kind].spareClips * m.Capacity));
+                }
             }
-            else GUILayout.Label("Equip the Pew (inventory) to shoot: 10 rounds, then a reload");
+            else GUILayout.Label("Equip the Pew (inventory) to shoot: 8 rounds a clip, two spare clips, then it only clicks");
 
             bool every = GUILayout.Toggle(ArmedGuards.Everywhere, "Every guard carries a pew (now and on new floors)");
             if (every != ArmedGuards.Everywhere)
@@ -314,7 +345,24 @@ namespace BuildingEscape
             }
             int alive = 0, armed = 0;
             foreach (var g in GuardAI.All) { if (!g || g.Dead) continue; alive++; if (g.Armed) armed++; }
-            GUILayout.Label($"Guards on this floor: {alive}, with a pew: {armed}");
+            GUILayout.Label($"Guards on this floor: {alive}, armed: {armed}");
+            GUILayout.Label("Every guard on this floor carries (and wears the shield that goes with it):");
+            GUILayout.BeginHorizontal();
+            if (GUILayout.Button("nothing")) Say($"{ArmedGuards.SetAllNow(null)} guard(s) unarmed");
+            foreach (var k in new[] { RangedWeapon.Kind.Pew, RangedWeapon.Kind.Smg, RangedWeapon.Kind.Rifle, RangedWeapon.Kind.Shotgun, RangedWeapon.Kind.Sniper })
+                if (RangedWeapon.Has(k) && GUILayout.Button(RangedWeapon.Specs[(int)k].name)) Say($"{ArmedGuards.SetAllNow(k)} guard(s) now carry the {RangedWeapon.Specs[(int)k].name}, with a {GuardLoadouts.ShieldOf(k).ToString().ToLower()} shield");
+            GUILayout.EndHorizontal();
+            GUILayout.Label("Armour on you (the dealer sells that tier from then on):");
+            GUILayout.BeginHorizontal();
+            if (GUILayout.Button("none")) GiveArmour(pack, ShieldTier.None);
+            foreach (var at in new[] { ShieldTier.Light, ShieldTier.Medium, ShieldTier.Heavy })
+                if (GUILayout.Button(ArmourRules.Name(at))) GiveArmour(pack, at);
+            GUILayout.EndHorizontal();
+            if (GUILayout.Button("Show the blast of a shotgun or sniper hit (only the picture, in front of you)") && WobblyPlayerRegistry.All.Count > 0 && WobblyPlayerRegistry.All[0])
+            {
+                var me = WobblyPlayerRegistry.All[0];
+                BlastFx.Play(me.transform.position + me.transform.forward * 3.5f + Vector3.up * 0.3f, HudTheme.PlayerColour(1));
+            }
 
             GUILayout.BeginHorizontal();
             int first = ArmedGuards.FirstArmedFloor;

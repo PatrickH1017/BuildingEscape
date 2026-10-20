@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 363ac1552f502894bb4c0a58363d8d0d
+timeCreated: 1579572102
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 43091940603964502
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 159492
+  packageName: POLYGON - Office Pack - Art by Synty
+  packageVersion: 1.9.4
+  assetPath: Assets/Synty/PolygonOffice/Models/Convex/SM_Prop_AirVent_Wall_01_Convex.asset
+  uploadId: 976702

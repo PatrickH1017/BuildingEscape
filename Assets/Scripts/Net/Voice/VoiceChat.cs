@@ -7,9 +7,10 @@ namespace BuildingEscape.Net
 {
     /// <summary>
     /// Proximity voice chat. The local microphone (Steam voice, or the Unity microphone without Steam) is sent to
-    /// the host, which relays it to everyone else over the existing connection. Teammates are heard from their
-    /// character's position in a run (plain stereo in the lobby). Your own voice level also drives VoiceNoise,
-    /// so guards hear you talk.
+    /// the host, which relays it over the existing connection - in a run only to the players within earshot (<see cref="VoiceRules"/>: loud up to
+    /// 4 m, silent from 20 m; walkie-talkies will carry a voice further, see <see cref="RadioOf"/>); in the lobby, where there are no bodies, to everybody.
+    /// A voice is played louder or quieter by how far the two characters are apart and comes from the side the speaker is on. Your own voice
+    /// level also drives VoiceNoise, so guards hear you talk.
     ///
     /// Controls: open mic by default; M toggles mute; push-to-talk (T) and the voice volume are in Settings.
     /// Created automatically; works whenever a Netcode session is running.
@@ -32,7 +33,12 @@ namespace BuildingEscape.Net
         static float volumeCache = -1f;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
-        static void ResetStatics() { modeCache = -1; volumeCache = -1f; Instance = null; }
+        static void ResetStatics() { modeCache = -1; volumeCache = -1f; Instance = null; RadioOf = null; }
+
+        /// <summary>Walkie-talkies (bought at the vendor; not built yet): set by whatever knows which client carries one. Two players who both do hear each other at
+        /// any distance (<see cref="VoiceRules.RouteFor"/>, which the host also uses to decide who is sent a voice); until then nobody does.</summary>
+        public static System.Func<ulong, bool> RadioOf;
+        static bool HasRadio(ulong clientId) => RadioOf != null && RadioOf(clientId);
 
         public static Mode CurrentMode
         {
@@ -66,7 +72,7 @@ namespace BuildingEscape.Net
         public float HearingRadius { get; private set; }
 
         // test / diagnostics
-        public int PacketsSent, PacketsReceived, PacketsRelayed;
+        public int PacketsSent, PacketsReceived, PacketsRelayed, PacketsHeldBack;     // (held back: a voice the host did not send on because the listener is out of earshot)
 
         IVoiceInput input;
         bool inputActive;
@@ -129,10 +135,11 @@ namespace BuildingEscape.Net
             if (online && !registered) Register(nm);
             if (!online && registered) { registered = false; DropAllVoices(); }
 
-            if (Input.GetKeyDown(muteKey) && !EscapeMenu.Open && !Backpack.UiOpen && !Vendor.ShopOpen) Muted = !Muted;
+            if (Input.GetKeyDown(muteKey) && !EscapeMenu.Open && !Backpack.UiOpen && !Vendor.ShopOpen && !OutpostUi.Open) Muted = !Muted;
 
             var mode = CurrentMode;
-            bool wantMic = online && !Muted && mode != Mode.Off && (mode == Mode.OpenMic || Input.GetKey(talkKey));
+            bool paOn = online && PaState.Live && NetPlayer.Local != null && NetPlayer.Local.IsSpawned && PaState.LiveBy == NetPlayer.Local.Slot;      // (V held at the outpost's computer: the microphone is live whatever the voice mode)
+            bool wantMic = online && !Muted && mode != Mode.Off && (mode == Mode.OpenMic || (Input.GetKey(talkKey) && !OutpostUi.Open) || paOn);
             if (wantMic && input == null) input = PickInput();
             if (input != null && wantMic != inputActive) { input.SetActive(wantMic); inputActive = wantMic; }
             if (!wantMic) { Speaking = false; MicLevel = Mathf.MoveTowards(MicLevel, 0f, Time.deltaTime * 4f); }
@@ -247,12 +254,22 @@ namespace BuildingEscape.Net
             }
         }
 
-        /// <summary>Host: send to everyone except the speaker (and itself).</summary>
+        /// <summary>Host: send to everyone who can hear the speaker (not the speaker, not itself): in a run the players within earshot (<see cref="VoiceRules.ShouldRelay"/>:
+        /// the range plus a margin, or two radios), in the lobby everybody.</summary>
         void Relay(NetworkManager nm, ulong speaker, FastBufferWriter w, NetworkDelivery delivery, ulong self)
         {
+            bool inRun = RunSync.Instance != null;
+            var from = inRun ? PlayerOf(speaker) : null;
+            bool fromRadio = HasRadio(speaker);
             foreach (var id in nm.ConnectedClientsIds)
             {
                 if (id == speaker || id == self) continue;
+                if (inRun)
+                {
+                    var to = PlayerOf(id);
+                    if (from == null || to == null) { PacketsHeldBack++; continue; }          // a run, and one of the two has no body: nothing to hear
+                    if (!(PaState.Live && from.Slot == PaState.LiveBy) && !VoiceRules.ShouldRelay(Vector3.Distance(from.transform.position, to.transform.position), fromRadio, HasRadio(id))) { PacketsHeldBack++; continue; }          // (the PA: everybody gets it)
+                }
                 nm.CustomMessagingManager.SendNamedMessage(MessageName, id, w, delivery);
                 PacketsRelayed++;
             }
@@ -265,6 +282,8 @@ namespace BuildingEscape.Net
             var decoder = VoiceCodecs.DecoderFor(codec);
             if (decoder == null) return;
             if (codec == VoiceCodecs.Steam && (SteamService.Instance == null || !SteamService.Instance.Ready)) return;
+            float gain = Listen(speaker, out float pan);
+            if (gain < VoiceRules.AudibleGain) return;        // too far to hear: not even decoded
             int n = decoder.Decode(data, length, pcm);
             if (n <= 0) return;
 
@@ -278,6 +297,7 @@ namespace BuildingEscape.Net
                 voices[speaker] = voice;
             }
             voice.Push(pcm, n, decoder.SampleRate);
+            voice.SetMix(Volume * gain, pan);
         }
 
         void UpdateVoices(NetworkManager nm)
@@ -287,15 +307,63 @@ namespace BuildingEscape.Net
             {
                 var v = kv.Value;
                 if (!v) continue;
-                NetPlayer owner = null;
-                foreach (var p in NetPlayer.All) if (p.OwnerClientId == kv.Key) { owner = p; break; }
-                if (owner)
-                {
-                    v.transform.position = owner.transform.position + Vector3.up * 1.6f;
-                    v.SetSpatial(true, vol);
-                }
-                else v.SetSpatial(false, vol * 0.8f);
+                float gain = Listen(kv.Key, out float pan);
+                var owner = RunSync.Instance != null ? PlayerOf(kv.Key) : null;
+                if (owner) v.transform.position = owner.transform.position + Vector3.up * 1.6f;      // (where the voice is, for a look in the editor)
+                v.SetMix(vol * gain, pan);
             }
+        }
+
+        static NetPlayer PlayerOf(ulong clientId)
+        {
+            foreach (var p in NetPlayer.All) if (p && p.OwnerClientId == clientId) return p;
+            return null;
+        }
+
+        AudioListener ears;
+
+        /// <summary>How loud a speaker is for the local player right now (1 = full, 0 = not heard) and which side he is on (-1 left .. 1 right).
+        /// In the lobby there are no bodies, so everybody hears everybody in the middle at <see cref="VoiceRules.LobbyGain"/>; in a run the distance between the two characters decides
+        /// (<see cref="VoiceRules"/>) and a voice with no body is not heard.</summary>
+        float Listen(ulong speaker, out float pan)
+        {
+            pan = 0f;
+            var me = NetPlayer.Local;
+            if (RunSync.Instance == null || me == null) return VoiceRules.LobbyGain;
+            var from = PlayerOf(speaker);
+            if (from == null) return 0f;
+            var nm = NetworkManager.Singleton;
+            float d = Vector3.Distance(me.transform.position, from.transform.position);
+            var route = VoiceRules.RouteFor(d, HasRadio(speaker), nm != null && HasRadio(nm.LocalClientId));
+            if (route == VoiceRules.Route.Near)
+            {
+                if (!ears) ears = FindFirstObjectByType<AudioListener>();
+                if (ears)
+                {
+                    var side = from.transform.position - ears.transform.position; side.y = 0f;
+                    var right = ears.transform.right; right.y = 0f;
+                    if (side.sqrMagnitude > 0.01f && right.sqrMagnitude > 0.01f) pan = VoiceRules.PanFor(Vector3.Dot(side.normalized, right.normalized), side.magnitude);
+                }
+            }
+            float gain = VoiceRules.GainFor(route, d);
+            // the PA (the owner, 2026-10-18): the voice of the player at the outpost's computer also comes out of the hallway speakers that are switched on, as loud as the nearest one is for this listener
+            if (PaState.Live && from.Slot == PaState.LiveBy)
+            {
+                float pg = PaRules.GainAt(me.transform.position, PaState.Speakers, PaState.Mask, out int nearest);
+                if (nearest >= 0 && PaRules.Mix(gain, pg) > gain)
+                {
+                    gain = PaRules.Mix(gain, pg);
+                    if (!ears) ears = FindFirstObjectByType<AudioListener>();
+                    if (ears)
+                    {
+                        var sp = PaState.Speakers[nearest];
+                        var side = new Vector3(sp.x, 0f, sp.y) - ears.transform.position; side.y = 0f;
+                        var right = ears.transform.right; right.y = 0f;
+                        if (side.sqrMagnitude > 0.01f && right.sqrMagnitude > 0.01f) pan = VoiceRules.PanFor(Vector3.Dot(side.normalized, right.normalized), side.magnitude);
+                    }
+                }
+            }
+            return gain;
         }
 
         void DropAllVoices()

@@ -97,6 +97,7 @@ namespace BuildingEscape
                 case "hub": return 0.85f;
                 case "hall": return 0.6f;
                 case "server": return 0.9f;
+                case "restroom": return 0f;
                 case "break": case "canteen": return 0.55f;
                 case "cafe_counter": case "cafe_seating": return 0.6f;
                 case "office": return 0.25f;

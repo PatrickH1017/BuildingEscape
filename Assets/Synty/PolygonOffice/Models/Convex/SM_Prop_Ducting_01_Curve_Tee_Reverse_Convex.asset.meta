@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: c128538edb9893f48b06d96c867531c5
+timeCreated: 1579574418
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 43467500335699676
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 159492
+  packageName: POLYGON - Office Pack - Art by Synty
+  packageVersion: 1.9.4
+  assetPath: Assets/Synty/PolygonOffice/Models/Convex/SM_Prop_Ducting_01_Curve_Tee_Reverse_Convex.asset
+  uploadId: 976702

@@ -14,11 +14,11 @@ namespace BuildingEscape
     /// </summary>
     public sealed class MusicDirector : MonoBehaviour
     {
-        public enum Mood { None, Elevator, Intense }
+        public enum Mood { None, Elevator, Intense, Lobby }
 
         const string VolumeKey = "OvertimeEscape.MusicVolume";
         const float DefaultVolume = 0.7f;
-        const float IntenseGain = 0.7f, ElevatorGain = 0.8f;     // balance of the two kinds of music against each other
+        const float IntenseGain = 0.7f, ElevatorGain = 0.8f, LobbyGain = 0.85f;     // balance of the kinds of music against each other
         const float RideGrace = 5f;                              // keep elevator music this long after leaving the car (the ride loads a floor)
 
         static float volume = -1f;
@@ -51,8 +51,9 @@ namespace BuildingEscape
         /// <summary>The intense loop is audible right now (for tests and diagnostics).</summary>
         public bool IntensePlaying => intenseSource && intenseSource.isPlaying;
 
-        AudioSource intenseSource, elevatorSource;
-        float intenseLevel, elevatorLevel;                       // 0-1 fades
+        AudioSource intenseSource, elevatorSource, lobbySource;
+        float intenseLevel, elevatorLevel, lobbyLevel;           // 0-1 fades
+        AudioClip lobbyClip;                                     // the lobby song (Resources/LobbyMusic: the owner's loop cut up and rejoined into a 2.5 minute song)
 
         // the intense loop belongs to one floor of one run
         int trackFloor = int.MinValue, trackSeed;
@@ -72,6 +73,8 @@ namespace BuildingEscape
             Instance = this;
             intenseSource = NewSource();
             elevatorSource = NewSource();
+            lobbySource = NewSource();
+            lobbyClip = Resources.Load<AudioClip>("LobbyMusic");
             var real = GameAudio.Catalog ? GameAudio.Catalog.elevatorMusic : null;
             if (!FirstClip(real)) loungeTask = Task.Run(() => ProceduralMusic.RenderLounge());
         }
@@ -82,6 +85,10 @@ namespace BuildingEscape
             if (intenseOwned && intenseClip) Destroy(intenseClip);
             if (loungeClip) Destroy(loungeClip);
         }
+
+        /// <summary>The lobby song is playing (or about to), for tests.</summary>
+        public bool LobbyPlaying => lobbySource && lobbySource.isPlaying;
+        public bool HasLobbySong => lobbyClip != null;
 
         AudioSource NewSource()
         {
@@ -116,10 +123,13 @@ namespace BuildingEscape
             var elevatorClip = loungeClip ? loungeClip : FirstClip(GameAudio.Catalog ? GameAudio.Catalog.elevatorMusic : null);
             bool wantIntense = Current == Mood.Intense && intenseClip;
             bool wantElevator = Current == Mood.Elevator && elevatorClip;
+            bool wantLobby = Current == Mood.Lobby && lobbyClip;
             intenseLevel = Mathf.MoveTowards(intenseLevel, wantIntense ? 1f : 0f, dt / (wantIntense ? 0.8f : 1.5f));
             elevatorLevel = Mathf.MoveTowards(elevatorLevel, wantElevator ? 1f : 0f, dt / (wantElevator ? 1.0f : 1.2f));
+            lobbyLevel = Mathf.MoveTowards(lobbyLevel, wantLobby ? 1f : 0f, dt / (wantLobby ? 2.5f : 1.5f));
             Apply(intenseSource, intenseClip, intenseLevel * IntenseGain);
             Apply(elevatorSource, elevatorClip, elevatorLevel * ElevatorGain);
+            Apply(lobbySource, lobbyClip, lobbyLevel * LobbyGain);
         }
 
         /// <summary>What should be playing: decided from shared run state plus where the local player is.</summary>
@@ -127,6 +137,8 @@ namespace BuildingEscape
         {
             bool inCar = ElevatorExtraction.LocalInside || BossElevator.LocalInside;
             if (inCar) lastInCar = Time.unscaledTime;
+            // the lobby (the menu scene: the main page, Play, Customize, Settings, the party lobby) has its own song
+            if (UnityEngine.SceneManagement.SceneManager.GetActiveScene().name == Net.NetConst.MenuScene) return Mood.Lobby;
             if (!hm) return Mood.None;
             var phase = hm.Phase;
             if (phase == HeistPhase.Won || phase == HeistPhase.Failed || phase == HeistPhase.Lobby) return Mood.None;

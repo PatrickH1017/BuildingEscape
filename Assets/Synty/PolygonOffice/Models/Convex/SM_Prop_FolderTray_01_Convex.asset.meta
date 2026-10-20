@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 25eac844f27dd74459bd8e2c0a7ab3fe
+timeCreated: 1579556424
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 43861549857667796
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 159492
+  packageName: POLYGON - Office Pack - Art by Synty
+  packageVersion: 1.9.4
+  assetPath: Assets/Synty/PolygonOffice/Models/Convex/SM_Prop_FolderTray_01_Convex.asset
+  uploadId: 976702

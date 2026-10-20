@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: ba9803349d72faa4485fd50b45518eb8
+timeCreated: 1579572117
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 43516267010753042
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 159492
+  packageName: POLYGON - Office Pack - Art by Synty
+  packageVersion: 1.9.4
+  assetPath: Assets/Synty/PolygonOffice/Models/Convex/SM_Prop_Clock_02_Convex.asset
+  uploadId: 976702

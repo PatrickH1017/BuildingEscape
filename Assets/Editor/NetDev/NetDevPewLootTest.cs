@@ -7,24 +7,26 @@ namespace BuildingEscape.EditorTools
     {
         /// <summary>
         /// The owner's request of 2026-10-16: "add the armed guards on wave 4 and the pistol should be in the outpost on wave 4 100% of the time".
-        /// Pure checks: the guards are armed from floor 4 up and from no lower floor; the outpost of floor 4 holds a pew on every run seed (and
-        /// no other floor's does), first in its list of weapons, and never more than the outpost has places for; the planner gives floor 4's
+        /// The owner's request of 2026-10-17: the pistol first appears in the outpost of floor 3 (not 4), so it can be bought after floor 3.
+        /// Pure checks: the guards are armed from floor 4 up and from no lower floor; the outpost of floor 3 holds a pew on every run seed (and
+        /// no other floor's does), first in its list of weapons, and never more than the outpost has places for; the planner gives that
         /// outpost the places; the pistol has the one name the pickup and the loot list use.
         /// </summary>
         public static void PewLootTest()
         {
-            Check("pew loot: the guards are armed from floor 4 and the pistol lies in floor 4's outpost", ArmedGuards.DefaultFirstArmedFloor == 4 && OutpostLoot.PewFloor == 4);
-            Check("pew loot: a game starts with the armed-floor rule at floor 4", ArmedGuards.FirstArmedFloor == ArmedGuards.DefaultFirstArmedFloor);
+            Check("pew loot: the guards are armed from floor 3 and the pistol lies in floor 3's outpost", ArmedGuards.DefaultFirstArmedFloor == 3 && OutpostLoot.PewFloor == 3);
+            Check("pew loot: the pistol is found on the floor where the guards are first armed (the owner, 2026-10-19), and the vendor sells it once that floor is finished", OutpostLoot.PewFloor == ArmedGuards.DefaultFirstArmedFloor && Vendor.PewAfterFloor == OutpostLoot.PewFloor);
+            Check("pew loot: a game starts with the armed-floor rule at the first armed floor", ArmedGuards.FirstArmedFloor == ArmedGuards.DefaultFirstArmedFloor);
 
             int first = ArmedGuards.DefaultFirstArmedFloor;
             bool armedRule = true;
             for (int f = 1; f < first; f++) armedRule &= !ArmedRules.IsArmed(f, first, false);
             for (int f = first; f <= 13; f++) armedRule &= ArmedRules.IsArmed(f, first, false);
-            Check("pew loot: guards on floors 1-3 are unarmed, on floors 4-13 armed", armedRule);
+            Check("pew loot: guards on floors 1-2 are unarmed, on floors 3-13 some are armed (the rule for the floor)", armedRule);
             Check("pew loot: the docks have no guards to arm", !ArmedRules.IsArmed(0, first, false));
 
             // ---- the stash of every outpost, on many runs
-            bool onlyFloor4 = true, always = true, firstInList = true, once = true, fits = true, deterministic = true, otherWeaponsKept = true;
+            bool onlyPewFloor = true, always = true, firstInList = true, once = true, fits = true, deterministic = true, otherWeaponsKept = true;
             int runs = 0, minItems = int.MaxValue, maxWeapons = 0;
             for (int seed = 1; seed <= 500; seed++)
             {
@@ -47,20 +49,36 @@ namespace BuildingEscape.EditorTools
                         // the melee weapons are what they were: at most OutpostLoot.MaxWeapons of them, as on every floor
                         otherWeaponsKept &= stash.weapons.Count - pews <= OutpostLoot.MaxWeapons;
                     }
-                    else onlyFloor4 &= pews == 0;
+                    else onlyPewFloor &= pews == 0;
                     minItems = Mathf.Min(minItems, stash.ItemCount);
                 }
             }
-            Check($"pew loot: the outpost of floor 4 holds a pew on all 500 runs", always);
+            Check($"pew loot: the outpost of floor {OutpostLoot.PewFloor} holds a pew on all 500 runs", always);
             Check("pew loot: exactly one pew there", once);
             Check("pew loot: it is the first weapon put on a desk, so a full outpost drops a valuable before it", firstInList);
-            Check("pew loot: no other floor's outpost has one", onlyFloor4);
-            Check("pew loot: the melee weapons of floor 4's outpost are rolled as before (at most two)", otherWeaponsKept);
-            Check($"pew loot: no outpost holds more than the {OutpostLoot.MaxItems} things it has places for (6500 stashes, floor 4 has {maxWeapons} weapons at most)", fits);
+            Check("pew loot: no other floor's outpost has one", onlyPewFloor);
+            Check($"pew loot: the melee weapons of floor {OutpostLoot.PewFloor}'s outpost are rolled as before (at most two)", otherWeaponsKept);
+            Check($"pew loot: no outpost holds more than the {OutpostLoot.MaxItems} things it has places for (6500 stashes, floor {OutpostLoot.PewFloor} has {maxWeapons} weapons at most)", fits);
             Check("pew loot: the same run and floor give the same stash", deterministic);
             Check("pew loot: the loot list and the pickup call it the same thing", OutpostLoot.WeaponName(OutpostLoot.PewKind) == RangedWeapon.Specs[(int)RangedWeapon.Kind.Pew].name);
 
-            // ---- the planner gives floor 4's outpost the places (it adds places on the floor when its desks are too few)
+            // ---- the sniper rifle lies in the outposts, never in a safe (the owner, 2026-10-19: "The sniper and rocket launcher should be inside the outpost not in safes")
+            bool snOnce = true, snFirst = true, snNone = true, snFits = true, snSame = true;
+            for (int snSeed = 1; snSeed <= 300; snSeed++)
+                for (int snFloor = 1; snFloor <= 13; snFloor++)
+                {
+                    var snStash = OutpostLoot.Roll(snSeed * 7919 + 13, snFloor);
+                    int snCount = 0; foreach (int snW in snStash.weapons) if (snW == OutpostLoot.SniperKind) snCount++;
+                    if (snFloor >= OutpostLoot.SniperFloor) { snOnce &= snCount == 1; snFirst &= snStash.weapons.Count > 0 && snStash.weapons[0] == OutpostLoot.SniperKind; }
+                    else snNone &= snCount == 0;
+                    snFits &= snStash.ItemCount <= OutpostLoot.MaxItems;
+                    snSame &= OutpostLoot.Roll(snSeed * 7919 + 13, snFloor).weapons.Count == snStash.weapons.Count;
+                }
+            Check("sniper loot: from floor 10 on every outpost holds exactly one sniper rifle, first on the desk, none before it (300 runs), and none holds more than it has places for", snOnce && snFirst && snNone && snFits && snSame
+                && OutpostLoot.SniperFloor == RangedWeapon.Specs[(int)RangedWeapon.Kind.Sniper].unlockFloor && OutpostLoot.SniperKind == SafeRules.GunItem(RangedWeapon.Kind.Sniper));
+            Check("sniper loot: the loot list and the pickup call it the same thing", OutpostLoot.WeaponName(OutpostLoot.SniperKind) == RangedWeapon.Specs[(int)RangedWeapon.Kind.Sniper].name);
+
+            // ---- the planner gives the outpost of the pew floor the places (it adds places on the floor when its desks are too few)
             bool places = true, noteToo = true;
             int minPlaces = int.MaxValue, planned = 0;
             foreach (var (cols, rows) in new[] { (8, 5), (7, 5), (6, 4), (9, 6), (3, 2) })
@@ -75,10 +93,10 @@ namespace BuildingEscape.EditorTools
                     foreach (var s in op.itemSlots) if (s.kind == "item") items++;
                     minPlaces = Mathf.Min(minPlaces, items);
                     places &= items >= OutpostLoot.MaxItems;
-                    noteToo &= op.itemSlots.Exists(s => s.kind == "note");
+                    noteToo &= op.itemSlots.Exists(s => s.kind == "computer");
                 }
-            Check($"pew loot: floor 4's outpost has {OutpostLoot.MaxItems} places for things on all {planned} planned floors (fewest: {minPlaces})", places && planned == 30);
-            Check("pew loot: and a place for its note", noteToo);
+            Check($"pew loot: floor {OutpostLoot.PewFloor}'s outpost has {OutpostLoot.MaxItems} places for things on all {planned} planned floors (fewest: {minPlaces})", places && planned == 30);
+            Check("pew loot: and a place for its computer", noteToo);
         }
     }
 }

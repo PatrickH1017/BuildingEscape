@@ -73,6 +73,43 @@ MonoBehaviour:
   gunAim:
   - {fileID: 8300000, guid: a79f72cbd7279be42bd74394ccfbf31e, type: 3}
   - {fileID: 8300000, guid: 508fb02395d1ece479c427664be238dd, type: 3}
+  rifleShot:
+  - {fileID: 8300000, guid: 7a1788b10a259394b9019d21bef463ae, type: 3}
+  - {fileID: 8300000, guid: 4ae73664f9fa52f41b51a2e050901696, type: 3}
+  - {fileID: 8300000, guid: ada2ae050ed4f114eba3fab31db4313e, type: 3}
+  rifleTail:
+  - {fileID: 8300000, guid: a9195d3b8dbaef940af4175ce12d10e3, type: 3}
+  - {fileID: 8300000, guid: 699f3c622cf808749ad5090e05beb115, type: 3}
+  rifleReload:
+  - {fileID: 8300000, guid: 08edb2bef8ffb1f4a8de1858af2f36fb, type: 3}
+  - {fileID: 8300000, guid: ab3d477e689b7c640a37efec61f5a150, type: 3}
+  - {fileID: 8300000, guid: 84b8dc5699eea984d91a0a8e96178771, type: 3}
+  - {fileID: 8300000, guid: d80439cbec359c2429722491566cc218, type: 3}
+  rifleEquip:
+  - {fileID: 8300000, guid: 43c1734fa36d1674caeee38cab0f249e, type: 3}
+  - {fileID: 8300000, guid: d0b14abf562284a408a90d207c988ce6, type: 3}
+  rifleAim:
+  - {fileID: 8300000, guid: 065b2c049ac04af40af4bfc9c56a671b, type: 3}
+  - {fileID: 8300000, guid: 14b580bc3375cf6489a46f96c801374d, type: 3}
+  shotgunShot:
+  - {fileID: 8300000, guid: a42a25bfe713e63498febabb408fceea, type: 3}
+  - {fileID: 8300000, guid: b322a4e6a9f59b04a82a3336dde02871, type: 3}
+  - {fileID: 8300000, guid: ae2d2db46850b7c47ab85240cdc448f9, type: 3}
+  shotgunTail:
+  - {fileID: 8300000, guid: 5efe7e8da212005439ca38f9d1208e4d, type: 3}
+  - {fileID: 8300000, guid: 0f3516a8b2677cd46a4e35d0cabce703, type: 3}
+  shotgunReload:
+  - {fileID: 8300000, guid: 0131125a5e370054d8c35f9d76872305, type: 3}
+  - {fileID: 8300000, guid: b36593ecec3d81d4a959516b91c8f25e, type: 3}
+  - {fileID: 8300000, guid: d99d971ec0a16cb40a74f53191fb704b, type: 3}
+  - {fileID: 8300000, guid: 1e33cfc113bf1b945b17141369ca7953, type: 3}
+  - {fileID: 8300000, guid: a9ba81f40042d9a459cc55ed3001caa1, type: 3}
+  shotgunEquip:
+  - {fileID: 8300000, guid: 22eeebf8ebfe4fe41b78c2508d1f8ea8, type: 3}
+  - {fileID: 8300000, guid: 31297ebcdacc8f04eac0b21df172502c, type: 3}
+  shotgunAim:
+  - {fileID: 8300000, guid: 45c44be430237414b8194dd84cfad1d9, type: 3}
+  - {fileID: 8300000, guid: 6032f093d2a47ee4982fa573f7a8257a, type: 3}
   doorOpen: []
   doorClose: []
   elevatorDing: []

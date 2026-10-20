@@ -1,0 +1,56 @@
+Props/Kitchen Props/SM_Prop_CoffeeMachine_01
+Props/Kitchen Props/SM_Prop_CoffeeMachine_Dripper_01
+Props/Kitchen Props/SM_Prop_CoffeeMachine_Small_01
+Props/Kitchen Props/SM_Prop_Fridge_01
+Props/Kitchen Props/SM_Prop_Fridge_02
+Props/Kitchen Props/SM_Prop_Kitchen_Cabinet_01
+Props/Kitchen Props/SM_Prop_Kitchen_Counter_01
+Props/Kitchen Props/SM_Prop_Kitchen_CounterSink_01
+Props/Kitchen Props/SM_Prop_Microwave_01
+Props/Kitchen Props/SM_Prop_MiniFridge_01
+Props/Kitchen Props/SM_Prop_Sink_01
+Bathroom/SM_Prop_VendingMachine_01
+Props/Misc/SM_Prop_WaterCooler_01
+Props/Misc/SM_Prop_Photocopier_01
+Props/Misc/SM_Prop_Photocopier_02
+Props/Misc/SM_Prop_Bin_01
+Props/Misc/SM_Prop_Bin_02
+Props/Misc/SM_Prop_Bin_03
+Props/Misc/SM_Prop_CardboardBox_01
+Props/Misc/SM_Prop_CardboardBox_03
+Props/Misc/SM_Prop_CardboardBox_04
+Props/Misc/SM_Prop_CardboardBox_05
+Props/Misc/SM_Prop_CardboardBox_Stack_01
+Props/Misc/SM_Prop_Briefcase_01
+Props/Misc/SM_Prop_CoatRack_01
+Props/Misc/SM_Prop_ArcadeMachine_01
+Props/Misc/SM_Prop_Jukebox_01
+Props/Misc/SM_Prop_Fishtank_01
+Props/Misc/SM_Prop_Whiteboard_01
+Props/Misc/SM_Prop_Whiteboard_02
+Props/Misc/SM_Prop_Presentation_Chart_01
+Props/Misc/SM_Prop_Rolling_TV_01
+Props/Misc/SM_Prop_Server_Cabinet_01
+Props/Misc/SM_Prop_Server_Cabinet_01_Full
+Props/Misc/SM_Prop_Server_Cabinet_03_Full
+Props/Misc/SM_Prop_Cart_01
+Props/Misc/SM_Prop_Pallet_01
+Props/Misc/SM_Prop_Rug_01
+Props/Misc/SM_Prop_Rug_02
+Props/Misc/SM_Prop_Rug_03
+Props/Misc/SM_Prop_Fan_Pedistal_01
+Props/Misc/SM_Prop_PoolTable_01
+Props/Misc/SM_Prop_Plant_01
+Props/Misc/SM_Prop_Plant_02
+Props/Misc/SM_Prop_Plant_03
+Props/Misc/SM_Prop_Plant_04
+Props/Misc/SM_Prop_Plant_05
+Props/Misc/SM_Prop_Plant_06
+Props/Misc/SM_Prop_Plant_07
+Props/Misc/SM_Prop_Plant_08
+Props/Misc/SM_Prop_Plant_09
+Props/Misc/SM_Prop_Plant_10
+Props/Misc/SM_Prop_Plant_11
+Props/Misc/SM_Prop_Plant_12
+Props/Misc/SM_Prop_Plant_13
+Props/Misc/SM_Prop_Plant_14

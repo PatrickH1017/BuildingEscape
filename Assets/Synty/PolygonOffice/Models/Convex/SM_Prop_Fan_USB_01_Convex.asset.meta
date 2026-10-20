@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 880fd7838edb5b9408c4e731c2816028
+timeCreated: 1579556370
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 43580174036624938
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 159492
+  packageName: POLYGON - Office Pack - Art by Synty
+  packageVersion: 1.9.4
+  assetPath: Assets/Synty/PolygonOffice/Models/Convex/SM_Prop_Fan_USB_01_Convex.asset
+  uploadId: 976702

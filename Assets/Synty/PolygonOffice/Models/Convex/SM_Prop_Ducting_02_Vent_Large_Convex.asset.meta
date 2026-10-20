@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 4bd7c8496a803344d933517fe072f938
+timeCreated: 1579574430
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 43688586356820712
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 159492
+  packageName: POLYGON - Office Pack - Art by Synty
+  packageVersion: 1.9.4
+  assetPath: Assets/Synty/PolygonOffice/Models/Convex/SM_Prop_Ducting_02_Vent_Large_Convex.asset
+  uploadId: 976702

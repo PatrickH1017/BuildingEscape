@@ -30,6 +30,8 @@ namespace BuildingEscape
 
         /// <summary>The right hand bone of a humanoid rig (what a held weapon is parented to), or null for the Party rig.</summary>
         public Transform RightHand => clipMode && anim && anim.isHuman ? anim.GetBoneTransform(HumanBodyBones.RightHand) : null;
+        /// <summary>The left hand bone of a humanoid rig (the hand that holds the front of a long gun), or null for the Party rig.</summary>
+        public Transform LeftHand => clipMode && anim && anim.isHuman ? anim.GetBoneTransform(HumanBodyBones.LeftHand) : null;
 
         /// <summary>Call every frame. Idle or run, with the run animation sped up or slowed to match the movement.</summary>
         public void Locomote(bool moving, float speed = 1f)
@@ -68,7 +70,15 @@ namespace BuildingEscape
 
         public void Jump()
         {
-            if (!anim || pose == Pose.Down || clipMode) return; // the Tiny Toon pack has no jump clip
+            if (!anim || pose == Pose.Down) return;
+            if (clipMode)
+            {
+                if (!hasJump) return;                    // (the Tiny Toon pack has no jump clip; the Human Animations one does)
+                var j = play[(int)Slot.Jump];
+                j.SetTime(0); j.SetSpeed(1);
+                jumping = true; jumpUntil = Time.time + slotClip[(int)Slot.Jump].length;
+                return;
+            }
             pose = Pose.Run;
             lockUntil = Time.time + 0.6f;
             Fire(HJump);
@@ -106,8 +116,10 @@ namespace BuildingEscape
 
         // ------------------------------------------------------------------ clip mode (Tiny Toon people)
 
-        enum Slot { Idle, Walk, Run, Down, Attack }
-        const int SlotCount = 5;
+        enum Slot { Idle, Walk, Run, Down, Attack, Jump }
+        const int SlotCount = 6;
+        bool hasJump, jumping;
+        float jumpUntil;
         /// <summary>Relative speed (see Locomote) from which the run clip is used instead of the walk clip.</summary>
         const float RunThreshold = 0.9f;
 
@@ -142,7 +154,9 @@ namespace BuildingEscape
                 Pick(set.run, fallback.run),
                 Pick(set.death, fallback.death),
                 Pick(set.attack, fallback.attack),
+                Pick(set.jump, fallback.jump),
             };
+            hasJump = set.jump || fallback.jump;
 
             anim.runtimeAnimatorController = null;
             anim.applyRootMotion = false; // the capsule moves, not the animation
@@ -160,6 +174,7 @@ namespace BuildingEscape
             }
             play[(int)Slot.Down].SetSpeed(0);   // only runs while knocked over
             play[(int)Slot.Attack].SetSpeed(0); // only runs during a swing
+            play[(int)Slot.Jump].SetSpeed(0);   // only runs during a jump
             output.SetSourcePlayable(mixer);
             graph.Play();
             clipMode = true;
@@ -226,7 +241,8 @@ namespace BuildingEscape
                 if (len > 0.01f && t >= len) play[i].SetTime(t % len);
             }
 
-            var want = pose == Pose.Down ? Slot.Down : slashing ? Slot.Attack : baseSlot;
+            if (jumping && Time.time >= jumpUntil) { jumping = false; play[(int)Slot.Jump].SetSpeed(0); }
+            var want = pose == Pose.Down ? Slot.Down : slashing ? Slot.Attack : jumping ? Slot.Jump : baseSlot;
             float k = 1f - Mathf.Exp(-12f * Time.deltaTime);
             float sum = 0f;
             for (int i = 0; i < SlotCount; i++)

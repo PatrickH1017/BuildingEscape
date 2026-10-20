@@ -16,7 +16,7 @@ namespace BuildingEscape
     public class GuardVision : MonoBehaviour
     {
         const string HandPath = "Armature/Hips/Spine/Spine1/Spine2/RightShoulder/RightArm/RightForeArm/RightHand";
-        const int Segments = 36;
+        const int Segments = 48;           // (rays are packed densely straight ahead, where the long beam is)
         const float EdgeWidth = 0.35f;     // the bright band along the rim of the cone
         const float CullDistance = 45f;    // beyond this from the camera the cone is not drawn
         const float LightDistance = 25f;   // beyond this the real spot light is switched off
@@ -32,9 +32,23 @@ namespace BuildingEscape
         Material fanMat, torchMat, lensMat;
         Vector3[] verts;
         Color[] cols;
-        readonly RaycastHit[] hits = new RaycastHit[24];
+        readonly RaycastHit[] hits = new RaycastHit[64];      // (a long hallway has many things in it: the nearest wall must not fall off the end of the list)
         int fanTurn;                       // which of the FanEvery frames this guard rebuilds its cone on
         bool fanDrawn;                     // the cone has been built since it was last switched on
+
+        /// <summary>
+        /// The owner, 2026-10-18: "A player should not see a guard's vision cone unless the player can visibly see the guard (this prevents players from knowing a guard is around the corner)".
+        /// So the cone and the beam fade out while the guard is behind a wall (or a closed door) or outside the picture, and fade in when he comes into view.
+        /// </summary>
+        const float SeenEvery = 0.1f, FadeSeconds = 0.25f;
+        float shown, nextSeenCheck;
+        bool seen;
+
+        /// <summary>A test hook: the cone and the beam are always drawn (the tests read them whatever the camera sees).</summary>
+        public static bool AlwaysShownForTests;
+
+        /// <summary>How much of the cone and the beam is drawn right now (0 hidden, 1 fully shown).</summary>
+        public float Shown => shown;
 
         void Awake()
         {
@@ -237,6 +251,34 @@ namespace BuildingEscape
             return lo;
         }
 
+        /// <summary>Can the camera see this guard: he is inside the picture and there is a wall, a door or a piece of furniture between the camera and none of his feet, middle or head?</summary>
+        bool CanBeSeen(Camera cam)
+        {
+            if (!cam) return true;
+            var mid = transform.position + Vector3.up * 0.9f;
+            var vp = cam.WorldToViewportPoint(mid);
+            if (vp.z < 0f || vp.x < -0.15f || vp.x > 1.15f || vp.y < -0.15f || vp.y > 1.15f) return false;
+            var from = cam.transform.position;
+            return Clear(from, transform.position + Vector3.up * 0.15f) || Clear(from, mid) || Clear(from, transform.position + Vector3.up * 1.7f);
+        }
+
+        /// <summary>Is the straight line from here to there free of anything solid (people and loose objects do not count, nor does the guard himself)?</summary>
+        bool Clear(Vector3 from, Vector3 to)
+        {
+            var d = to - from;
+            float dist = d.magnitude;
+            if (dist < 0.1f) return true;
+            int count = Physics.RaycastNonAlloc(from, d / dist, hits, dist, ~0, QueryTriggerInteraction.Ignore);
+            for (int i = 0; i < count; i++)
+            {
+                var col = hits[i].collider;
+                if (col.attachedRigidbody != null) continue;
+                if (col.transform.IsChildOf(transform)) continue;
+                return false;
+            }
+            return true;
+        }
+
         Color StateColor()
         {
             if (ai.IsCalling) return Color.Lerp(new Color(1f, 0.55f, 0.15f), new Color(1f, 0.1f, 0.08f), ai.CallProgress);
@@ -260,6 +302,7 @@ namespace BuildingEscape
             float floorY = FloorHeight(origin) + 0.06f;
 
             float range = ai.sightRange, half = ai.sightAngle;
+            float far = range * Mathf.Max(1f, ai.longSightFactor), longHalf = ai.longSightAngle;
             var rayOrigin = origin + Vector3.up * 0.9f;
             var fwd = transform.forward; fwd.y = 0f;
             if (fwd.sqrMagnitude < 0.001f) fwd = Vector3.forward;
@@ -270,18 +313,20 @@ namespace BuildingEscape
             int n = Segments;
 
             verts[0] = new Vector3(origin.x, floorY, origin.z);
-            cols[0] = Alpha(col, 0.32f * pulse);
+            cols[0] = Alpha(col, 0.32f * pulse * shown);
             for (int i = 0; i <= n; i++)
             {
-                float ang = Mathf.Lerp(-half, half, i / (float)n);
+                float u = i / (float)n * 2f - 1f;                                    // -1 .. 1
+                float ang = half * Mathf.Sign(u) * Mathf.Pow(Mathf.Abs(u), 1.7f);     // (the rays crowd together straight ahead, where the long beam is)
+                float reach = GuardRules.RangeAt(ang, range, far, longHalf);
                 var dir = Quaternion.AngleAxis(ang, Vector3.up) * fwd;
-                float d = ClipToGate(origin, dir, Clip(rayOrigin, dir, range));
+                float d = ClipToGate(origin, dir, Clip(rayOrigin, dir, reach));
                 var rim = origin + dir * d;
                 var inner = origin + dir * Mathf.Max(0.3f, d - EdgeWidth);
                 verts[1 + i] = new Vector3(inner.x, floorY, inner.z);
                 verts[n + 2 + i] = new Vector3(rim.x, floorY, rim.z);
-                cols[1 + i] = Alpha(col, 0.18f * pulse);
-                cols[n + 2 + i] = Alpha(col, 0.6f * pulse);
+                cols[1 + i] = Alpha(col, 0.18f * pulse * shown);
+                cols[n + 2 + i] = Alpha(col, 0.6f * pulse * shown);
             }
             mesh.vertices = verts;
             mesh.colors = cols;
@@ -298,6 +343,14 @@ namespace BuildingEscape
             float sq = cam ? (cam.transform.position - transform.position).sqrMagnitude : 0f;
             bool near = sq < CullDistance * CullDistance;
 
+            // seen or not: looked at ten times a second (guards take turns), faded in and out over a quarter of a second
+            if (Time.unscaledTime >= nextSeenCheck)
+            {
+                nextSeenCheck = Time.unscaledTime + SeenEvery + fanTurn * 0.013f;
+                seen = awake && near && CanBeSeen(cam);
+            }
+            shown = Mathf.MoveTowards(shown, (seen || AlwaysShownForTests) && awake ? 1f : 0f, Time.deltaTime / FadeSeconds);
+
             if (torch)
             {
                 if (torch.gameObject.activeSelf != awake) torch.gameObject.SetActive(awake);
@@ -305,10 +358,11 @@ namespace BuildingEscape
             }
             if (beam)
             {
-                beam.enabled = awake && sq < LightDistance * LightDistance;
+                beam.enabled = awake && sq < LightDistance * LightDistance && shown > 0.01f;        // (the beam has no shadows: round a corner it would light the wall and give the guard away)
+                beam.intensity = 2.2f * shown;
                 beam.color = Color.Lerp(new Color(1f, 0.93f, 0.7f), StateColor(), 0.6f);
             }
-            UpdateFan(awake && near);
+            UpdateFan(awake && near && shown > 0.01f);
         }
 
         void OnDisable() { if (fanObject) fanObject.SetActive(false); }

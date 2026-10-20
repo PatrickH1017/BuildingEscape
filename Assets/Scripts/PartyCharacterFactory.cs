@@ -131,6 +131,19 @@ namespace BuildingEscape
             return model.AddComponent<CharacterAnimator>();
         }
 
+        /// <summary>Gives a Party character another face (1 = big grin, 2 = angry, 3 = sad). The cinematic's workers look pleased, then crushed, then angry. A Tiny Toon person has a fixed face: nothing happens.</summary>
+        public static void SetFace(CharacterAnimator anim, int face)
+        {
+            if (!anim) return;
+            var smr = anim.GetComponentInChildren<SkinnedMeshRenderer>();
+            var m = FaceMaterial(face);
+            if (!smr || !m) return;
+            var mats = smr.sharedMaterials;
+            if (mats.Length < 2) return;
+            mats[1] = m;
+            smr.sharedMaterials = mats;
+        }
+
         // ------------------------------------------------------------------ materials
 
         static Shader Lit() => Shader.Find("Standard") ?? Shader.Find("Legacy Shaders/Diffuse");

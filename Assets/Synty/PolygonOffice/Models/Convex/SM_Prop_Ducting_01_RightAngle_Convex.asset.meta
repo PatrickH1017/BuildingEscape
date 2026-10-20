@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: ade151f9f7fb71c4b9d7df5d6d9ca3b6
+timeCreated: 1579574436
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 43606992744801472
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 159492
+  packageName: POLYGON - Office Pack - Art by Synty
+  packageVersion: 1.9.4
+  assetPath: Assets/Synty/PolygonOffice/Models/Convex/SM_Prop_Ducting_01_RightAngle_Convex.asset
+  uploadId: 976702

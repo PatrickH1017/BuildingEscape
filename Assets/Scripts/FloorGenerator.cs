@@ -59,7 +59,7 @@ namespace BuildingEscape
             ("Executive Safe",   new Vector3(1.1f, 1.1f, 1.1f), 3, 3000, 30f), // too heavy for a pack: carry with friends (Q)
         };
 
-        [Header("Office pack (Overtime Escape > Setup Office Pack)")]
+        [Header("Office pack (Employees Take Revenge > Setup Office Pack)")]
         [Tooltip("Leave empty to load Resources/OfficeCatalog automatically.")]
         public OfficeCatalog office;
 
@@ -86,6 +86,7 @@ namespace BuildingEscape
             bool boss = TowerRules.IsBoss(floor);
             Net.NetIds.Reset(); // a new floor: ids start again from 0, in creation order (same on every machine)
             NoteBaseSeed(floor, seed);
+            planSeed = seed;
             ResetOutpost();
             stairs.Clear();
             lastEntry = -1;
@@ -131,6 +132,8 @@ namespace BuildingEscape
 
             layout = null;
             dockWalls = hub;
+            officeFloor = !hub && !boss;          // the outside walls of an office floor get windows (FloorGenerator.Surfaces.cs)
+            outerSegs.Clear();
             BuildShell();
             BuildElevatorRoom(elevCell, floor);
 
@@ -159,6 +162,7 @@ namespace BuildingEscape
                     if (unfinished) { unfinished.gameObject.SetActive(false); Kill(unfinished.gameObject); }
                 }
             }
+            BuildScenery(floor, seed);        // windows in the outside walls and the city beyond them (cosmetic; it can never stop a floor)
             // the guard outpost keeps random spots and patrol stops out of itself
             if (layout != null && layout.outpost != null) { outpostArea = layout.outpost.outer; hasOutpostArea = true; }
             // where backup arrives (not in the docks: there are no guards there): the guards' own elevator, a car in the middle of the corner cell
@@ -190,8 +194,9 @@ namespace BuildingEscape
                 bool onDuty = false;
                 OutpostStep("the guard on duty in the outpost", floor, () => onDuty = PlaceOutpostGuard(floor));      // (after the others, never uses `rng`)
                 if (onDuty) info.guards++;
-                OutpostStep("the outpost's things and the safe's cash", floor, () => FillOutpost(floor)); // what the guards keep in their outpost, and the cash in the floor's safe (never uses `rng`)
-                OutpostStep("the small valuables on the desks", floor, () => PlaceLooseLoot(floor));     // (never uses `rng` either)
+                OutpostStep("the outpost's things and the safe's cash", floor, () => FillOutpost(floor));   // (what the guards keep in their outpost, and the cash in the floor's safe: never uses `rng`)
+                OutpostStep("the hallway loudspeakers", floor, () => BuildSpeakers(floor));        // (the owner, 2026-10-18: speakers in the hallways, never uses `rng` either)
+
             }
             guestDoor?.Snap(false); // the NavMesh was baked with the doors open; now the car is shut
             foreach (var st in stairs) if (st.door != null) st.door.Snap(false);     // (and the stairwells' doors)
@@ -261,6 +266,9 @@ namespace BuildingEscape
         /// <summary>The way the guards' elevator door faces (a flat unit step along x or z).</summary>
         public Vector3 GuardShaftOut => guestOut;
 
+        /// <summary>The middle of the players' elevator car: the same corner cell (0, 0) on every floor, like a real shaft (the security computer's Nav map marks it).</summary>
+        public Vector3 PlayerElevatorCentre => CellCenter(Vector2Int.zero);
+
         Vector3 CellCenter(Vector2Int c) => new Vector3((c.x + 0.5f) * cellSize, 0f, (c.y + 0.5f) * cellSize);
 
         // ------------------------------------------------------------------ geometry
@@ -277,7 +285,11 @@ namespace BuildingEscape
                 {
                     bool solid = c == 0 || c == cols || !openE[c - 1, r];
                     float x = c * cellSize, z0 = r * cellSize;
-                    if (solid) WallZ(x, z0 + cellSize / 2f, cellSize);
+                    if (solid)
+                    {
+                        var wall = WallZ(x, z0 + cellSize / 2f, cellSize);
+                        if (c == 0 || c == cols) OuterWall(wall, false, x, z0, z0 + cellSize);
+                    }
                     else
                     {
                         WallZ(x, z0 + half / 2f, half);
@@ -291,7 +303,11 @@ namespace BuildingEscape
                     if (dockWalls && r == rows && c == cols - 1) continue; // the garage-door wall: see FloorGenerator.Dock.cs
                     bool solid = r == 0 || r == rows || !openN[c, r - 1];
                     float z = r * cellSize, x0 = c * cellSize;
-                    if (solid) WallX(x0 + cellSize / 2f, z, cellSize);
+                    if (solid)
+                    {
+                        var wall = WallX(x0 + cellSize / 2f, z, cellSize);
+                        if (r == 0 || r == rows) OuterWall(wall, true, z, x0, x0 + cellSize);
+                    }
                     else
                     {
                         WallX(x0 + half / 2f, z, half);
@@ -300,9 +316,9 @@ namespace BuildingEscape
                 }
         }
 
-        void WallZ(float x, float z, float len) =>
+        GameObject WallZ(float x, float z, float len) =>
             Box("Wall", new Vector3(x, wallHeight / 2f, z), new Vector3(0.4f, wallHeight, len), wallMat);
-        void WallX(float x, float z, float len) =>
+        GameObject WallX(float x, float z, float len) =>
             Box("Wall", new Vector3(x, wallHeight / 2f, z), new Vector3(len, wallHeight, 0.4f), wallMat);
 
         /// <summary>
@@ -626,8 +642,7 @@ namespace BuildingEscape
                 var pa = Box("StairDoor_A", center + wallPos - axis * (doorHalf / 2f), pSize, steel, room.transform);
                 var pb = Box("StairDoor_B", center + wallPos + axis * (doorHalf / 2f), pSize, steel, room.transform);
                 door.Setup(pa.transform, pb.transform, -axis * doorHalf, axis * doorHalf);
-                // the sign on the outside of the wall segment on the left of the door (seen from the corridor), the lamp inside on the right
-                BuildStairSign(room.transform, center + wallPos + st.outDir * (t * 0.5f + 0.02f) - axis * (doorHalf + seg / 2f) + Vector3.up * (2.35f - wallHeight / 2f), st.outDir);
+                // (the STAIRS sign on the outside of the wall segment on the left of the door is the pack's own now: OfficePlanner.StairKit; the lamp inside on the right stays)
                 Box("StairExitLamp", center + wallPos - st.outDir * (t * 0.5f + 0.03f) + axis * (doorHalf + 0.35f) + Vector3.up * (2.6f - wallHeight / 2f),
                                along ? new Vector3(0.05f, 0.16f, 0.5f) : new Vector3(0.5f, 0.16f, 0.05f), OMat("led"), room.transform, collider: false);
             }
@@ -641,16 +656,6 @@ namespace BuildingEscape
                 Box("StairStep", pos, doorAlongX ? new Vector3(depth, height, width) : new Vector3(width, height, depth), steel, room.transform, collider: false);
             }
             stairs.Add(st);
-        }
-
-        /// <summary>The word STAIRS on a small dark plate, facing <paramref name="outDir"/> (away from the wall, into the corridor).</summary>
-        void BuildStairSign(Transform parent, Vector3 pos, Vector3 outDir)
-        {
-            var root = new GameObject("StairSign");
-            root.transform.SetParent(parent, false);
-            root.transform.SetPositionAndRotation(pos, Quaternion.LookRotation(outDir, Vector3.up));       // (its +z points into the corridor)
-            Part(root.transform, "Plate", new Vector3(0f, 0f, 0.015f), new Vector3(1.08f, 0.34f, 0.03f), OMat("dark"));
-            DotLabel(root.transform, "Label", "STAIRS", 0.042f, new Vector3(0f, 0f, 0.034f), OMat("label"));
         }
 
         // ------------------------------------------------------------------ key, boss
@@ -753,6 +758,7 @@ namespace BuildingEscape
             {
                 // treasure spots and stealable furniture from the room plan
                 PlaceLootFromLayout(rng, floor, scale, ref total, ref count);
+                PlaceValuables(floor, ref total, ref count);          // watches, phones, wallets...: on the desks (never uses `rng`)
             }
             else
             {
@@ -803,9 +809,20 @@ namespace BuildingEscape
 
         int PlaceGuards(System.Random rng, int floor, int[,] dist, Vector2Int elevCell)
         {
-            int count = Mathf.Min(maxGuards, baseGuards + floor);
+            int count = Mathf.Min(maxGuards, GuardRules.PatrolGuards(floor, baseGuards));
             int placed = 0;
+            var plan = ArmedGuards.PlanFor(floor, count, new System.Random(unchecked(planSeed * 7919 + floor * 31 + 5)));      // (who carries what: its own random numbers, so the maze and the loot stay what they were)
             var spots = GuardSpots();
+            // a patrol stop must be walkable from the elevator lobby: a spot behind something that blocks the NavMesh (the back of a small server room with a rack across its aisle) would
+            // leave a guard standing in a pocket of floor for ever (found by the loot test: one guard reached 1 of 147 items)
+            bool haveRef = false; Vector3 reference = Vector3.zero;
+            if (layout != null)
+            {
+                RoomInfo lobby = null;
+                foreach (var rm in layout.rooms) if (rm.theme == "lobby") { lobby = rm; break; }
+                if (lobby != null && NavMesh.SamplePosition(new Vector3(lobby.wx, 0f, lobby.wz), out var lh, 4f, NavMesh.AllAreas)) { haveRef = true; reference = lh.position; }
+            }
+            var walkCheck = new NavMeshPath();
             for (int g = 0; g < count; g++)
             {
                 var route = new List<Vector3>();
@@ -821,17 +838,25 @@ namespace BuildingEscape
                     var p = list != null && list.Count > 0
                         ? list[rng.Next(list.Count)]
                         : CellCenter(cell) + new Vector3(Rand(rng, -3f, 3f), 0, Rand(rng, -3f, 3f));
-                    if (NavMesh.SamplePosition(p, out var hit, 6f, NavMesh.AllAreas)) route.Add(hit.position);
+                    if (NavMesh.SamplePosition(p, out var hit, 6f, NavMesh.AllAreas))
+                    {
+                        bool connected = !haveRef || (NavMesh.CalculatePath(reference, hit.position, NavMesh.AllAreas, walkCheck) && walkCheck.status == NavMeshPathStatus.PathComplete);
+                        if (connected) route.Add(hit.position);
+                    }
                 }
                 if (route.Count < 2) continue;
-                var made = SpawnGuard($"Guard_{g}", route, g + floor); // a different guard look for each guard (and mix per floor)
+                var made = SpawnGuard($"Guard_{g}", route, g + floor, plan[g]); // a different guard look for each guard (and mix per floor)
                 if (placed == 0) firstGuard = made;
                 placed++;
             }
             return placed;
         }
 
-        GuardAI SpawnGuard(string name, List<Vector3> route, int look)
+        int planSeed;
+        int FloorNow => HeistManager.Instance ? HeistManager.Instance.Floor : 0;
+
+        /// <param name="loadout">What he carries and wears (<see cref="GuardLoadouts"/>); the default is nothing (a remote client's guard is told by the host).</param>
+        GuardAI SpawnGuard(string name, List<Vector3> route, int look, GuardLoadout loadout = default)
         {
             var go = GameObject.CreatePrimitive(PrimitiveType.Capsule);
             go.name = name; go.transform.SetParent(current);
@@ -843,6 +868,7 @@ namespace BuildingEscape
             ai.walkSpeed = guardWalkSpeed;
             ai.investigateSpeed = guardInvestigateSpeed;
             ai.chaseSpeed = guardChaseSpeed;
+            ai.SetLoadout(loadout);
             go.AddComponent<GuardVisual>().lookIndex = look;
             var pts = new Transform[route.Count];
             for (int i = 0; i < route.Count; i++)
@@ -980,7 +1006,7 @@ namespace BuildingEscape
                 var p = e.centre + e.side * ((k % 2 == 0 ? 0.8f : -0.8f)) - e.outDir * (0.6f * (k / 2));
                 if (NavMesh.SamplePosition(p, out var hit, 3f, NavMesh.AllAreas)) p = hit.position;
                 int look = Random.Range(0, 100);
-                var ai = SpawnGuard($"Backup_{reinforcementCount++}", new List<Vector3> { p }, look);
+                var ai = SpawnGuard($"Backup_{reinforcementCount++}", new List<Vector3> { p }, look, ArmedGuards.RollFor(FloorNow));
                 ai.roam = RandomWalkable;   // after reaching the spot, wander freely again
                 ai.Dispatch(target);
                 Net.RunSync.Instance?.BroadcastSpawnGuard(ai.NetId, p, look, target);
@@ -1007,7 +1033,7 @@ namespace BuildingEscape
                 }
                 if (!found) continue;
                 int look = Random.Range(0, 100);
-                var ai = SpawnGuard($"Backup_{reinforcementCount++}", new List<Vector3> { best }, look);
+                var ai = SpawnGuard($"Backup_{reinforcementCount++}", new List<Vector3> { best }, look, ArmedGuards.RollFor(FloorNow));
                 ai.roam = RandomWalkable;   // after reaching the spot, wander freely again
                 ai.Dispatch(target);
                 Net.RunSync.Instance?.BroadcastSpawnGuard(ai.NetId, best, look, target); // clients show it too

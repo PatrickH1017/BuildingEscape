@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 637e2d08ccfbe4f49955f8ccdb86fdcc
+timeCreated: 1579556282
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 43061661178437468
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 159492
+  packageName: POLYGON - Office Pack - Art by Synty
+  packageVersion: 1.9.4
+  assetPath: Assets/Synty/PolygonOffice/Models/Convex/SM_Prop_Cellphone_01_Convex.asset
+  uploadId: 976702

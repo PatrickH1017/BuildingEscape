@@ -14,12 +14,21 @@ namespace BuildingEscape
         public float reach = 2.2f;
         public LayerMask grabbable = ~0;
         public float carryForce = 40f;
+        [Tooltip("How hard a carried thing is held back from overshooting its hand (the spring is damped about as much as it can be without being sluggish).")]
+        public float carryDamping = 12f;
+        /// <summary>The most a carried thing is accelerated towards its hand (m/s^2): a far-off piece is not shot at its carrier.</summary>
+        public const float MaxCarryAcceleration = 70f;
         public float throwForce = 9f;
         public KeyCode grabKey = KeyCode.Q; // E now puts things in the backpack
         public KeyCode throwKey = KeyCode.Mouse0;
 
         public Rigidbody Held { get; private set; }
         HeavyLoot heldLoot;
+        Vector3 lastTarget;
+        bool haveLastTarget;
+
+        /// <summary>Where this player holds what they carry: the hand point in front of them.</summary>
+        public Vector3 HandPoint => hand ? hand.position : transform.position + transform.forward;
 
         Pickup heldPickup;
         WobblyPlayer wob;
@@ -42,16 +51,24 @@ namespace BuildingEscape
 
         void FixedUpdate()
         {
-            if (!Held) return;
+            if (!Held) { haveLastTarget = false; return; }
             if (Net.NetRole.IsRemoteClient) return; // the host moves what is carried
             if (heldLoot && !heldLoot.IsLiftable)
             {
-                // Not enough hands: you just drag your feet. Slow the owner down instead.
+                // Not enough hands: you just drag your feet. It stays where it is (and falls if it was lifted).
+                Held.useGravity = true;
+                haveLastTarget = false;
                 return;
             }
-            var target = hand ? hand.position : transform.position + transform.forward;
-            Vector3 toTarget = target - Held.position;
-            Held.AddForce(toTarget * carryForce - Held.linearVelocity * 4f, ForceMode.Acceleration);
+            // A spring to the hand that also follows the hand's own motion (so a piece does not trail behind a walking carrier or swing like a
+            // pendulum) and is damped about as much as it can be without being sluggish. Nothing pulls it down while it is carried (it would sag
+            // below the hand by the spring's stretch). Two or three carriers add up: the piece goes to the middle of their hands.
+            var target = HandPoint;
+            var targetVelocity = haveLastTarget ? Vector3.ClampMagnitude((target - lastTarget) / Time.fixedDeltaTime, 8f) : Vector3.zero;
+            lastTarget = target; haveLastTarget = true;
+            Held.useGravity = false;
+            var acceleration = (target - Held.position) * carryForce + (targetVelocity - Held.linearVelocity) * carryDamping;
+            Held.AddForce(Vector3.ClampMagnitude(acceleration, MaxCarryAcceleration), ForceMode.Acceleration);
         }
 
         void TryGrab()
@@ -116,7 +133,8 @@ namespace BuildingEscape
         public void ApplyRelease(bool thrown, Vector3 impulse)
         {
             if (!Held) return;
-            if (heldLoot) heldLoot.RemoveHolder(this);
+            Held.useGravity = true;
+            if (heldLoot) heldLoot.RemoveHolder(this, thrown);
             if (thrown && (!heldLoot || heldLoot.Holders == 0))
             {
                 if (Net.NetRole.Simulates) Held.AddForce(impulse, ForceMode.VelocityChange);

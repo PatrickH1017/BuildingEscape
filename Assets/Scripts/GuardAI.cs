@@ -17,17 +17,28 @@ namespace BuildingEscape
         public System.Func<Vector3> roam;
         public float walkSpeed = 2.2f, investigateSpeed = 3f, chaseSpeed = 4.6f;
         public float sightRange = 14f, sightAngle = 65f, hiddenSightRange = 1.5f;
+        [Tooltip("Down a straight line of sight (a hallway) he sees this many times as far as usual, in a narrow beam of 'longSightAngle' degrees each side of the way he faces (GuardRules.RangeAt).")]
+        public float longSightFactor = GuardRules.LongSightFactor, longSightAngle = GuardRules.LongSightHalfAngle;
         public float hearingMultiplier = 1f;
         public float catchRadius = 1.6f;
         public float investigateWait = 3f;
         [Tooltip("A chasing guard keeps after a player for as long as the player is in his cone of vision. Out of it for this many seconds in a row and he gives up.")]
         public float loseSightSeconds = GuardRules.LoseSightSeconds;
         public LayerMask sightBlockers = ~0;
-        [Tooltip("Melee hits it takes to knock a guard out for good.")]
+        [Tooltip("The damage it takes to knock a guard out for good, in hits: a bullet does its gun's guardHits (less through a shield), a melee blow none (it knocks him over).")]
         public int hitsToKill = 10;
 
-        /// <summary>Melee hits taken so far.</summary>
-        public int Hits { get; private set; }
+        /// <summary>What he carries and wears (<see cref="GuardLoadout"/>): set when he is made (the host) or from the host's snapshot (a puppet); GuardVisual puts the vest and the gun on him.</summary>
+        public GuardLoadout Loadout { get; private set; } = GuardLoadout.Unarmed;
+        /// <summary>The shield he wears (none, light, medium, heavy): it takes a share of every bullet (<see cref="GuardLoadouts.BulletShare"/>).</summary>
+        public ShieldTier Shield => Loadout.Shield;
+        /// <summary>Wears a shield of any tier.</summary>
+        public bool Armoured => Loadout.Shield != ShieldTier.None;
+
+        /// <summary>Damage taken so far, in hits (a shield takes a share of each bullet, so it need not be a whole number).</summary>
+        public float Damage { get; private set; }
+        /// <summary>The damage taken so far, in whole hits.</summary>
+        public int Hits => Mathf.RoundToInt(Damage);
         /// <summary>Knocked out for good: lies on the ground and never gets up.</summary>
         public bool Dead { get; private set; }
 
@@ -137,13 +148,32 @@ namespace BuildingEscape
             return best;
         }
 
-        /// <summary>Client: take the state the host sent.</summary>
-        public void NetApply(GuardState state, bool dead, bool isCalling, float progress, float speed, bool armed = false)
+        /// <summary>Client: take the state the host sent (<paramref name="loadoutPacked"/>: his gun's kind and his shield, see <see cref="GuardLoadout.Pack"/>; 0 = not told).</summary>
+        public void NetApply(GuardState state, bool dead, bool isCalling, float progress, float speed, bool armed = false, bool eatingNow = false, byte loadoutPacked = 0)
         {
-            State = state; Dead = dead; calling = isCalling; netProgress = progress; netSpeed = speed;
-            // the host says whether he carries a gun: this machine shows it (and plays the shots the host announces)
-            if (armed && gun == null) gameObject.AddComponent<GuardGun>();
-            else if (!armed && gun != null) gun.Remove();
+            State = state; Dead = dead; calling = isCalling; netProgress = progress; netSpeed = speed; eating = eatingNow;
+            // the host says what he carries and wears: this machine shows it (and plays the shots the host announces)
+            var told = loadoutPacked != 0 ? GuardLoadout.Unpack(loadoutPacked, armed) : new GuardLoadout(armed, Loadout.Kind, Loadout.Shield);
+            if (told != Loadout) Loadout = told;
+            SyncGun();
+        }
+
+        /// <summary>The loadout he is made with (host / offline); GuardVisual notices the change and builds the vest and the gun.</summary>
+        public void SetLoadout(GuardLoadout loadout) { Loadout = loadout; }
+
+        /// <summary>Makes his gun match his loadout: the right kind in his hand when he is armed, none when he is not (a gun of another kind is taken away and the right one given).</summary>
+        public void SyncGun()
+        {
+            if (Loadout.Armed)
+            {
+                if (gun != null && gun.kind != Loadout.Kind) gun.Remove();
+                if (gun == null || !gun.Armed)
+                {
+                    var g = gameObject.AddComponent<GuardGun>();
+                    g.Configure(Loadout.Kind);
+                }
+            }
+            else if (gun != null) gun.Remove();
         }
 
         // ---- the gun (see GuardGun and ArmedGuards)
@@ -223,29 +253,108 @@ namespace BuildingEscape
             WeaponHitHost(stunSeconds, by, weight);
         }
 
-        /// <summary>The real effect of a weapon hit: offline, or on the host (after it checked a client's request).</summary>
+        /// <summary>
+        /// The real effect of a legacy weapon hit: offline, or on the host. It stuns him and counts <paramref name="weight"/> hits (a shield takes no share of it): the tests use it to put a guard down. In the game a melee blow is
+        /// <see cref="MeleeHitHost"/> and a bullet <see cref="BulletHitHost"/> (the owner, 2026-10-19: bullets damage, melee knocks over).
+        /// </summary>
         public void WeaponHitHost(float stunSeconds, GameObject by = null, int weight = 1)
         {
             if (Dead) return;
+            CutRadioAndRelease();
+            Damage += Mathf.Max(1, weight);
+            if (CheckDown()) return;
+            Stun(stunSeconds, by);
+        }
+
+        /// <summary>
+        /// A melee blow (the owner, 2026-10-19: "Melee weapons knock over a guard one shot (depending on the tier of the weapon determines on how long guard are knocked down)"): he is knocked over for <paramref name="stunSeconds"/>
+        /// (the weapon's: bat 3 s, crowbar 4 s, hatchet 6 s), it cuts his radio call and frees a player he holds down, and it does not count towards knocking him out - bullets do that. (Only the boss still takes it as one of his thirty
+        /// hits, until his floor is redone.) A client's blow is a request: the host decides.
+        /// </summary>
+        public void MeleeHit(float stunSeconds, GameObject by = null)
+        {
+            if (IsPuppet) { Net.RunSync.Instance?.RequestGuardHit(this); return; }
+            MeleeHitHost(stunSeconds, by);
+        }
+
+        /// <summary>The real effect of a melee blow: offline, or on the host (after it checked a client's request).</summary>
+        public void MeleeHitHost(float stunSeconds, GameObject by = null)
+        {
+            if (Dead) return;
+            CutRadioAndRelease();
+            if (IsBoss) { Damage += 1f; if (CheckDown()) return; }
+            Stun(stunSeconds, by);
+        }
+
+        /// <summary>
+        /// A bullet (the owner, 2026-10-19: "Bullets should not knock down, bullets should eliminate and depending on the bullet determines how much health a guard loses"): it takes <paramref name="bulletHits"/> hits of his health
+        /// (<see cref="hitsToKill"/>; the gun's <c>guardHits</c>) less what his shield takes (<see cref="GuardLoadouts.DamageTaken"/>; a piercing round takes it all), and it never knocks him over. It cuts his radio call and frees a player
+        /// he holds down, and a guard who was not after anybody goes to where it came from. Host / offline only (a client's shot is decided by the host).
+        /// </summary>
+        public void BulletHitHost(float bulletHits, bool piercing = false, GameObject by = null)
+        {
+            if (Dead) return;
+            CutRadioAndRelease();
+            Damage += GuardLoadouts.DamageTaken(bulletHits, Shield, piercing);
+            if (CheckDown()) return;
+            TurnToShooter(by);
+        }
+
+        void CutRadioAndRelease()
+        {
             calling = false; callTimer = 0f; // a weapon hit cuts the radio call
             ReleaseHold(true);               // hit while holding someone down: they get free
-            Hits += Mathf.Max(1, weight);
-            if (Hits >= hitsToKill)
+        }
+
+        /// <summary>Has his damage reached his health? Then he is down for good: he drops the key if he has it and the clip of his gun, and the boss's floor is won.</summary>
+        bool CheckDown()
+        {
+            if (Damage < hitsToKill - 0.001f) return false;
+            Dead = true;
+            State = GuardState.Stunned;
+            stunUntil = float.MaxValue;
+            agent.isStopped = true;
+            Debug.Log($"{name} is down for good after {Damage:0.#} hits.");
+            if (carriesKey)
             {
-                Dead = true;
-                State = GuardState.Stunned;
-                stunUntil = float.MaxValue;
-                agent.isStopped = true;
-                Debug.Log($"{name} is down for good after {Hits} hits.");
-                if (carriesKey)
-                {
-                    carriesKey = false;
-                    var gen = FindFirstObjectByType<FloorGenerator>();
-                    if (gen) gen.DropKey(transform.position + Vector3.up * 0.5f);
-                }
-                if (IsBoss) HeistManager.Instance?.BossDefeated();
-                return;
+                carriesKey = false;
+                var gen = FindFirstObjectByType<FloorGenerator>();
+                if (gen) gen.DropKey(transform.position + Vector3.up * 0.5f);
             }
+            GuardDrops.OnDown(this);         // (the owner, 2026-10-19: "guards should drop a fair amount of bullets per guard")
+            if (IsBoss) HeistManager.Instance?.BossDefeated();
+            return true;
+        }
+
+        /// <summary>A bullet that did not put him down: when he is not busy with a player (a chase, a knock-over) he goes to where it came from, to look.</summary>
+        void TurnToShooter(GameObject by)
+        {
+            if (!by || IsPuppet || Dead) return;
+            if (State == GuardState.Chase || State == GuardState.Stunned) return;
+            noiseTarget = by.transform.position;
+            State = GuardState.Investigate;
+            agent.isStopped = false;
+            agent.speed = chaseSpeed;
+            agent.SetDestination(noiseTarget);
+            waitUntil = 0f;
+        }
+
+        /// <summary>A punch landed (<see cref="PunchRules"/>): the host decides what it does (a client's guard is a puppet and asks it to).</summary>
+        public void PunchHit(float stunSeconds, GameObject by = null)
+        {
+            if (IsPuppet) { Net.RunSync.Instance?.RequestGuardHit(this); return; }
+            PunchHost(stunSeconds, by);
+        }
+
+        /// <summary>
+        /// The real effect of a punch (offline, or on the host after it checked a client's request): the radio call is cut, a player he holds down gets free and he is stunned for a moment, but the blow does not count towards
+        /// knocking him out (only weapons and bullets do).
+        /// </summary>
+        public void PunchHost(float stunSeconds, GameObject by = null)
+        {
+            if (Dead) return;
+            calling = false; callTimer = 0f;
+            ReleaseHold(true);
             Stun(stunSeconds, by);
         }
 
@@ -259,9 +368,50 @@ namespace BuildingEscape
             if (by) noiseTarget = by.transform.position;
         }
 
+        GuardCorpse corpse;
+
+        // ---- a donut break (the owner, 2026-10-18: "Crazy chances that a guard (not the armed guards) will randomly stop what they are doing to eat a donut")
+        bool eating;
+        /// <summary>He has stopped his round to eat a donut (a puppet: what the host says).</summary>
+        public bool Eating => eating;
+        /// <summary>A test hook: the roll (0 = always, 1 = never) for a donut break at a patrol stop; a negative value is a real dice roll.</summary>
+        public static float DonutRollOverride = -1f;
+
+        // ---- the PA (the owner, 2026-10-18: "If a guard is in range of the loud speaker noise they should rush to the outpost")
+        float paUntil;
+        /// <summary>He is rushing to the outpost (or waiting at its door) because the loudspeakers are on and he is within earshot of one.</summary>
+        public bool PaAlerted => !Dead && Time.time < paUntil;
+
+        /// <summary>
+        /// The loudspeakers are on and he can hear one (<see cref="PaRules"/>): he drops what he is doing (a radio call, a donut) and runs to <paramref name="target"/>, the outpost's door; every call renews it.
+        /// Not an officer who is holding a player down, chasing one, or down himself. Host / offline only. A locked door stops him there like anybody.
+        /// </summary>
+        public void PaAlert(Vector3 target)
+        {
+            if (IsPuppet || Dead || State == GuardState.Pinning || State == GuardState.Stunned || State == GuardState.Chase || !agent || !agent.isOnNavMesh) return;
+            eating = false;
+            if (calling) { calling = false; callTimer = 0f; }
+            bool fresh = !(State == GuardState.Investigate && Time.time < paUntil);
+            paUntil = Time.time + PaRules.AlertSeconds;
+            if (!fresh) return;
+            State = GuardState.Investigate;
+            noiseTarget = target;
+            agent.isStopped = false;
+            agent.speed = chaseSpeed;
+            agent.SetDestination(target);
+            waitUntil = 0f;
+        }
+
+        /// <summary>A guard who is down for good lies there for a while and then goes (<see cref="GuardCorpse"/>); every machine does it by itself from the flag it has (the host's, a puppet's from the snapshot).</summary>
+        void LateUpdate()
+        {
+            if (Dead && !IsBoss && corpse == null) corpse = gameObject.AddComponent<GuardCorpse>();
+        }
+
         void Update()
         {
             if (IsPuppet) return;
+            if (eating && (Dead || State != GuardState.Patrol)) eating = false;        // (a noise, a sighting or a blow ends the break)
             TickCall();
             switch (State)
             {
@@ -391,8 +541,39 @@ namespace BuildingEscape
             agent.isStopped = false;
             agent.speed = chaseSpeed;
             agent.SetDestination(target.transform.position);
-            if (FlatDistance(target.transform) <= catchRadius && HeistManager.Instance != null && HeistManager.Instance.Pin(target, this))
-                BeginHold(target);
+            TryCatch(target);
+        }
+
+        /// <summary>
+        /// Can he lay hands on this player? A wall, a shut door or any other solid thing that is fixed in the building between the two of them says no (the owner, 2026-10-18: "Players can be pinned through walls at times":
+        /// catching used to be a flat distance only, so an officer on the other side of a thin partition could pin somebody through it). The line runs from his chest to theirs; things that move (a crate, another body) do not count.
+        /// </summary>
+        public bool HasReach(WobblyPlayer p)
+        {
+            if (!p) return false;
+            var from = transform.position + Vector3.up * 0.9f;
+            var to = p.transform.position + Vector3.up * 0.9f;
+            var d = to - from;
+            float dist = d.magnitude;
+            if (dist < 0.3f) return true;
+            var hits = Physics.RaycastAll(from, d / dist, dist, sightBlockers, QueryTriggerInteraction.Ignore);
+            foreach (var h in hits)
+            {
+                var c = h.collider;
+                if (!c || c.transform.IsChildOf(transform) || c.transform.IsChildOf(p.transform)) continue;
+                if (c.attachedRigidbody != null) continue;                                                    // (a crate, a body: it moves, it is not a wall)
+                return false;
+            }
+            return true;
+        }
+
+        /// <summary>Is the player within his arm's reach, with nothing solid between them? Then he pins them (host / offline) and starts to hold them down. True when he got hold of them.</summary>
+        public bool TryCatch(WobblyPlayer p)
+        {
+            if (!p || FlatDistance(p.transform) > catchRadius || !HasReach(p)) return false;
+            if (HeistManager.Instance == null || !HeistManager.Instance.Pin(p, this)) return false;
+            BeginHold(p);
+            return true;
         }
 
         WobblyPlayer FindVisibleFreePlayer()
@@ -485,14 +666,24 @@ namespace BuildingEscape
             transform.rotation = Quaternion.LookRotation(postForward);
         }
 
+        float stuckFor;
+
         void UpdatePatrol()
         {
             if (roam == null && (patrolPoints == null || patrolPoints.Length == 0)) return;
+            // a door locked from the security computer can stop a patrol: after 3 s of getting nowhere he gives up on that leg
+            if (!agent.pathPending && agent.remainingDistance > agent.stoppingDistance + 1.5f && agent.velocity.sqrMagnitude < 0.01f) stuckFor += Time.deltaTime; else stuckFor = 0f;
+            if (stuckFor > 3f) { stuckFor = 0f; GoNextPatrol(); return; }
             if (!agent.pathPending && agent.remainingDistance <= agent.stoppingDistance + 0.2f)
             {
                 if (stationary) transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(postForward), 3f * Time.deltaTime);
-                if (waitUntil == 0) waitUntil = Time.time + 1.2f;
-                if (Time.time >= waitUntil) { waitUntil = 0; GoNextPatrol(); }
+                if (waitUntil == 0)
+                {
+                    waitUntil = Time.time + 1.2f;
+                    // a donut break: now and then an unarmed guard stops at his stop to eat one
+                    if (GuardRules.DonutBreak(DonutRollOverride >= 0f ? DonutRollOverride : Random.value, Armed, IsBoss, stationary)) { waitUntil = Time.time + GuardRules.DonutSeconds; eating = true; }
+                }
+                if (Time.time >= waitUntil) { waitUntil = 0; eating = false; GoNextPatrol(); }
             }
         }
 
@@ -519,11 +710,32 @@ namespace BuildingEscape
             if (Time.time >= waitUntil) { waitUntil = 0; State = GuardState.Patrol; GoNextPatrol(); }
         }
 
+        [Tooltip("Spotting takes time, and the further away a player is the longer: seconds = spotBase + spotPerMetre x distance (14 m = about 1.8 s, 40 m = about 5 s). Looking away lets the notice fade twice as fast.")]
+        public float spotBase = GuardRules.SpotBase, spotPerMetre = GuardRules.SpotPerMetre;
+        readonly System.Collections.Generic.Dictionary<WobblyPlayer, float> noticed = new System.Collections.Generic.Dictionary<WobblyPlayer, float>();
+        readonly System.Collections.Generic.List<WobblyPlayer> noticeKeys = new System.Collections.Generic.List<WobblyPlayer>();
+
         void ScanForPlayers()
         {
+            float dt = Time.deltaTime;
             foreach (var p in WobblyPlayerRegistry.All)
             {
-                if (CanSee(p)) { StartCall(p); return; }
+                if (!p) continue;
+                noticed.TryGetValue(p, out float seenFor);
+                if (CanSee(p))
+                {
+                    float dist = Vector3.Distance(transform.position, p.transform.position);
+                    seenFor += dt;
+                    if (seenFor >= GuardRules.SpotSeconds(dist, spotBase, spotPerMetre)) { noticed.Remove(p); StartCall(p); return; }
+                    noticed[p] = seenFor;
+                }
+                else if (seenFor > 0f) noticed[p] = Mathf.Max(0f, seenFor - 2f * dt);
+            }
+            if (noticed.Count > 0)
+            {
+                noticeKeys.Clear();
+                foreach (var kv in noticed) if (!kv.Key || kv.Value <= 0f) noticeKeys.Add(kv.Key);
+                foreach (var k in noticeKeys) noticed.Remove(k);
             }
         }
 
@@ -534,12 +746,13 @@ namespace BuildingEscape
             var eye = transform.position + Vector3.up * 1.6f;
             var to = p.transform.position + Vector3.up * 0.9f - eye;
             float range = p.IsHidden ? hiddenSightRange : sightRange;
+            float far = p.IsHidden ? range : range * Mathf.Max(1f, longSightFactor);       // (down a straight line of sight he sees much further)
             // the cone is the fan he shows on the floor (GuardVision): flat, so standing close to him does not hide you from him
             var flat = p.transform.position - transform.position;
             var fwd = transform.forward;
-            if (!GuardRules.InCone(fwd.x, fwd.z, flat.x, flat.z, sightAngle, range)) return false;
+            if (!GuardRules.InVision(fwd.x, fwd.z, flat.x, flat.z, sightAngle, range, far, longSightAngle)) return false;
             // trigger volumes (hide spots, the elevator zone...) must not block the view, or standing in one would make you invisible
-            if (Physics.Raycast(eye, to.normalized, out var hit, range, sightBlockers, QueryTriggerInteraction.Ignore))
+            if (Physics.Raycast(eye, to.normalized, out var hit, far, sightBlockers, QueryTriggerInteraction.Ignore))
                 return hit.collider.GetComponentInParent<WobblyPlayer>() == p;
             return true;
         }

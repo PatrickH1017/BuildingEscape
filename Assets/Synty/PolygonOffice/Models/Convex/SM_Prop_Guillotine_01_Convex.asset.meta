@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: cc6b1e88ea7a01e44825b56c31ff5144
+timeCreated: 1579556348
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 43037649702365768
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 159492
+  packageName: POLYGON - Office Pack - Art by Synty
+  packageVersion: 1.9.4
+  assetPath: Assets/Synty/PolygonOffice/Models/Convex/SM_Prop_Guillotine_01_Convex.asset
+  uploadId: 976702

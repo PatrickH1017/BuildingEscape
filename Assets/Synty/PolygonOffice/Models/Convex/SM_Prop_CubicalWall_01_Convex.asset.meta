@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 94f42310dd7ae1d42b57a793fad85131
+timeCreated: 1579571219
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 43683971305952590
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 159492
+  packageName: POLYGON - Office Pack - Art by Synty
+  packageVersion: 1.9.4
+  assetPath: Assets/Synty/PolygonOffice/Models/Convex/SM_Prop_CubicalWall_01_Convex.asset
+  uploadId: 976702

@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: d0d1610a5e574a74aa0bca5133b12d13
+timeCreated: 1579571856
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 43154744913739280
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 159492
+  packageName: POLYGON - Office Pack - Art by Synty
+  packageVersion: 1.9.4
+  assetPath: Assets/Synty/PolygonOffice/Models/Convex/SM_Prop_Party_Hat_03_Convex.asset
+  uploadId: 976702

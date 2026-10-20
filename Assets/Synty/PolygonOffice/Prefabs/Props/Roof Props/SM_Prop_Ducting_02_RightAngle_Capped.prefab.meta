@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 173f4ef547bbda840b9664ef0896c78c
+timeCreated: 1575344945
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 100100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 159492
+  packageName: POLYGON - Office Pack - Art by Synty
+  packageVersion: 1.9.4
+  assetPath: Assets/Synty/PolygonOffice/Prefabs/Props/Roof Props/SM_Prop_Ducting_02_RightAngle_Capped.prefab
+  uploadId: 976702

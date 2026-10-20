@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 2598b9c351d5a2c468bf1c2117fd7334
+timeCreated: 1579567426
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 43863316496573550
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 159492
+  packageName: POLYGON - Office Pack - Art by Synty
+  packageVersion: 1.9.4
+  assetPath: Assets/Synty/PolygonOffice/Models/Convex/SM_Prop_HandDryer_02_Convex.asset
+  uploadId: 976702

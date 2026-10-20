@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 868c443b8f1b12f43bde1320be7b8062
+timeCreated: 1579556333
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 43433212734209908
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 159492
+  packageName: POLYGON - Office Pack - Art by Synty
+  packageVersion: 1.9.4
+  assetPath: Assets/Synty/PolygonOffice/Models/Convex/SM_Prop_Computer_Tower_Flat_01_Convex.asset
+  uploadId: 976702

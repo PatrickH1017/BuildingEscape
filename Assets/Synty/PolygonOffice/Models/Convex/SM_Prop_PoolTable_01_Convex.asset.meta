@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 0ca6880474d948747af92367a7b3529c
+timeCreated: 1579571870
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 43843504507568354
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 159492
+  packageName: POLYGON - Office Pack - Art by Synty
+  packageVersion: 1.9.4
+  assetPath: Assets/Synty/PolygonOffice/Models/Convex/SM_Prop_PoolTable_01_Convex.asset
+  uploadId: 976702

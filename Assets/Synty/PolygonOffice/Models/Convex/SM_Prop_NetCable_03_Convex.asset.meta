@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 0f850a957d0120747a4ec260b65b03ef
+timeCreated: 1579556430
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 43833939604034556
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 159492
+  packageName: POLYGON - Office Pack - Art by Synty
+  packageVersion: 1.9.4
+  assetPath: Assets/Synty/PolygonOffice/Models/Convex/SM_Prop_NetCable_03_Convex.asset
+  uploadId: 976702

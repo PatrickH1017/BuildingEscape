@@ -179,56 +179,45 @@ namespace BuildingEscape
 
         // ------------------------------------------------------------------ the screen
 
-        static void Fill(Rect r, Color c)
-        {
-            var old = GUI.color;
-            GUI.color = c;
-            GUI.DrawTexture(r, Texture2D.whiteTexture);
-            GUI.color = old;
-        }
-
-        static GUIStyle bigButton;
-
         void OnGUI()
         {
             if (!Showing) return;
-            float s = Mathf.Clamp(Screen.height / 1080f, 0.75f, 2f);
-            float w = 440f * s, h = 700f * s;
+            MenuKit.Begin();
+            float s = HudTheme.S;
+            float w = 460f * s, h = 720f * s;
             var r = new Rect((Screen.width - w) * 0.5f, (Screen.height - h) * 0.5f, w, h);
-            Fill(new Rect(r.x - 4f * s, r.y - 4f * s, r.width + 8f * s, r.height + 8f * s), new Color(0.02f, 0.02f, 0.03f, 0.94f));
-            Fill(r, new Color(0.10f, 0.11f, 0.13f, 0.98f));
-
-            var center = HudStyles.Label(Mathf.RoundToInt(26 * s), TextAnchor.MiddleCenter, FontStyle.Bold, new Color(0.95f, 0.85f, 0.45f));
-            if (Event.current.type == EventType.Repaint) HudText.Label(new Rect(r.x, r.y + 14f * s, w, 40f * s), "FLOOR SAFE", center);
+            bool repaint = Event.current.type == EventType.Repaint;
+            if (repaint)
+            {
+                MenuKit.Dim(0.35f);
+                HudTheme.Panel(r, 16f);
+                HudTheme.Text(new Rect(r.x, r.y + 16f * s, w, 40f * s), (FloorSafe.OnShow.Count > 1 && safe ? "FLOOR SAFE " + (safe.Index + 1) : "FLOOR SAFE"), 26f, HudTheme.Bright, TextAnchor.MiddleCenter);
+            }
 
             // the four digits
-            float cw = 70f * s, gap = 14f * s;
-            float rowW = 4 * cw + 3 * gap, rowX = r.x + (w - rowW) * 0.5f, rowY = r.y + 72f * s;
-            if (Event.current.type == EventType.Repaint)
+            float cw = 72f * s, gap = 14f * s;
+            float rowW = 4 * cw + 3 * gap, rowX = r.x + (w - rowW) * 0.5f, rowY = r.y + 74f * s;
+            if (repaint)
             {
                 bool flashing = Time.unscaledTime < messageUntil;
                 for (int i = 0; i < 4; i++)
                 {
-                    var cr = new Rect(rowX + i * (cw + gap), rowY, cw, 86f * s);
-                    Fill(cr, new Color(0.02f, 0.05f, 0.03f, 1f));
-                    Fill(new Rect(cr.x, cr.yMax - 3f * s, cr.width, 3f * s), flashing ? messageColour : new Color(0.25f, 0.9f, 0.45f));
+                    var cr = new Rect(rowX + i * (cw + gap), rowY, cw, 88f * s);
+                    HudTheme.Rounded(cr, HudTheme.Ink, 9f * s);
+                    HudTheme.Rounded(new Rect(cr.x + 3f * s, cr.y + 3f * s, cr.width - 6f * s, cr.height - 6f * s), HudTheme.Shade(HudTheme.Card, 0.55f), 7f * s);
+                    HudTheme.Rounded(new Rect(cr.x + 1.5f * s, cr.yMax - 5f * s, cr.width - 3f * s, 3.5f * s), flashing ? messageColour : HudTheme.Good, 1.5f * s);
                     string glyph = i < typed.Length ? typed[i].ToString() : (waiting || prying ? "." : "_");
-                    HudText.Label(cr, glyph, HudStyles.Label(Mathf.RoundToInt(54 * s), TextAnchor.MiddleCenter, FontStyle.Bold, new Color(0.45f, 1f, 0.6f)));
+                    HudTheme.Text(cr, glyph, 54f, HudTheme.Good, TextAnchor.MiddleCenter, false);
                 }
                 string status = Time.unscaledTime < messageUntil ? message : waiting ? "Checking..." : prying ? "Prying..." : "Type the 4-digit code";
-                var sc = Time.unscaledTime < messageUntil ? messageColour : new Color(0.8f, 0.85f, 0.88f);
-                HudText.Label(new Rect(r.x, rowY + 96f * s, w, 32f * s), status, HudStyles.Label(Mathf.RoundToInt(21 * s), TextAnchor.MiddleCenter, FontStyle.Bold, sc));
+                var sc = Time.unscaledTime < messageUntil ? messageColour : HudTheme.Muted;
+                HudTheme.Text(new Rect(r.x, rowY + 98f * s, w, 32f * s), status, 21f, sc, TextAnchor.MiddleCenter, false);
             }
 
             // the keypad
             bool canType = !waiting && !prying;
-            float bw = 104f * s, bh = 66f * s, bg = 12f * s;
-            float padW = 3 * bw + 2 * bg, padX = r.x + (w - padW) * 0.5f, padY = r.y + 214f * s;
-            var wasEnabled = GUI.enabled;
-            GUI.enabled = canType;
-            bigButton ??= new GUIStyle(GUI.skin.button) { fontStyle = FontStyle.Bold };
-            bigButton.fontSize = Mathf.RoundToInt(28 * s);
-            var big = bigButton;
+            float bw = 106f * s, bh = 66f * s, bg = 12f * s;
+            float padW = 3 * bw + 2 * bg, padX = r.x + (w - padW) * 0.5f, padY = r.y + 218f * s;
             for (int i = 0; i < 12; i++)
             {
                 int col = i % 3, row = i / 3;
@@ -236,7 +225,7 @@ namespace BuildingEscape
                 string label;
                 if (i < 9) label = ((char)('1' + i)).ToString();
                 else label = i == 9 ? "<" : i == 10 ? "0" : "OK";
-                if (GUI.Button(br, label, big))
+                if (MenuKit.Button(br, label, i == 11 ? HudTheme.Cash : HudTheme.Dim, 30f, canType, TextAnchor.MiddleCenter))
                 {
                     if (i < 9) Press((char)('1' + i));
                     else if (i == 9) Back();
@@ -244,7 +233,6 @@ namespace BuildingEscape
                     else Enter();
                 }
             }
-            GUI.enabled = wasEnabled;
 
             // prying
             float py = padY + 4 * (bh + bg) + 10f * s;
@@ -253,37 +241,32 @@ namespace BuildingEscape
             if (prying)
             {
                 float k = Mathf.Clamp01((Time.unscaledTime - pryStart) / PrySeconds);
-                var bar = new Rect(r.x + 30f * s, py + 6f * s, w - 60f * s, 22f * s);
-                Fill(bar, new Color(0.2f, 0.22f, 0.24f));
-                Fill(new Rect(bar.x, bar.y, bar.width * k, bar.height), new Color(1f, 0.6f, 0.2f));
-                if (GUI.Button(new Rect(r.x + 30f * s, py + 36f * s, w - 60f * s, 34f * s), "Stop prying  (Esc)")) prying = false;
+                if (repaint) HudTheme.Bar(new Rect(r.x + 30f * s, py + 6f * s, w - 60f * s, 22f * s), k, HudTheme.Warning, 2.5f);
+                if (MenuKit.Button(new Rect(r.x + 30f * s, py + 38f * s, w - 60f * s, 38f * s), "STOP PRYING  (ESC)", HudTheme.Warning, 17f)) prying = false;
             }
             else
             {
-                var was = GUI.enabled;
-                GUI.enabled = canType && hasCrowbar;
-                var label = hasCrowbar ? "Pry it open with your crowbar  (noisy, " + Mathf.RoundToInt(PrySeconds) + " s)" : "Pry it open  (needs a crowbar)";
-                if (GUI.Button(new Rect(r.x + 30f * s, py, w - 60f * s, 40f * s), label))
+                var label = hasCrowbar ? "PRY IT OPEN WITH YOUR CROWBAR  (NOISY, " + Mathf.RoundToInt(PrySeconds) + " S)" : "PRY IT OPEN  (NEEDS A CROWBAR)";
+                if (MenuKit.Button(new Rect(r.x + 30f * s, py, w - 60f * s, 42f * s), label, HudTheme.Warning, 16f, canType && hasCrowbar))
                 {
                     prying = true;
                     pryStart = Time.unscaledTime;
                     nextNoise = Time.unscaledTime;
                     typed = "";
                 }
-                GUI.enabled = was;
             }
 
-            if (Event.current.type == EventType.Repaint)
+            if (repaint)
             {
                 string note = null;
-                Color noteColour = new Color(0.7f, 0.75f, 0.8f);
-                if (safe && SafeIntel.TryGet(safe.Floor, out var e))
+                Color noteColour = HudTheme.Muted;
+                if (safe && SafeIntel.TryGet(safe.Floor, safe.Index, out var e))
                 {
                     note = e.KnowsCode ? "Your notes say the code is " + SafeRules.CodeText(e.code) : "Your notes: nobody knows the code - use a crowbar";
-                    noteColour = e.KnowsCode ? new Color(0.55f, 0.95f, 0.6f) : new Color(1f, 0.8f, 0.45f);
+                    noteColour = e.KnowsCode ? HudTheme.Cash : HudTheme.Quota;
                 }
-                if (note != null) HudText.Label(new Rect(r.x, r.yMax - 66f * s, w, 26f * s), note, HudStyles.Label(Mathf.RoundToInt(18 * s), TextAnchor.MiddleCenter, FontStyle.Normal, noteColour));
-                HudText.Label(new Rect(r.x, r.yMax - 36f * s, w, 26f * s), "Esc - step back", HudStyles.Label(Mathf.RoundToInt(16 * s), TextAnchor.MiddleCenter, FontStyle.Normal, new Color(0.65f, 0.7f, 0.72f)));
+                if (note != null) HudTheme.Text(new Rect(r.x, r.yMax - 66f * s, w, 26f * s), note, 18f, noteColour, TextAnchor.MiddleCenter, false);
+                HudTheme.Text(new Rect(r.x, r.yMax - 36f * s, w, 26f * s), "Esc - step back", 16f, HudTheme.Dim, TextAnchor.MiddleCenter, false);
             }
         }
     }

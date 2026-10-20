@@ -79,21 +79,23 @@ namespace BuildingEscape.EditorTools
             var tfloor = root.Find("Vendor/TrailerFloor");
             SneakCheck("dock: the trailer is wide", tfloor && tfloor.localScale.x >= 3.7f, tfloor ? $"(outside width {tfloor.localScale.x:0.0} m)" : "");
 
-            // ---- storage junk
-            int boxes = 0, cabinets = 0, chairs = 0, shelves = 0;
-            foreach (var tr in root.Find("Vendor").GetComponentsInChildren<Transform>(true))
-            {
-                if (tr.parent != root.Find("Vendor")) continue;
-                if (tr.name == "box") boxes++;
-                else if (tr.name.StartsWith("cabinet")) cabinets++;
-                else if (tr.name.StartsWith("chair")) chairs++;
-                else if (tr.name == "shelf" || tr.name == "kshelve" || tr.name == "bookshelf") shelves++;
-            }
+            // ---- storage: the lobby's clean props in the dock's dressing holder (the owner, 2026-10-19: "the assets from the lobby scene look way cleaner")
+            int stacks = 0, blocks = 0, shelves = 0, forklifts = 0, drums = 0;
+            var dressing = root.Find("Vendor/DockDressing");
+            if (dressing != null)
+                foreach (Transform tr in dressing)
+                {
+                    if (tr.name == "BoxStack") stacks++;
+                    else if (tr.name == "BoxBlock") blocks++;
+                    else if (tr.name == "Shelf" || tr.name == "StockShelf") shelves++;
+                    else if (tr.name == "Forklift") forklifts++;
+                    else if (tr.name == "Drum") drums++;
+                }
             var kinds = root.Find("Vendor").Cast<Transform>().GroupBy(x => x.name).OrderByDescending(g => g.Count()).Select(g => g.Key + "x" + g.Count());
             Log("[Sneak] info: dock objects: " + string.Join(", ", kinds));
-            SneakCheck("dock: a lot of boxes", boxes >= 25, $"({boxes} boxes)");
-            SneakCheck("dock: filing cabinets", cabinets >= 2, $"({cabinets} cabinets, {shelves} shelves)");
-            SneakCheck("dock: a chair or two", chairs >= 1 && chairs <= 3, $"({chairs} chairs)");
+            SneakCheck("dock: a lot of cardboard (stacks and pallet blocks)", stacks + blocks >= 14, $"({stacks} stacks, {blocks} pallet blocks)");
+            SneakCheck("dock: steel shelving (the hall's and the trailer's)", shelves >= 6, $"({shelves} shelves)");
+            SneakCheck("dock: a forklift or two and some drums", forklifts >= 1 && drums >= 2, $"({forklifts} forklifts, {drums} drums)");
             var elevPt = gen.CellCentre(Vector2Int.zero);
             var bayPt = gen.CellCentre(new Vector2Int(1, 0));
             var from = new Vector3(elevPt.x + 4.8f, 0.6f, bayPt.z);

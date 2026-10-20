@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 1e0c75deb4b8a7f419d795cb8b2bff53
+timeCreated: 1579556466
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 43585513017592278
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 159492
+  packageName: POLYGON - Office Pack - Art by Synty
+  packageVersion: 1.9.4
+  assetPath: Assets/Synty/PolygonOffice/Models/Convex/SM_Prop_Phone_Conference_01_Convex.asset
+  uploadId: 976702

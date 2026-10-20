@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: ae72f19080349e84f869e420604c350a
+timeCreated: 1579572117
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 43298862414672722
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 159492
+  packageName: POLYGON - Office Pack - Art by Synty
+  packageVersion: 1.9.4
+  assetPath: Assets/Synty/PolygonOffice/Models/Convex/SM_Prop_Sign_Receptionist_01_Convex.asset
+  uploadId: 976702

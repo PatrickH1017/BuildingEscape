@@ -4,9 +4,10 @@ namespace BuildingEscape
 {
     /// <summary>
     /// Fires the gun a player has equipped (the pew): the pistol is shown in the right hand with the arm raised at the crosshair,
-    /// left mouse fires (hold it to keep firing), R reloads, and after ten shots the magazine is empty and the gun has to be reloaded
-    /// (it starts by itself, the trigger of an empty gun only clicks). A bullet goes from the muzzle to wherever the crosshair points; it
-    /// stops at the first wall, desk or door, knocks a guard down for good in two hits, and makes a loud noise that guards come to look at.
+    /// left mouse fires (hold it to keep firing), R reloads, and after eight shots the magazine is empty and the gun has to be reloaded from a
+    /// spare clip (it starts by itself, the trigger of an empty gun only clicks; with no spare clip left it stays empty until the dealer sells
+    /// more). A bullet goes from the muzzle to wherever the crosshair points; it stops at the first wall, desk or door, knocks a guard down
+    /// for good in three hits, and makes a loud noise that guards come to look at.
     ///
     /// In a networked run the shooter's machine shows its own flash, tracer and sound at once and tells the host what it fired
     /// (<see cref="Net.RunSync.RequestGunShot"/>); the HOST traces the bullet, decides what it hit and tells everybody else where it ended, and
@@ -21,6 +22,8 @@ namespace BuildingEscape
         public HeldGun Held => held;
         /// <summary>The crosshair of the player the camera follows is on a guard or the training dummy that a bullet would hit.</summary>
         public static bool LocalAimsAtFoe { get; private set; }
+        /// <summary>A test hook: true gives the basement finite magazines too (the gun checks shoot the dummy in the docks). Never set in the game.</summary>
+        public static bool LimitedAmmoForTests;
         /// <summary>Bullets this player has fired (for the tests).</summary>
         public int ShotsFired { get; private set; }
         /// <summary>Shots of this player's gun that another machine fired and this one showed (a networked run; for the tests).</summary>
@@ -43,6 +46,7 @@ namespace BuildingEscape
         // a teammate's gun: where his last bullet went (his arm follows it for a moment, then points the way he faces)
         Vector3 remoteAim;
         float remoteAimUntil;
+        float nextAmmoNotice;
 
         void Awake()
         {
@@ -70,6 +74,7 @@ namespace BuildingEscape
 
             float now = Time.time;
             var mag = gun.Magazine;
+            mag.Unlimited = !LimitedAmmoForTests && GunRules.UnlimitedAmmo(HeistManager.Instance ? HeistManager.Instance.Floor : 1);       // (the basement: unlimited ammunition)
             var ev = mag.Tick(now);
             if (ev == GunMagazine.Event.ReloadStarted) reloadStep = 0;
             else if (ev == GunMagazine.Event.ReloadFinished) reloadStep = 99;
@@ -87,7 +92,11 @@ namespace BuildingEscape
             else PoseRemote();
             if (!usable) return;
 
-            if (Input.GetKeyDown(KeyCode.R) && mag.StartReload(now)) reloadStep = 0;
+            if (Input.GetKeyDown(KeyCode.R))
+            {
+                if (mag.StartReload(now)) reloadStep = 0;
+                else if (mag.OutOfAmmo) OutOfAmmoNotice();
+            }
             if (Input.GetMouseButton(0)) Fire();
         }
 
@@ -111,12 +120,12 @@ namespace BuildingEscape
             if (!next) return true;
             var anim = vis ? vis.Anim : null;
             if (!anim || !RangedWeapon.Available) return false;
-            held = HeldGun.Attach(anim, next.kind);
+            held = HeldGun.Attach(anim, next.kind, next.silenced);
             if (!held) return false;
             gun = next;
             reloadStep = next.Magazine.Reloading ? 0 : 99;
             GunSounds.Prewarm();
-            GunSounds.Draw(transform.position, pack.Viewed);
+            GunSounds.Draw(transform.position, pack.Viewed, next.Data.sounds);
             return true;
         }
 
@@ -135,13 +144,25 @@ namespace BuildingEscape
         /// Another machine's player fired and the host says the bullet ended at <paramref name="end"/> (<paramref name="result"/>: 0 flew off, 1 a wall or
         /// a desk, 2 a guard, 3 a guard now down for good, 4 the training dummy): the flash, the tracer, the shot and what it hit, from his gun.
         /// </summary>
-        public void ShowRemoteShot(Vector3 end, byte result)
+        public void ShowRemoteShot(Vector3 end, byte result, int seed = 0)
         {
             if (!gun) return;                                            // (his gun is not drawn on this machine yet)
             ShotsSeen++;
+            var spec = gun.Data;
             var muzzle = held ? held.Muzzle.position : transform.position + Vector3.up * 0.3f + transform.forward * 0.6f;
-            GunFx.Get().Shot(muzzle, end, result != 0, held ? held.Grip.right : transform.right);
-            GunSounds.Shot(muzzle, false);
+            var fx = GunFx.Get();
+            fx.Shot(muzzle, end, result != 0, held ? held.Grip.right : transform.right, gun.silenced, held ? held.PortPosition : null, spec.FlashScale, RangedWeapon.CasingOf(gun.kind));
+            for (int i = 1; i < spec.Pellets; i++)
+            {
+                // the other pellets of a shotgun shot: his aim with their own spread (the seed is the same on every machine), drawn where each would land here
+                var aim = end - muzzle;
+                if (aim.sqrMagnitude < 0.01f) break;
+                GunRules.Spread(GunRules.PelletSeed(seed, i), spec.spread, out float yaw, out float pitch);
+                var d = Quaternion.LookRotation(aim.normalized) * Quaternion.Euler(-pitch, yaw, 0f) * Vector3.forward;
+                var imp = Ballistics.Trace(muzzle, d, spec.range, transform, false);
+                fx.Pellet(muzzle, imp.point, imp.hit);
+            }
+            GunSounds.Shot(muzzle, false, gun.silenced, spec.sounds, spec.Pitch);
             if (result >= 2) GameAudio.BulletHit(result == 3, end);
             if (held) held.Kick();
             remoteAim = end - muzzle;
@@ -221,6 +242,7 @@ namespace BuildingEscape
                 case GunMagazine.Shot.Empty:
                     GunSounds.Dry(muzzlePos, true);
                     if (mag.StartReload(now)) reloadStep = 0;
+                    else if (mag.OutOfAmmo) OutOfAmmoNotice();
                     return false;
                 case GunMagazine.Shot.Reloading:
                 case GunMagazine.Shot.TooSoon:
@@ -239,41 +261,54 @@ namespace BuildingEscape
             // (a wall right in front of the gun puts the aim point behind or beside the muzzle: shoot along the view then)
             if (dir.sqrMagnitude < 0.04f || (cam && Vector3.Dot(dir, cam.transform.forward) < 0f)) dir = cam ? cam.transform.forward : transform.forward;
             dir.Normalize();
-            GunRules.Spread(Random.Range(1, int.MaxValue), spec.spread, out float yaw, out float pitch);
-            dir = Quaternion.LookRotation(dir) * Quaternion.Euler(-pitch, yaw, 0f) * Vector3.forward;
-
-            var imp = Ballistics.Trace(muzzle, dir, spec.range, transform, false);
-            LastMuzzle = muzzle; LastDirection = dir; LastImpact = imp;
+            int seed = Random.Range(1, int.MaxValue);                    // (the shot's own: every pellet's spread comes from it, here and on the host)
             bool synced = Net.NetRole.Synced;
-            if (!synced) Land(imp, dir, spec);                           // (in a networked run the host decides what the bullet does)
-
-            GunFx.Get().Shot(muzzle, imp.point, imp.hit, held ? held.Grip.right : transform.right);
-            GunSounds.Shot(muzzle, true);
+            var fx = GunFx.Get();
+            var rightSide = held ? held.Grip.right : transform.right;
+            var port = held ? held.PortPosition : null;
+            var casing = RangedWeapon.CasingOf(gun.kind);
+            bool hitSounded = false, foeSeen = false;
+            for (int i = 0; i < spec.Pellets; i++)
+            {
+                GunRules.Spread(GunRules.PelletSeed(seed, i), spec.spread, out float yaw, out float pitch);
+                var d = Quaternion.LookRotation(dir) * Quaternion.Euler(-pitch, yaw, 0f) * Vector3.forward;
+                var imp = Ballistics.Trace(muzzle, d, spec.range, transform, false);
+                if (i == 0) { LastMuzzle = muzzle; LastDirection = d; LastImpact = imp; }
+                if (!synced) Land(imp, d, spec, ref hitSounded);         // (in a networked run the host decides what the bullets do)
+                else if (imp.hit && ((imp.guard != null && !imp.guard.Dead) || (imp.dummy != null && !imp.dummy.Down))) foeSeen = true;
+                if (i == 0) fx.Shot(muzzle, imp.point, imp.hit, rightSide, gun.silenced, port, spec.FlashScale, casing);
+                else fx.Pellet(muzzle, imp.point, imp.hit);
+            }
+            GunSounds.Shot(muzzle, true, gun.silenced, spec.sounds, spec.Pitch);
             if (held) held.Kick();
             if (synced)
             {
                 // the same hit sound at once (a guess: the host may disagree), then the host does the rest and tells everybody else
-                if (imp.hit && ((imp.guard != null && !imp.guard.Dead) || (imp.dummy != null && !imp.dummy.Down))) GameAudio.BulletHit(false, imp.point);
-                Net.RunSync.Instance.RequestGunShot(muzzle, dir, imp.guard != null ? imp.guard.NetId : -1);
+                if (foeSeen) GameAudio.BulletHit(false, LastImpact.point);
+                Net.RunSync.Instance.RequestGunShot(muzzle, dir, LastImpact.guard != null ? LastImpact.guard.NetId : -1, seed);
             }
-            else NoiseBus.Emit(muzzle, spec.noise, gameObject);          // every guard within earshot comes to look
+            else NoiseBus.Emit(muzzle, gun.NoiseRadius, gameObject);          // every guard within earshot comes to look
         }
 
-        /// <summary>What the bullet does where it lands.</summary>
-        void Land(Impact imp, Vector3 dir, RangedWeapon.Spec spec)
+        /// <summary>What a bullet (a pellet) does where it lands. <paramref name="soundPlayed"/>: the hit sound of this shot has been played (a shotgun's eight pellets make one).</summary>
+        void Land(Impact imp, Vector3 dir, RangedWeapon.Spec spec, ref bool soundPlayed)
         {
             if (!imp.hit) return;
             if (imp.guard != null)
             {
                 bool wasDown = imp.guard.Dead;
-                imp.guard.WeaponHit(spec.stun, gameObject, spec.guardHits);
-                if (!wasDown) GameAudio.BulletHit(imp.guard.Dead, imp.point);
+                imp.guard.BulletHitHost(spec.guardHits, false, gameObject);          // (a bullet damages, it never knocks over: the owner, 2026-10-19)
+                if (!wasDown && !soundPlayed) { GameAudio.BulletHit(imp.guard.Dead, imp.point); soundPlayed = true; }
                 if (imp.guard.TryGetComponent(out Rigidbody grb) && !grb.isKinematic) grb.AddForce(dir * spec.knock, ForceMode.VelocityChange);
             }
             else if (imp.dummy != null)
             {
-                if (!imp.dummy.Down) GameAudio.BulletHit(false, imp.point);
+                if (!imp.dummy.Down && !soundPlayed) { GameAudio.BulletHit(false, imp.point); soundPlayed = true; }
                 imp.dummy.Hit(spec.damage, transform.position);
+            }
+            else if (imp.body != null && imp.body.TryGetComponent(out WobblyPlayer rival) && rival.gameObject != gameObject)
+            {
+                if (PvpFighter.TryStrike(GetComponent<WobblyPlayer>(), rival, PvpRules.BulletDamage)) GameAudio.BulletHit(false, imp.point);          // (the PVP room: a bullet hurts a rival inside it)
             }
             else if (imp.body != null)
             {
@@ -286,13 +321,22 @@ namespace BuildingEscape
         /// <summary>The five sounds of a reload, each at its time (the reload may be longer or shorter than the recordings were cut for).</summary>
         void PlayReloadSounds(GunMagazine mag, float now)
         {
-            if (!mag.Reloading || reloadStep >= GunSounds.ReloadStepTimes.Length) return;
+            var times = GunSounds.ReloadTimes(gun.Data.sounds);
+            if (!mag.Reloading || reloadStep >= times.Length) return;
             float scale = mag.ReloadSeconds / 2.2f;
-            while (reloadStep < GunSounds.ReloadStepTimes.Length && now - mag.ReloadStartedAt >= GunSounds.ReloadStepTimes[reloadStep] * scale)
+            while (reloadStep < times.Length && now - mag.ReloadStartedAt >= times[reloadStep] * scale)
             {
-                GunSounds.ReloadStep(reloadStep, transform.position, true);
+                GunSounds.ReloadStep(reloadStep, transform.position, true, gun.Data.sounds);
                 reloadStep++;
             }
+        }
+
+        /// <summary>No round in the gun and no spare clip: say where to get more (at most every few seconds).</summary>
+        void OutOfAmmoNotice()
+        {
+            if (!pack || !pack.Viewed || Time.time < nextAmmoNotice) return;
+            nextAmmoNotice = Time.time + 3f;
+            Backpack.NoticeToLocal("Out of ammo - the dealer in the Loading Docks sells " + (gun ? gun.Data.ammoPlural : "pistol clips"));
         }
 
         // ------------------------------------------------------------------ the ammunition on screen
@@ -304,9 +348,21 @@ namespace BuildingEscape
             var mag = gun.Magazine;
             HudWidgets.AmmoPanel(new HudWidgets.AmmoModel
             {
-                name = gun.Data.name, rounds = mag.Rounds, capacity = mag.Capacity, reloading = mag.Reloading,
+                name = gun.Data.name, rounds = mag.Rounds, capacity = mag.Capacity, reloading = mag.Reloading, unlimited = mag.Unlimited,
                 reloadProgress = mag.Reloading ? mag.ReloadProgress(Time.time) : 0f,
             });
+            if (!mag.Unlimited && !mag.InfiniteReserve) DrawSpare(mag);
+        }
+
+        /// <summary>The spare clips, on a small tag just above the ammunition panel: orange with one clip or less, red with none.</summary>
+        static void DrawSpare(GunMagazine mag)
+        {
+            float s = HudTheme.S, w = 196f * s, gap = 6f * s, h = 24f * s;
+            var r = new Rect(Screen.width - 14f * s - w, Screen.height - 14f * s - 68f * s - gap - h, w, h);          // (the panel is 68 high)
+            int clips = GunRules.SpareClips(mag.Reserve, mag.Capacity);
+            string text = mag.Reserve <= 0 ? "NO SPARE CLIPS" : "SPARE  " + mag.Reserve + "  (" + clips + (clips == 1 ? " clip)" : " clips)");
+            var fill = mag.Reserve <= 0 ? HudTheme.Danger : mag.Reserve <= mag.Capacity ? HudTheme.Warning : HudTheme.Info;
+            HudTheme.Chip(r, text, fill, 13f);
         }
     }
 }

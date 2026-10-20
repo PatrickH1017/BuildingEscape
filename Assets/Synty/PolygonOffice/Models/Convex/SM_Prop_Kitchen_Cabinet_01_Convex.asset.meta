@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 35f0ea9ac6db6a641ba2a266f8968dbc
+timeCreated: 1579571641
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 43799487241034260
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 159492
+  packageName: POLYGON - Office Pack - Art by Synty
+  packageVersion: 1.9.4
+  assetPath: Assets/Synty/PolygonOffice/Models/Convex/SM_Prop_Kitchen_Cabinet_01_Convex.asset
+  uploadId: 976702

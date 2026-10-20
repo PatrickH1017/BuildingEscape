@@ -1,0 +1,468 @@
+using System.Collections.Generic;
+using UnityEngine;
+
+namespace BuildingEscape
+{
+    /// <summary>
+    /// Basement shopkeeper. Stand in front of the counter: F sells every piece of loot inside the
+    /// zone for cash (sellRate of its current value) and the number keys buy items, which appear
+    /// on the counter as real objects you can grab (E) and carry up in the elevator.
+    /// </summary>
+    [RequireComponent(typeof(Collider))]
+    public class Vendor : MonoBehaviour
+    {
+        public struct Product
+        {
+            public string name, blurb;
+            public int price;
+            public PrimitiveType shape;
+            public Vector3 size;
+            public float mass, stunSeconds, noise;
+            public Color color;
+            public bool isWeapon;
+            public MeleeWeapon.Kind kind;
+            /// <summary>A gun (the pew): made by <c>RangedWeapon.Create</c>.</summary>
+            public bool isGun;
+            public RangedWeapon.Kind gun;
+        }
+
+        /// <summary>What the vendor sells. Key 1 buys the first entry, key 2 the second, and so on.</summary>
+        public static readonly Product[] Catalog =
+        {
+            new Product
+            {
+                name = "Coffee Mug", blurb = "throw it to stun a guard for 2.5s", price = 60,
+                shape = PrimitiveType.Cylinder, size = new Vector3(0.18f, 0.12f, 0.18f), mass = 0.4f,
+                stunSeconds = 2.5f, noise = 14f, color = Color.white
+            },
+            new Product
+            {
+                name = "Heavy Stapler", blurb = "stuns a guard for 6s", price = 250,
+                shape = PrimitiveType.Cube, size = new Vector3(0.45f, 0.2f, 0.2f), mass = 1.2f,
+                stunSeconds = 6f, noise = 10f, color = new Color(0.45f, 0.5f, 0.6f)
+            },
+            new Product
+            {
+                name = "Squeaky Toy", blurb = "throw it far away to lure guards over", price = 150,
+                shape = PrimitiveType.Sphere, size = new Vector3(0.3f, 0.3f, 0.3f), mass = 0.3f,
+                stunSeconds = 0f, noise = 35f, color = new Color(1f, 0.9f, 0.1f)
+            },
+            new Product
+            {
+                name = "Fire Extinguisher", blurb = "stuns a guard for 10s", price = 600,
+                shape = PrimitiveType.Cylinder, size = new Vector3(0.25f, 0.4f, 0.25f), mass = 2f,
+                stunSeconds = 10f, noise = 20f, color = new Color(0.85f, 0.1f, 0.1f)
+            },
+            new Product
+            {
+                name = "Crowbar", blurb = "melee: LMB swing, stuns a guard 4s", price = 400,
+                isWeapon = true, kind = MeleeWeapon.Kind.Crowbar
+            },
+            new Product
+            {
+                name = "Baseball Bat", blurb = "melee: LMB swing, big knockback, stun 3s", price = 300,
+                isWeapon = true, kind = MeleeWeapon.Kind.Bat
+            },
+            new Product
+            {
+                name = "Hatchet", blurb = "melee: LMB swing, stuns a guard 6s", price = 550,
+                isWeapon = true, kind = MeleeWeapon.Kind.Hatchet
+            },
+            new Product
+            {
+                name = "Pew Pistol", blurb = "gun: LMB fires, R reloads. Free for finishing the demo - try it on the dummy", price = 0,
+                isGun = true, gun = RangedWeapon.Kind.Pew
+            },
+        };
+
+        /// <summary>The pew's place in <see cref="Catalog"/>: the last entry, so the places of the others are what they were.</summary>
+        public const int PewIndex = 7;
+        /// <summary>The pew is for sale once this floor has been finished (the owner, 2026-10-16: "after completion of the 4th floor the vendor should now sell the pew pistol for free").</summary>
+        public const int FreePewAfterFloor = 4;
+
+        /// <summary>Is the pew for sale? <paramref name="resume"/> is the floor the elevator would go up to from the docks: past <see cref="FreePewAfterFloor"/> once that floor is finished.</summary>
+        public static bool PewForSale(int resume) => resume > FreePewAfterFloor;
+
+        static bool PewOnOffer { get { var tm = TowerManager.Instance; return PewForSale(tm ? tm.ResumeLevel : 1); } }
+
+        public KeyCode sellKey = KeyCode.F;
+        public KeyCode talkKey = KeyCode.E;
+        [Tooltip("The dealer himself. You must be this close (and in the shop) to talk to him.")]
+        public Transform npc;
+        public float talkRange = 5.5f;
+
+        /// <summary>True while the shop window is open (the cursor is free, other actions are paused).</summary>
+        public static bool ShopOpen { get; private set; }
+        /// <summary>True when the player is close enough to the dealer to press E.</summary>
+        public bool CanTalk { get; private set; }
+        string msg; float msgUntil;
+        [Range(0.1f, 1f)] [Tooltip("Share of a loot item's current value the vendor pays.")]
+        public float sellRate = 0.7f;
+        [Tooltip("Where bought items appear (above the counter).")]
+        public Transform shelf;
+        [Tooltip("Sideways gap between bought items on the shelf (five fit across).")]
+        public float shelfSpacing = 0.9f;
+        public Material itemMat;
+
+        /// <summary>The vendor whose zone a player is standing in, if any (the HUD shows its shop).</summary>
+        public static Vendor Nearby { get; private set; }
+
+        public int LootCount { get { Tidy(); int n = loot.Count; foreach (var b in packs) n += b.LootCount; return n; } }
+
+        /// <summary>Cash the loot currently in the zone would fetch.</summary>
+        public int SellValue
+        {
+            get
+            {
+                Tidy();
+                int total = 0;
+                foreach (var l in loot) if (!l.Broken) total += Mathf.RoundToInt(l.CurrentValue * sellRate);
+                foreach (var b in packs) total += b.LootValue(sellRate);
+                return total;
+            }
+        }
+
+        readonly HashSet<HeavyLoot> loot = new();
+        readonly HashSet<Backpack> packs = new();
+        int playersInside, spawned;
+        Backpack buyer;                       // the pack whose owner is shopping on this machine (found every frame in Update)
+
+        static readonly Color CantAfford = new Color(1f, 0.5f, 0.5f);
+
+        /// <summary>The shop on this floor (there is one, in the basement).</summary>
+        public static Vendor Current { get; private set; }
+
+        void OnEnable() { Current = this; }
+        void Reset() { GetComponent<Collider>().isTrigger = true; }
+
+        void OnTriggerEnter(Collider o)
+        {
+            var l = o.GetComponentInParent<HeavyLoot>(); if (l) loot.Add(l);
+            var bp = o.GetComponentInParent<Backpack>(); if (bp) packs.Add(bp);
+            if (o.GetComponentInParent<WobblyPlayer>()) { playersInside++; Nearby = this; }
+        }
+
+        void OnTriggerExit(Collider o)
+        {
+            var l = o.GetComponentInParent<HeavyLoot>(); if (l) loot.Remove(l);
+            var bp = o.GetComponentInParent<Backpack>(); if (bp) packs.Remove(bp);
+            if (o.GetComponentInParent<WobblyPlayer>())
+            {
+                playersInside = Mathf.Max(0, playersInside - 1);
+                if (playersInside == 0 && Nearby == this) Nearby = null;
+            }
+        }
+
+        void OnDestroy()
+        {
+            if (Current == this) Current = null;
+            if (Nearby == this) { Nearby = null; ShopOpen = false; }
+        }
+
+        void Tidy()
+        {
+            loot.RemoveWhere(l => !l || !l.gameObject.activeInHierarchy);
+            packs.RemoveWhere(b => !b);
+        }
+
+        Backpack Buyer()
+        {
+            packs.RemoveWhere(b => !b);
+            Backpack first = null;
+            foreach (var b in packs)
+            {
+                if (b.TryGetComponent(out WobblyPlayer wp) && wp.InCustody) continue;   // pinned or busted: no shopping
+                if (!first) first = b;
+                if (b.Viewed) return b;
+            }
+            return Net.NetSession.Online ? null : first; // online, a teammate's pack never opens your shop
+        }
+
+        void Update()
+        {
+            buyer = playersInside > 0 ? Buyer() : null;
+            CanTalk = buyer && npc && Vector3.Distance(buyer.transform.position, npc.position) <= talkRange;
+            if (!CanTalk) { if (ShopOpen) ShopOpen = false; return; }
+            var hm = HeistManager.Instance;
+            if (!hm) return;
+            // E talks to the dealer when the crosshair is on him (and shuts the shop again from inside it)
+            if (Input.GetKeyDown(talkKey) && (ShopOpen || (Nearby == this && Crosshair.Aim.Kind == AimKind.Dealer))) ShopOpen = !ShopOpen;
+            if (ShopOpen && Input.GetKeyDown(KeyCode.Escape)) ShopOpen = false;
+            if (ShopOpen && Input.GetKeyDown(sellKey)) Sell(hm);
+        }
+
+        // ------------------------------------------------------------------ shop window
+
+        void Say(string m) { msg = m; msgUntil = Time.time + 3f; }
+
+        void OnGUI()
+        {
+            if (Nearby != this || !CanTalk) return;
+            var hm = HeistManager.Instance;
+            if (!hm) return;
+            var label = HudStyles.Label(18);
+
+            if (!ShopOpen)
+            {
+                var seen = Crosshair.Aim;
+                if (seen.Kind == AimKind.Dealer)
+                    HudWidgets.Prompt("[E] Talk to the dealer", Screen.height * 0.62f);
+                else if (seen.Kind == AimKind.None)    // (nothing else is under the crosshair to prompt for)
+                    HudWidgets.Prompt("Aim the crosshair at the dealer to talk", Screen.height * 0.62f, false, 18f);
+                return;
+            }
+
+            const int cols = 4;
+            const float cw = 176f, ch = 130f, gap = 8f, pad = 14f;
+            int shown = PewOnOffer ? Catalog.Length : PewIndex;          // (the pew is the last entry, and only there once the demo's last floor is done)
+            int rows = Mathf.CeilToInt(shown / (float)cols);
+            float pw = pad * 2 + cols * cw + (cols - 1) * gap;
+            var busted = BustedPlayers();
+            float ph = 120f + rows * (ch + gap) + 70f + (busted.Count > 0 ? 36f + busted.Count * 36f : 0f);
+            var r = new Rect((Screen.width - pw) / 2f, (Screen.height - ph) / 2f, pw, ph);
+            GUI.Box(r, "BLACK MARKET  -  no questions asked");
+
+            HudText.Label(new Rect(r.x + pad, r.y + 28, pw - pad * 2, 28),
+                $"Cash ${hm.Cash}      Pack {WeightUnits.Num(buyer ? buyer.Weight : 0)} / {WeightUnits.Lbs(buyer ? buyer.capacity : 0)}      Hover an item and left click to buy it.", label);
+
+            var ev = Event.current;
+            var bold = HudStyles.Label(18, TextAnchor.UpperLeft, FontStyle.Bold);
+            var cantAfford = HudStyles.Label(18, TextAnchor.UpperLeft, FontStyle.Normal, CantAfford);
+            var small = HudStyles.Label(14);
+            float y0 = r.y + 64f;
+            for (int i = 0; i < shown; i++)
+            {
+                var p = Catalog[i];
+                var cr = new Rect(r.x + pad + (i % cols) * (cw + gap), y0 + (i / cols) * (ch + gap), cw, ch);
+                bool hover = cr.Contains(ev.mousePosition);
+                bool afford = hm.Cash >= p.price;
+                var old = GUI.color;
+                GUI.color = hover ? (afford ? new Color(1f, 0.85f, 0.4f) : CantAfford) : Color.white;
+                GUI.Box(cr, GUIContent.none);
+                GUI.color = old;
+                HudText.Label(new Rect(cr.x + 8, cr.y + 4, cw - 16, 26), p.name, bold);
+                HudText.Label(new Rect(cr.x + 8, cr.y + 30, cw - 16, 24), $"{(p.price == 0 ? "FREE" : "$" + p.price)}   {WeightUnits.Lbs(ItemWeight(p))}", afford ? label : cantAfford);
+                GUI.Label(new Rect(cr.x + 8, cr.y + 56, cw - 16, ch - 60), p.blurb, small);
+                if (hover && ev.type == EventType.MouseDown && ev.button == 0)
+                {
+                    ev.Use();
+                    Buy(hm, i);
+                }
+            }
+
+            float by = y0 + rows * (ch + gap) + 4f;
+            int lootCount = LootCount;
+            string sell = lootCount > 0 ? $"Sell hot goods: {lootCount} item(s) for ${SellValue}  [F]" : "Nothing to sell (loot in your pack or on the counter)";
+            var was = GUI.enabled; GUI.enabled = lootCount > 0;
+            if (GUI.Button(new Rect(r.x + pad, by, 470, 32), sell)) Sell(hm);
+            GUI.enabled = was;
+            if (GUI.Button(new Rect(r.xMax - pad - 120, by, 120, 32), "Leave [E]")) ShopOpen = false;
+            float my = by + 36f;
+            if (busted.Count > 0)
+            {
+                // getting friends out of custody: he knows someone on the inside
+                HudText.Label(new Rect(r.x + pad, my, pw - pad * 2, 28), "\"" + CustodyRules.BuyBackLine + "\"", HudStyles.Label(18, TextAnchor.UpperLeft, FontStyle.Italic));
+                my += 36f;
+                foreach (var bp in busted)
+                {
+                    int price = CustodyRules.BuyBackPrice(bp.BustedOnLevel);
+                    var enabled = GUI.enabled; GUI.enabled = CustodyRules.CanAffordBuyBack(hm.Cash, bp.BustedOnLevel);
+                    if (GUI.Button(new Rect(r.x + pad, my, 470, 32), $"Buy back {LabelOf(bp)}  -  ${price}")) BuyBackPlayer(hm, bp);
+                    GUI.enabled = enabled;
+                    my += 36f;
+                }
+            }
+            if (Time.time < msgUntil) HudText.Label(new Rect(r.x + pad, my, pw - pad * 2, 28), msg, label);
+        }
+
+        // ------------------------------------------------------------------ buy-back (busted teammates)
+
+        static readonly List<WobblyPlayer> bustedList = new();
+
+        /// <summary>The players currently under arrest.</summary>
+        public static List<WobblyPlayer> BustedPlayers()
+        {
+            bustedList.Clear();
+            foreach (var p in WobblyPlayerRegistry.All) if (p && p.Custody == CustodyState.Busted) bustedList.Add(p);
+            return bustedList;
+        }
+
+        static string LabelOf(WobblyPlayer p)
+        {
+            return p.TryGetComponent(out Net.NetPlayer np) && np.IsSpawned ? $"Player {np.Slot + 1}" : "your friend";
+        }
+
+        /// <summary>Pay the vendor to get a busted player out. A client only asks; the host / offline does it.</summary>
+        void BuyBackPlayer(HeistManager hm, WobblyPlayer p)
+        {
+            if (!p) return;
+            if (Net.NetRole.IsRemoteClient)
+            {
+                if (p.TryGetComponent(out Net.NetPlayer np) && Net.RunSync.Instance) Net.RunSync.Instance.RequestBuyBack(np.Slot);
+                return;
+            }
+            Say(BuyBackFor(hm, p));
+        }
+
+        /// <summary>Host: a client asked to buy a teammate back. The asking player must be at the counter.</summary>
+        public string HostBuyBack(Net.NetPlayer who, int slot)
+        {
+            var hm = HeistManager.Instance;
+            Backpack asker = null;
+            if (who) who.TryGetComponent(out asker);
+            packs.RemoveWhere(b => !b);
+            if (!hm || !asker) return null;
+            bool down = who.TryGetComponent(out WobblyPlayer wp) && wp.InCustody;
+            if (!packs.Contains(asker) || down) return "Stand at the counter to talk to the dealer";
+            var target = Net.NetPlayer.BySlot(slot);
+            WobblyPlayer friend = null;
+            if (target) target.TryGetComponent(out friend);
+            return BuyBackFor(hm, friend);
+        }
+
+        /// <summary>The buy-back rules (offline and host). Returns the message for the buyer.</summary>
+        string BuyBackFor(HeistManager hm, WobblyPlayer p)
+        {
+            if (!p || p.Custody != CustodyState.Busted) return "Nobody to buy back";
+            int price = CustodyRules.BuyBackPrice(p.BustedOnLevel);
+            if (!hm.TrySpend(price)) return $"Not enough cash (it costs ${price})";
+            hm.ReleaseBusted(p);
+            return "Done. Your friend walks out the back.";
+        }
+
+        static float ItemWeight(Product p) => p.isGun ? RangedWeapon.Specs[(int)p.gun].weight : p.isWeapon ? MeleeWeapon.Specs[(int)p.kind].weight : Mathf.Max(0.2f, p.mass);
+
+        /// <summary>Sell everything in the zone. A client only asks; the host / offline sells and tells everyone.</summary>
+        void Sell(HeistManager hm)
+        {
+            if (Net.NetRole.IsRemoteClient) { Net.RunSync.Instance?.RequestSell(); return; }
+            Tidy();
+            int total = 0;
+            foreach (var b in packs)
+                foreach (var l in b.TakeLoot())
+                {
+                    total += Mathf.RoundToInt(l.CurrentValue * sellRate);
+                    Consumed(l);
+                    Destroy(l.gameObject);
+                }
+            foreach (var l in new List<HeavyLoot>(loot))
+            {
+                if (!l || l.Broken) continue;
+                total += Mathf.RoundToInt(l.CurrentValue * sellRate);
+                Consumed(l);
+                Destroy(l.gameObject);
+            }
+            loot.Clear();
+            hm.AddCash(total);
+        }
+
+        static void Consumed(Component c)
+        {
+            if (c.TryGetComponent(out Pickup p)) Net.RunSync.Instance?.BroadcastConsumed(p.NetId);
+        }
+
+        /// <summary>Host: a client asked to sell. The player must be at the counter.</summary>
+        public string HostSell(Net.NetPlayer who)
+        {
+            var hm = HeistManager.Instance;
+            var pack = who ? who.GetComponent<Backpack>() : null;
+            packs.RemoveWhere(b => !b);
+            if (hm == null || pack == null || !packs.Contains(pack)) return "Stand at the counter to sell";
+            int before = hm.Cash;
+            Sell(hm);
+            return hm.Cash > before ? $"Sold for ${hm.Cash - before}" : "Nothing to sell";
+        }
+
+        void Buy(HeistManager hm, int index)
+        {
+            if (Net.NetRole.IsRemoteClient) { Net.RunSync.Instance?.RequestBuy(index); return; }
+            var buyer = Buyer();
+            if (!buyer) return;
+            Say(BuyFor(hm, buyer, index));
+        }
+
+        /// <summary>Host: a client asked to buy. The player must be at the counter.</summary>
+        public string HostBuy(Net.NetPlayer who, int index)
+        {
+            var hm = HeistManager.Instance;
+            var buyer = who ? who.GetComponent<Backpack>() : null;
+            packs.RemoveWhere(b => !b);
+            if (hm == null || buyer == null || index < 0 || index >= Catalog.Length) return null;
+            if (!packs.Contains(buyer)) return "Stand at the counter to buy";
+            return BuyFor(hm, buyer, index);
+        }
+
+        /// <summary>The purchase rules (offline and host). Returns the message for the buyer.</summary>
+        string BuyFor(HeistManager hm, Backpack buyer, int index)
+        {
+            var p = Catalog[index];
+            if (p.isWeapon && !MeleeWeapon.Available) return "Weapons aren't set up: run Employees Take Revenge > Setup Weapons";
+            if (p.isGun)
+            {
+                if (!PewOnOffer) return "The dealer has nothing like that for sale yet";
+                if (!RangedWeapon.Available) return "Weapons aren't set up: run Employees Take Revenge > Setup Weapons";
+                foreach (var held in buyer.Items) if (held && held.TryGetComponent(out RangedWeapon _)) return "You already have a pew";
+            }
+            float wgt = ItemWeight(p);
+            if (buyer.Weight + wgt > buyer.capacity + 0.001f) return $"No room in your pack for the {p.name} ({WeightUnits.Lbs(wgt)})";
+            if (!hm.TrySpend(p.price)) return "Not enough cash";
+            var item = Spawn(p, index);
+            if (!item) return $"Bought {p.name}";
+            var pk = item.GetComponent<Pickup>();
+            if (Net.NetRole.IsHost && buyer.TryGetComponent(out Net.NetPlayer np))
+            {
+                Net.RunSync.Instance.AnnounceStored(pk.NetId, np.Slot); // straight into the buyer's pack, on every machine
+                return $"Bought {p.name} - it's in your pack";
+            }
+            return buyer.TryStore(pk) ? $"Bought {p.name} - it's in your pack" : $"Bought {p.name} - it's on the counter";
+        }
+
+        /// <summary>Makes a bought item on the shelf and, in a networked run, tells the clients to make it too.</summary>
+        GameObject Spawn(Product p, int index)
+        {
+            var basePos = shelf ? shelf.position : transform.position + Vector3.up;
+            float x = ((spawned++ % 5) - 2) * shelfSpacing;
+            float yaw = Random.Range(0f, 360f);
+            var go = SpawnAt(p, basePos + new Vector3(x, p.isWeapon || p.isGun ? 0.3f : 0.2f, 0f), yaw);
+            if (go && go.TryGetComponent(out Pickup pk)) Net.RunSync.Instance?.BroadcastSpawnItem(pk.NetId, index, go.transform.position, yaw);
+            return go;
+        }
+
+        /// <summary>Client: build the item the host announced, with the host's id.</summary>
+        public void SpawnFromNet(int id, int product, Vector3 pos, float yaw)
+        {
+            if (product < 0 || product >= Catalog.Length) return;
+            Net.NetIds.PendingId = id;
+            SpawnAt(Catalog[product], pos, yaw);
+            Net.NetIds.PendingId = Net.NetIds.None;
+        }
+
+        GameObject SpawnAt(Product p, Vector3 pos, float yaw)
+        {
+            if (p.isGun) return RangedWeapon.Create(p.gun, pos, transform.parent, yaw);
+            if (p.isWeapon) return MeleeWeapon.Create(p.kind, pos, transform.parent, yaw);
+
+            var go = GameObject.CreatePrimitive(p.shape);
+            go.name = p.name;
+            go.transform.SetParent(transform.parent); // the Vendor root, so it is cleaned up with the floor
+            go.transform.position = pos;
+            go.transform.localScale = p.size;
+
+            var r = go.GetComponent<Renderer>();
+            if (itemMat) r.sharedMaterial = itemMat;
+            var pb = new MaterialPropertyBlock();
+            pb.SetColor("_Color", p.color);
+            pb.SetColor("_BaseColor", p.color);
+            r.SetPropertyBlock(pb);
+
+            var rb = go.AddComponent<Rigidbody>(); rb.mass = p.mass;
+            var pk = go.AddComponent<Pickup>();
+            pk.weight = Mathf.Max(0.2f, p.mass);
+            pk.bankValue = Mathf.RoundToInt(p.price * 0.25f / 5f) * 5; // worth less than it cost, so no free money
+            var t = go.AddComponent<Throwable>();
+            t.stunSeconds = p.stunSeconds;
+            t.impactNoise = p.noise;
+            return go;
+        }
+    }
+}

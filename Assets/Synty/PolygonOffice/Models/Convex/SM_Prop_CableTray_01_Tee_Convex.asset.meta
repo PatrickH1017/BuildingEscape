@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: e1f0eed507e09ba44a6a3ca353e9a3c0
+timeCreated: 1579574429
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 43857786670670450
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 159492
+  packageName: POLYGON - Office Pack - Art by Synty
+  packageVersion: 1.9.4
+  assetPath: Assets/Synty/PolygonOffice/Models/Convex/SM_Prop_CableTray_01_Tee_Convex.asset
+  uploadId: 976702

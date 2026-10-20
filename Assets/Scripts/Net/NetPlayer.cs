@@ -59,7 +59,7 @@ namespace BuildingEscape.Net
             var visual = GetComponent<PlayerVisual>();
             if (visual && slot.Value >= 0) visual.lookIndex = slot.Value;
             look.OnValueChanged += (_, v) => ApplyLook(v.ToString());
-            if (IsOwner) look.Value = PlayerAppearance.LoadOrDefault().Serialize();
+            if (IsOwner) look.Value = (PlayerAppearance.TryLoadSaved(out var chosen) ? chosen : PlayerAppearance.ForSlot(Mathf.Max(0, slot.Value))).Serialize();       // (a player who never chose is a toon person by slot: every friend looks different)
             else ApplyLook(look.Value.ToString());
 
             bool mine = IsOwner;

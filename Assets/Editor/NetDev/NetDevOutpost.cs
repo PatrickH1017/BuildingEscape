@@ -72,9 +72,9 @@ namespace BuildingEscape.EditorTools
             var rb = player.GetComponent<Rigidbody>();
             var pack = player.GetComponent<Backpack>();
 
-            // a run seed whose floor 1 has a safe (the same pure function the game uses)
+            // a run seed whose floor 1 has a safe (the same pure function the game uses) and whose weapon floors 3 and 7 each have a safe with a bit of cash and a safe with a spare clip, so that the tests can try them
             int seed = 1;
-            while (!SafeRules.HasSafe(seed, 1)) seed++;
+            while (!SafeRules.HasSafe(seed, 1) || !SideItemsOn(seed, 3) || !SideItemsOn(seed, 7) || !SafeRules.HasSideWatch(seed, 1, 0) || !WatchOn(seed, 3) || !WatchOn(seed, 7) || !GunsOn(seed, 3) || !TallOn(seed, 7)) seed++;          // (and a gold watch in floor 1's safe and in a safe of floors 3 and 7)
             tm.SetIntelSeed(seed);
             OutpostCheck("setup: the safe seed is the one asked for", tm.IntelSeed == seed && SafeRules.HasSafe(tm.IntelSeed, 1), $"(seed {seed})");
 
@@ -191,42 +191,12 @@ namespace BuildingEscape.EditorTools
             yield return new WaitForSeconds(OutpostController.AlarmSeconds + 1f);
             OutpostCheck("hack: the alarm stops by itself", !ctl.AlarmOn && ctl.LockPrompt != null && ctl.LockPrompt.Contains("Hack"));
 
-            // ================= the alarm panel inside the room
+            // ================= no alarm panel inside the room (removed at the owner's request: nothing calls the chasing guards off)
             {
                 int panels = 0;
-                foreach (var i in Interactable.All) if (i is AlarmPanelProp && i.Available) panels++;
-                OutpostCheck("panel: one alarm panel can be worked", panels == 1, $"({panels})");
-                OutpostCheck("panel: it hangs on the inside of the front wall, beside the door", Vector3.Dot(ctl.PanelPosition - ctl.KeypadPosition, outward) < -0.1f && ctl.PanelLamps != null && ctl.PanelLamps.Length == 2);
-                OutpostCheck("panel: the siren has stopped but the backup is still coming, so the panel has something to switch off", !ctl.AlarmOn && ctl.AlertOn && hm.BackupActive);
-                OutpostCheck("panel: it offers to shut the alarm off", ctl.PanelPrompt.Contains("Shut off"));
-                OutpostCheck("panel: far from it (the host's reach) it does not work", !ctl.InPanelReach(ctl.PanelPosition + outward * (OutpostController.PanelHostReach + 1f)) && ctl.InPanelReach(ctl.PanelPosition + Vector3.up));
-
-                ctl.UsePanel(player);
-                yield return null; yield return null;
-                OutpostCheck("panel: pressing it calls the backup off", !hm.BackupActive && !hm.BackupCalled && !ctl.AlertOn);
-                OutpostCheck("panel: ...and the radios are jammed for a while", hm.RadiosJammed);
-                OutpostCheck("panel: it now says all is quiet", ctl.PanelPrompt.Contains("quiet"));
-                int guardsNow = GuardAI.All.Count;
-                var spotter = GuardAI.All.Count > 0 ? GuardAI.All[0] : null;
-                if (spotter != null)
-                {
-                    hm.CallBackup(spotter);
-                    OutpostCheck("panel: an officer who spots somebody now cannot call backup (jammed)", !hm.BackupCalled && !hm.BackupActive);
-                }
-                OutpostCheck("panel: pressing it again with nothing going on changes nothing", !ctl.HostStandDown() && !hm.BackupActive);
-                yield return new WaitForSeconds(1.5f);
-                OutpostCheck("panel: no new officers came", GuardAI.All.Count == guardsNow, $"({guardsNow} -> {GuardAI.All.Count})");
-                yield return new WaitForSeconds(CustodyRules.StandDownJamSeconds + 0.5f);
-                OutpostCheck("panel: after the jam a sighting calls backup again", !hm.RadiosJammed);
-                if (spotter != null)
-                {
-                    hm.CallBackup(spotter);
-                    OutpostCheck("panel: ...it does, and the panel can call it off again", hm.BackupActive && ctl.AlertOn);
-                    ctl.UsePanel(player);
-                    yield return null;
-                    OutpostCheck("panel: ...and it does", !hm.BackupActive && !ctl.AlertOn);
-                    yield return new WaitForSeconds(CustodyRules.StandDownJamSeconds + 0.5f);
-                }
+                foreach (var i in Interactable.All) if (i is AlarmPanelProp) panels++;
+                OutpostCheck("panel: there is no alarm panel any more", panels == 0, $"({panels})");
+                OutpostCheck("panel: the host would not accept a press on it anywhere (not at the world origin either)", !ctl.InPanelReach(Vector3.zero) && !ctl.InPanelReach(ctl.KeypadPosition) && !ctl.InPanelReach(ctl.PanelPosition));
             }
 
             // too slow loses too
@@ -267,28 +237,47 @@ namespace BuildingEscape.EditorTools
             yield return new WaitForSeconds(0.9f);
             OutpostCheck("hack: ...and opens again", !door.IsShut);
 
-            // ================= the note and the journal
+
+            // ================= the computer, its post-it and the journal
             {
-                NoteProp note = null;
-                foreach (var i in Interactable.All) if (i is NoteProp n) { note = n; break; }
-                OutpostCheck("note: floor 1's outpost holds the note about floor 1's safe", note != null && note.safeFloor == 1 && note.outpostFloor == 1, note ? $"(about floor {note.safeFloor})" : "");
-                if (note != null)
+                ComputerProp compo = null;
+                foreach (var i in Interactable.All) if (i is ComputerProp c0) { compo = c0; break; }
+                OutpostCheck("computer: floor 1's outpost has one, with the record of floor 1's safe", compo != null && compo.safeFloor == 1 && compo.outpostFloor == 1, compo ? $"(about floor {compo.safeFloor})" : "");
+                if (compo != null)
                 {
-                    OutpostCheck("note: it gives the code exactly when the rules say so", note.givesCode == SafeRules.NoteGivesCode(seed, 1));
-                    GoTo(note.AimBox.center + Vector3.up * 0.4f);
+                    OutpostCheck("computer: the code is on record exactly when the rules say so", compo.givesCode == SafeRules.NoteGivesCode(seed, 1));
+                    var lgn = ComputerRules.CredentialsFor(seed, 1);
+                    OutpostCheck("computer: its log-in is the one the rules give (capitals and digits)", compo.Credentials.user == lgn.user && compo.Credentials.pass == lgn.pass && ComputerRules.IsPostItText(lgn.user) && ComputerRules.IsPostItText(lgn.pass));
+                    int postItParts = 0;
+                    foreach (var tp in compo.GetComponentsInChildren<Transform>(true)) if (tp.name.StartsWith("PostIt")) postItParts++;
+                    OutpostCheck("computer: a post-it with four lines of lettering is stuck to the monitor", postItParts == 6, $"({postItParts} parts)");
+                    GoTo(compo.AimBox.center + Vector3.up * 0.4f);
                     int before = SafeIntel.Entries.Count;
-                    note.Use(player);
+                    compo.Use(player);
                     yield return null;
-                    OutpostCheck("note: reading it brings the note screen up", OutpostUi.Current == OutpostUi.Kind.Note);
+                    OutpostCheck("computer: using it brings the log-in screen up, logged out", OutpostUi.Current == OutpostUi.Kind.Computer && ComputerScreen.Showing && !ComputerScreen.LoggedIn);
+                    OutpostCheck("computer: a wrong password does not open it", !ComputerScreen.TryLogin(lgn.user, "NOTIT") && !ComputerScreen.LoggedIn && SafeIntel.Entries.Count == before);
+                    OutpostCheck("computer: a wrong user name does not either", !ComputerScreen.TryLogin("NOBODY1", lgn.pass) && !ComputerScreen.LoggedIn);
+                    ComputerScreen.SelectTab(ComputerScreen.TabSafes);
+                    OutpostCheck("computer: no tab can be clicked before logging in, and nothing is learned", ComputerScreen.Tab == ComputerScreen.TabNone && SafeIntel.Entries.Count == before);
+                    OutpostCheck("computer: the post-it's words, typed in small letters, open it", ComputerScreen.TryLogin(lgn.user.ToLowerInvariant(), "  " + lgn.pass.ToLowerInvariant() + " ") && ComputerScreen.LoggedIn);
+                    OutpostCheck("computer: logged in, nothing is learned until the Safes tab is clicked", SafeIntel.Entries.Count == before && ComputerScreen.Tab == ComputerScreen.TabNone);
+                    ComputerScreen.SelectTab(ComputerScreen.TabSafes);
                     SafeIntel.Entry e;
                     bool known = SafeIntel.TryGet(1, out e);
                     string room = gen.SafeRoomLabel(1);
-                    OutpostCheck("note: the journal learns the safe's room", known && !string.IsNullOrEmpty(room) && e.room == room && SafeIntel.Entries.Count == before + 1, $"(room {room})");
-                    OutpostCheck("note: and the code if the note gave it", known && (note.givesCode ? e.code == SafeRules.Code(seed, 1) : e.code == 0));
-                    OutpostUi.Hide(OutpostUi.Kind.Note);
-                    note.Use(player);
-                    OutpostUi.Hide(OutpostUi.Kind.Note);
-                    OutpostCheck("note: reading it again learns nothing new", SafeIntel.Entries.Count == before + 1);
+                    OutpostCheck("computer: the Safes tab lists the room, and the journal learns it", ComputerScreen.Tab == ComputerScreen.TabSafes && known && !string.IsNullOrEmpty(room) && e.room == room && SafeIntel.Entries.Count == before + 1, $"(room {room})");
+                    OutpostCheck("computer: ... and the code if it is on record", known && (compo.givesCode ? e.code == SafeRules.Code(seed, 1) : e.code == 0));
+                    OutpostUi.Hide(OutpostUi.Kind.Computer);
+                    yield return null;
+                    compo.Use(player);
+                    yield return null;
+                    OutpostCheck("computer: a player who has logged in stays logged in on this floor", ComputerScreen.Showing && ComputerScreen.LoggedIn);
+                    ComputerScreen.SelectTab(ComputerScreen.TabSafes);
+                    OutpostCheck("computer: opening the tab again learns nothing new", SafeIntel.Entries.Count == before + 1);
+                    OutpostUi.Hide(OutpostUi.Kind.Computer);
+                    yield return null;
+                    OutpostCheck("computer: closing it frees the player", !OutpostUi.Open && !ComputerScreen.Showing);
                 }
             }
 
@@ -301,8 +290,9 @@ namespace BuildingEscape.EditorTools
                 var cash = new List<Pickup>();
                 foreach (var p in floorRoot.GetComponentsInChildren<Pickup>(true)) if (p.label == "Cash bundle") cash.Add(p);
                 foreach (var p in cash) { total += p.bankValue; if (!p.isActiveAndEnabled) dormant++; }
-                OutpostCheck("safe: it holds half the floor's quota in cash bundles", total == SafeRules.Cash(1) && total == 2150 && cash.Count == safe.BundleCount && cash.Count == SafeRules.Bundles(1), $"(${total} in {cash.Count} bundles, quota {TowerRules.QuotaFor(1)})");
+                OutpostCheck("safe: it holds half the floor's quota in cash bundles", total == SafeRules.Cash(1) && total == TowerRules.QuotaFor(1) / 2 && cash.Count == safe.BundleCount && cash.Count == SafeRules.Bundles(1), $"(${total} in {cash.Count} bundles, quota {TowerRules.QuotaFor(1)})");
                 OutpostCheck("safe: the bundles are dormant while it is shut", dormant == cash.Count);
+                OutpostCheck("safe: it also holds a gold watch (the seed says so), switched off while the door is shut", safe.WatchCount == 1 && safe.Watches[0] != null && !safe.Watches[0].activeSelf, $"({safe.WatchCount} watches)");
                 var found = new List<Pickup>();
                 Pickup.ScanAround(safe.transform.position + Vector3.up * 0.2f, 1.2f, found);
                 bool sawCash = false;
@@ -328,6 +318,11 @@ namespace BuildingEscape.EditorTools
                 sawCash = false;
                 foreach (var p in found) if (p.label == "Cash bundle" && p.bankValue > 0) sawCash = true;
                 OutpostCheck("safe: and can be picked up", sawCash);
+                var wtW = safe.WatchCount > 0 ? safe.Watches[0] : null;
+                var wtPk = wtW ? wtW.GetComponent<Pickup>() : null;
+                OutpostCheck("safe: the gold watch comes to life with the door, lies in the hollow, and is worth what the rules say (the owner, 2026-10-18)",
+                    wtPk != null && wtW.activeSelf && wtPk.isActiveAndEnabled && wtPk.Label == "Gold Watch" && wtPk.bankValue == SafeRules.SideWatchValue(1) && WatchInHollow(safe, wtPk.transform.position),
+                    wtPk ? $"({wtPk.Label} ${wtPk.bankValue}, at {safe.transform.InverseTransformPoint(wtPk.transform.position)})" : "(no watch)");
             }
 
             // ================= a crowbar opens a safe with no code (35% of the time it breaks)
@@ -348,14 +343,267 @@ namespace BuildingEscape.EditorTools
                     OutpostCheck("crowbar: it is used up exactly when it broke", gone == (r == SafeReply.OpenedCrowbarBroke), $"(broke {r == SafeReply.OpenedCrowbarBroke}, gone {gone})");
                 }
             }
-            else Log("[Outpost] SKIP crowbar: no weapons set up (Overtime Escape > Setup Weapons)");
+            else Log("[Outpost] SKIP crowbar: no weapons set up (Employees Take Revenge > Setup Weapons)");
 
-            // ================= a floor without a safe still has its outpost, and the boss floor keeps the old red car
+            // ================= every office floor has a safe (the owner, 2026-10-18), and the boss floor keeps the old red car
             {
-                int plain = 2;
-                while (SafeRules.HasSafe(seed, plain)) plain++;
-                yield return LoadLevel(hm, plain);
-                OutpostCheck($"floor {plain} (no safe): an outpost, no safe", OutpostController.Active != null && FloorSafe.Active == null && OutpostController.Active.Safe == null);
+                yield return LoadLevel(hm, 2);
+                OutpostCheck("floor 2: an outpost with a safe of its own (a safe on every floor)", OutpostController.Active != null && FloorSafe.Active != null && OutpostController.Active.Safe != null);
+                OutpostCheck("floor 2: one safe, with cash bundles and no gun", FloorSafe.OnShow.Count == 1 && SafeRules.SafeCount(seed, 2) == 1 && FloorSafe.Active != null && FloorSafe.Active.BundleCount > 0 && FloorSafe.Active.GunCount == 0);
+
+                // ---- floor 3 and up: several safes with pistols in them (the owner, 2026-10-18)
+                foreach (int wsFloor in new[] { 3, 7 })
+                {
+                    yield return LoadLevel(hm, wsFloor);
+                    string wsTag = $"floor {wsFloor}:";
+                    foreach (var wsG in GuardAI.All) if (wsG) { wsG.sightRange = 0.1f; wsG.hearingMultiplier = 0f; }          // (they are only to be looked at)
+                    int wsWant = SafeRules.SafeCount(seed, wsFloor);
+                    var wsSafes = new List<FloorSafe>(FloorSafe.OnShow);
+                    var wsCtl = OutpostController.Active;
+                    bool wsNumbered = wsSafes.Count == wsWant, wsCodes = true, wsApart = true, wsShut = true, wsRooms = true, wsGuns = true, wsSide = true;
+                    var wsCodeSet = new HashSet<int>(); var wsRoomSet = new HashSet<string>();
+                    for (int wsI = 0; wsI < wsSafes.Count; wsI++)
+                    {
+                        var wsS = wsSafes[wsI];
+                        wsNumbered &= wsS.Index == wsI && wsS.Floor == wsFloor;
+                        wsCodes &= wsS.Code == SafeRules.Code(seed, wsFloor, wsI);
+                        wsApart &= wsCodeSet.Add(wsS.Code);
+                        wsShut &= !wsS.IsOpen;
+                        wsSide &= wsS.BundleCount == (SafeRules.HasSideCash(seed, wsFloor, wsI) ? 1 : 0) && wsS.ClipCount == (SafeRules.HasSideClip(seed, wsFloor, wsI) ? 1 : 0) && wsS.WatchCount == (SafeRules.HasSideWatch(seed, wsFloor, wsI) ? 1 : 0);
+                        int wsItems = SafeRules.WeaponContents(seed, wsFloor, wsI).Length;
+                        wsGuns &= wsS.GunCount == wsItems && wsItems <= 1;
+                        string wsLabel = gen.SafeRoomLabel(wsFloor, wsI);
+                        wsRooms &= !string.IsNullOrEmpty(wsLabel) && wsRoomSet.Add(wsLabel);
+                    }
+                    OutpostCheck($"{wsTag} {wsWant} safes, numbered from 0, all shut, with the codes the rules give and no two alike", wsNumbered && wsCodes && wsApart && wsShut, $"({wsSafes.Count} safes)");
+                    OutpostCheck($"{wsTag} each safe stands in a numbered room of its own", wsRooms, $"(rooms {string.Join(",", wsRoomSet)})");
+                    OutpostCheck($"{wsTag} each holds what the rules say: a gun, a piece of armour or nothing, never two", wsGuns);
+                    OutpostCheck($"{wsTag} each also holds a bit of cash, a spare clip and a gold watch exactly when the rules say (each its own item)", wsSide);
+
+                    int wsInSafe = 0, wsTotal = 0, wsExpected = 0;
+                    bool wsBarrels = true, wsDormant = true;
+                    foreach (var wsS in wsSafes) wsExpected += GunsInSafe(seed, wsFloor, wsS.Index);          // (a safe that is not the first of its floor may hold armour instead of a gun)
+                    foreach (var wsGun in Object.FindObjectsByType<RangedWeapon>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+                    {
+                        if (!wsGun || !FloorSafe.HoldsGun(wsGun.gameObject)) continue;
+                        wsTotal++;
+                        wsDormant &= !wsGun.gameObject.activeSelf;
+                        foreach (var wsS in wsSafes)
+                        {
+                            var wsLocal = wsS.transform.InverseTransformPoint(wsGun.transform.position);
+                            if (Mathf.Abs(wsLocal.x) < 0.39f && wsLocal.y > 0.04f && wsLocal.y < (wsS.Tall ? 1.6f : 0.5f) && wsLocal.z > -0.30f && wsLocal.z < 0.25f)
+                            {
+                                wsInSafe++;
+                                var wsLay = RangedWeapon.LayoutOf(wsGun.kind);
+                                bool wsSlanted = wsLay.fullBounds.size.x * wsLay.scale > 0.46f;                // (a long gun lies slanted across the hollow, its barrel out through the open door)
+                                wsBarrels &= wsS.Tall && (wsGun.kind == RangedWeapon.Kind.Shotgun || wsGun.kind == RangedWeapon.Kind.Sniper) ? Vector3.Dot(wsGun.transform.right, Vector3.up) > 0.95f : Vector3.Dot(wsGun.transform.right, wsS.transform.forward) > (wsSlanted ? 0.55f : 0.95f);          // (a shotgun or a sniper rifle stands upright in a vertical safe)
+                                break;
+                            }
+                        }
+                    }
+                    OutpostCheck($"{wsTag} the pistols lie inside their safes with the barrels to the door, out of the world while the doors are shut", wsTotal == wsExpected && wsInSafe == wsTotal && wsTotal >= 1 && wsBarrels && wsDormant, $"({wsTotal} pistols, {wsInSafe} inside)");
+                    { bool wsTallOk = true; foreach (var wsT in wsSafes) wsTallOk &= wsT.Tall == SafeRules.HoldsTallGun(seed, wsFloor, wsT.Index); OutpostCheck($"{wsTag} a safe is vertical (1.7 m) exactly when it holds a shotgun or a sniper rifle, the gun standing upright in it (the owner, 2026-10-19)", wsTallOk); }
+
+                    // the computer's record of this floor: every safe, with room and code (and nothing about what is inside)
+                    ComputerProp wsComputer = null;
+                    foreach (var wsAny in Interactable.All) if (wsAny is ComputerProp wsCp) { wsComputer = wsCp; break; }
+                    OutpostCheck($"{wsTag} the outpost has its computer", wsComputer != null);
+                    if (wsComputer != null)
+                    {
+                        OutpostCheck($"{wsTag} the computer's record is about this floor's own safes", wsComputer.safeFloor == wsFloor && wsComputer.outpostFloor == wsFloor);
+                        SafeIntel.Reset();
+                        SafeIntel.Add(wsFloor == 3 ? 7 : 3, 0, 1, "999", 1111);                     // (something learned on another floor: the Safes tab and the journal must not list it)
+                        GoTo(wsComputer.AimBox.center + Vector3.up * 0.4f);
+                        wsComputer.Use(player);
+                        yield return null;
+                        bool wsIn = ComputerScreen.TryLogin(wsComputer.Credentials.user, wsComputer.Credentials.pass);
+                        ComputerScreen.SelectTab(ComputerScreen.TabSafes);
+                        var wsOnFloor = new List<SafeIntel.Entry>();
+                        SafeIntel.OnFloor(wsFloor, wsOnFloor);
+                        bool wsRecord = wsIn && wsOnFloor.Count == wsWant && SafeIntel.Entries.Count == wsWant + 1;
+                        for (int wsK = 0; wsK < wsWant; wsK++)
+                        {
+                            bool wsKnown = SafeIntel.TryGet(wsFloor, wsK, out var wsE);
+                            wsRecord &= wsKnown && wsE.count == wsWant && wsE.room == gen.SafeRoomLabel(wsFloor, wsK)
+                                && wsE.code == (SafeRules.RecordGivesCode(seed, wsFloor, wsK) ? SafeRules.Code(seed, wsFloor, wsK) : 0);
+                        }
+                        OutpostCheck($"{wsTag} the Safes tab lists every safe with its room and the code when the record has it (and says nothing about what is inside)", wsRecord, $"({SafeIntel.Entries.Count} records)");
+                        OutpostCheck($"{wsTag} the first safe's code is always on record", SafeIntel.CodeFor(wsFloor, 0) == SafeRules.Code(seed, wsFloor, 0));
+                        OutpostUi.Hide(OutpostUi.Kind.Computer);
+                        yield return null;
+                    }
+
+                    // each safe opens with its code (a wrong one is refused first), and the outpost's state bits say which are open
+                    int[] wsBit = { 4, 16, 32, 64 };
+                    bool wsWrong = true, wsOpened = true, wsBits = true;
+                    for (int wsJ = 0; wsJ < wsSafes.Count; wsJ++)
+                    {
+                        var wsS2 = wsSafes[wsJ];
+                        GoTo(new Vector3(wsS2.transform.position.x, 1.1f, wsS2.transform.position.z) + wsS2.transform.forward * 1.2f);
+                        yield return new WaitForSeconds(0.15f);
+                        if (wsJ == 0)
+                        {
+                            wsWrong &= wsS2.HostAttempt(false, wsS2.Code == 1234 ? 4321 : 1234, pack) == SafeReply.Wrong;
+                            yield return new WaitForSeconds(1.7f);
+                        }
+                        wsOpened &= wsS2.HostAttempt(false, wsS2.Code, pack) == SafeReply.Opened;
+                        wsS2.ApplyOpen(false);
+                        yield return new WaitForSeconds(0.2f);
+                        for (int wsB = 0; wsB < wsSafes.Count; wsB++) wsBits &= ((wsCtl.Bits & wsBit[wsB]) != 0) == (wsB <= wsJ);
+                    }
+                    OutpostCheck($"{wsTag} a wrong code is refused, the right code opens each safe, and the state bits follow (one bit for each safe)", wsWrong && wsOpened && wsBits);
+                    bool wsLive = true; int wsLiveCount = 0;
+                    foreach (var wsGun2 in Object.FindObjectsByType<RangedWeapon>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+                        if (wsGun2 && FloorSafe.HoldsGun(wsGun2.gameObject)) { wsLive &= wsGun2.gameObject.activeSelf && wsGun2.isActiveAndEnabled; wsLiveCount++; }
+                    OutpostCheck($"{wsTag} with the doors open every pistol is in the world", wsLive && wsLiveCount == wsExpected, $"({wsLiveCount} of {wsExpected})");
+                    // ---- what else the safes hold (the owner, 2026-10-18): the pistol, the clip and the cash lie apart, and the crosshair picks each one on its own
+                    {
+                        int wsAimed = 0, wsAimWanted = 0, wsItemsWanted = 0;
+                        foreach (var xCount in wsSafes) wsItemsWanted += xCount.GunCount + xCount.BundleCount + xCount.ClipCount + xCount.WatchCount;
+                        var xNear = new List<Pickup>();
+                        foreach (var xSafe in wsSafes)
+                        {
+                            var xStand = new Vector3(xSafe.transform.position.x, 1.1f, xSafe.transform.position.z) + xSafe.transform.forward * 1.2f;
+                            GoTo(xStand);
+                            yield return new WaitForSeconds(0.15f);
+                            var xEye = xStand + xSafe.transform.forward * 1.6f + Vector3.up * 0.9f;                  // (behind and above the player, as the camera is)
+                            Pickup.ScanAround(xSafe.transform.position + xSafe.transform.forward * 0.1f + Vector3.up * 0.15f, 0.6f, xNear);
+                            foreach (var xItem in xNear)
+                            {
+                                var xl = xSafe.transform.InverseTransformPoint(xItem.transform.position);
+                                if (Mathf.Abs(xl.x) > 0.39f || xl.y < 0.04f || xl.y > (xSafe.Tall ? 1.6f : 0.5f) || xl.z < -0.30f || xl.z > 0.26f) continue;           // (only what lies in the hollow)
+                                if (!xItem.TryGetBounds(out var xBox)) continue;
+                                wsAimWanted++;
+                                var xAim = Crosshair.Resolve(xEye, xBox.center - xEye, player);
+                                if (xAim.Kind == AimKind.Pickup && xAim.Pickup == xItem) wsAimed++;
+                                else Log($"[Outpost] not aimed at: {xItem.Label} at {xl} in safe {xSafe.Index}; the crosshair found {xAim.Kind} {(xAim.Pickup ? xAim.Pickup.Label : "-")}");
+                            }
+                        }
+                        OutpostCheck($"{wsTag} every item of every open safe (pistol, clip, cash, watch) is aimed at on its own: one crosshair, one item", wsAimWanted == wsItemsWanted && wsAimed == wsAimWanted, $"({wsAimed} of {wsAimWanted} aimed, {wsItemsWanted} expected)");
+                    }
+
+                    if (wsFloor == 3)
+                    {
+                        // ---- taking them: with no pistol in the pack a clip is refused; with one, the clip's rounds go into its reserve and the clip is gone; the cash goes into the pack as an item of its own
+                        FloorSafe tSafe = null;
+                        foreach (var tS in wsSafes) if (tS.ClipCount > 0) { tSafe = tS; break; }
+                        Pickup tPew = null, tClip = null;
+                        if (tSafe != null)
+                        {
+                            var tNear = new List<Pickup>();
+                            Pickup.ScanAround(tSafe.transform.position + tSafe.transform.forward * 0.1f + Vector3.up * 0.15f, 0.6f, tNear);
+                            foreach (var tp in tNear)
+                            {
+                                var tl = tSafe.transform.InverseTransformPoint(tp.transform.position);
+                                if (Mathf.Abs(tl.x) > 0.39f || tl.y < 0.04f || tl.y > 0.5f || tl.z < -0.30f || tl.z > 0.26f) continue;
+                                if (tp.Label == "Pew") tPew = tp; else if (tp.GetComponent<AmmoClip>() != null) tClip = tp;
+                            }
+                        }
+                        OutpostCheck($"{wsTag} a safe with a spare clip has its pistol and the clip lying in it", tSafe != null && tPew != null && tClip != null);
+                        if (tSafe != null && tPew != null && tClip != null)
+                        {
+                            bool tNoPew = Vendor.GunOf(pack) == null;
+                            bool tRefused = !pack.TryStore(tClip);
+                            yield return new WaitForSeconds(0.1f);
+                            OutpostCheck($"{wsTag} with no pistol in the pack the clip is refused and stays where it lies", tNoPew && tRefused && tClip != null && tClip.isActiveAndEnabled);
+                            bool tGotPew = pack.TryStore(tPew);
+                            yield return new WaitForSeconds(0.2f);
+                            var tGun = Vendor.GunOf(pack);
+                            OutpostCheck($"{wsTag} a pistol found in a safe holds its one clip and no spare ones (the owner, 2026-10-19)", tGun != null && tGun.Magazine.Rounds == RangedWeapon.Specs[(int)RangedWeapon.Kind.Pew].magazine && tGun.Magazine.Reserve == 0, $"(rounds {(tGun != null ? tGun.Magazine.Rounds : -1)}, reserve {(tGun != null ? tGun.Magazine.Reserve : -1)})");
+                            if (tGun != null) tGun.Magazine.SetReserve(2 * RangedWeapon.Specs[(int)RangedWeapon.Kind.Pew].magazine);        // (two clips bought from the dealer)
+                            // (the owner, 2026-10-19: three clips at most) a pistol with its clip and two spare ones is full: a clip is refused and stays where it lies; with a spare clip used up there is room for one
+                            bool tFullRefused = tGun != null && tGun.Magazine.Room == 0 && !pack.TryStore(tClip);
+                            yield return null;
+                            OutpostCheck($"{wsTag} with the pistol and its two spare clips (three clips) the clip is refused too and stays where it lies", tFullRefused && tClip != null && tClip.isActiveAndEnabled);
+                            if (tGun != null) tGun.Magazine.SetReserve(8);
+                            int tReserve0 = tGun != null ? tGun.Magazine.Reserve : -1;
+                            int tRounds = tClip != null ? tClip.GetComponent<AmmoClip>().rounds : 0;
+                            bool tTook = pack.TryStore(tClip);
+                            yield return new WaitForSeconds(0.2f);
+                            OutpostCheck($"{wsTag} with the pistol in the pack the clip's rounds go into its reserve and the clip is gone", tGotPew && tTook && tGun != null && tRounds == RangedWeapon.Specs[(int)RangedWeapon.Kind.Pew].magazine && tGun.Magazine.Reserve == tReserve0 + tRounds && !tClip,
+                                $"(reserve {tReserve0} -> {(tGun != null ? tGun.Magazine.Reserve : -1)})");
+                        }
+                        // the bit of cash: from whichever safe has one (a safe with a pistol only has none, one with the clip may not have any)
+                        Pickup tCash2 = null;
+                        foreach (var tS2 in wsSafes)
+                        {
+                            if (tS2.BundleCount == 0) continue;
+                            var tNear2 = new List<Pickup>();
+                            Pickup.ScanAround(tS2.transform.position + tS2.transform.forward * 0.1f + Vector3.up * 0.15f, 0.6f, tNear2);
+                            foreach (var tp2 in tNear2)
+                            {
+                                var tl2 = tS2.transform.InverseTransformPoint(tp2.transform.position);
+                                if (Mathf.Abs(tl2.x) > 0.39f || tl2.y < 0.04f || tl2.y > 0.5f || tl2.z < -0.30f || tl2.z > 0.26f) continue;
+                                if (tp2.Label == "Cash bundle") tCash2 = tp2;
+                            }
+                            if (tCash2 != null) break;
+                        }
+                        OutpostCheck($"{wsTag} a safe with a bit of cash has a cash bundle lying in it", tCash2 != null);
+                        if (tCash2 != null)
+                        {
+                            bool tGotCash = pack.TryStore(tCash2);
+                            yield return new WaitForSeconds(0.2f);
+                            OutpostCheck($"{wsTag} the bit of cash goes into the pack on its own, worth what the rules say", tGotCash && pack.Contains(tCash2) && tCash2.Value == SafeRules.SideCash(wsFloor), $"(${(tCash2 ? tCash2.Value : 0)})");
+                        }
+                        // the gold watch, from whichever safe has one
+                        Pickup tWatch = null;
+                        foreach (var tS3 in wsSafes)
+                        {
+                            if (tS3.WatchCount == 0) continue;
+                            var tNear3 = new List<Pickup>();
+                            Pickup.ScanAround(tS3.transform.position + tS3.transform.forward * 0.1f + Vector3.up * 0.15f, 0.6f, tNear3);
+                            foreach (var tp3 in tNear3) if (tp3.Label == "Gold Watch" && WatchInHollow(tS3, tp3.transform.position)) tWatch = tp3;
+                            if (tWatch != null) break;
+                        }
+                        OutpostCheck($"{wsTag} a safe with a gold watch has it lying in the hollow", tWatch != null);
+                        if (tWatch != null)
+                        {
+                            bool tGotWatch = pack.TryStore(tWatch);
+                            yield return new WaitForSeconds(0.2f);
+                            OutpostCheck($"{wsTag} the gold watch goes into the pack on its own, worth what the rules say", tGotWatch && pack.Contains(tWatch) && tWatch.Value == SafeRules.SideWatchValue(wsFloor), $"(${(tWatch ? tWatch.Value : 0)})");
+                        }
+                    }
+                    else
+                    {
+                        var wsFound = new List<Pickup>();
+                        Pickup.ScanAround(wsSafes[0].transform.position + Vector3.up * 0.2f, 1.2f, wsFound);
+                        Pickup wsPew = null;
+                        foreach (var wsP in wsFound) if (wsP.GetComponent<RangedWeapon>() != null) { wsPew = wsP; break; }
+                        OutpostCheck($"{wsTag} a gun of the open safe can be picked up", wsPew != null);
+                        if (wsPew != null && pack != null)
+                        {
+                            bool wsStored = pack.TryStore(wsPew);
+                            yield return new WaitForSeconds(0.3f);
+                            OutpostCheck($"{wsTag} ... and goes into the backpack", wsStored && pack.Contains(wsPew));
+                        }
+                    }
+
+                    if (wsFloor == 7)
+                    {
+                        // built again (fresh, shut safes): the keypad route of the offline game and the bits a client gets from the host
+                        yield return LoadLevel(hm, wsFloor);
+                        foreach (var wsG3 in GuardAI.All) if (wsG3) { wsG3.sightRange = 0.1f; wsG3.hearingMultiplier = 0f; }
+                        wsCtl = OutpostController.Active;
+                        var wsAgain = new List<FloorSafe>(FloorSafe.OnShow);
+                        bool wsFresh = wsAgain.Count == wsWant && wsCtl != null && (wsCtl.Bits & (4 | 16 | 32 | 64)) == 0;
+                        foreach (var wsS3 in wsAgain) wsFresh &= !wsS3.IsOpen;
+                        OutpostCheck($"{wsTag} built again, every safe is shut and the state bits are clear", wsFresh);
+                        if (wsFresh)
+                        {
+                            GoTo(new Vector3(wsAgain[2].transform.position.x, 1.1f, wsAgain[2].transform.position.z) + wsAgain[2].transform.forward * 1.2f);
+                            yield return new WaitForSeconds(0.15f);
+                            wsAgain[2].SubmitCode(wsAgain[2].Code, player);                      // (offline the keypad's answer is judged here, as the host would)
+                            yield return new WaitForSeconds(0.2f);
+                            OutpostCheck($"{wsTag} the third safe opens from its keypad, the others stay shut, and its bit is set", wsAgain[2].IsOpen && !wsAgain[0].IsOpen && !wsAgain[1].IsOpen && !wsAgain[3].IsOpen && (wsCtl.Bits & (4 | 16 | 32 | 64)) == 32);
+                            wsCtl.NetApply((byte)(16 | 64 | 32));                            // (what a client does when the host's state says the second, third and fourth safe are open)
+                            yield return new WaitForSeconds(0.3f);
+                            int wsLive3 = 0;
+                            foreach (var wsGun3 in Object.FindObjectsByType<RangedWeapon>(FindObjectsSortMode.None)) if (wsGun3 && FloorSafe.HoldsGun(wsGun3.gameObject)) wsLive3++;
+                            OutpostCheck($"{wsTag} the host's bits open exactly the second, third and fourth safe, and their pistols come into the world", !wsAgain[0].IsOpen && wsAgain[1].IsOpen && wsAgain[2].IsOpen && wsAgain[3].IsOpen
+                                && (wsCtl.Bits & (4 | 16 | 32 | 64)) == (16 | 32 | 64) && wsLive3 == GunsInSafe(seed, wsFloor, 1) + GunsInSafe(seed, wsFloor, 2) + GunsInSafe(seed, wsFloor, 3), $"({wsLive3} pistols live)");
+                        }
+                    }
+                }
 
                 yield return LoadLevel(hm, TowerRules.BossFloor);
                 OutpostCheck("boss floor: the old red guest elevator, no outpost", OutpostController.Active == null && gen.Current.Find("GuestElevator") != null);
@@ -363,6 +611,42 @@ namespace BuildingEscape.EditorTools
 
             Log($"[Outpost] DONE fails={outpostFails}");
             Quit(outpostFails == 0 ? 0 : 1);
+        }
+
+        /// <summary>Do the safes of this floor hold at least one gold watch (so that a test can try it)?</summary>
+        static bool WatchOn(int runSeed, int floor)
+        {
+            for (int i = 0, n = SafeRules.SafeCount(runSeed, floor); i < n; i++) if (SafeRules.HasSideWatch(runSeed, floor, i)) return true;
+            return false;
+        }
+
+        /// <summary>Do the safes of this floor hold at least one gun (a safe holds one only by luck: the owner, 2026-10-19), so that a test can try it?</summary>
+        static bool GunsOn(int runSeed, int floor)
+        {
+            for (int i = 0, n = SafeRules.SafeCount(runSeed, floor); i < n; i++) if (SafeRules.HoldsGun(runSeed, floor, i)) return true;
+            return false;
+        }
+
+        /// <summary>Does a safe of this floor hold a shotgun, so that its vertical safe can be tried?</summary>
+        static bool TallOn(int runSeed, int floor)
+        {
+            for (int i = 0, n = SafeRules.SafeCount(runSeed, floor); i < n; i++) if (SafeRules.HoldsTallGun(runSeed, floor, i)) return true;
+            return false;
+        }
+
+        /// <summary>Does this world position lie in the hollow of the safe?</summary>
+        static bool WatchInHollow(FloorSafe s, Vector3 world)
+        {
+            var l = s.transform.InverseTransformPoint(world);
+            return Mathf.Abs(l.x) < 0.39f && l.y > 0.04f && l.y < 0.5f && l.z > -0.30f && l.z < 0.26f;
+        }
+
+        /// <summary>Do the safes of this floor, between them, hold at least one bit of cash and at least one spare clip (so that a test can try both)?</summary>
+        static bool SideItemsOn(int runSeed, int floor)
+        {
+            bool cash = false, clip = false;
+            for (int i = 0, n = SafeRules.SafeCount(runSeed, floor); i < n; i++) { cash |= SafeRules.HasSideCash(runSeed, floor, i); clip |= SafeRules.HasSideClip(runSeed, floor, i); }
+            return cash && clip;
         }
 
         static bool AnyKeypadAvailable()

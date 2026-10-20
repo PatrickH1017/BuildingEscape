@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 48b0149ea29b8a24faf386f02df302cf
+timeCreated: 1579556289
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 43875397132930424
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 159492
+  packageName: POLYGON - Office Pack - Art by Synty
+  packageVersion: 1.9.4
+  assetPath: Assets/Synty/PolygonOffice/Models/Convex/SM_Prop_Bottle_01_Convex.asset
+  uploadId: 976702

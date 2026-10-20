@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: bcaf5af3ec366d24897a26eaa12fa2ea
+timeCreated: 1579556360
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 43570283553967532
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 159492
+  packageName: POLYGON - Office Pack - Art by Synty
+  packageVersion: 1.9.4
+  assetPath: Assets/Synty/PolygonOffice/Models/Convex/SM_Prop_Stapler_01_Convex.asset
+  uploadId: 976702

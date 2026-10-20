@@ -59,7 +59,11 @@ namespace BuildingEscape
         public event Action<int> OnBankedChanged;
         public event Action<int> OnCashChanged;
 
-        void Awake() { Instance = this; }
+        void Awake()
+        {
+            Instance = this;
+            if (!GetComponent<LootScanner>()) gameObject.AddComponent<LootScanner>();      // hold Z to scan the rooms round about for loot
+        }
         void OnDestroy() { if (Instance == this) Instance = null; }
 
         public void StartFloor(int floor, int totalFloors, int quota)
@@ -90,8 +94,24 @@ namespace BuildingEscape
             return true;
         }
 
+        float unlockClock;
+
+        /// <summary>
+        /// In the docks, twice a second (the host, or offline): every gun a player carries back to the Loading Docks is unlocked for the party (<see cref="RunUnlocks"/>: the dealer then sells its ammunition).
+        /// </summary>
+        void TickUnlocks(float dt)
+        {
+            if (!Net.NetRole.Simulates) return;
+            unlockClock += dt;
+            if (unlockClock < 0.5f) return;
+            unlockClock = 0f;
+            foreach (var p in WobblyPlayerRegistry.All)
+                if (p && p.TryGetComponent(out Backpack bp)) RunUnlocks.CollectFrom(bp);
+        }
+
         void Update()
         {
+            if (Phase == HeistPhase.Hub) { TickUnlocks(Time.deltaTime); return; }
             if (Phase != HeistPhase.Heist) return;
             if (Net.NetRole.Simulates)
             {
@@ -188,6 +208,31 @@ namespace BuildingEscape
             Announce($"{Who(p, "broke", "break")} free!");
         }
 
+        /// <summary>
+        /// A shotgun or a sniper rifle hit this player (<see cref="GuardLoadouts.Eliminates"/>; the owner, 2026-10-19: "they should explode in a manner with reference to R.E.P.O"): their floor is over. They are busted at once - knocked
+        /// out for the floor, they spectate their teammates, and the vendor buys them back at the Loading Docks - and the blast is shown on every machine (<see cref="BlastFx"/>). Host / offline. False when it could not happen (not in a run,
+        /// god mode, already out): the hit is then only a knock-down.
+        /// </summary>
+        public bool Blast(WobblyPlayer p, GuardAI by)
+        {
+            if (Phase != HeistPhase.Heist || godMode || !p || !Net.NetRole.Simulates) return false;
+            if (p.Custody == CustodyState.Busted) return false;
+            var holder = p.PinnedBy;
+            SetCustody(p, CustodyState.Busted, 0f, Floor);
+            if (holder) holder.ReleaseHold();
+            var np = p.GetComponent<Net.NetPlayer>();
+            int slot = np && np.IsSpawned ? np.Slot : -1;
+            var at = p.transform.position + Vector3.up * 0.25f;                  // (a body's pivot is its middle: the chest is a little above it)
+            BlastFx.Play(at, HudTheme.PlayerColour(slot + 1));
+            Net.RunSync.Instance?.BroadcastBlast(slot, at);
+            var away = by ? p.transform.position - by.transform.position : Vector3.back;
+            away.y = 0f;
+            p.Stumble((away.sqrMagnitude > 0.01f ? away.normalized : Vector3.back) * 6f + Vector3.up * 5f, 2f);       // (the body is thrown clear)
+            Announce($"{Who(p, "was", "were")} blown up - buy them back from the vendor at the Loading Docks");
+            CheckTeamDown();
+            return true;
+        }
+
         /// <summary>The pin ran out: the player is arrested. They stay busted until the vendor gets them out.</summary>
         void BustPlayer(WobblyPlayer p)
         {
@@ -206,6 +251,9 @@ namespace BuildingEscape
             SetCustody(p, CustodyState.Free, 0f, 0);
             Announce($"{Who(p, "was", "were")} bought back from the vendor");
         }
+
+        /// <summary>Tells everyone something that happened to the loot (a piece shattered, fell out of the world...): the banner, on every machine. Host or offline.</summary>
+        public void Say(string text) => Announce(text);
 
         /// <summary>Tell everyone what happened (the banner, on every machine).</summary>
         void Announce(string text)
@@ -289,7 +337,7 @@ namespace BuildingEscape
             }
             lastBackupPos = by ? by.transform.position : Vector3.zero;
             BackupCalled = true;
-            backupClock.Start();
+            backupClock.Start(CustodyRules.BackupInterval(Floor));
             SendOfficers(2, lastBackupPos, "BACKUP CALLED");
         }
 
@@ -303,7 +351,7 @@ namespace BuildingEscape
             if (Phase != HeistPhase.Heist || !Net.NetRole.Simulates) return;
             lastBackupPos = where;
             BackupCalled = true;
-            backupClock.Start();
+            backupClock.Start(CustodyRules.BackupInterval(Floor));
             SendOfficers(2, where, headline);
         }
 
@@ -345,7 +393,7 @@ namespace BuildingEscape
             int n = Mathf.Max(0, Mathf.Min(wanted, max - alive));
             if (n > 0 && gen) n = gen.SpawnReinforcements(target, n);
             BackupMessage = n > 0
-                ? $"{headline} - {n} more {(n == 1 ? "officer is" : "guards are")} on the way ({alive + n}/{max}), next in {CustodyRules.BackupIntervalSeconds:0} s"
+                ? $"{headline} - {n} more {(n == 1 ? "officer is" : "guards are")} on the way ({alive + n}/{max}), next in {backupClock.Interval:0} s"
                 : $"{headline} - but the floor is already full of guards ({alive}/{max})";
             BackupMessageUntil = Time.time + 4f;
             Net.RunSync.Instance?.BroadcastBackupMessage(BackupMessage);

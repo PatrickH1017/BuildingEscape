@@ -33,7 +33,11 @@ namespace BuildingEscape.EditorTools
         }
 
         static System.Collections.Generic.List<Pickup> PewPickups() =>
-            Object.FindObjectsByType<RangedWeapon>(FindObjectsSortMode.None).Where(r => r && r.GetComponent<Pickup>()).Select(r => r.GetComponent<Pickup>()).ToList();
+            Object.FindObjectsByType<RangedWeapon>(FindObjectsSortMode.None).Where(r => r && r.kind == RangedWeapon.Kind.Pew && r.GetComponent<Pickup>() && !FloorSafe.HoldsGun(r.gameObject)).Select(r => r.GetComponent<Pickup>()).ToList();
+
+        /// <summary>Every pew, also one that is out of the world (the one in the shut gun safe of floor 3, or one in a pack); the pistols that lie in the floor safes are not counted (the safe checks do that).</summary>
+        static System.Collections.Generic.List<Pickup> PewPickupsAll() =>
+            Object.FindObjectsByType<RangedWeapon>(FindObjectsInactive.Include, FindObjectsSortMode.None).Where(r => r && r.kind == RangedWeapon.Kind.Pew && r.GetComponent<Pickup>() && !FloorSafe.HoldsGun(r.gameObject)).Select(r => r.GetComponent<Pickup>()).ToList();
 
         // ------------------------------------------------------------------ offline
 
@@ -50,11 +54,12 @@ namespace BuildingEscape.EditorTools
 
             PewLootCheck("the docks: no pew lies about and nobody is armed", PewPickups().Count == 0 && !ArmedGuards.ShouldArm(0));
 
-            foreach (int floor in new[] { 1, 2, 3, 4, 5, 6 })
+            bool gfx = SystemInfo.graphicsDeviceType != UnityEngine.Rendering.GraphicsDeviceType.Null;
+            foreach (int floor in new[] { 1, 2, 3, 4, 5, 6, 9, 10 })
             {
                 yield return LoadLevel(hm, floor);
                 string f = $"floor {floor}:";
-                var pews = PewPickups();
+                var pews = floor == OutpostLoot.PewFloor ? PewPickupsAll() : PewPickups();
                 bool hasOutpost = gen.TryGetOutpostRoom(out var room);
                 if (floor == OutpostLoot.PewFloor)
                 {
@@ -67,25 +72,73 @@ namespace BuildingEscape.EditorTools
                 }
                 else PewLootCheck($"{f} no pew lies on the floor", pews.Count == 0, $"({pews.Count})");
 
+                // ---- the sniper rifle lies in the outpost from floor 10 on, never in a safe (the owner, 2026-10-19: "The sniper and rocket launcher should be inside the outpost not in safes")
+                var snipers = Object.FindObjectsByType<RangedWeapon>(FindObjectsInactive.Include, FindObjectsSortMode.None).Where(r => r && r.kind == RangedWeapon.Kind.Sniper && r.GetComponent<Pickup>() && !FloorSafe.HoldsGun(r.gameObject)).Select(r => r.GetComponent<Pickup>()).ToList();
+                if (floor >= OutpostLoot.SniperFloor)
+                {
+                    var sn = snipers.Count == 1 ? snipers[0] : null;
+                    var snSpec = RangedWeapon.Specs[(int)RangedWeapon.Kind.Sniper];
+                    bool snInRoom = sn != null && hasOutpost && room.Grow(0.4f).Contains(sn.transform.position.x, sn.transform.position.z);
+                    PewLootCheck($"{f} exactly one sniper rifle lies on the floor: in the guard outpost, on a desk, in the open and in the world", sn != null && snInRoom && sn.transform.position.y > 0.35f && sn.gameObject.activeInHierarchy, sn != null ? $"({snipers.Count}, y {sn.transform.position.y:0.00})" : $"({snipers.Count})");
+                    PewLootCheck($"{f} ... it is a pickup that is called as its spec says, weighs what the spec says and has a network id", sn != null && sn.Label == snSpec.name && Mathf.Approximately(sn.weight, snSpec.weight) && sn.NetId >= 0);
+                    int snInSafes = Object.FindObjectsByType<RangedWeapon>(FindObjectsInactive.Include, FindObjectsSortMode.None).Count(r => r && r.kind == RangedWeapon.Kind.Sniper && FloorSafe.HoldsGun(r.gameObject));
+                    PewLootCheck($"{f} ... and no safe holds one", snInSafes == 0, $"({snInSafes} in safes)");
+                    if (gfx && sn != null)
+                    {
+                        // two pictures of it on its desk, from above at either end
+                        foreach (var look in new[] { new Vector3(0.9f, 1.5f, 0.9f), new Vector3(-0.9f, 1.5f, -0.9f) })
+                        {
+                            var eyeS = new GameObject("SniperEye").AddComponent<Camera>();
+                            eyeS.clearFlags = CameraClearFlags.SolidColor; eyeS.backgroundColor = new Color(0.2f, 0.22f, 0.26f); eyeS.fieldOfView = 55f; eyeS.enabled = false;
+                            eyeS.transform.position = sn.transform.position + look;
+                            eyeS.transform.LookAt(sn.transform.position);
+                            var eyeLight = eyeS.gameObject.AddComponent<Light>();          // (the outpost is dim: a lamp on the camera)
+                            eyeLight.type = LightType.Point; eyeLight.intensity = 2.5f; eyeLight.range = 7f;
+                            yield return null;
+                            ShotCam(eyeS, $"sniper_outpost_floor{floor}_{(look.x > 0f ? "a" : "b")}");
+                            Destroy(eyeS.gameObject);
+                        }
+                    }
+                    if (sn != null && pack != null && gc != null)
+                    {
+                        pack.TryStore(sn);
+                        yield return new WaitForSeconds(0.6f);
+                        PewLootCheck($"{f} picked up, the sniper rifle is in the pack (the pew taken on floor 3 is still in the hand)", pack.Contains(sn));
+                        RunUnlocks.Reset();
+                        int snUnlocked = RunUnlocks.CollectFrom(pack);
+                        PewLootCheck($"{f} carried back to the docks it unlocks the sniper's ammunition for the party", snUnlocked >= 1 && RunUnlocks.Has(RangedWeapon.Kind.Sniper), $"({snUnlocked})");
+                        RunUnlocks.Reset();
+                    }
+                }
+                else PewLootCheck($"{f} no sniper rifle lies about", snipers.Count == 0, $"({snipers.Count})");
+
                 var guards = GuardAI.All.Where(g => g && !g.Dead && !g.IsPuppet).ToList();
                 bool armed = floor >= ArmedGuards.DefaultFirstArmedFloor;
-                PewLootCheck($"{f} {(armed ? "every guard carries a pew" : "nobody carries a pew")}", guards.Count > 0 && guards.All(g => g.Armed == armed), $"({guards.Count(g => g.Armed)} of {guards.Count})");
+                PewLootCheck($"{f} {(armed ? "some guards carry a gun, not all" : "nobody carries a gun")}", guards.Count > 0 && (armed ? guards.Any(g => g.Armed) && guards.Any(g => !g.Armed) : guards.All(g => !g.Armed)), $"({guards.Count(g => g.Armed)} of {guards.Count})");
+                PewLootCheck($"{f} every gun is the kind of his loadout and every shield the one that goes with it", guards.All(g => g.Armed == g.Loadout.Armed && (!g.Armed || (g.Gun != null && g.Gun.kind == g.Loadout.Kind && g.Shield == GuardLoadouts.ShieldOf(g.Loadout.Kind))) && (g.Armed || g.Shield == ShieldTier.None)));
                 var duty = GuardAI.All.FirstOrDefault(g => g && g.name == "Guard_Outpost");
-                PewLootCheck($"{f} the guard on duty in the outpost {(armed ? "is armed too" : "is not armed")}", duty != null && duty.Armed == armed);
+                PewLootCheck($"{f} the guard on duty in the outpost is there", duty != null);
 
-                if (floor == OutpostLoot.PewFloor)
+                if (floor == ArmedGuards.DefaultFirstArmedFloor)
                 {
                     // ---- the backup is armed as well
                     int before = guards.Count;
                     hm.CallBackup(null);
                     yield return new WaitForSeconds(3.5f);
                     var after = GuardAI.All.Where(g => g && !g.Dead && !g.IsPuppet).ToList();
-                    PewLootCheck($"{f} the backup that comes is armed", after.Count > before && after.All(g => g.Armed), $"({before} -> {after.Count}, armed {after.Count(g => g.Armed)})");
+                    PewLootCheck($"{f} the backup that comes follows the same rule (a gun of his loadout's kind, or nothing)", after.Count > before && after.All(g => g.Armed == g.Loadout.Armed && (!g.Armed || g.Gun.kind == g.Loadout.Kind)), $"({before} -> {after.Count}, armed {after.Count(g => g.Armed)})");
+                }
 
+                if (floor == OutpostLoot.PewFloor)
+                {
                     // ---- the pew can be picked up and ends up in the hand
                     var pew = pews.Count == 1 ? pews[0] : null;
                     if (pew != null)
                     {
+                        PewLootCheck($"{f} the pew is out of the world while the gun safe is shut", !pew.gameObject.activeSelf && GunSafeProp.Active != null && !GunSafeProp.Active.IsOpen);
+                        GunSafeProp.Active.HostResult(true);                                               // (the hack itself is played in the R7 scenario)
+                        yield return new WaitForSeconds(0.8f);
+                        PewLootCheck($"{f} the gun safe opened and the pew is in the world", GunSafeProp.Active.IsOpen && pew.gameObject.activeSelf);
                         pack.TryStore(pew);
                         yield return new WaitForSeconds(0.6f);
                         PewLootCheck($"{f} picked up, it is in the pack and in the hand", pack.Contains(pew) && pack.Equipped == pew);
@@ -121,6 +174,7 @@ namespace BuildingEscape.EditorTools
             Signal("h_ready0");
             yield return WaitSig("c_ready0", 150);
 
+            ArmedGuards.ForceForTests = true;      // (the guards are armed from floor 4 and the pew lies on floor 3: this test arms floor 3 too, to see the clients get the flag)
             tm.GoToLevel(OutpostLoot.PewFloor);
             yield return new WaitUntil(() => tm.Loading || hm.Floor == OutpostLoot.PewFloor);
             yield return FloorReady(OutpostLoot.PewFloor, 120);
@@ -128,12 +182,12 @@ namespace BuildingEscape.EditorTools
             yield return new WaitForSeconds(3f);
 
             var gen = FindFirstObjectByType<FloorGenerator>();
-            var pews = PewPickups();
-            GunNetCheck("host: exactly one pew lies on floor 4, in the outpost", pews.Count == 1 && gen.TryGetOutpostRoom(out var room) && room.Grow(0.4f).Contains(pews[0].transform.position.x, pews[0].transform.position.z), $"({pews.Count})");
+            var pews = PewPickupsAll();
+            GunNetCheck($"host: exactly one pew lies on floor {OutpostLoot.PewFloor}, in the outpost", pews.Count == 1 && gen.TryGetOutpostRoom(out var room) && room.Grow(0.4f).Contains(pews[0].transform.position.x, pews[0].transform.position.z), $"({pews.Count})");
             var pew = pews.Count == 1 ? pews[0] : null;
             var duty = GuardAI.All.FirstOrDefault(g => g && g.name == "Guard_Outpost");
             var live = GuardAI.All.Where(g => g && !g.Dead && !g.IsPuppet).ToList();
-            GunNetCheck("host: every guard carries a pew (no test switch: the floor rule)", live.Count > 0 && live.All(g => g.Armed) && duty != null, $"({live.Count(g => g.Armed)} of {live.Count})");
+            GunNetCheck("host: every guard carries a pew (the test switch arms this floor)", live.Count > 0 && live.All(g => g.Armed) && duty != null, $"({live.Count(g => g.Armed)} of {live.Count})");
             if (pew == null || duty == null) { Log($"[GunNet] host DONE fails={gunNetFails}"); Quit(1); yield break; }
             var cult = System.Globalization.CultureInfo.InvariantCulture;
             Signal("h_floor4", string.Format(cult, "{0} {1} {2:0.###} {3:0.###} {4:0.###} {5:0.###}", pew.NetId, duty.NetId, duty.transform.position.x, duty.transform.position.z, pew.transform.position.x, pew.transform.position.z));
@@ -153,9 +207,9 @@ namespace BuildingEscape.EditorTools
             int accepted0 = RunSync.Instance.GunShotsAccepted;
             yield return WaitSig("c_shot", 120);
             yield return new WaitForSeconds(0.8f);
-            GunNetCheck("host: it accepted both shots of the client", RunSync.Instance.GunShotsAccepted - accepted0 == 2, $"({RunSync.Instance.GunShotsAccepted - accepted0})");
-            GunNetCheck("host: the guard on duty is down for good (two bullets, five hits each)", duty.Dead && duty.Hits >= 10, $"(dead {duty.Dead}, hits {duty.Hits})");
-            GunNetCheck("host: the client's two shots were shown on this machine", cgc != null && cgc.ShotsSeen == 2, $"({(cgc != null ? cgc.ShotsSeen : -1)})");
+            GunNetCheck("host: it accepted all three shots of the client", RunSync.Instance.GunShotsAccepted - accepted0 == 3, $"({RunSync.Instance.GunShotsAccepted - accepted0})");
+            GunNetCheck("host: the guard on duty is down for good (three bullets, four hits each)", duty.Dead && duty.Hits >= 10, $"(dead {duty.Dead}, hits {duty.Hits})");
+            GunNetCheck("host: the client's three shots were shown on this machine", cgc != null && cgc.ShotsSeen == 3, $"({(cgc != null ? cgc.ShotsSeen : -1)})");
             Signal("h_shot_ok");
 
             // ---- the client drops it; the host picks it up and fires one shot: the client shows it
@@ -259,7 +313,10 @@ namespace BuildingEscape.EditorTools
                 yield return new WaitForSeconds(0.4f);
                 AimCamera(cam, wob, duty != null ? duty.transform.position + Vector3.up * 0.3f : chest);
                 bool f2 = gc.Fire();
-                GunNetCheck("client: both bullets left the gun", f1 && f2 && gc.ShotsFired == 2 && gc.Gun.Magazine.Rounds == 8, $"({f1}, {f2}, fired {gc.ShotsFired})");
+                yield return new WaitForSeconds(0.4f);
+                AimCamera(cam, wob, duty != null ? duty.transform.position + Vector3.up * 0.3f : chest);
+                bool f3 = gc.Fire();
+                GunNetCheck("client: all three bullets left the gun", f1 && f2 && f3 && gc.ShotsFired == 3 && gc.Gun.Magazine.Rounds == 5, $"({f1}, {f2}, {f3}, fired {gc.ShotsFired}, rounds {gc.Gun.Magazine.Rounds})");
             }
             yield return new WaitForSeconds(0.5f);
             Signal("c_shot");

@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: d3151d9adaf198f40a4de2667a7aae3d
+timeCreated: 1579574422
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 43696023433375542
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 159492
+  packageName: POLYGON - Office Pack - Art by Synty
+  packageVersion: 1.9.4
+  assetPath: Assets/Synty/PolygonOffice/Models/Convex/SM_Prop_Ducting_01_Curve_Convex.asset
+  uploadId: 976702
