@@ -32,6 +32,17 @@ namespace BuildingEscape.EditorTools
         bool duelStumbled, duelBusted; int duelHits, duelBlasts; float duelStumbleSeconds;
         readonly HashSet<GuardAI> duelShooters = new HashSet<GuardAI>();
 
+        /// <summary>The duel, tried up to three times (another guard each time): a guard can lose sight of the player on the way (a partition, the NavMesh) and give up the chase before he shoots; the duel is about what his hit does, not about his eyes.</summary>
+        IEnumerator CombatDuelRetry(RangedWeapon.Kind kind, float dist, string label, bool oneShot = false)
+        {
+            for (int attempt = 0; attempt < 3; attempt++)
+            {
+                yield return CombatDuel(kind, dist, label, oneShot);
+                if (duelHits >= 1) yield break;
+                Log($"[Combat] {label}: no hit this time (attempt {attempt + 1} of 3)");
+            }
+        }
+
         /// <summary>An armed guard of this kind shoots at the player from <paramref name="dist"/> metres (god mode off, nobody else sees him): did the hit knock him down, did it blow him up?</summary>
         IEnumerator CombatDuel(RangedWeapon.Kind kind, float dist, string label, bool oneShot = false)
         {
@@ -51,6 +62,14 @@ namespace BuildingEscape.EditorTools
             shooter.SetLoadout(GuardLoadout.Of(kind));
             shooter.SyncGun();
             yield return new WaitForSeconds(0.7f);
+            // (he walked on while his gun was made: the spot is worked out again from where he stands now, a partition may be between him and the first one)
+            Vector3 spotNow = spot; bool clearNow = false;
+            for (int retry = 0; retry < 6 && !clearNow; retry++)
+            {
+                clearNow = OpenSpot(shooter.transform.position, dist, out spotNow, false);
+                if (!clearNow) yield return new WaitForSeconds(0.3f);
+            }
+            if (clearNow) spot = spotNow; else Log($"[Combat] {label}: {shooter.name} has no clear line at {dist:0} m from where he stands now: the first spot is used");
             var gg = shooter.Gun;
             CombatCheck($"{label}: he carries a {kind} in his hand", gg != null && gg.kind == kind && gg.HasModel);
             if (gg == null) yield break;
@@ -305,17 +324,17 @@ namespace BuildingEscape.EditorTools
             if (rig) rig.enabled = false;
 
             // ---- shots at the player: a rifle only knocks him down, a shotgun blows him up
-            yield return CombatDuel(RangedWeapon.Kind.Rifle, 7f, "rifle guard");
+            yield return CombatDuelRetry(RangedWeapon.Kind.Rifle, 7f, "rifle guard");
             CombatCheck("a rifle guard's bullet knocks the player down and does not end his floor", duelHits >= 1 && duelStumbled && !duelBusted && duelBlasts == 0, $"(hits {duelHits}, stumbled {duelStumbled}, busted {duelBusted}, blasts {duelBlasts})");
-            yield return CombatDuel(RangedWeapon.Kind.Smg, 6f, "SMG guard");
+            yield return CombatDuelRetry(RangedWeapon.Kind.Smg, 6f, "SMG guard");
             CombatCheck("an SMG guard's bullet only knocks the player down", duelHits >= 1 && duelStumbled && !duelBusted && duelBlasts == 0, $"(hits {duelHits}, stumbled {duelStumbled}, busted {duelBusted}, blasts {duelBlasts})");
-            yield return CombatDuel(RangedWeapon.Kind.Shotgun, 5f, "shotgun guard");
+            yield return CombatDuelRetry(RangedWeapon.Kind.Shotgun, 5f, "shotgun guard");
             CombatCheck("a shotgun guard's hit ends the player's floor: he is busted at once and there is a blast", duelHits >= 1 && duelBusted && duelBlasts == 1 && player.Custody == CustodyState.Busted, $"(hits {duelHits}, busted {duelBusted}, blasts {duelBlasts}, phase {hm.Phase})");
             hm.ReleaseBusted(player);
             yield return R5LoadFloor(11);
             player = WobblyPlayerRegistry.All[0]; rb = player.GetComponent<Rigidbody>(); pack = player.GetComponent<Backpack>(); cam = Camera.main;
             CombatCheck("(test) a new floor: the player is free again", player.Custody == CustodyState.Free && hm.Phase == HeistPhase.Heist, $"({player.Custody}, {hm.Phase})");
-            yield return CombatDuel(RangedWeapon.Kind.Sniper, 9f, "sniper guard");
+            yield return CombatDuelRetry(RangedWeapon.Kind.Sniper, 9f, "sniper guard");
             CombatCheck("a sniper guard's hit ends the player's floor too", duelHits >= 1 && duelBusted && duelBlasts == 1, $"(hits {duelHits}, busted {duelBusted}, blasts {duelBlasts})");
 
             Log($"[Combat] DONE fails={combatFails}");

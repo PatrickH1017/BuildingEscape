@@ -50,9 +50,13 @@ namespace BuildingEscape.EditorTools
             Check("ammunition: a player carries at most three clips of a gun, the one in the gun counted", GunRules.MaxClips == 3);
             var fresh = RangedWeapon.NewMagazine(S[pew]);
             var found = RangedWeapon.NewMagazine(S[smg], 0);
-            Check("ammunition: a gun that was bought holds its clip and two spares (nothing more fits); a gun that was found holds its one clip and has room for two more",
-                fresh.Capacity == 8 && fresh.Rounds == 8 && fresh.Reserve == 16 && fresh.Room == 0 && fresh.AddReserve(8) == 0 && fresh.Reserve == 16
+            Check("ammunition: a pistol that was bought holds its clip and two spares and has room for nine clips more (twelve in all: 96 rounds); a gun that was found holds its one clip and has room for two more",
+                fresh.Capacity == 8 && fresh.Rounds == 8 && fresh.Reserve == 16 && fresh.Room == 72 && S[pew].maxClips == 12
                 && found.Capacity == 24 && found.Rounds == 24 && found.Reserve == 0 && found.Room == 48);
+            int pistolAdded = 0;
+            for (int i = 0; i < 12; i++) pistolAdded += fresh.AddReserve(8);
+            Check("ammunition: the pistol takes nine more clips and no tenth (twelve clips, 96 rounds, the one in the gun counted); the other guns keep their three", pistolAdded == 72 && fresh.Reserve == 88 && fresh.Room == 0 && fresh.AddReserve(8) == 0
+                && S[smg].maxClips == 0 && S[rifle].maxClips == 0 && S[shotgun].maxClips == 0 && S[sniper].maxClips == 0);
             int got1 = found.AddReserve(24), got2 = found.AddReserve(24), got3 = found.AddReserve(24);
             Check("ammunition: two clips fit in the reserve of a found gun, a third is not taken; a reload empties the room again",
                 got1 == 24 && got2 == 24 && got3 == 0 && found.Reserve == 48 && found.Room == 0);

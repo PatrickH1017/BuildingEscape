@@ -65,11 +65,25 @@ namespace BuildingEscape
             }
         }
 
-        public bool Inside => PvpRules.Inside(Arena, transform.position.x, transform.position.z);
+        /// <summary>The part of the PVP room behind the elevator room (the room is an L), or an empty rectangle.</summary>
+        public static Rect Annex
+        {
+            get
+            {
+                var hm = HeistManager.Instance;
+                return hm && hm.Floor == 0 && gen ? gen.PvpRoomAnnex : default;       // (Arena looks the generator up)
+            }
+        }
+
+        public bool Inside => PvpRules.Inside(Arena, transform.position.x, transform.position.z) || PvpRules.Inside(Annex, transform.position.x, transform.position.z);
+
+        /// <summary>The player's number on the PVP leaderboard (<see cref="PvpBoard"/>): his slot in a networked run, 0 offline.</summary>
+        public static int SlotOf(WobblyPlayer p) => p && p.TryGetComponent(out Net.NetPlayer np) && np.IsSpawned ? np.Slot : 0;
 
         void Update()
         {
             bool inside = Inside;
+            if (inside && player && Net.NetRole.Simulates) PvpBoard.Enter(SlotOf(player));            // (the host / the offline game puts a player who walks into the room on the leaderboard: PvpBoard, the owner, 2026-10-20)
             if (!inside) { outsideFor += Time.deltaTime; if (outsideFor > PvpRules.ResetOutsideSeconds && !Down) Health = PvpRules.MaxHealth; }
             else outsideFor = 0f;
             if (Health <= 0f && !Down) Health = PvpRules.MaxHealth;                       // (he gets up with full health)
@@ -89,18 +103,19 @@ namespace BuildingEscape
                 if (victim.TryGetComponent(out Net.NetPlayer np) && Net.RunSync.Instance != null) Net.RunSync.Instance.RequestPvpHit((byte)np.Slot, damage);
                 return true;
             }
-            v.Hurt(damage);
+            v.Hurt(damage, SlotOf(attacker));
             return true;
         }
 
         /// <summary>The real effect of a hit (offline, or on the host): health off, and a knock-out when it is all gone.</summary>
-        public void Hurt(float damage)
+        public void Hurt(float damage, int attackerSlot = -1)
         {
             if (Down) return;
             Health = PvpRules.After(Health, damage);
             if (PvpRules.KnockedOut(Health))
             {
                 downUntil = Time.time + PvpRules.KnockoutSeconds;
+                if (attackerSlot >= 0) PvpBoard.Eliminate(attackerSlot);                       // (the leaderboard: one more for whoever knocked him out)
                 if (player) player.Stumble(Vector3.zero, PvpRules.KnockoutSeconds);          // (a teammate's body is moved by its own machine: Stumble tells it)
             }
         }

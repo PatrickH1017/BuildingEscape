@@ -117,9 +117,11 @@ namespace BuildingEscape.EditorTools
             DemoCheck("the pew is in his hand with a full magazine of eight and two spare clips", gc != null && gc.Gun != null && gc.Held != null && gc.Gun.Magazine.Rounds == 8 && gc.Gun.Magazine.Reserve == 16);
             string again = BuyFrom(vendor, hm, pack, Vendor.PewIndex);
             DemoCheck("a second pew is refused (one each)", again.Contains("already") && pack.Items.Count(i => i && i.GetComponent<RangedWeapon>()) == 1, $"(\"{again}\")");
+            gc.Gun.Magazine.SetReserve(gc.Gun.Magazine.MaxRounds - gc.Gun.Magazine.Rounds);       // (the pew full to its limit: twelve clips, 96 rounds; the owner, 2026-10-19 night: "about 100 shots")
             int cashClip = hm.Cash;
+            int fullReserve = gc.Gun.Magazine.Reserve;
             string fullPack = BuyFrom(vendor, hm, pack, Vendor.AmmoIndex);
-            DemoCheck("a pew with its clip and two spare ones is carrying the three clips a player may (the owner, 2026-10-19): the dealer refuses a fourth and takes no money", fullPack.Contains("three clips") && hm.Cash == cashClip && gc.Gun.Magazine.Reserve == 16, $"(\"{fullPack}\")");
+            DemoCheck("a pew with all its twelve clips is carrying all a player may: the dealer refuses another and takes no money", fullPack.Contains("clips") && hm.Cash == cashClip && gc.Gun.Magazine.Reserve == fullReserve && fullReserve == 88, $"(\"{fullPack}\")");
             gc.Gun.Magazine.SetReserve(8);                                               // (a spare clip used up: there is room for one)
             string clip = BuyFrom(vendor, hm, pack, Vendor.AmmoIndex);
             DemoCheck("a clip costs its price and puts eight rounds in the reserve of the pew", clip.Contains("Bought a clip") && cashClip - hm.Cash == Vendor.AmmoClipPrice && gc.Gun.Magazine.Reserve == 16, $"(\"{clip}\", cash {cashClip} -> {hm.Cash}, reserve {gc.Gun.Magazine.Reserve})");

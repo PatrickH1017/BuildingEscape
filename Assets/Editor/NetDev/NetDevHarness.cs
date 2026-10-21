@@ -241,6 +241,30 @@ namespace BuildingEscape.EditorTools
             EditorSceneManager.OpenScene("Assets/Scenes/Greybox.unity");
             EditorApplication.isPlaying = true;
         }
+        public static void FpLook()
+        {
+            SessionState.SetString("netdev.mode", "fplook");
+            EditorSceneManager.OpenScene("Assets/Scenes/Greybox.unity");
+            EditorApplication.isPlaying = true;
+        }
+        public static void ThemeSheet()
+        {
+            SessionState.SetString("netdev.mode", "themesheet");
+            EditorSceneManager.OpenScene("Assets/Scenes/Greybox.unity");
+            EditorApplication.isPlaying = true;
+        }
+        public static void DressSheet()
+        {
+            SessionState.SetString("netdev.mode", "dresssheet");
+            EditorSceneManager.OpenScene("Assets/Scenes/Greybox.unity");
+            EditorApplication.isPlaying = true;
+        }
+        public static void CharSheet()
+        {
+            SessionState.SetString("netdev.mode", "charsheet");
+            EditorSceneManager.OpenScene("Assets/Scenes/Greybox.unity");
+            EditorApplication.isPlaying = true;
+        }
         public static void GunSheet()
         {
             SessionState.SetString("netdev.mode", "gunsheet");
@@ -277,9 +301,39 @@ namespace BuildingEscape.EditorTools
             EditorSceneManager.OpenScene("Assets/Scenes/Greybox.unity");
             EditorApplication.isPlaying = true;
         }
+        public static void Round12()
+        {
+            SessionState.SetString("netdev.mode", "round12");
+            EditorSceneManager.OpenScene("Assets/Scenes/Greybox.unity");
+            EditorApplication.isPlaying = true;
+        }
+        public static void CityNew()
+        {
+            SessionState.SetString("netdev.mode", "citynew");
+            EditorSceneManager.OpenScene("Assets/Scenes/Greybox.unity");
+            EditorApplication.isPlaying = true;
+        }
+        public static void AssetPreview()
+        {
+            SessionState.SetString("netdev.mode", "assetpreview");
+            EditorSceneManager.OpenScene("Assets/Scenes/Greybox.unity");
+            EditorApplication.isPlaying = true;
+        }
         public static void Checklist()
         {
             SessionState.SetString("netdev.mode", "checklist");
+            EditorSceneManager.OpenScene("Assets/Scenes/Greybox.unity");
+            EditorApplication.isPlaying = true;
+        }
+        public static void DockSeeds()
+        {
+            SessionState.SetString("netdev.mode", "dockseeds");
+            EditorSceneManager.OpenScene("Assets/Scenes/Greybox.unity");
+            EditorApplication.isPlaying = true;
+        }
+        public static void GuardCall()
+        {
+            SessionState.SetString("netdev.mode", "guardcall");
             EditorSceneManager.OpenScene("Assets/Scenes/Greybox.unity");
             EditorApplication.isPlaying = true;
         }
@@ -338,7 +392,7 @@ namespace BuildingEscape.EditorTools
             DontDestroyOnLoad(gameObject);
             started = Time.realtimeSinceStartup;
             GuardAI.DonutRollOverride = mode == "r7" ? -1f : 1f;           // (no donut breaks in the other scenarios: a guard standing still for 6 s could upset their timing)
-            if (mode != "offline" && mode != "sneak" && mode != "floors" && mode != "roomshots" && mode != "corelooks" && mode != "looks" && mode != "floatqa" && mode != "computerui" && mode != "r5" && mode != "r6" && mode != "r7" && mode != "r7look" && mode != "probe" && mode != "doors" && mode != "outpost" && mode != "pew" && mode != "pewlook" && mode != "weaponsheet" && mode != "meleelook" && mode != "gunsheet" && mode != "gunitems" && mode != "gunlook" && mode != "gunsafes" && mode != "guns" && mode != "gunui" && mode != "combat" && mode != "armour" && mode != "checklist" && mode != "docklook" && mode != "ui" && mode != "menus" && mode != "shaft" && mode != "pewloot" && mode != "demo" && mode != "demoui" && mode != "lootqa" && mode != "etr" && mode != "etrcarry" && mode != "etrscan" && mode != "introtv" && mode != "introoffline" && mode != "invui" && mode != "doorsslide" && mode != "citylook")
+            if (mode != "offline" && mode != "sneak" && mode != "floors" && mode != "roomshots" && mode != "corelooks" && mode != "looks" && mode != "floatqa" && mode != "computerui" && mode != "r5" && mode != "r6" && mode != "r7" && mode != "r7look" && mode != "probe" && mode != "doors" && mode != "outpost" && mode != "pew" && mode != "pewlook" && mode != "weaponsheet" && mode != "meleelook" && mode != "gunsheet" && mode != "charsheet" && mode != "dresssheet" && mode != "themesheet" && mode != "fplook" && mode != "gunitems" && mode != "gunlook" && mode != "gunsafes" && mode != "guns" && mode != "gunui" && mode != "combat" && mode != "armour" && mode != "assetpreview" && mode != "citynew" && mode != "round12" && mode != "checklist" && mode != "docklook" && mode != "guardcall" && mode != "dockseeds" && mode != "ui" && mode != "menus" && mode != "shaft" && mode != "pewloot" && mode != "demo" && mode != "demoui" && mode != "lootqa" && mode != "etr" && mode != "etrcarry" && mode != "etrscan" && mode != "introtv" && mode != "introoffline" && mode != "invui" && mode != "doorsslide" && mode != "citylook")
                 yield return WaitFor(() => NetSession.Instance != null && SceneManager.GetActiveScene().name == NetConst.MenuScene, 30, "menu");
             switch (mode)
             {
@@ -366,6 +420,10 @@ namespace BuildingEscape.EditorTools
                 case "pewlook": yield return PewLookScenario(); break;
                 case "weaponsheet": yield return WeaponSheetScenario(); break;
                 case "meleelook": yield return MeleeLookScenario(); break;
+                case "fplook": yield return FpLookScenario(); break;
+                case "themesheet": yield return ThemeSheetScenario(); break;
+                case "dresssheet": yield return DressSheetScenario(); break;
+                case "charsheet": yield return CharSheetScenario(); break;
                 case "gunsheet": yield return GunSheetScenario(); break;
                 case "gunitems": yield return GunItemsScenario(); break;
                 case "gunlook": yield return GunLookScenario(); break;
@@ -375,7 +433,12 @@ namespace BuildingEscape.EditorTools
                 case "combat": yield return CombatScenario(); break;
                 case "armour": yield return ArmourScenario(); break;
                 case "docklook": yield return DockLookScenario(); break;
+                case "guardcall": yield return GuardCallScenario(); break;
+                case "dockseeds": yield return DockSeedsScenario(); break;
                 case "checklist": yield return ChecklistScenario(); break;
+                case "assetpreview": yield return AssetPreviewScenario(); break;
+                case "citynew": yield return CityNewScenario(); break;
+                case "round12": yield return Round12Scenario(); break;
                 case "ui": yield return UiScenario(); break;
                 case "citylook": yield return CityLookScenario(); break;
                 case "doorsslide": yield return DoorsSlideScenario(); break;

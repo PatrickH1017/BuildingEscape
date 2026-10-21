@@ -16,7 +16,7 @@ namespace BuildingEscape
 
         public static DockTv Current { get; private set; }
 
-        enum Mode { Standby, Program, Static }
+        enum Mode { Standby, Program, Static, Off }
 
         Mode mode = Mode.Standby;
         Renderer screen;
@@ -131,6 +131,16 @@ namespace BuildingEscape
             Shuffle();
         }
 
+        /// <summary>Dark: the TV is off (the opening of the Intro, before the announcement); only its LED glows.</summary>
+        public void ShowOff()
+        {
+            if (mode == Mode.Off) return;
+            mode = Mode.Off;
+            screenMat.mainTexture = Texture2D.blackTexture;
+            screenMat.color = new Color(0.03f, 0.03f, 0.035f);
+            glow.intensity = 0.02f;
+        }
+
         /// <summary>Colour bars, dimmed, and a faint glow: nobody is watching.</summary>
         public void ShowStandby()
         {
@@ -143,7 +153,7 @@ namespace BuildingEscape
         void Update()
         {
             if (mode == Mode.Static && Time.unscaledTime >= nextNoise) Shuffle();
-            if (mode != Mode.Standby)
+            if (mode != Mode.Standby && mode != Mode.Off)
             {
                 flicker = Mathf.Lerp(flicker, Mathf.PerlinNoise(Time.unscaledTime * 9f, 3.7f), 0.5f);
                 float basis = mode == Mode.Program ? 1.25f : 0.95f;

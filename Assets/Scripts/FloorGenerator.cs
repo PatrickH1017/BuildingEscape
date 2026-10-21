@@ -85,6 +85,7 @@ namespace BuildingEscape
             bool hub = floor <= 0;
             bool boss = TowerRules.IsBoss(floor);
             Net.NetIds.Reset(); // a new floor: ids start again from 0, in creation order (same on every machine)
+            if (hub) PvpBoard.Reset();            // (a new basement: a new leaderboard of the PVP room)
             NoteBaseSeed(floor, seed);
             planSeed = seed;
             ResetOutpost();
@@ -303,6 +304,12 @@ namespace BuildingEscape
                     if (dockWalls && r == rows && c == cols - 1) continue; // the garage-door wall: see FloorGenerator.Dock.cs
                     bool solid = r == 0 || r == rows || !openN[c, r - 1];
                     float z = r * cellSize, x0 = c * cellSize;
+                    if (dockWalls && r == rows && c == 0)
+                    {
+                        // the PVP room goes out through this wall (FloorGenerator.DockRooms.cs): the wall starts east of it
+                        WallX((PvpOpeningTo + x0 + cellSize) * 0.5f, z, x0 + cellSize - PvpOpeningTo);
+                        continue;
+                    }
                     if (solid)
                     {
                         var wall = WallX(x0 + cellSize / 2f, z, cellSize);
@@ -1008,6 +1015,7 @@ namespace BuildingEscape
                 int look = Random.Range(0, 100);
                 var ai = SpawnGuard($"Backup_{reinforcementCount++}", new List<Vector3> { p }, look, ArmedGuards.RollFor(FloorNow));
                 ai.roam = RandomWalkable;   // after reaching the spot, wander freely again
+                ai.IsBackup = true;         // (a backup officer notices a player in his cone much faster: GuardRules.BackupSpotFactor)
                 ai.Dispatch(target);
                 Net.RunSync.Instance?.BroadcastSpawnGuard(ai.NetId, p, look, target);
                 made++;
@@ -1035,6 +1043,7 @@ namespace BuildingEscape
                 int look = Random.Range(0, 100);
                 var ai = SpawnGuard($"Backup_{reinforcementCount++}", new List<Vector3> { best }, look, ArmedGuards.RollFor(FloorNow));
                 ai.roam = RandomWalkable;   // after reaching the spot, wander freely again
+                ai.IsBackup = true;         // (a backup officer notices a player in his cone much faster: GuardRules.BackupSpotFactor)
                 ai.Dispatch(target);
                 Net.RunSync.Instance?.BroadcastSpawnGuard(ai.NetId, best, look, target); // clients show it too
                 spawned++;

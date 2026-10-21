@@ -72,7 +72,7 @@ namespace BuildingEscape.Net
                 // a spare clip is used up on the spot (the owner, 2026-10-18): its rounds go into the pew this player carries - every machine adds them, as for the dealer's clip - and the clip is gone everywhere; no pew, no clip
                 var clipGun = Vendor.GunOf(bp, clip.kind);
                 if (clipGun == null) { Notice(who, Backpack.NoGunForClip(clip.kind)); return; }
-                if (clipGun.Magazine.Room < clip.rounds) { Notice(who, Backpack.TooManyClips); return; }      // (three clips at most: the clip stays where it lies)
+                if (clipGun.Magazine.Room < clip.rounds) { Notice(who, Backpack.TooManyClipsFor(clipGun.Magazine)); return; }      // (three clips at most: the clip stays where it lies)
                 int rounds = clip.rounds;
                 AnnounceAmmo(np.Slot, rounds, clip.kind);
                 Notice(who, Backpack.ClipTaken(rounds, clip.kind));

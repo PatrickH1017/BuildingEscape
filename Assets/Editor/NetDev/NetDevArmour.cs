@@ -166,7 +166,7 @@ namespace BuildingEscape.EditorTools
 
             // ================= 5. from a safe on floor 3 to the dealer
             int seed = 0;
-            for (int s = 1; s < 5000 && seed == 0; s++) if (SafeRules.HoldsGun(s, 3, 0) && SafeRules.HoldsArmour(s, 3, 1) && SafeRules.PickArmour(s, 3, 1, 0) == ShieldTier.Light) seed = s;
+            for (int s = 1; s < 5000 && seed == 0; s++) if (!SafeRules.HoldsArmour(s, 3, 0) && SafeRules.HoldsArmour(s, 3, 1) && SafeRules.PickArmour(s, 3, 1, 0) == ShieldTier.Light) seed = s;          // (floor 3 holds no gun in its safes: the first safe is empty)
             ArmourCheck("(test) a run whose second safe on floor 3 holds Light Armour", seed != 0, $"(seed {seed})");
             ArmourOff(pack);
             RunUnlocks.Reset();
@@ -175,8 +175,8 @@ namespace BuildingEscape.EditorTools
             player = WobblyPlayerRegistry.All[0]; rb = player.GetComponent<Rigidbody>(); pack = player.GetComponent<Backpack>();
             var inSafes = FindObjectsByType<ArmourItem>(FindObjectsInactive.Include, FindObjectsSortMode.None).Where(a => a && FloorSafe.HoldsGun(a.gameObject)).ToList();
             var safe0 = FloorSafe.ByIndex(0); var safe1 = FloorSafe.ByIndex(1);
-            ArmourCheck("floor 3: the first safe holds a gun, the second Light Armour instead of one; the piece is out of the world while the safe is shut",
-                safe0 != null && safe1 != null && inSafes.Count == 1 && inSafes[0].tier == ShieldTier.Light && safe0.GunCount == 1 && safe1.GunCount == 1 && !inSafes[0].gameObject.activeSelf && !safe1.IsOpen && !safe0.IsOpen,
+            ArmourCheck("floor 3: the first safe holds nothing (floor 3 has no gun in its safes), the second Light Armour; the piece is out of the world while the safe is shut",
+                safe0 != null && safe1 != null && inSafes.Count == 1 && inSafes[0].tier == ShieldTier.Light && safe0.GunCount == 0 && safe1.GunCount == 1 && !inSafes[0].gameObject.activeSelf && !safe1.IsOpen && !safe0.IsOpen,
                 $"({inSafes.Count} piece(s) in safes)");
             if (safe1 != null && inSafes.Count == 1)
             {

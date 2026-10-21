@@ -1,4 +1,4 @@
-﻿EMPLOYEES TAKE REVENGE - friends' playtest build
+EMPLOYEES TAKE REVENGE - friends' playtest build
 
 How to play
  1. Start Steam first and stay logged in: the game uses Steam for lobbies, friends and invites.
@@ -27,8 +27,8 @@ How to play
     button punches. The weapons are the Synty Battle Royale models (crowbar, bat, fire axe, heavy pistol). The player's pew has a silencer on the end of its barrel,
     in line with it: the shot (flash, tracer, bullet) starts at the silencer's front and is only heard 12 m away, the empty case flies out of the slide; the officers'
     pews have none and are loud. (By design pistols, sub machine guns and rifles can take a silencer, shotguns and snipers never do; the pew is the only gun so far.)
-    The pew pistol (8 rounds a clip, 3 clips, three hits drop an officer with no shield, four one with a light shield) is locked in a gun safe on the desk in floor 3's outpost (E on it: hold the left mouse button on the green circle and drag along the corridor to the red one; touching a wall sets off the alarm); once floor 3 is done the
-    dealer in the Loading Docks sells the pistol and extra clips for money (three clips of a gun is the most anybody can carry: he will not sell a fourth). In the Loading Docks the ammunition is unlimited; on the floors the
+    The pew pistol (8 rounds a clip, up to 12 clips, three hits drop an officer with no shield, four one with a light shield) is locked in a gun safe on the desk in floor 3's outpost (E on it: hold the left mouse button on the green circle and drag along the corridor to the red one; touching a wall sets off the alarm); once floor 3 is done the
+    dealer in the Loading Docks sells the pistol and extra clips for money (three clips of a gun is the most anybody can carry, twelve of the pistol: he will not sell more). In the Loading Docks the ammunition is unlimited; on the floors the
     elevator does NOT refill your guns any more, so buy clips.
     Sprinting uses stamina (the bar at the bottom of the screen); when it runs dry you are winded for a moment.
 10. The officers notice you faster the closer you are and take longer the further away you are.
@@ -58,6 +58,23 @@ How to play
     time; a shotgun or a sniper still blows you up. Carry a piece back to the Loading Docks and the dealer sells that tier to the whole party (Light $600, Medium $1,400, Heavy $2,800).
 19. Lucky safes. A weapon safe (floor 3 and up) holds a gun only some of the time - about 4 times in 10 when it holds no armour - and may hold nothing at all, or only its cash, spare clip or gold watch. No safe is sure to hold the gun a floor
     unlocks, the first one of a floor either. The sniper rifle is never in a safe: from floor 10 on every guard outpost has one lying on its desk, in the open. A shotgun, when a safe holds one, stands upright in a taller safe.
+20. Round 12 (2026-10-19). The Intro's plane is the pack's white plane and its skyline has the pack's towers; the cars and the buildings of the night city outside the windows are the pack's. The Intro now ends on the Loading Docks' bay:
+    the dealer's roller door opens after the workers say they are calling him (37.8 s in all). The pistol carries up to twelve clips (96 rounds). Floor 3's safes hold no gun and no clip (the only pistol of floor 3 is the one in the
+    outpost's gun safe), only armour, cash and watches. Keys 1 / 2 / 3 switch between the first three weapons in your pack (a bar at the bottom of the screen shows them). P, the mouse wheel and Ctrl + Up / Down switch between first and third
+    person. The forklift no longer blocks the PVP room's doorway. The PVP room is a big warehouse now, with shipping containers and crates to hide behind. A dart board hangs at the end of the hallway outside the break room, straight across from its doorway (the hallway is cleared; the steel shelves along its walls
+    stay), with a strip of tape on the floor 2.37 m from it and a little scoreboard above it that everybody sees. Stand at the tape and press E to play 301 or Cricket: the game holds you at the middle of the tape - A / D slide you along it, the mouse
+    turns you a little, hold the left mouse button to wind up a throw and let go to throw (the dart drops over a distance), E leaves; the camera also tilts up and down; the keys are shown on the screen. A guard you knock over radios for backup when he gets up (another blow cuts the call), and the officers who come as backup notice you much faster than the others.
+21. Round 12 part E (2026-10-20 afternoon). The Intro: the plane is quieter; the workers bow their heads only after they have heard that the bonuses are gone; five Loading Dock workers (the playable characters, below) stand in a CIRCLE in the break room
+    talking while the TV is dark (a different one speaks every second or so, the others look at them and nod, with a soft murmur), then the TV clicks on, they look round at it and WALK to a line in front of it and watch (the opening is 2.2 seconds longer
+    for it); the worker's new line ("That's enough, it's time for revenge. Let's meet back up tonight. Call that Vendor you talked about.") replaces the old one and the vendor says his four lines. The scan shows safes and valuables gold,
+    weapons red, cash green. The night city has buildings on the near plots. A PVP elimination list is on the right side of the screen in the docks. The PVP room has a FORKLIFT-SIZED doorway (2.4 m wide, 2.8 m high; the break room's door is unchanged), no
+    shipping containers any more, and steel shelves with boxes (25 units) along its walls and in rows as the cover, with a few pallets and crates. Nothing can block the way into it: the floor in front of its doorway (6.4 x 4.8 m) and a lane 2.7 m wide from there
+    down the elevator room's east wall are kept clear of forklifts, drums, boxes and shelves in every layout (a walk-through test over 24 layouts: a player reaches every free spot of the room from the elevator's door, and a forklift-sized body the doorway). Officers who are knocked over (a melee blow, a punch) now STAND DAZED - head down, arms hanging (the Blink
+    StunnedLoop) - instead of falling down. The sniper rifle is the Barrett .50 cal. A gun with a silencer SOUNDS silenced (a short suppressed pop with the slide working; the pistol, the sub machine gun and the rifle); the shotgun and the sniper stay loud (and the
+    rocket launcher will when it comes); the officers' guns are unchanged. Red dot sights on the sub machine gun, the rifle and the shotgun. In first person you see the gun, shouldered in front of your eyes with its sight near the middle of the screen, and your
+    hands, not your body (before, the whole body showed with a gun in the hands); a bat, a crowbar or an axe is raised to the lower right of the screen. The playable characters are exactly five (Dock worker 1 to 5): the man in the orange hi-vis vest with the tan cap,
+    the woman with the yellow hard hat and overalls, the bearded man with the orange hard hat and goggles, the older man with the white hard hat and the woman in the red plaid shirt; they are also the five workers of the Intro. A saved look of any other character
+    becomes Dock worker 1.
 
 If something goes wrong
  - No lobbies or friends show up: make sure Steam is running before you start the game.

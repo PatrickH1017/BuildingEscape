@@ -31,6 +31,7 @@ namespace BuildingEscape
         /// puts his chest above the desk (the desk hides the rest of him).</summary>
         public static readonly Vector3 BossSeat = new Vector3(0f, 0.92f, 1.3f);
 
+        const float PlaneScale = 5.0f;                            // the white plane (3.1 m long as the pack made it) flies a little bigger than the old plain jet (12.6 m): 15.5 m, so that it reads on the small TV
         const float GroundY = -96f;                               // the street level, far below the windows
         static readonly Vector3 Eye = new Vector3(-1f, 1.5f, 0f); // about where the camera is: what the haze measures from
 
@@ -50,7 +51,7 @@ namespace BuildingEscape
 
         /// <summary>Paints the pictures now (the sky, the tower windows, the lamp's glass; about 0.3 s the first time), so the first Intro of a session does not stall the
         /// frame it starts in: the director calls this while the run's scene is still loading.</summary>
-        public static void Prewarm() { SkyTexture(); WindowTexture(0); WindowTexture(1); LampTexture(); }
+        public static void Prewarm() { SkyTexture(); WindowTexture(0); WindowTexture(1); LampTexture(); _ = CityCatalog.Instance; }
 
         BossOffice(Vector3 origin)
         {
@@ -180,16 +181,20 @@ namespace BuildingEscape
             // ---- the private jet (parked out of sight until the window shot), its nose toward -x; big, because it flies far outside
             jet = new GameObject("Jet").transform;
             jet.SetParent(root, false);
-            jet.localScale = Vector3.one * 1.7f;
-            var white = Mat(new Color(0.94f, 0.95f, 0.97f), 0.6f);
-            var gold = Mat(new Color(0.85f, 0.65f, 0.18f), 0.6f, 0.5f);
-            Part(PrimitiveType.Capsule, "Fuselage", new Vector3(0f, 0f, 0f), new Vector3(1.5f, 5.0f, 1.5f), white, new Vector3(0f, 0f, 90f));
-            Part(PrimitiveType.Cube, "Wings", new Vector3(0.6f, -0.2f, 0f), new Vector3(2.3f, 0.14f, 11f), white, new Vector3(0f, 14f, 0f));
-            Part(PrimitiveType.Cube, "Fin", new Vector3(4.3f, 1.35f, 0f), new Vector3(1.9f, 2.3f, 0.14f), gold, new Vector3(0f, 0f, -12f));
-            Part(PrimitiveType.Cube, "Tailplane", new Vector3(4.4f, 0.55f, 0f), new Vector3(1.2f, 0.1f, 4.2f), white, Vector3.zero);
-            Part(PrimitiveType.Cylinder, "EngineL", new Vector3(3.5f, 0.45f, -1.1f), new Vector3(0.8f, 1.2f, 0.8f), steel, new Vector3(0f, 0f, 90f));
-            Part(PrimitiveType.Cylinder, "EngineR", new Vector3(3.5f, 0.45f, 1.1f), new Vector3(0.8f, 1.2f, 0.8f), steel, new Vector3(0f, 0f, 90f));
-            Part(PrimitiveType.Cube, "Stripe", new Vector3(0f, 0.05f, 0f), new Vector3(8.6f, 0.2f, 1.53f), gold, Vector3.zero);
+            if (DressPlane(jet)) jet.localScale = Vector3.one * PlaneScale;
+            else
+            {
+                jet.localScale = Vector3.one * 1.7f;
+                var white = Mat(new Color(0.94f, 0.95f, 0.97f), 0.6f);
+                var gold = Mat(new Color(0.85f, 0.65f, 0.18f), 0.6f, 0.5f);
+                Part(PrimitiveType.Capsule, "Fuselage", new Vector3(0f, 0f, 0f), new Vector3(1.5f, 5.0f, 1.5f), white, new Vector3(0f, 0f, 90f));
+                Part(PrimitiveType.Cube, "Wings", new Vector3(0.6f, -0.2f, 0f), new Vector3(2.3f, 0.14f, 11f), white, new Vector3(0f, 14f, 0f));
+                Part(PrimitiveType.Cube, "Fin", new Vector3(4.3f, 1.35f, 0f), new Vector3(1.9f, 2.3f, 0.14f), gold, new Vector3(0f, 0f, -12f));
+                Part(PrimitiveType.Cube, "Tailplane", new Vector3(4.4f, 0.55f, 0f), new Vector3(1.2f, 0.1f, 4.2f), white, Vector3.zero);
+                Part(PrimitiveType.Cylinder, "EngineL", new Vector3(3.5f, 0.45f, -1.1f), new Vector3(0.8f, 1.2f, 0.8f), steel, new Vector3(0f, 0f, 90f));
+                Part(PrimitiveType.Cylinder, "EngineR", new Vector3(3.5f, 0.45f, 1.1f), new Vector3(0.8f, 1.2f, 0.8f), steel, new Vector3(0f, 0f, 90f));
+                Part(PrimitiveType.Cube, "Stripe", new Vector3(0f, 0.05f, 0f), new Vector3(8.6f, 0.2f, 1.53f), gold, Vector3.zero);
+            }
             SetJet(-1f);
 
             // ---- lights: a soft key from the camera side, a warm sun through the windows, a little fill; they light this layer only
@@ -201,6 +206,28 @@ namespace BuildingEscape
             fill.type = LightType.Point; fill.range = 10f; fill.intensity = 0.55f; fill.shadows = LightShadows.None; fill.cullingMask = 1 << Layer;
 
             foreach (var t in root.GetComponentsInChildren<Transform>(true)) t.gameObject.layer = Layer;
+        }
+
+        /// <summary>The owner's white plane (2026-10-19: the pack's ComPlaneV1; its nose is +z) as the jet: turned to fly toward -x, its landing gear up, centred on the jet's origin. False (nothing made) when the catalog has no plane.</summary>
+        bool DressPlane(Transform parent)
+        {
+            var catalog = CityCatalog.Instance;
+            var prefab = catalog ? catalog.plane : null;
+            if (!prefab) return false;
+            var model = Object.Instantiate(prefab, parent);
+            model.name = "Plane";
+            CityProps.Strip(model);
+            foreach (var t in model.GetComponentsInChildren<Transform>(true))
+                if (t != model.transform && t.name.Contains("LandingGear")) t.gameObject.SetActive(false);            // (it is in the air)
+            model.transform.localScale = Vector3.one;
+            model.transform.localRotation = Quaternion.Euler(0f, -90f, 0f);
+            model.transform.localPosition = Vector3.zero;
+            var rs = model.GetComponentsInChildren<Renderer>();
+            if (rs.Length == 0) { Object.Destroy(model); return false; }
+            var b = rs[0].bounds;
+            foreach (var r in rs) b.Encapsulate(r.bounds);
+            model.transform.localPosition = -parent.InverseTransformPoint(b.center);
+            return true;
         }
 
         /// <summary>Where the jet is: <paramref name="progress"/> 0 = far right outside the windows, 1 = far left; outside 0..1 it is parked out of sight.</summary>
@@ -220,6 +247,48 @@ namespace BuildingEscape
         }
 
         // ------------------------------------------------------------------ builders
+
+        // ---- the owner's towers (2026-10-19): the pack's tall buildings, made big enough to be seen from far, as the skyline the windows look at
+
+        const float PackCell = 64f, PackZ0 = 288f;                // the plots: 64 m squares in rows from z = 288 m outward
+
+        /// <summary>The cone of the view the windows give: the plots outside it would never be seen.</summary>
+        static bool PackCone(float x, float z) => Mathf.Abs(x) < 0.65f * z + 40f;
+
+        /// <summary>The plot of the pack's grid a spot lies in (column, row).</summary>
+        static Vector2Int PackIndex(float x, float z) => new Vector2Int(Mathf.FloorToInt((x + PackCell * 0.5f) / PackCell), Mathf.FloorToInt((z - PackZ0) / PackCell));
+
+        /// <summary>Stands the pack's towers four times their size, with the aerial perspective of the other towers, on the plots of the cone: 62 % of the nearest row, 8 % of the seventh, none farther (the owner, 2026-10-19: keep some of the old tall towers sporadically, they make good skyscrapers in the distance); returns the plots that got one (the box towers there stay out).</summary>
+        HashSet<Vector2Int> PackTowers()
+        {
+            var placed = new HashSet<Vector2Int>();
+            var pool = CityBuildings.Towers(CityCatalog.Instance);
+            if (pool.Length == 0) return placed;
+            for (int jp = 0; jp < 7; jp++)
+                for (int ip = -14; ip <= 14; ip++)
+                {
+                    float x = ip * PackCell, z = PackZ0 + (jp + 0.5f) * PackCell;
+                    if (!PackCone(x, z) || Hash(ip + 700, jp + 700) >= 0.62f - 0.085f * jp) continue;                       // (fewer the farther: the old glass skyscrapers keep the distance)
+                    float haze = 0.7f * Mathf.Min(0.97f, 1f - Mathf.Exp(-Mathf.Sqrt(x * x + z * z) / 560f));
+                    var go = CityBuildings.Place(root, pool[(int)(Hash(ip + 911, jp + 913) * pool.Length) % pool.Length], root.TransformPoint(new Vector3(x, GroundY, z)),
+                        90f * Mathf.Floor(Hash(ip + 917, jp + 919) * 4f), PackCell - 12f, PackCell - 12f, 150f, 4f, src => Hazed(src, haze), -1);
+                    if (go != null) placed.Add(new Vector2Int(ip, jp));
+                }
+            return placed;
+        }
+
+        /// <summary>A copy of a pack material for the daytime city: its picture dimmed by <paramref name="haze"/> with the haze's colour added (the aerial perspective the other towers have in their vertex colours).</summary>
+        Material Hazed(Material src, float haze)
+        {
+            float shade = (1f - haze) * 0.78f;                            // (the pack's pale walls are white in this much light: a little darker)
+            var m = new Material(Shader.Find("Standard")) { color = new Color(shade, shade, shade, 1f), mainTexture = src ? src.mainTexture : null };
+            m.SetFloat("_Glossiness", 0f); m.SetFloat("_Metallic", 0f);
+            m.EnableKeyword("_EMISSION");
+            m.globalIlluminationFlags = MaterialGlobalIlluminationFlags.None;
+            m.SetColor("_EmissionColor", Haze * haze);
+            owned.Add(m);
+            return m;
+        }
 
         Material Mat(Color color, float smoothness = 0.3f, float metallic = 0f)
         {
@@ -343,6 +412,7 @@ namespace BuildingEscape
         void BuildCity()
         {
             // near (windows clear), middle (windows faint), far (no windows): z ranges, grid cell sizes, and the ground's quad sizes
+            var packed = PackTowers();                                  // (the owner's towers first: the box towers of their plots stay out)
             float[] zNear = { 14f, 260f, 640f }, zFar = { 260f, 640f, 1500f }, cell = { 24f, 32f, 46f };
             float[] groundEnd = { 260f, 640f, 5000f }, groundStep = { 40f, 80f, 800f }, groundCell = { 60f, 120f, 1200f };
             var palette = new[] { new Color(0.66f, 0.70f, 0.76f), new Color(0.44f, 0.54f, 0.68f), new Color(0.80f, 0.75f, 0.67f), new Color(0.55f, 0.58f, 0.62f) };
@@ -375,6 +445,7 @@ namespace BuildingEscape
                         if (Hash(hx, hz) < 0.12f) continue;
                         float w = step * (0.50f + 0.35f * Hash(hx + 11, hz)), d = step * (0.50f + 0.35f * Hash(hx, hz + 23));
                         float cx = ci * step + (Hash(hx + 3, hz + 5) - 0.5f) * (step - w), cz = zc + (Hash(hx + 7, hz + 9) - 0.5f) * (step - d);
+                        if (band >= 1 && packed.Contains(PackIndex(cx, cz))) continue;                                              // (one of the owner's towers stands there)
                         float roll = Hash(hx + 31, hz + 41);
                         float h = 12f + 34f * roll * roll;
                         if (Hash(hx + 53, hz + 59) < 0.08f) h += 40f + 80f * Hash(hx + 61, hz + 67);                                     // an odd tower

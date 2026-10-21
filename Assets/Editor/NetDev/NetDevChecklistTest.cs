@@ -16,8 +16,8 @@ namespace BuildingEscape.EditorTools
             ChecklistRules.Rgb(ScanKind.Unique, out float ur, out float ug, out float ub);
             ChecklistRules.Rgb(ScanKind.Cash, out float cr, out float cg, out float cb);
             ChecklistRules.Rgb(ScanKind.Valuable, out float vr, out float vg, out float vb);
-            Check("scan: safes glow red, unique items purple, cash green and valuables gold",
-                sr > 0.8f && sg < 0.4f && sb < 0.4f && ur > 0.5f && ub > 0.9f && ug < 0.5f && cg > 0.8f && cr < 0.4f && cb < 0.6f && vr > 0.9f && vg > 0.7f && vb < 0.3f,
+            Check("scan: safes and valuables glow gold, unique items (weapons) red and cash green (the owner, 2026-10-20)",
+                sr > 0.9f && sg > 0.7f && sb < 0.3f && vr > 0.9f && vg > 0.7f && vb < 0.3f && ur > 0.8f && ug < 0.4f && ub < 0.4f && cg > 0.8f && cr < 0.4f && cb < 0.6f,
                 $"(safe {sr:0.00}/{sg:0.00}/{sb:0.00}, unique {ur:0.00}/{ug:0.00}/{ub:0.00}, cash {cr:0.00}/{cg:0.00}/{cb:0.00}, valuable {vr:0.00}/{vg:0.00}/{vb:0.00})");
 
             // ---- when a line is done

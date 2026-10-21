@@ -1,4 +1,6 @@
+using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Rendering;
 
 namespace BuildingEscape
 {
@@ -29,12 +31,62 @@ namespace BuildingEscape
         public KeyCode altFreeLookKey = KeyCode.V; // for setups where Alt is intercepted
         public float returnSpeed = 10f;
         public float followSmooth = 25f;
+        [Header("View (the owner: wheel up = first person, wheel down = third; Ctrl + Up / Down and P for those without a mouse)")]
+        public KeyCode viewKey = KeyCode.P;
+        public float eyeHeight = 0.62f;       // first person: the eyes above the capsule centre
 
         /// <summary>Yaw the character should face / move relative to (ignores free look).</summary>
         public float AimYaw => aimYaw;
         public bool FreeLooking { get; private set; }
 
+        // the dart game (the owner, 2026-10-20): at the throw line the aim can turn only a little, like Wii bowling
+        bool aimLimited; float limitCentre, limitHalf, limitPitchMin, limitPitchMax;
+        public bool AimLimited => aimLimited;
+        /// <summary>
+        /// The aim may turn <paramref name="halfRange"/> degrees either side of <paramref name="centreYaw"/> and tilt between the two pitches; the view is put on the centre (and tilted at <paramref name="lookAt"/>, if there is one).
+        /// Free look is off meanwhile. <see cref="ClearAimLimit"/> lifts it.
+        /// </summary>
+        public void LimitAim(float centreYaw, float halfRange, float pitchMin, float pitchMax, Vector3? lookAt = null)
+        {
+            aimLimited = true; limitCentre = centreYaw; limitHalf = halfRange; limitPitchMin = pitchMin; limitPitchMax = pitchMax;
+            aimYaw = centreYaw; lookYaw = 0f; lookPitch = 0f;
+            if (lookAt.HasValue && (spectate ? spectate : target))
+            {
+                // the camera hangs behind the head and a shoulder to the right: its line of sight passes through the point a shoulder's width to the right of the head, so the view is turned to the left of the point's bearing
+                // by asin(shoulder / distance) and tilted by the drop over the distance from that shoulder point, and the crosshair is ON the point, not beside it
+                var d = lookAt.Value - Pivot();
+                float flat = new Vector2(d.x, d.z).magnitude, side = Mathf.Lerp(shoulderOffset, 0f, ViewRules.Smooth(zoom));
+                if (flat > side + 0.05f)
+                {
+                    aimYaw = Mathf.Atan2(d.x, d.z) * Mathf.Rad2Deg - Mathf.Asin(side / flat) * Mathf.Rad2Deg;
+                    pitch = Mathf.Atan2(-d.y, Mathf.Sqrt(flat * flat - side * side)) * Mathf.Rad2Deg;
+                }
+            }
+            pitch = Mathf.Clamp(pitch, pitchMin, pitchMax);
+        }
+        public void ClearAimLimit() => aimLimited = false;
+        /// <summary>The camera tilts by this many degrees (positive: further down; the tests call it too): kept within the limit, if there is one (the owner, 2026-10-20: "The dart camera should also be able to go up and down as well").</summary>
+        public void TiltAim(float dpitch) => pitch = aimLimited ? Mathf.Clamp(pitch + dpitch, limitPitchMin, limitPitchMax) : Mathf.Clamp(pitch + dpitch, minPitch, maxPitch);
+        /// <summary>How far the camera is tilted down (negative: up), in degrees.</summary>
+        public float AimPitch => pitch;
+        /// <summary>The mouse turned the aim by this many degrees (the tests call it too): kept within the limit, if there is one.</summary>
+        public void TurnAim(float dyaw)
+        {
+            aimYaw += dyaw;
+            if (aimLimited) aimYaw = limitCentre + Mathf.Clamp(Mathf.DeltaAngle(limitCentre, aimYaw), -limitHalf, limitHalf);
+        }
+
         float aimYaw, pitch = 12f, lookYaw, lookPitch;
+        float zoom, zoomTarget;               // 0 = third person .. 1 = first person (ViewRules)
+        readonly List<Renderer> hiddenBody = new List<Renderer>();
+        readonly Dictionary<Renderer, ShadowCastingMode> bodyModes = new Dictionary<Renderer, ShadowCastingMode>();
+        bool bodyHidden; float nextBodyScan;
+
+        /// <summary>Is the view at the eyes (the body is out of the picture)?</summary>
+        public bool IsFirstPerson => ViewRules.IsFirstPerson(zoom);
+        public float Zoom => zoom;
+        public void SetFirstPerson(bool on) => zoomTarget = on ? ViewRules.FirstPerson : ViewRules.ThirdPerson;
+        public void ToggleView() => zoomTarget = zoomTarget > 0.5f ? ViewRules.ThirdPerson : ViewRules.FirstPerson;
         bool cursorFree;
         Vector3 smoothedPivot;
         readonly RaycastHit[] hits = new RaycastHit[16];
@@ -55,7 +107,7 @@ namespace BuildingEscape
             if (!targetPlayer || targetPlayer.transform != body) targetPlayer = body.GetComponent<WobblyPlayer>();
             bool crouched = targetPlayer && targetPlayer.IsCrouching;
             crouchDrop = Mathf.MoveTowards(crouchDrop, crouched ? 1f : 0f, Time.deltaTime * 5f);
-            return body.position + Vector3.up * (headHeight - 0.5f * crouchDrop);
+            return body.position + Vector3.up * (Mathf.Lerp(headHeight, eyeHeight, ViewRules.Smooth(zoom)) - 0.5f * crouchDrop);
         }
 
         void Update()
@@ -68,9 +120,12 @@ namespace BuildingEscape
             Cursor.visible = !locked;
             if (!locked) return;
 
+            bool ctrl = Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl);
+            zoomTarget = ViewRules.Target(zoomTarget, Input.mouseScrollDelta.y, ctrl && Input.GetKeyDown(KeyCode.UpArrow), ctrl && Input.GetKeyDown(KeyCode.DownArrow), Input.GetKeyDown(viewKey));
+
             float mx = Input.GetAxis("Mouse X") * sensitivity;
             float my = Input.GetAxis("Mouse Y") * sensitivity;
-            FreeLooking = Input.GetKey(freeLookKey) || Input.GetKey(altFreeLookKey);
+            FreeLooking = !aimLimited && (Input.GetKey(freeLookKey) || Input.GetKey(altFreeLookKey));
             if (FreeLooking)
             {
                 lookYaw += mx;
@@ -78,13 +133,130 @@ namespace BuildingEscape
             }
             else
             {
-                aimYaw += mx;
-                pitch = Mathf.Clamp(pitch - my, minPitch, maxPitch);
+                TurnAim(mx);
+                TiltAim(-my);
                 float k = 1f - Mathf.Exp(-returnSpeed * Time.deltaTime);
                 lookYaw = Mathf.LerpAngle(lookYaw, 0f, k);
                 lookPitch = Mathf.Lerp(lookPitch, 0f, k);
                 if (Mathf.Abs(Mathf.DeltaAngle(lookYaw, 0f)) < 0.05f) lookYaw = 0f;
             }
+        }
+
+        // ---- what is seen of the player's own body in first person (the owner, 2026-10-20: "When in first person with a weapon the character is somewhat visible blocking the screen": the gun and a forearm, nothing else)
+        const string ArmsShaderName = "BuildingEscape/FirstPersonArms";
+        const float ArmReach = 0.105f;                                   // how far from a forearm's line the body is still drawn (m): the arm's own thickness and a little more
+        static Shader armsShader; static bool armsShaderLooked;
+        readonly Dictionary<Renderer, Material[]> armsOriginal = new Dictionary<Renderer, Material[]>();
+        readonly Dictionary<Material, Material> armsMade = new Dictionary<Material, Material>();
+        Transform armRU, armRE, armRH, armLU, armLE, armLH, armHead;     // the right and the left upper arm, elbow and wrist, and the head (what is worn on it is never part of the arms)
+        /// <summary>First person with a rig that has arms: the body is drawn as just its two forearms and hands (the shader throws the rest away), with the gun or the tool in the hands whole.</summary>
+        public bool ArmsShown { get; private set; }
+
+        /// <summary>The camera of this machine (the guns ask where it is: in first person they are held in front of its eyes) and the body it is looking from.</summary>
+        public static CameraFollow Current { get; private set; }
+        public Transform ViewedBody => spectate ? spectate : target;
+
+        void OnEnable() { Camera.onPreCull += PreCullArms; Current = this; }
+        void OnDisable() { Camera.onPreCull -= PreCullArms; if (Current == this) Current = null; }
+        void PreCullArms(Camera c) => PushArms();
+        void OnDestroy() { foreach (var m in armsMade.Values) if (m) Destroy(m); armsMade.Clear(); }
+
+        /// <summary>The bones of the two arms of a humanoid body; false for a rig without them (the Party character), which is then out of the picture altogether.</summary>
+        bool FindArms(Transform body)
+        {
+            var an = body.GetComponentInChildren<Animator>();
+            if (!an || !an.isHuman) return false;
+            armRU = an.GetBoneTransform(HumanBodyBones.RightUpperArm); armRE = an.GetBoneTransform(HumanBodyBones.RightLowerArm); armRH = an.GetBoneTransform(HumanBodyBones.RightHand);
+            armLU = an.GetBoneTransform(HumanBodyBones.LeftUpperArm); armLE = an.GetBoneTransform(HumanBodyBones.LeftLowerArm); armLH = an.GetBoneTransform(HumanBodyBones.LeftHand);
+            armHead = an.GetBoneTransform(HumanBodyBones.Head);
+            return armRU && armRE && armRH && armLU && armLE && armLH;
+        }
+
+        /// <summary>The gun or the tool in the hands (<c>X_Held</c>, built by RangedWeapon.BuildHeld / MeleeWeapon.BuildHeld) stays whole in the picture.</summary>
+        public static bool IsHeldModel(Transform t, Transform body)
+        {
+            for (var p = t; p && p != body; p = p.parent) if (p.name.EndsWith("_Held")) return true;
+            return false;
+        }
+
+        /// <summary>A body mesh drawn with Standard materials (the characters' colour atlas): the kind the arms shader can take over.</summary>
+        static bool IsSkin(Renderer r)
+        {
+            if (!(r is SkinnedMeshRenderer || r is MeshRenderer) || !r.enabled) return false;
+            var ms = r.sharedMaterials;
+            if (ms.Length == 0) return false;
+            foreach (var m in ms) if (!m || !m.shader || m.shader.name != "Standard") return false;
+            return true;
+        }
+
+        Material[] ArmMaterialsFor(Material[] source)
+        {
+            var made = new Material[source.Length];
+            for (int i = 0; i < made.Length; i++)
+            {
+                var m = source[i];
+                if (!armsMade.TryGetValue(m, out var a) || !a)
+                {
+                    a = new Material(armsShader) { name = "Arms " + m.name, mainTexture = m.mainTexture, color = m.color, hideFlags = HideFlags.HideAndDontSave };
+                    if (a.HasProperty("_Glossiness") && m.HasProperty("_Glossiness")) a.SetFloat("_Glossiness", m.GetFloat("_Glossiness"));
+                    armsMade[m] = a;
+                }
+                made[i] = a;
+            }
+            return made;
+        }
+
+        /// <summary>Hands the two forearms to the arms shader just before a camera draws (after the gun's arm solver has put them where they are).</summary>
+        void PushArms()
+        {
+            if (!ArmsShown || !armRE || !armRH || !armLE || !armLH) return;
+            SetArm("_BEArmRA", "_BEArmRB", armRU, armRE, armRH);
+            SetArm("_BEArmLA", "_BEArmLB", armLU, armLE, armLH);
+            Shader.SetGlobalFloat("_BEArmReach", ArmReach);
+        }
+
+        static void SetArm(string idA, string idB, Transform upper, Transform elbow, Transform hand)
+        {
+            var dir = hand.position - elbow.position;
+            float len = dir.magnitude;
+            var tip = len > 0.001f ? hand.position + dir / len * 0.11f : hand.position;                    // (past the wrist: the fingers)
+            var start = upper ? Vector3.Lerp(elbow.position, upper.position, 0.30f) : elbow.position;       // (a little of the upper arm: the cut stays out of the picture)
+            Shader.SetGlobalVector(idA, start);
+            Shader.SetGlobalVector(idB, tip);
+        }
+
+        /// <summary>In first person only the two arms are in the picture (the body casts its shadow still) with what is in the hands; in third person the body comes back as it was.</summary>
+        void ShowBody(bool show)
+        {
+            var body = spectate ? spectate : target;
+            if (!body) return;
+            if (show)
+            {
+                if (!bodyHidden) return;
+                foreach (var r in hiddenBody)
+                {
+                    if (!r) continue;
+                    if (bodyModes.TryGetValue(r, out var mode)) r.shadowCastingMode = mode;
+                    if (armsOriginal.TryGetValue(r, out var mats)) r.sharedMaterials = mats;
+                }
+                hiddenBody.Clear(); bodyModes.Clear(); armsOriginal.Clear();
+                bodyHidden = false; ArmsShown = false;
+                return;
+            }
+            if (bodyHidden && Time.unscaledTime < nextBodyScan) return;
+            nextBodyScan = Time.unscaledTime + 0.5f;                                  // (a hat or another look can come later: looked at again twice a second)
+            if (!armsShaderLooked) { armsShaderLooked = true; armsShader = Shader.Find(ArmsShaderName); }
+            bool arms = armsShader != null && FindArms(body);
+            foreach (var r in body.GetComponentsInChildren<Renderer>(true))
+            {
+                if (!r || bodyModes.ContainsKey(r) || IsHeldModel(r.transform, body)) continue;
+                bodyModes[r] = r.shadowCastingMode;
+                hiddenBody.Add(r);
+                if (arms && IsSkin(r) && !(armHead && r.transform.IsChildOf(armHead))) { armsOriginal[r] = r.sharedMaterials; r.sharedMaterials = ArmMaterialsFor(r.sharedMaterials); }          // (a cap, goggles, a beard hang on the head: hidden whole)
+                else r.shadowCastingMode = ShadowCastingMode.ShadowsOnly;
+            }
+            ArmsShown = arms;
+            bodyHidden = true;
         }
 
         void LateUpdate()
@@ -98,22 +270,31 @@ namespace BuildingEscape
                 smoothedPivot = Pivot();
                 return;
             }
+            zoom = ViewRules.Step(zoom, zoomTarget, Time.unscaledDeltaTime);
+            float zs = ViewRules.Smooth(zoom);
             smoothedPivot = Vector3.Lerp(smoothedPivot, Pivot(), 1f - Mathf.Exp(-followSmooth * Time.deltaTime));
             var rot = Quaternion.Euler(pitch + lookPitch, aimYaw + lookYaw, 0f);
-            var dir = rot * new Vector3(shoulderOffset, 0f, -distance);
+            var dir = rot * new Vector3(Mathf.Lerp(shoulderOffset, 0f, zs), 0f, -ViewRules.Distance(distance, zoom));
             float len = dir.magnitude;
-            var ndir = dir / len;
-
-            // pull the camera in front of walls (ignore rigidbodies like loot, mugs, players)
-            int n = Physics.SphereCastNonAlloc(smoothedPivot, collisionRadius, ndir, hits, len, ~0, QueryTriggerInteraction.Ignore);
-            float best = len;
-            for (int i = 0; i < n; i++)
+            if (len < 0.02f)
             {
-                if (hits[i].rigidbody != null || hits[i].distance <= 0f) continue;
-                if (hits[i].distance < best) best = hits[i].distance;
+                transform.SetPositionAndRotation(smoothedPivot, rot);                 // (first person: the camera is at the eyes)
             }
-            transform.position = smoothedPivot + ndir * Mathf.Max(0.3f, best);
-            transform.rotation = rot;
+            else
+            {
+                var ndir = dir / len;
+                // pull the camera in front of walls (ignore rigidbodies like loot, mugs, players)
+                int n = Physics.SphereCastNonAlloc(smoothedPivot, collisionRadius, ndir, hits, len, ~0, QueryTriggerInteraction.Ignore);
+                float best = len;
+                for (int i = 0; i < n; i++)
+                {
+                    if (hits[i].rigidbody != null || hits[i].distance <= 0f) continue;
+                    if (hits[i].distance < best) best = hits[i].distance;
+                }
+                transform.position = smoothedPivot + ndir * Mathf.Max(Mathf.Lerp(0.3f, 0f, zs), best);
+                transform.rotation = rot;
+            }
+            ShowBody(!ViewRules.IsFirstPerson(zoom));
         }
     }
 }

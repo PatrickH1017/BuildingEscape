@@ -34,11 +34,12 @@ namespace BuildingEscape
         public bool IsToon => !string.IsNullOrEmpty(model);
 
         /// <summary>
-        /// The dock workers (the Synty office people) a player is by default, in slot order: the four characters the owner showed (the man with the cap, the blonde woman in dark grey, the man with glasses
+        /// The dock workers a player is by default, in slot order: since 2026-10-20 the five characters of the owner's pictures (the hi-vis man with the cap, the woman with the yellow hard hat, the bearded man with the orange hard hat, the older man with the white hard hat, the woman in the plaid shirt);
+        /// before that the four characters the owner showed (the man with the cap, the blonde woman in dark grey, the man with glasses
         /// and headphones, the man with the red beard and the vest) and the woman cleaner from his first picture (2026-10-17 night: "The Dock workers should be these character models"; before that
         /// "Make the toon the default character").
         /// </summary>
-        public static readonly string[] DefaultToons = { "syn_cleaner_male_01", "syn_boss_female_01", "syn_developer_male_02", "syn_business_male_02", "syn_cleaner_female_01" };
+        public static readonly string[] DefaultToons = { "syn_builder_highvis_01", "syn_builder_female_01", "syn_builder_singlet_01", "syn_builder_harness_01", "syn_developer_female_02" };
 
         /// <summary>The dock worker a slot is by default, or null on a machine without the office pack (the slot's Party character stands in). An older catalog without the defaults offers whoever can be played.</summary>
         public static string DefaultToon(int slot)

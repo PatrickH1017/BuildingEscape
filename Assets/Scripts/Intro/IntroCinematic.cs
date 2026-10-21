@@ -7,7 +7,7 @@ using UnityEngine.SceneManagement;
 namespace BuildingEscape
 {
     /// <summary>
-    /// The run-start cinematic ("the Intro"): the players' characters - the loading dock workers - stand in the corner of the Loading Docks and watch the boss tell them, on the
+    /// The run-start cinematic ("the Intro"): the players' characters - the loading dock workers - talk in a circle in the break room of the Loading Docks until the TV comes on, then line up in front of it and watch the boss tell them, on the
     /// wall-mounted TV (<see cref="DockTv"/>), that their bonuses are gone this year because he is buying a private jet; when the broadcast ends one of them says to another
     /// "Hey call that guy you were talking about." The owner's rules (2026-10-16 night and 2026-10-17): it plays every time a new run is started; HOLDING SPACE skips it; in multiplayer
     /// it is skipped, for everybody, once at least 50 % of the party members are holding it (<see cref="IntroRules"/>; the host counts, <c>RunSync.Intro.cs</c>).
@@ -50,6 +50,16 @@ namespace BuildingEscape
         public string WorkerLabel(int i) => i >= 0 && i < actors.Count ? actors[i].label : null;
         public Vector3 WorkerFoot(int i) => i >= 0 && i < actors.Count ? actors[i].foot : Vector3.zero;
         public float WorkerYaw(int i) => i >= 0 && i < actors.Count ? actors[i].yaw : 0f;
+        /// <summary>Tests: where the worker stands in the circle and where in the line, the circle's middle, and whether they are on the walk between the two now.</summary>
+        public Vector3 WorkerRingFoot(int i) => i >= 0 && i < actors.Count ? actors[i].ringFoot : Vector3.zero;
+        public Vector3 WorkerLineFoot(int i) => i >= 0 && i < actors.Count ? actors[i].lineFoot : Vector3.zero;
+        public Vector3 RingCentre => ringCentre;
+        public bool WorkerWalking(int i)
+        {
+            if (i < 0 || i >= actors.Count) return false;
+            float w = IntroRules.WalkProgress(t, actors[i].departAt, actors[i].metres);
+            return w > 0f && w < 1f;
+        }
         /// <summary>Is this worker a Tiny Toon person (as the cutscene wants them) and not one of the colourful Party characters?</summary>
         public bool WorkerIsToon(int i) => i >= 0 && i < actors.Count && !actors[i].party && actors[i].anim != null;
         public bool HasTv => tv != null;
@@ -85,15 +95,26 @@ namespace BuildingEscape
         // where the cutscene's camera is in the docks, in the TV's own frame (side = along its right, up, outward = out of the wall into the room): in the break room, which is 4.6 m deep, so the workers stand 2 m out and the cameras stay inside it
         static readonly Rig[] DockRigs =
         {
-            /* Establish */ new Rig(new Vector3(-3.0f, 2.7f, 4.0f), new Vector3(-2.4f, 2.6f, 3.7f), new Vector3(0.4f, 1.5f, 0.9f), new Vector3(0.3f, 1.6f, 0.8f), 66f, 62f),
+            /* Establish */ new Rig(new Vector3(0.9f, 2.0f, 3.9f), new Vector3(1.2f, 2.0f, 4.1f), new Vector3(-1.2f, 1.3f, 2.2f), new Vector3(-0.15f, 1.9f, 0.3f), 66f, 46f),          // (the break room from its north side: the circle on the right in front of the counters, the dark TV on the left; it holds there while they talk and eases over to the Behind set-up - its first pose - while the TV comes on and they line up)
             /* Behind    */ new Rig(new Vector3(1.2f, 2.0f, 4.1f), new Vector3(0.8f, 1.95f, 3.7f), new Vector3(-0.15f, 1.9f, 0.3f), new Vector3(-0.05f, 2.0f, 0.3f), 46f, 42f),
             /* TvClose   */ new Rig(new Vector3(0.20f, 1.90f, 1.5f), new Vector3(0.0f, 1.95f, 1.2f), new Vector3(0f, DockTv.CentreHeight, 0f), new Vector3(0f, DockTv.CentreHeight, 0f), 30f, 27f),
             /* Faces     */ new Rig(new Vector3(-1.2f, 1.5f, 0.7f), new Vector3(-0.9f, 1.5f, 0.9f), new Vector3(0.1f, 1.62f, 2.1f), new Vector3(0.0f, 1.62f, 2.1f), 40f, 36f),
             /* TwoShot   */ new Rig(Vector3.zero, Vector3.zero, Vector3.zero, Vector3.zero, 36f, 33f),     // (made from where the two of them stand: see PlaceDockCamera)
+            /* Bay       */ new Rig(Vector3.zero, Vector3.zero, Vector3.zero, Vector3.zero, 40f, 34f),     // (made from the vendor's bay: see PlaceDockCamera)
         };
 
         /// <summary>How far in front of the TV the workers stand (the break room is 4.6 m deep); every other one stands a quarter of a metre further back.</summary>
         const float DockWorkerOut = 2.0f;
+
+        /// <summary>
+        /// Where the circle of workers stands, in the TV's frame (the owner, 2026-10-20: "have them all in the break room in a circle talking then the tv plays and then they all line up to watch it"): 2.2 m west of the TV's middle and 2.6 m
+        /// out from its wall, on the west side of the break room in front of the counters (the fridge, the desk and the chairs are further west; the camera of the opening looks at it from the north-east corner).
+        /// </summary>
+        const float RingSide = -2.2f, RingOut = 2.6f;
+        /// <summary>The Establish shot lasts the dark TV and the TV coming on (two beats): the camera makes one move across both.</summary>
+        static readonly float EstablishSeconds = IntroRules.Beats[IntroRules.TvOnBeat].end;
+        /// <summary>The circle talks in soft blips (the Intro's voices, quietly: whoever's turn it is, in a pitch of their own) until a moment before the TV comes on; false = silent.</summary>
+        static readonly bool CircleVoices = true;
 
         /// <summary>The Intro's first picture comes this long after the docks of an offline run are built (online the host starts it <see cref="IntroRules.LeadIn"/> after everybody has arrived).</summary>
         const float OfflineLeadIn = 0.6f;
@@ -114,8 +135,9 @@ namespace BuildingEscape
             public Transform root;
             public CharacterAnimator anim;
             public string label;
-            public Vector3 foot;
-            public float yaw;
+            public Vector3 foot;                                            // where they stand now: in the circle, on the walk, or in the line
+            public Vector3 ringFoot, lineFoot;                              // their spot in the circle and their place in the line
+            public float yaw, ringYaw, walkYaw, noticeDelay, departAt, metres, lookYaw, phase;       // (ringYaw: facing the middle of the circle; walkYaw: facing the way they walk; noticeDelay: how long after the TV comes on they look round at it; departAt, metres: when the walk starts and how long it is; lookYaw: how far the head is turned; phase: their own rhythm)
             public bool party;           // a Party character: its face can change (a Tiny Toon person has one face)
             public int face = 1, shownFace = -1;
             public int ownFace = 1;
@@ -127,7 +149,7 @@ namespace BuildingEscape
         bool offline;                    // an offline run: no RunSync, this machine's own clock, one player, a plain hold of Space to skip
         double offlineStart = -1.0;      // the (unscaled) time of the Intro's second 0
         float t, held;
-        bool voting, shown, whooshed;
+        bool voting, shown, whooshed, tvClicked;
         int lastChars = -1, lastBeat = -1;
         BossOffice office;
         DockTv tv;
@@ -138,6 +160,8 @@ namespace BuildingEscape
         AudioClip whoosh, hissClip;
         readonly List<Actor> actors = new List<Actor>();
         int speakerAt = -1, listenerAt = -1;
+        Vector3 ringCentre;
+        float nextMurmur;
         readonly List<Renderer> hiddenPlayers = new List<Renderer>();
 
         /// <summary>Called by <c>RunSync.OnNetworkSpawn</c> on every machine of a new run (not for a player who is already looking at a later floor).</summary>
@@ -242,6 +266,7 @@ namespace BuildingEscape
         {
             var watch = System.Diagnostics.Stopwatch.StartNew();
             state = State.Playing;
+            dockGen = FindFirstObjectByType<FloorGenerator>();
             TimesPlayed++;
 
             office = BossOffice.Build(BossOffice.DefaultOrigin);
@@ -273,7 +298,7 @@ namespace BuildingEscape
                 dockCam.backgroundColor = new Color(0.05f, 0.05f, 0.07f);
                 dockCam.nearClipPlane = 0.06f; dockCam.farClipPlane = 120f; dockCam.allowHDR = false;
                 dockCam.targetTexture = rt;
-                tv.ShowProgram(tvRt);
+                tv.ShowOff();                                          // (the TV is dark until the announcement: IntroRules.TvOnAt)
                 BuildActors();
                 HidePlayers();
             }
@@ -289,7 +314,7 @@ namespace BuildingEscape
         // ------------------------------------------------------------------ the workers
 
         /// <summary>
-        /// Stand-ins dressed as the players' characters, in a row in front of the TV: the same on every machine (the players in slot order, the speaker picked from the run's seed). A lone
+        /// Stand-ins dressed as the players' characters, in a circle talking and then in a row in front of the TV: the same on every machine (the players in slot order, the speaker picked from the run's seed). A lone
         /// player gets a coworker on their left, and the coworker is who speaks.
         /// </summary>
         void BuildActors()
@@ -317,26 +342,107 @@ namespace BuildingEscape
             }
             int speaker = IntroRules.SpeakerIndex(cast.Count, coworker, RunSeed());
             int listener = IntroRules.ListenerIndex(cast.Count, speaker);
+            // five workers hang out in the break room (the owner, 2026-10-20): the players' characters, the coworker of a lone player, and more coworkers to make five (after the speaker and the listener are known: they are among the first)
+            for (int k = 0; cast.Count < IntroRules.Workers; k++) cast.Add((FillerLook(k, cast), IntroContent.CoworkerLabel));
             var row = IntroRules.RowOrder(cast.Count, speaker, listener);
             float spacing = IntroRules.Spacing(cast.Count);
             var faceTv = Quaternion.LookRotation(-tv.Forward, Vector3.up);
-            for (int pos = 0; pos < row.Length; pos++)
+            // the line in front of the TV (left to right) and the circle (the owner, 2026-10-20: they talk in a circle first and line up when the TV comes on): each place in the line is paired with the spot of the circle that makes all the walks shortest, so none cross
+            int n = row.Length;
+            var line = new Vector3[n];
+            for (int pos = 0; pos < n; pos++)
+                line[pos] = tv.Point((pos - (n - 1) * 0.5f) * spacing, 0f, DockWorkerOut + (pos % 2 == 0 ? 0f : 0.25f));
+            ringCentre = tv.Point(RingSide, 0f, RingOut);
+            var ring = new Vector3[n];
+            for (int k = 0; k < n; k++)
+            {
+                float ang = Mathf.PI * 2f * k / n;
+                ring[k] = tv.Point(RingSide + IntroRules.RingRadius * Mathf.Sin(ang), 0f, RingOut + IntroRules.RingRadius * Mathf.Cos(ang));
+            }
+            var spot = PairWithRing(line, ring);
+            for (int pos = 0; pos < n; pos++)
             {
                 int who = row[pos];
-                float side = (pos - (row.Length - 1) * 0.5f) * spacing;
-                float outward = DockWorkerOut + (pos % 2 == 0 ? 0f : 0.25f);
-                var foot = tv.Point(side, 0f, outward);
+                var ringFoot = ring[spot[pos]];
+                var toMiddle = ringCentre - ringFoot; toMiddle.y = 0f;
+                float ringYaw = Quaternion.LookRotation(toMiddle, Vector3.up).eulerAngles.y;
+                var walk = line[pos] - ringFoot; walk.y = 0f;
                 var host = new GameObject("IntroWorker_" + cast[who].label);
                 host.transform.SetParent(transform, false);
-                host.transform.SetPositionAndRotation(foot + Vector3.up, faceTv);               // (the pack's characters are dressed on a 2 m capsule: its middle is a metre above the feet)
+                host.transform.SetPositionAndRotation(ringFoot + Vector3.up, Quaternion.Euler(0f, ringYaw, 0f));               // (the pack's characters are dressed on a 2 m capsule: its middle is a metre above the feet)
                 var anim = PartyCharacterFactory.Attach(host, cast[who].look);
-                var actor = new Actor { root = host.transform, anim = anim, label = cast[who].label, foot = foot, yaw = faceTv.eulerAngles.y, party = !ToonAvailable(cast[who].look.model), ownFace = cast[who].look.face };
+                var actor = new Actor
+                {
+                    root = host.transform, anim = anim, label = cast[who].label, foot = ringFoot, ringFoot = ringFoot, lineFoot = line[pos], yaw = ringYaw, ringYaw = ringYaw,
+                    walkYaw = walk.sqrMagnitude > 0.01f ? Quaternion.LookRotation(walk, Vector3.up).eulerAngles.y : faceTv.eulerAngles.y, metres = walk.magnitude,
+                    party = !ToonAvailable(cast[who].look.model), ownFace = cast[who].look.face, phase = pos * 1.9f,
+                };
                 var animator = anim ? anim.GetComponent<Animator>() : null;
                 if (!actor.party && animator && animator.isHuman) { actor.head = animator.GetBoneTransform(HumanBodyBones.Head); actor.spine = animator.GetBoneTransform(HumanBodyBones.Spine); }
                 actors.Add(actor);
                 if (who == speaker) speakerAt = actors.Count - 1;
                 if (who == listener) listenerAt = actors.Count - 1;
             }
+            // when each of them looks round at the TV (the one nearest it first) and sets off: the walks end one after the other, the shortest first, so the longest start first
+            for (int i = 0; i < actors.Count; i++)
+            {
+                int shorter = 0, nearer = 0;
+                float mine = Vector3.Dot(actors[i].ringFoot - tv.Origin, tv.Forward);
+                for (int j = 0; j < actors.Count; j++)
+                {
+                    if (j == i) continue;
+                    if (actors[j].metres < actors[i].metres || (actors[j].metres == actors[i].metres && j < i)) shorter++;
+                    if (Vector3.Dot(actors[j].ringFoot - tv.Origin, tv.Forward) < mine) nearer++;
+                }
+                actors[i].departAt = IntroRules.DepartAt(actors[i].metres, shorter);
+                actors[i].noticeDelay = 0.05f * nearer;
+            }
+        }
+
+        /// <summary>Which spot of the circle each place in the line is paired with (<c>result[place]</c>) so that the walks from the circle to the line are as short as can be altogether - and then none of them cross: the least total distance over every way of pairing them (120 for five).</summary>
+        static int[] PairWithRing(Vector3[] line, Vector3[] ring)
+        {
+            int n = line.Length;
+            var best = new int[n]; var perm = new int[n];
+            for (int i = 0; i < n; i++) { best[i] = i; perm[i] = i; }
+            float bestCost = float.MaxValue;
+            void Go(int k, float cost)
+            {
+                if (cost >= bestCost) return;
+                if (k == n) { bestCost = cost; System.Array.Copy(perm, best, n); return; }
+                for (int i = k; i < n; i++)
+                {
+                    (perm[k], perm[i]) = (perm[i], perm[k]);
+                    var d = line[k] - ring[perm[k]]; d.y = 0f;
+                    Go(k + 1, cost + d.magnitude);
+                    (perm[k], perm[i]) = (perm[i], perm[k]);
+                }
+            }
+            Go(0, 0f);
+            return best;
+        }
+
+        /// <summary>A coworker in a look of his own to make up the five workers: a Tiny Toon person that nobody in the cast is, if there is one (Party characters in other colours when this machine has no toon people).</summary>
+        static CharacterLook FillerLook(int k, List<(CharacterLook look, string label)> cast)
+        {
+            var looks = PartyCharacterFactory.PlayerLooks;
+            var used = new HashSet<string>();
+            foreach (var c in cast) if (!string.IsNullOrEmpty(c.look.model)) used.Add(c.look.model);
+            string pick = null;
+            var cat = CharacterCatalog.Instance;
+            if (cat != null)
+            {
+                var ids = new List<string>();
+                foreach (var id in ToonCycle) if (cat.Find(id) != null) ids.Add(id);
+                for (int j = 0; j < ids.Count && pick == null; j++)
+                {
+                    var id = ids[(k * 2 + 3 + j) % ids.Count];
+                    if (!used.Contains(id)) pick = id;
+                }
+                if (pick == null && ids.Count > 0) pick = ids[(k * 2 + 3) % ids.Count];
+            }
+            var look = looks[(2 + k) % looks.Length];
+            return pick != null ? look.WithModel(pick) : look;
         }
 
         // ------------------------------------------------------------------ Tiny Toon workers (the owner, 2026-10-17: the cutscene's characters are the toon people, not the colourful Party ones)
@@ -372,15 +478,35 @@ namespace BuildingEscape
         /// A Tiny Toon person has one face, so their mood shows in how they stand: the boss takes the bonuses and the head and chest drop; when the broadcast ends they lift and shake a little (angry).
         /// Called after the animation has run (from LateUpdate), so the offsets are on top of it and do not build up.
         /// </summary>
-        void Pose(Actor a, int mood, float dt)
+        void Pose(Actor a, int index, int mood, float dt)
         {
             if (a.head == null && a.spine == null) return;
             a.headPitch = Mathf.MoveTowards(a.headPitch, mood == 1 ? 26f : mood == 2 ? -6f : 0f, 70f * dt);
             a.spinePitch = Mathf.MoveTowards(a.spinePitch, mood == 1 ? 10f : mood == 2 ? -3f : 0f, 35f * dt);
             float shake = mood == 2 ? Mathf.Sin(Time.time * 19f + a.root.GetInstanceID() * 0.37f) * 1.6f : 0f;
+            // talking in the circle (before the TV comes on, the owner, 2026-10-20): whoever's turn it is talks - the head moves with the words and glances round the others - and everybody else looks at them and now and then nods
+            float look = 0f, nod = 0f, lean = 0f;
+            if (mood == -1)
+            {
+                int talker = IntroRules.TalkerAt(t, actors.Count);
+                if (index == talker)
+                {
+                    look = Mathf.Sin(t * 1.2f + a.phase) * 24f;
+                    nod = (0.5f + 0.5f * Mathf.Sin(t * 9f + a.phase * 3f)) * 4.5f;
+                    lean = 3f;
+                }
+                else
+                {
+                    var toTalker = actors[talker].foot - a.foot; toTalker.y = 0f;
+                    look = toTalker.sqrMagnitude > 0.01f ? Mathf.Clamp(Mathf.DeltaAngle(a.yaw, Quaternion.LookRotation(toTalker, Vector3.up).eulerAngles.y), -70f, 70f) : 0f;
+                    nod = Mathf.Max(0f, Mathf.Sin(t * 2.6f + a.phase * 2.1f)) * 6f;
+                    lean = Mathf.Sin(t * 0.6f + a.phase) * 1.5f;
+                }
+            }
+            a.lookYaw = Mathf.MoveTowards(a.lookYaw, look, 260f * dt);
             var right = a.root.right;
-            if (a.spine) a.spine.rotation = Quaternion.AngleAxis(a.spinePitch, right) * a.spine.rotation;
-            if (a.head) a.head.rotation = Quaternion.AngleAxis(shake, Vector3.up) * Quaternion.AngleAxis(a.headPitch, right) * a.head.rotation;
+            if (a.spine) a.spine.rotation = Quaternion.AngleAxis(a.spinePitch + lean, right) * a.spine.rotation;
+            if (a.head) a.head.rotation = Quaternion.AngleAxis(shake + a.lookYaw, Vector3.up) * Quaternion.AngleAxis(a.headPitch + nod, right) * a.head.rotation;
         }
 
         /// <summary>The players' own bodies stand in the elevator and are not in the picture (a camera across the docks could see them through its open door): hidden for the Intro.</summary>
@@ -399,25 +525,50 @@ namespace BuildingEscape
             if (actors.Count == 0) return;
             bool talking = t >= IntroRules.Beats[WorkerBeat].start + TurnAfter && speakerAt != listenerAt && speakerAt >= 0 && listenerAt >= 0;
             float faceTv = Quaternion.LookRotation(-tv.Forward, Vector3.up).eulerAngles.y;
-            // how they look: as they are while the boss is friendly, crushed once he takes the bonuses, angry when it is over
-            int beatNow = IntroRules.BeatAt(t);
-            int mood = beatNow < 0 ? 0 : IntroRules.FaceMood(beatNow);
+            // how they look: talking in the circle while the TV is dark, as they are while the boss is friendly, crushed once he takes the bonuses, angry when it is over
+            // (the TV is dark and they talk, then they are as they are until the bonus line has been HEARD, then crushed, then angry: IntroRules.MoodAt)
+            int mood = IntroRules.MoodAt(t);
             for (int i = 0; i < actors.Count; i++)
             {
                 var a = actors[i];
-                float target = faceTv;
+                // where they are: in the circle until the TV comes on, then on the walk to their place in the line, then in it (all from the clock: every machine shows the same, and a skip forward in the tests lands right)
+                float walked = IntroRules.WalkProgress(t, a.departAt, a.metres);
+                bool walking = walked > 0f && walked < 1f;
+                a.foot = Vector3.Lerp(a.ringFoot, a.lineFoot, walked);
+                a.root.position = a.foot + Vector3.up;
+                // where they face: in to the middle of the circle while they talk; round to the TV when it comes on (the nearest one first); the way they walk; the TV again in the line; the two who speak at the end turn to each other
+                float target;
+                bool turning = false;
+                if (t < IntroRules.TvOnAt + a.noticeDelay) target = a.ringYaw;
+                else if (walking) target = a.walkYaw;
+                else if (walked >= 1f) target = faceTv;
+                else { var toTv = tv.Origin - a.foot; toTv.y = 0f; target = toTv.sqrMagnitude > 0.01f ? Quaternion.LookRotation(toTv, Vector3.up).eulerAngles.y : faceTv; }
                 if (talking && (i == speakerAt || i == listenerAt))
                 {
+                    turning = true;
                     var toOther = actors[i == speakerAt ? listenerAt : speakerAt].foot - a.foot; toOther.y = 0f;
                     if (toOther.sqrMagnitude > 0.01f) target = Quaternion.LookRotation(toOther, Vector3.up).eulerAngles.y;
                 }
-                int face = mood == 0 ? a.ownFace : mood == 1 ? 3 : 2;
+                int face = mood <= 0 ? a.ownFace : mood == 1 ? 3 : 2;
                 if (a.party && a.shownFace != face) { a.shownFace = face; PartyCharacterFactory.SetFace(a.anim, face); }
-                if (!a.party) Pose(a, mood, dt);
-                a.yaw = Mathf.MoveTowardsAngle(a.yaw, target, 300f * dt);
+                a.yaw = Mathf.MoveTowardsAngle(a.yaw, target, (turning ? 300f : walking ? 420f : walked >= 1f ? 300f : 240f) * dt);
                 a.root.rotation = Quaternion.Euler(0f, a.yaw, 0f);
-                if (a.anim) a.anim.Locomote(false);
+                if (!a.party) Pose(a, i, mood, dt);
+                if (a.anim) a.anim.Locomote(walking, 0.85f);
             }
+            if (CircleVoices) Murmur();
+        }
+
+        /// <summary>The murmur of the circle: soft blips for whoever's turn it is to talk (a pitch of their own), with a breath between the turns, until a moment before the TV clicks on.</summary>
+        void Murmur()
+        {
+            if (!voice || blips == null || t < 0.3f || t > IntroRules.TvOnAt - 0.25f || Time.unscaledTime < nextMurmur) return;
+            float into = t - Mathf.Floor(t / IntroRules.TalkTurnSeconds) * IntroRules.TalkTurnSeconds;
+            if (into > IntroRules.TalkTurnSeconds - 0.25f) { nextMurmur = Time.unscaledTime + 0.2f; return; }
+            nextMurmur = Time.unscaledTime + Random.Range(0.13f, 0.24f);
+            if (Random.value < 0.2f) return;                                                    // (not a blip every time: it should sound like words)
+            voice.pitch = (1.0f + 0.11f * IntroRules.TalkerAt(t, actors.Count)) * Random.Range(0.94f, 1.08f);
+            voice.PlayOneShot(blips[Random.Range(0, blips.Length)], 0.11f);
         }
 
         // ------------------------------------------------------------------ each frame
@@ -433,8 +584,13 @@ namespace BuildingEscape
             var beat = IntroRules.Beats[bi];
             float p = IntroRules.Progress(beat, t);
 
-            // ---- the TV: the boss's office while the monologue runs, then static
-            if (beat.shot != IntroShot.None)
+            // ---- the TV: dark while the workers hang out, static (and a click) for a moment when it comes on, then the boss's office while the monologue runs, then static again
+            if (beat.shot == IntroShot.Off)
+            {
+                office.SetJet(-1f);
+                if (tv != null) { tv.ShowOff(); StopHiss(); }
+            }
+            else if (beat.shot != IntroShot.None)
             {
                 var rig = Rigs[(int)beat.shot];
                 var o = office.root.position;
@@ -443,15 +599,26 @@ namespace BuildingEscape
                 officeCam.fieldOfView = TvFov(Mathf.Lerp(rig.fovA, rig.fovB, p));
                 float jet = (t - IntroRules.JetStart) / IntroRules.JetSeconds;
                 office.SetJet(jet);
-                if (jet >= 0f && !whooshed && voice) { whooshed = true; voice.pitch = 1f; voice.PlayOneShot(whoosh, 0.8f); }
+                if (jet >= 0f && !whooshed && voice) { whooshed = true; voice.pitch = 1f; voice.PlayOneShot(whoosh, 0.22f); }          // (the plane: it was 0.8, too loud; the owner, 2026-10-20)
                 RenderOffice();
-                if (tv != null && !tv.OnProgram) tv.ShowProgram(tvRt);
+                if (tv != null)
+                {
+                    if (t < IntroRules.TvOnAt + IntroRules.TvStaticSeconds)
+                    {
+                        if (!tvClicked && voice && blips != null) { tvClicked = true; voice.pitch = 0.5f; voice.PlayOneShot(blips[0], 0.6f); }          // (the click of a TV coming on)
+                        tv.ShowStatic(); StartHiss();
+                    }
+                    else { StopHiss(); if (!tv.OnProgram) tv.ShowProgram(tvRt); }
+                }
             }
             else
             {
                 office.SetJet(-1f);
                 if (tv != null) { tv.ShowStatic(); StartHiss(); }
             }
+
+            // ---- the vendor shows up: after the workers' line the roller door of his bay rolls up (the owner, 2026-10-19 night)
+            if (beat.dock == DockShot.Bay && t >= IntroRules.BayOpensAt) OpenBay();
 
             // ---- the words: the boss's head and shoulders move while a line is being typed, and the voices blip
             int chars = t < 0f ? 0 : IntroRules.VisibleChars(beat.line, t - beat.start);
@@ -463,7 +630,7 @@ namespace BuildingEscape
                 char c = beat.line[Mathf.Clamp(chars - 1, 0, beat.line.Length - 1)];
                 if (c != ' ' && chars % 2 == 0)
                 {
-                    voice.pitch = beat.speaker == Speaker.Worker ? Random.Range(1.3f, 1.65f) : Random.Range(0.92f, 1.12f);
+                    voice.pitch = beat.speaker == Speaker.Worker ? Random.Range(1.3f, 1.65f) : beat.speaker == Speaker.Vendor ? Random.Range(0.72f, 0.86f) : Random.Range(0.92f, 1.12f);
                     voice.PlayOneShot(blips[Random.Range(0, blips.Length)], beat.speaker == Speaker.Worker ? 0.45f : 0.4f);
                 }
             }
@@ -506,10 +673,20 @@ namespace BuildingEscape
                 look = mid + Vector3.up * 1.5f;
                 fov = Mathf.Lerp(rig.fovA, rig.fovB, p);
             }
+            else if (beat.dock == DockShot.Bay && dockGen != null)
+            {
+                // the vendor's bay from inside the docks, pushing in slowly: the roller door in the middle of the picture, the trailer behind it, the vendor at its far end (the owner, 2026-10-19 night)
+                var e = dockGen.DockTrailerEntrance;
+                float pb = Mathf.Clamp01((t - IntroRules.Beats[IntroRules.DoorBeat].start) / (IntroRules.Total - IntroRules.Beats[IntroRules.DoorBeat].start));          // (one slow push-in over the whole bay scene: the door, then the vendor's four lines)
+                pos = e + new Vector3(Mathf.Lerp(-0.9f, -0.3f, pb), Mathf.Lerp(1.6f, 1.55f, pb), Mathf.Lerp(-3.2f, -1.4f, pb));
+                look = e + new Vector3(0f, 1.35f, 9.8f);
+                fov = Mathf.Lerp(rig.fovA, rig.fovB, pb);
+            }
             else
             {
                 var a = rig;
                 if (beat.dock == DockShot.Faces && actors.Count > 0) a.fovA = a.fovB = 30f + 3.2f * actors.Count;        // (more of them, a wider picture)
+                if (beat.dock == DockShot.Establish) p = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(IntroRules.TvOnAt - 1.2f, EstablishSeconds, t));          // (it holds on the circle, then eases over to the Behind set-up from a second before the TV comes on to the end of the TV's first beat)
                 pos = tv.Point(Mathf.Lerp(a.posA.x, a.posB.x, p), Mathf.Lerp(a.posA.y, a.posB.y, p), Mathf.Lerp(a.posA.z, a.posB.z, p));
                 look = tv.Point(Mathf.Lerp(a.lookA.x, a.lookB.x, p), Mathf.Lerp(a.lookA.y, a.lookB.y, p), Mathf.Lerp(a.lookA.z, a.lookB.z, p));
                 fov = Mathf.Lerp(a.fovA, a.fovB, p);
@@ -519,9 +696,11 @@ namespace BuildingEscape
             dockCam.fieldOfView = fov;
         }
 
+        void StopHiss() { if (hiss && hiss.isPlaying) hiss.Pause(); }
+
         void StartHiss()
         {
-            if (hiss) return;
+            if (hiss) { if (!hiss.isPlaying) hiss.UnPause(); return; }
             hiss = gameObject.AddComponent<AudioSource>();
             hiss.spatialBlend = 0f; hiss.loop = true; hiss.volume = 0.1f;
             hissClip = MakeHiss();
@@ -559,11 +738,12 @@ namespace BuildingEscape
                 var beat = IntroRules.Beats[bi];
                 string typed = beat.line.Substring(0, IntroRules.VisibleChars(beat.line, t - beat.start));
                 bool worker = beat.speaker == Speaker.Worker;
-                string who = worker && speakerAt >= 0 && speakerAt < actors.Count ? actors[speakerAt].label : worker ? IntroContent.CoworkerLabel : IntroContent.BossLabel;
+                bool vendor = beat.speaker == Speaker.Vendor;
+                string who = vendor ? IntroContent.VendorLabel : worker && speakerAt >= 0 && speakerAt < actors.Count ? actors[speakerAt].label : worker ? IntroContent.CoworkerLabel : IntroContent.BossLabel;
                 var plate = new Rect(pic.x + W * 0.10f, lowerBar ? pic.yMax + (barH - plateH) * 0.5f : pic.yMax - plateH - H * 0.03f, W * 0.80f, plateH);
                 if (!lowerBar) { GUI.color = new Color(0f, 0f, 0f, 0.55f * Mathf.Min(1f, fade * 2f)); GUI.DrawTexture(plate, Texture2D.whiteTexture); GUI.color = Color.white; }
                 int big = Mathf.Max(14, Mathf.RoundToInt(H * 0.036f)), small = Mathf.Max(12, Mathf.RoundToInt(H * 0.022f));
-                HudText.Label(new Rect(plate.x + 18f, plate.y + 6f, plate.width - 36f, small * 1.5f), who, HudStyles.Label(small, TextAnchor.UpperLeft, FontStyle.Bold, worker ? HudTheme.Info : HudTheme.Quota));
+                HudText.Label(new Rect(plate.x + 18f, plate.y + 6f, plate.width - 36f, small * 1.5f), who, HudStyles.Label(small, TextAnchor.UpperLeft, FontStyle.Bold, worker ? HudTheme.Info : vendor ? HudTheme.Cash : HudTheme.Quota));
                 var body = new Rect(plate.x + 18f, plate.y + small * 1.5f + 8f, plate.width - 36f, plate.height - small * 1.5f - 14f);
                 HudText.Label(new Rect(body.x + 2f, body.y + 2f, body.width, body.height), typed, HudStyles.Label(big, TextAnchor.UpperLeft, FontStyle.Bold, Color.black));
                 HudText.Label(body, typed, HudStyles.Label(big, TextAnchor.UpperLeft, FontStyle.Bold, HudTheme.Cream));
@@ -596,6 +776,7 @@ namespace BuildingEscape
         }
 
         bool bayShut;
+        FloorGenerator dockGen;
 
         /// <summary>The roller door of the vendor's bay comes down for the cutscene (the owner, 2026-10-17: "the vendor should not be visible ... the loading dock door should still be shut").</summary>
         void CloseBay()

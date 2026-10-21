@@ -31,7 +31,7 @@ namespace BuildingEscape.EditorTools
                 {
                     if (!cat.pew || !cat.pewBullet) FillGuns(cat, false);
                     if (cat.modelsVersion < SyntyVersion) FillSynty(cat, false);
-                    if (cat.longGuns == null || cat.longGuns.Length < LongGunNames.Length || !cat.longGuns[0].prefab) FillLongGuns(cat, false);
+                    if (cat.longGuns == null || cat.longGuns.Length < LongGunNames.Length || !cat.longGuns[0].prefab || !cat.redDot || !cat.longGuns[LongGunNames.Length - 1].prefab || cat.longGuns[LongGunNames.Length - 1].prefab.name != LongGunNames[LongGunNames.Length - 1]) FillLongGuns(cat, false);
                 }
             };
         }
@@ -87,14 +87,18 @@ namespace BuildingEscape.EditorTools
 
         // ------------------------------------------------------------------ the long guns (the owner, 2026-10-19)
 
-        static readonly string[] LongGunNames = { "SM_Wep_SubMGun_Lite_01", "SM_Wep_Rifle_Assault_01", "SM_Wep_Shotgun_01", "SM_Wep_Sniper_Mil_01" };
+        /// <summary>The four long guns. The sniper rifle is the Barrett .50 cal of the pack (SM_Wep_Sniper_Heavy_01; the owner, 2026-10-20: "The sniper asset should be the barret 50 cal we have"); it was the bolt-action SM_Wep_Sniper_Mil_01.</summary>
+        static readonly string[] LongGunNames = { "SM_Wep_SubMGun_Lite_01", "SM_Wep_Rifle_Assault_01", "SM_Wep_Shotgun_01", "SM_Wep_Sniper_Heavy_01" };
         static readonly string[] LongGunCasings = { "SM_Wep_Pistol_Ammo_01", "SM_Wep_Bullet_Ammo_01", "SM_Wep_Shotgun_Ammo_01", "SM_Wep_Ammo_BulletLarge_01" };
         static readonly string[] LongGunMagazines = { "_mag", "_mag", "", "_mag" };
         /// <summary>Which of the four are given a silencer (the sub machine gun and the rifle: the owner's rule by weapon class).</summary>
         static readonly bool[] LongGunSilenced = { true, true, false, false };
+        /// <summary>Which of the four carry a red dot sight (the owner, 2026-10-20: "Please add red dot sights for the machine guns and shotgun"), and how far along the gun's body from the rear (0 to 1) it stands: the sub machine gun and the rifle on their top rails, the shotgun on top of its receiver. The sniper rifle has its own scope.</summary>
+        static readonly bool[] LongGunSight = { true, true, true, false };
+        static readonly float[] LongGunSightAlong = { 0.46f, 0.46f, 0.38f, 0f };
 
         /// <summary>
-        /// The sub machine gun (SM_Wep_SubMGun_Lite_01), the assault rifle (SM_Wep_Rifle_Assault_01), the shotgun (SM_Wep_Shotgun_01) and the sniper rifle (SM_Wep_Sniper_Mil_01) of the Synty pack, and how each sits: the muzzle face (the front-most
+        /// The sub machine gun (SM_Wep_SubMGun_Lite_01), the assault rifle (SM_Wep_Rifle_Assault_01), the shotgun (SM_Wep_Shotgun_01) and the sniper rifle (the Barrett, SM_Wep_Sniper_Heavy_01) of the Synty pack, and how each sits: the muzzle face (the front-most
         /// ring of the whole model), where the right hand closes (behind the trigger) and where the left hand holds (the foregrip, the underside of the handguard, the pump, the underside of the stock's front), and for the two that take a silencer where its
         /// origin goes. All measured from a copy of the prefab, in the model's own space; the guns run along +Z, like the pistol, so they are turned a quarter about Y.
         /// </summary>
@@ -102,6 +106,8 @@ namespace BuildingEscape.EditorTools
         {
             var silencer = cat.silencer ? cat.silencer : Load<GameObject>(Synty + "SM_Wep_Attachment_Silencer_01.prefab");
             if (!silencer || !SilencerSeat(silencer, out float seat)) { Debug.LogWarning("The Synty silencer could not be measured: the long guns are not set up."); return; }
+            var redDot = Load<GameObject>(Synty + "SM_Wep_Attachment_Redot_01.prefab");
+            cat.redDot = redDot;
             var list = new WeaponCatalog.GunModel[LongGunNames.Length];
             for (int i = 0; i < list.Length; i++)
             {
@@ -114,6 +120,9 @@ namespace BuildingEscape.EditorTools
                 try
                 {
                     gm.muzzleFace = FrontFace(inst);
+                    BodyRange(inst, out float bodyZ0, out float bodyZ1);
+                    if (log) Debug.Log($"[Weapons] {LongGunNames[i]}: body z {bodyZ0:F3} .. {bodyZ1:F3}, its top at the middle {BodyTop(inst, (bodyZ0 + bodyZ1) * 0.5f):F3}");
+                    if (LongGunSight[i] && redDot) gm.sightAt = SightSeat(inst, redDot, gm.muzzleFace, LongGunSightAlong[i]);
                     var trigger = FindPart(inst, "trigger");
                     var behindTrigger = trigger ? PartBounds(trigger).center : new Vector3(0f, 0f, 0.05f);
                     gm.grip = behindTrigger + new Vector3(0f, -0.045f, -0.035f);           // (the palm closes round the pistol grip: a little below and behind the trigger)
@@ -122,13 +131,13 @@ namespace BuildingEscape.EditorTools
                         case 0: { var fg = FindPart(inst, "_grip_"); gm.foregrip = fg ? PartBounds(fg).center : new Vector3(0f, -0.03f, 0.20f); break; }                  // the vertical foregrip
                         case 1: gm.foregrip = Underside(inst, 0.33f, 0.47f); break;                                                                                         // under the handguard
                         case 2: { var pump = FindPart(inst, "pump"); var pb = pump ? PartBounds(pump) : new Bounds(new Vector3(0f, 0.06f, 0.48f), Vector3.zero); gm.foregrip = new Vector3(pb.center.x, pb.min.y - 0.012f, pb.center.z); break; }   // under the pump
-                        default: gm.foregrip = Underside(inst, 0.22f, 0.32f); break;                                                                                         // under the front of the stock
+                        default: gm.foregrip = Underside(inst, bodyZ0 + 0.50f * (bodyZ1 - bodyZ0), bodyZ0 + 0.62f * (bodyZ1 - bodyZ0)); break;                                                                                         // under the front of the stock
                     }
                 }
                 finally { Object.DestroyImmediate(inst); }
                 if (LongGunSilenced[i]) { gm.silencerAt = gm.muzzleFace - new Vector3(0f, 0f, seat); gm.silencerTurn = Vector3.zero; }
                 list[i] = gm;
-                if (log) Debug.Log($"[Weapons] {LongGunNames[i]}: muzzle face {gm.muzzleFace:F4}, grip {gm.grip:F4}, foregrip {gm.foregrip:F4}, silencer at {gm.silencerAt:F4}, casing {(gm.casing ? gm.casing.name : "-")}");
+                if (log) Debug.Log($"[Weapons] {LongGunNames[i]}: muzzle face {gm.muzzleFace:F4}, grip {gm.grip:F4}, foregrip {gm.foregrip:F4}, silencer at {gm.silencerAt:F4}, red dot at {gm.sightAt:F4}, casing {(gm.casing ? gm.casing.name : "-")}");
             }
             cat.longGuns = list;
             EditorUtility.SetDirty(cat);
@@ -200,6 +209,58 @@ namespace BuildingEscape.EditorTools
                 }
             }
             return any ? new Vector3(at.center.x, low - 0.012f, (z0 + z1) * 0.5f) : new Vector3(0f, -0.04f, (z0 + z1) * 0.5f);
+        }
+
+        /// <summary>The parts of a gun that are its body: not the magazine, the trigger, the grips, the stock, the pump, the iron sights, the scope or the bipod (what a sight may stand on, what the hand may hold under).</summary>
+        static bool IsBodyPart(string name)
+        {
+            var n = name.ToLowerInvariant();
+            return !(n.Contains("_mag") || n.Contains("trigger") || n.Contains("grip") || n.Contains("sight") || n.Contains("flash") || n.Contains("stock") || n.Contains("pump") || n.Contains("scope") || n.Contains("bipod"));
+        }
+
+        /// <summary>How far the gun's body reaches along the barrel (its own z: the guns run along +z).</summary>
+        static void BodyRange(GameObject gun, out float z0, out float z1)
+        {
+            z0 = float.MaxValue; z1 = float.MinValue;
+            foreach (var mf in Meshes(gun))
+            {
+                if (!mf.sharedMesh || !IsBodyPart(mf.name)) continue;
+                foreach (var v in mf.sharedMesh.vertices)
+                {
+                    float z = gun.transform.InverseTransformPoint(mf.transform.TransformPoint(v)).z;
+                    z0 = Mathf.Min(z0, z); z1 = Mathf.Max(z1, z);
+                }
+            }
+            if (z0 > z1) { z0 = 0f; z1 = 0.5f; }
+        }
+
+        /// <summary>The highest point of the gun's body within three centimetres of <paramref name="z"/> along the barrel.</summary>
+        static float BodyTop(GameObject gun, float z)
+        {
+            float top = float.MinValue;
+            foreach (var mf in Meshes(gun))
+            {
+                if (!mf.sharedMesh || !IsBodyPart(mf.name)) continue;
+                foreach (var v in mf.sharedMesh.vertices)
+                {
+                    var w = gun.transform.InverseTransformPoint(mf.transform.TransformPoint(v));
+                    if (Mathf.Abs(w.z - z) <= 0.03f && w.y > top) top = w.y;
+                }
+            }
+            return top > float.MinValue ? top : 0.08f;
+        }
+
+        /// <summary>Where the red dot sight's origin goes (the owner, 2026-10-20): on the barrel's own line (the muzzle face's x), <paramref name="along"/> of the way from the rear of the body to its front, its underside three millimetres into the highest point of the body there.</summary>
+        static Vector3 SightSeat(GameObject gun, GameObject sight, Vector3 muzzleFace, float along)
+        {
+            BodyRange(gun, out float z0, out float z1);
+            float zc = Mathf.Lerp(z0, z1, along);
+            float top = BodyTop(gun, zc);
+            var probe = (GameObject)PrefabUtility.InstantiatePrefab(sight);
+            Bounds sb;
+            try { sb = PartBounds(probe.transform); }
+            finally { Object.DestroyImmediate(probe); }
+            return new Vector3(muzzleFace.x, top - sb.min.y - 0.003f, zc - sb.center.z);
         }
 
         /// <summary>For the QA runs (<c>-executeMethod</c>): measures the long guns now (the same as the first editor start with them missing) and exits.</summary>

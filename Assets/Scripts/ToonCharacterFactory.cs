@@ -51,6 +51,7 @@ namespace BuildingEscape
             // size it to the capsule from its own mesh bounds, then apply the player's / guard's build
             float s = FitScale(model, host.transform);
             model.transform.localScale = new Vector3(s * look.width, s * look.height, s * look.width);
+            AddDress(model.transform, ch, cat);                                  // (after the fit: a hard hat must not make the body smaller)
 
             var animator = model.GetComponent<Animator>();
             if (!animator) animator = model.AddComponent<Animator>();
@@ -66,7 +67,33 @@ namespace BuildingEscape
             return ca;
         }
 
-        /// <summary>Scale that makes the model <see cref="Height"/> metres tall in the host's space.</summary>
+        /// <summary>The character's head attachments (a cap, a hard hat with goggles, a beard): each is parented to the Head bone with no offset and drawn in its own colour theme (the owner, 2026-10-20: the builders of his pictures wear them).</summary>
+        static void AddDress(Transform model, ToonCharacter ch, CharacterCatalog cat)
+        {
+            if (ch.dress == null || ch.dress.Length == 0) return;
+            Transform head = null;
+            foreach (var t in model.GetComponentsInChildren<Transform>(true)) if (t.name == "Head") { head = t; break; }
+            if (!head) return;
+            foreach (var d in ch.dress)
+            {
+                if (d == null || !d.prefab) continue;
+                var item = Object.Instantiate(d.prefab, head, false);
+                item.name = "Dress_" + d.prefab.name;
+                item.transform.localPosition = Vector3.zero; item.transform.localRotation = Quaternion.identity; item.transform.localScale = Vector3.one;
+                foreach (var c in item.GetComponentsInChildren<Collider>(true)) Object.Destroy(c);
+                var atlas = d.atlas ? d.atlas : ch.atlas ? ch.atlas : cat.atlas;
+                var mat = atlas ? AtlasMaterialFor(atlas) : null;
+                if (!mat) continue;
+                foreach (var r in item.GetComponentsInChildren<Renderer>(true))
+                {
+                    var mats = new Material[Mathf.Max(1, r.sharedMaterials.Length)];
+                    for (int i = 0; i < mats.Length; i++) mats[i] = mat;
+                    r.sharedMaterials = mats;
+                }
+            }
+        }
+
+        /// <summary>Scale that makes the model <see cref="Height"/> metres tall in the host''s space.</summary>
         static float FitScale(GameObject model, Transform host)
         {
             Bounds b = default; bool any = false;

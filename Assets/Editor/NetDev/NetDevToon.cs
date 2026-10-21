@@ -127,6 +127,32 @@ namespace BuildingEscape.EditorTools
             w = cop.DebugWeights();
             ToonCheck("gets back up to idle", w[0] > 0.8f, $"(weights {string.Join(",", w.Select(x => x.ToString("0.00")))})");
 
+            // the officers' stun (the owner, 2026-10-20): the Blink dazed loop, standing, instead of lying on the floor
+            ToonCheck("the officer has the dazed (stunned) loop", cop.HasStun);
+            for (float t = 0; t < 1.0f; t += Time.deltaTime) { cop.Stun(); yield return null; }
+            w = cop.DebugWeights();
+            ToonCheck("stunned: the dazed loop shows and he does not fall down", w[6] > 0.8f && w[3] < 0.1f, $"(weights {string.Join(",", w.Select(x => x.ToString("0.00")))})");
+            ShotCam(cam, "toon_lineup_stunned");
+            for (float t = 0; t < 3.0f; t += Time.deltaTime) { cop.Recover(); cop.Locomote(false); yield return null; }
+            w = cop.DebugWeights();
+            ToonCheck("snaps out of the daze to idle", w[0] > 0.8f && w[6] < 0.1f, $"(weights {string.Join(",", w.Select(x => x.ToString("0.00")))})");
+            // a Synty security officer (the guards of the game) standing dazed, close up
+            if (byId.TryGetValue("syn_security_male_01", out var securityAnim) && securityAnim.HasStun)
+            {
+                var lineupAt = cam.transform.position; var lineupRot = cam.transform.rotation; float lineupFov = cam.fieldOfView;
+                for (float t = 0; t < 1.0f; t += Time.deltaTime) { securityAnim.Stun(); yield return null; }
+                var securityHost = securityAnim.transform.parent;
+                cam.fieldOfView = 17f;
+                cam.transform.position = securityHost.position + new Vector3(0.1f, 0.5f, -4.0f);
+                cam.transform.LookAt(securityHost.position + new Vector3(0f, 0.15f, 0f));
+                yield return null;
+                ShotCam(cam, "toon_security_stunned");
+                var sw = securityAnim.DebugWeights();
+                ToonCheck("the Synty security officer stands dazed too (the dazed slot, not the fall)", sw[6] > 0.8f && sw[3] < 0.1f, $"(weights {string.Join(",", sw.Select(x => x.ToString("0.00")))})");
+                for (float t = 0; t < 2.5f; t += Time.deltaTime) { securityAnim.Recover(); securityAnim.Locomote(false); yield return null; }
+                cam.transform.position = lineupAt; cam.transform.rotation = lineupRot; cam.fieldOfView = lineupFov;
+            }
+
             cop.PlaySlash(null, 1f);
             for (float t = 0; t < 0.4f; t += Time.deltaTime) { cop.Locomote(false); yield return null; }
             w = cop.DebugWeights();
@@ -177,6 +203,37 @@ namespace BuildingEscape.EditorTools
                 }
             }
             else Log("[Toon] weapon catalog not available; skipped held weapon check");
+
+            // ---- 7. the owner's five dock workers (2026-10-20): playable in his order, the builders wearing what his pictures show on their heads
+            var five = new[] { "syn_builder_highvis_01", "syn_builder_female_01", "syn_builder_singlet_01", "syn_builder_harness_01", "syn_developer_female_02" };
+            var wantDress = new[] { 1, 1, 2, 2, 0 };
+            ToonCheck("the playable characters are exactly the owner's five, in his order", cat.Players().Select(p => p.id).SequenceEqual(five), $"({string.Join(", ", cat.Players().Select(p => p.id))})");
+            foreach (var h in hosts) Destroy(h);
+            yield return null;
+            var fiveHosts = new List<GameObject>();
+            for (int i = 0; i < five.Length; i++)
+            {
+                var host = GameObject.CreatePrimitive(PrimitiveType.Capsule);
+                host.name = "Five_" + five[i];
+                host.transform.SetParent(root.transform, false);
+                host.transform.localPosition = new Vector3((i - 2) * 1.15f, 0f, 0f);
+                host.transform.localRotation = Quaternion.Euler(0f, 180f, 0f);
+                Object.Destroy(host.GetComponent<Collider>());
+                var fa = PartyCharacterFactory.Attach(host, new CharacterLook(five[i], Color.white, 1, null, 1f, 1f, five[i]));
+                fiveHosts.Add(host);
+                var worn = host.GetComponentsInChildren<Transform>(true).Where(t => t.name.StartsWith("Dress_")).ToList();
+                var ch5 = cat.Find(five[i]);
+                bool onHead = worn.All(t => t.parent != null && t.parent.name == "Head");
+                bool theme = worn.Count == 0 || (ch5.dress != null && worn.All(t => { var r = t.GetComponent<Renderer>(); return r && r.sharedMaterial && ch5.dress.Any(d => d.atlas && r.sharedMaterial.mainTexture == d.atlas); }));
+                ToonCheck($"{five[i]}: dressed as a dock worker, wearing {wantDress[i]} head item(s) on the Head bone in their own colour theme", fa != null && worn.Count == wantDress[i] && onHead && theme, $"(worn {string.Join(", ", worn.Select(t => t.name))})");
+            }
+            yield return new WaitForSeconds(0.9f);
+            cam.fieldOfView = 30f;
+            cam.transform.localPosition = new Vector3(0f, 0.35f, -6.4f);
+            cam.transform.LookAt(root.transform.position + new Vector3(0f, 0.05f, 0f));
+            yield return null;
+            ShotCam(cam, "toon_five");
+            foreach (var h in fiveHosts) Destroy(h);
 
             Log($"[Toon] DONE fails={toonFails}");
             Quit(toonFails == 0 ? 0 : 1);

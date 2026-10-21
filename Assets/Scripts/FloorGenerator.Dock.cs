@@ -207,6 +207,7 @@ namespace BuildingEscape
 
             // the two side rooms: the break room, with the TV that the workers watch the boss's monologue on when a run starts (IntroCinematic), and the PVP room (FloorGenerator.DockRooms.cs)
             BuildDockRooms(root.transform);
+            BuildDartBoard(root.transform);
 
             // and a basement's worth of junk everywhere else
             DockClutter = ScatterStorage(root.transform, seed, c, tx, zWall);
@@ -271,8 +272,16 @@ namespace BuildingEscape
                 new Vector4(0f, 0f, 9.9f, 5.3f),  // the break room: the TV, the workers who watch it and the cinematic's cameras
                 new Vector4(0f, 5.1f, 5.1f, 12.9f),  // the closed pocket between the two rooms
                 new Vector4(0f, 12.7f, 9.9f, 18f),  // the PVP room
+                new Vector4(BreakRoomDoor.x, BreakRoomDoor.z - 2.4f, BreakRoomDoor.x + 4.6f, BreakRoomDoor.z + 2.4f),   // in front of the break room's doorway
+                new Vector4(PvpRoomDoor.x, PvpRoomDoor.z - 2.4f, PvpRoomDoor.x + 6.4f, PvpRoomDoor.z + 2.4f),            // in front of the PVP room's doorway, a plaza of 6.4 x 4.8 m (the owner, 2026-10-19 night: a forklift stood across the doorway; 2026-10-20: "the Forklift should not be blocking the PvP room doorway ... players need to be able to get into the PvP room")
+                new Vector4(elev.x + 4.2f, elev.z + 3.0f, elev.x + 6.9f, depth),                                          // and a lane 2.7 m wide from it down the elevator room's east wall to the way through to the bay: a forklift fits all the way from the elevator's door to the PVP room's doorway
+                new Vector4(cellSize - 0.2f, 0f, cellSize + 0.2f, (cellSize - doorWidth) / 2f),                       // the wall between the two halves of the docks (its south stub, the dart board's wall): nothing stands half inside it
+                new Vector4(cellSize - 0.2f, depth - (cellSize - doorWidth) / 2f, cellSize + 0.2f, depth),            // (the north stub of the same wall)
                 new Vector4(width - 1.6f, depth / 2f - 4f, width, depth / 2f + 4f),  // the clock, the notice board and the extinguisher on the east wall
             };
+            // the hallway outside the break room, from its doorway to the wall between the two halves of the docks, where the dart board hangs (the owner, 2026-10-20: "the hallway should just be cleaned up a bit (leave the shelves
+            // against the wall)"): no boxes, pallets, drums or forklift stand on its floor; the steel shelves against the walls may (those are placed against a wall, which is not checked against this list)
+            var floorClear = new List<Vector4> { new Vector4(BreakRoomDoor.x, 0f, cellSize - 0.2f, (cellSize - doorWidth) / 2f) };
             var placed = new List<Vector3>(); // x, z, radius
 
             bool Free(float x, float z, float r, bool againstWall = false)
@@ -282,6 +291,9 @@ namespace BuildingEscape
                 if (x < 0.1f || z < 0.1f || x > width - 0.1f || z > depth - 0.1f) return false;
                 foreach (var c in clear)
                     if (x > c.x - r && x < c.z + r && z > c.y - r && z < c.w + r) return false;
+                if (!againstWall)
+                    foreach (var c in floorClear)
+                        if (x > c.x - r && x < c.z + r && z > c.y - r && z < c.w + r) return false;
                 foreach (var p in placed)
                 {
                     float dx = x - p.x, dz = z - p.y, rr = r + p.z;
@@ -315,46 +327,85 @@ namespace BuildingEscape
                 wallTarget--; count++;
             }
 
+            // the big things in rounds (the owner, 2026-10-20: the hallway is cleared, the rest of the floor is mostly rooms, so what is left holds only a few of them, and every kind must be there): one forklift, one pallet block and one group of
+            // drums first, then ten box stacks, then the rest of the big things if there is room, then the stacks up to 12 - 16. Each is checked where it really stands.
+            int PlaceForklifts(int n)
+            {
+                int done = 0;
+                for (int tries = 0; tries < 800 && done < n; tries++)
+                {
+                    float x = F(1.6f, width - 1.6f), z = F(1.6f, depth - 1.6f), yaw = F(0f, 360f);
+                    var rot = Quaternion.Euler(0f, yaw, 0f);
+                    if (!Free(x, z, 1.35f)) continue;
+                    bool fits = true;                                                                                       // (the forks point along +z and reach 1.9 m from its middle: the four corners of its box are checked too)
+                    foreach (var (lx, lz) in new[] { (0.7f, 1.9f), (-0.7f, 1.9f), (0.7f, -1.4f), (-0.7f, -1.4f) })
+                    {
+                        var corner = rot * new Vector3(lx, 0f, lz);
+                        if (!Free(x + corner.x, z + corner.z, 0.1f)) { fits = false; break; }
+                    }
+                    if (!fits) continue;
+                    DockDressing.Forklift(dockHolder, x, z, yaw);
+                    var tip = rot * new Vector3(0f, 0f, 1.5f);
+                    placed.Add(new Vector3(x, z, 1.35f));
+                    placed.Add(new Vector3(x + tip.x, z + tip.z, 0.45f));
+                    done++; count++;
+                }
+                return done;
+            }
+
+            // pallets with their boxes squared on them
+            int PlacePallets(int n)
+            {
+                int done = 0;
+                for (int tries = 0; tries < 800 && done < n; tries++)
+                {
+                    float x = F(1.2f, width - 1.2f), z = F(1.2f, depth - 1.2f);
+                    if (!Free(x, z, 0.9f)) continue;
+                    DockDressing.BoxBlock(dockHolder, x, z, 90f * rng.Next(4), 2, 2, 1 + rng.Next(2), true, rng.Next(1000));
+                    placed.Add(new Vector3(x, z, 0.9f));
+                    done++; count += 4;
+                }
+                return done;
+            }
+
+            // drums in twos and threes
+            int PlaceDrums(int n)
+            {
+                int done = 0;
+                for (int tries = 0; tries < 800 && done < n; tries++)
+                {
+                    float x = F(1f, width - 1f), z = F(1f, depth - 1f);
+                    if (!Free(x, z, 0.85f) || !Free(x + 0.62f, z + 0.62f, 0.4f)) continue;          // (the group spreads 0.62 m to the east and to the north: its far drum must not stand in a keep-clear rectangle either)
+                    int drums = 2 + rng.Next(2);
+                    for (int k = 0; k < drums; k++) DockDressing.Drum(dockHolder, x + (k % 2) * 0.62f, z + (k / 2) * 0.62f, rng.Next(2));
+                    placed.Add(new Vector3(x + 0.3f, z + 0.3f, 0.85f));
+                    done++; count += drums;
+                }
+                return done;
+            }
+
             // cardboard stacks of one to three boxes, square to the room and right on top of each other (the owner, 2026-10-18: "The boxes in the basement should not be floating randomly they should be placed nicely")
-            int stacks = 22;
-            for (int tries = 0; tries < 400 && stacks > 0; tries++)
+            int PlaceStacks(int n)
             {
-                float x = F(0.8f, width - 0.8f), z = F(0.8f, depth - 0.8f);
-                if (!Free(x, z, 0.5f)) continue;
-                int height = 1 + rng.Next(3);
-                DockDressing.BoxStack(dockHolder, x, z, 90f * rng.Next(4), height, rng.Next(1000));
-                placed.Add(new Vector3(x, z, 0.55f));
-                stacks--; count += height;
+                int done = 0;
+                for (int tries = 0; tries < 2000 && done < n; tries++)
+                {
+                    float x = F(0.8f, width - 0.8f), z = F(0.8f, depth - 0.8f);
+                    if (!Free(x, z, 0.5f)) continue;
+                    int height = 1 + rng.Next(3);
+                    DockDressing.BoxStack(dockHolder, x, z, 90f * rng.Next(4), height, rng.Next(1000));
+                    placed.Add(new Vector3(x, z, 0.55f));
+                    done++; count += height;
+                }
+                return done;
             }
 
-            // a few pallets with their boxes squared on them
-            for (int tries = 0, pallets = 4; tries < 200 && pallets > 0; tries++)
-            {
-                float x = F(1.2f, width - 1.2f), z = F(1.2f, depth - 1.2f);
-                if (!Free(x, z, 1.0f)) continue;
-                DockDressing.BoxBlock(dockHolder, x, z, 90f * rng.Next(4), 2, 2, 1 + rng.Next(2), true, rng.Next(1000));
-                placed.Add(new Vector3(x, z, 1.0f));
-                pallets--; count += 4;
-            }
+            int wantStacks = 12 + rng.Next(5);                                      // (12 to 16 whatever the seed)
+            PlaceDrums(1); PlaceForklifts(2); PlacePallets(3);                      // (all three pallet blocks before the stacks, which crowd the floor: the docks must have their pallet blocks, the PVP room's four are not the only ones)
+            int haveStacks = PlaceStacks(10);
+            PlaceDrums(2);
+            PlaceStacks(wantStacks - haveStacks);
 
-            // two forklifts, and drums in twos and threes
-            for (int tries = 0, lifts = 2; tries < 600 && lifts > 0; tries++)
-            {
-                float x = F(1.6f, width - 1.6f), z = F(1.6f, depth - 1.6f);
-                if (!Free(x, z, 1.35f)) continue;
-                DockDressing.Forklift(dockHolder, x, z, F(0f, 360f));
-                placed.Add(new Vector3(x, z, 1.35f));
-                lifts--; count++;
-            }
-            for (int tries = 0, groups = 3; tries < 600 && groups > 0; tries++)
-            {
-                float x = F(1f, width - 1f), z = F(1f, depth - 1f);
-                if (!Free(x, z, 0.95f)) continue;
-                int n = 2 + rng.Next(2);
-                for (int k = 0; k < n; k++) DockDressing.Drum(dockHolder, x + (k % 2) * 0.62f, z + (k / 2) * 0.62f, rng.Next(2));
-                placed.Add(new Vector3(x + 0.3f, z + 0.3f, 0.9f));
-                groups--; count += n;
-            }
             return count;
         }
 
@@ -413,6 +464,27 @@ namespace BuildingEscape
             go.name = key;
             if (solid && def.solid) AddBox(go, pr, Mathf.Max(def.H, 0.05f));
             return go;
+        }
+
+        /// <summary>
+        /// The dart board (the owner, 2026-10-19 night): the Synty board on the end wall of the hallway outside the break room (the wall between the two halves of the docks), straight across from the break room's doorway, its middle 1.7 m up and its face to the west; the hallway is kept clear of boxes, pallets, drums and forklifts (the steel shelves along its walls stay)
+        /// (ScatterStorage). The game: <see cref="DartBoard"/>.
+        /// </summary>
+        /// <summary>The pack's dart board with its portrait and its dart taken off (Resources/DartBoardClean, made by the Editor tool DartBoardMeshBuilder).</summary>
+        public const string DartBoardCleanMesh = "DartBoardClean";
+
+        void BuildDartBoard(Transform parent)
+        {
+            if (!Application.isPlaying || !PropTable.TryGet("dartboard", out var def)) return;
+            // the end wall of the hallway outside the break room: the west face of the wall between the two halves of the docks, straight across from the break room's doorway (the owner, 2026-10-20: "The dart board and tape should be in
+            // this hallway ..., where it was originally")
+            float faceX = cellSize - 0.2f;
+            var go = PlaceKey("dartboard", faceX - def.D * 0.5f, BreakRoomDoor.z, 270f, parent, 1.7f - def.H * 0.5f, false);
+            if (go == null) return;
+            // the owner, 2026-10-19 night: "take the picture off the center of the dart board ... and the dart that is already on it": the pack's board has a portrait pinned over the bull and a dart stuck in it, all in one mesh
+            var clean = Resources.Load<Mesh>(DartBoardCleanMesh);
+            if (clean != null) foreach (var mf in go.GetComponentsInChildren<MeshFilter>()) mf.sharedMesh = clean;
+            go.AddComponent<DartBoard>();
         }
     }
 }

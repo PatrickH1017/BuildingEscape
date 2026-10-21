@@ -19,6 +19,7 @@ MonoBehaviour:
   pewBullet: {fileID: 1738196236741032, guid: 9316af0d181af92458371185644b6a72, type: 3}
   slash: {fileID: 7400000, guid: 1e17815a8d3d5574cb14f3cefd383fe4, type: 2}
   silencer: {fileID: 1516053780134580, guid: 0f491f9de5dd9b04d84663b053e837cc, type: 3}
+  redDot: {fileID: 1412634687897138, guid: 27560bc343f61b84485ebb6b75567dd2, type: 3}
   crowbarTurn: {x: 0, y: 0, z: 0}
   batTurn: {x: 0, y: 0, z: 0}
   hatchetTurn: {x: 0, y: 0, z: 0}
@@ -38,6 +39,8 @@ MonoBehaviour:
     foregrip: {x: -0.00048650242, y: -0.029069547, z: 0.2039997}
     silencerAt: {x: -0.0004865043, y: 0.056119543, z: 0.38013595}
     silencerTurn: {x: 0, y: 0, z: 0}
+    sightAt: {x: -0.0004865043, y: 0.11686267, z: 0.058555845}
+    sightTurn: {x: 0, y: 0, z: 0}
     casing: {fileID: 1738196236741032, guid: 9316af0d181af92458371185644b6a72, type: 3}
     magazinePart: _mag
   - prefab: {fileID: 1296539039355890, guid: be20da268d490c44c8460e91a7cd3a44, type: 3}
@@ -47,6 +50,8 @@ MonoBehaviour:
     foregrip: {x: 0.00025324337, y: 0.038890958, z: 0.4}
     silencerAt: {x: -0.00032639597, y: 0.085345864, z: 0.73403126}
     silencerTurn: {x: 0, y: 0, z: 0}
+    sightAt: {x: -0.00032639597, y: 0.13875346, z: 0.22585393}
+    sightTurn: {x: 0, y: 0, z: 0}
     casing: {fileID: 1859234679933314, guid: 4700ce61fd21e32439977dd4e8211f37, type: 3}
     magazinePart: _mag
   - prefab: {fileID: 1345368308290578, guid: 9ec98e8c57546a746a43196444d9c97f, type: 3}
@@ -56,14 +61,18 @@ MonoBehaviour:
     foregrip: {x: -0.0012703054, y: 0.007264765, z: 0.48414856}
     silencerAt: {x: 0, y: 0, z: 0}
     silencerTurn: {x: 0, y: 0, z: 0}
+    sightAt: {x: -0.0012703072, y: 0.10676434, z: 0.2933138}
+    sightTurn: {x: 0, y: 0, z: 0}
     casing: {fileID: 1076261940137426, guid: 96631445180422140bb3de3e846561d6, type: 3}
     magazinePart: 
-  - prefab: {fileID: 1224305756819350, guid: 0dadc2722297b3044b16aa695fd8ee62, type: 3}
+  - prefab: {fileID: 1387354669614330, guid: 0605ab4140367474f95034dcf2790b07, type: 3}
     turn: {x: 0, y: 90, z: 0}
-    muzzleFace: {x: -0.00094459485, y: 0.041616056, z: 0.964136}
-    grip: {x: -0.00082260976, y: -0.071286686, z: 0.014744375}
-    foregrip: {x: -0.000901903, y: -0.026081402, z: 0.26999998}
+    muzzleFace: {x: -0.000024985522, y: 0.102656744, z: 1.4029802}
+    grip: {x: -0.0001019286, y: -0.022408485, z: 0.024801325}
+    foregrip: {x: -0.00000029802322, y: 0.0057943333, z: 0.5940143}
     silencerAt: {x: 0, y: 0, z: 0}
     silencerTurn: {x: 0, y: 0, z: 0}
+    sightAt: {x: 0, y: 0, z: 0}
+    sightTurn: {x: 0, y: 0, z: 0}
     casing: {fileID: 7140446120267980145, guid: 8c9f425d20a885745ac5b610ce122074, type: 3}
     magazinePart: _mag

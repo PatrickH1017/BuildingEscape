@@ -13,7 +13,7 @@ namespace BuildingEscape
     /// </summary>
     public class CharacterAnimator : MonoBehaviour
     {
-        enum Pose { Idle, Run, Down }
+        enum Pose { Idle, Run, Down, Dazed }
 
         static readonly int HIdle = Animator.StringToHash("idle");
         static readonly int HRun = Animator.StringToHash("run");
@@ -36,7 +36,7 @@ namespace BuildingEscape
         /// <summary>Call every frame. Idle or run, with the run animation sped up or slowed to match the movement.</summary>
         public void Locomote(bool moving, float speed = 1f)
         {
-            if (!anim || pose == Pose.Down) return;
+            if (!anim || pose == Pose.Down || pose == Pose.Dazed) return;
             if (clipMode) { LocomoteClips(moving, speed); pose = moving ? Pose.Run : Pose.Idle; return; }
             anim.speed = moving ? speed : 1f;
             if (Time.time < lockUntil) return; // let a jump / get-up finish first
@@ -57,6 +57,19 @@ namespace BuildingEscape
             Fire(HFall);
         }
 
+        /// <summary>Stunned the way officers are (the owner, 2026-10-20: "use the animation ... as the new stunned animations for officers rather than falling down"): a rig that has the dazed loop stands hunched with its head down and its arms hanging; any other rig falls down as <see cref="Fall"/> does.</summary>
+        public void Stun()
+        {
+            if (!anim) return;
+            if (!clipMode || !hasStun) { Fall(); return; }
+            if (pose == Pose.Dazed) return;
+            pose = Pose.Dazed;
+            gettingUp = false;
+            play[(int)Slot.Down].SetSpeed(0);
+            var loop = play[(int)Slot.Stun];
+            loop.SetTime(0); loop.SetSpeed(1);
+        }
+
         /// <summary>Back on their feet (does nothing unless they were down).</summary>
         public void Recover()
         {
@@ -70,7 +83,7 @@ namespace BuildingEscape
 
         public void Jump()
         {
-            if (!anim || pose == Pose.Down) return;
+            if (!anim || pose == Pose.Down || pose == Pose.Dazed) return;
             if (clipMode)
             {
                 if (!hasJump) return;                    // (the Tiny Toon pack has no jump clip; the Human Animations one does)
@@ -116,9 +129,9 @@ namespace BuildingEscape
 
         // ------------------------------------------------------------------ clip mode (Tiny Toon people)
 
-        enum Slot { Idle, Walk, Run, Down, Attack, Jump }
-        const int SlotCount = 6;
-        bool hasJump, jumping;
+        enum Slot { Idle, Walk, Run, Down, Attack, Jump, Stun }
+        const int SlotCount = 7;
+        bool hasJump, hasStun, jumping;
         float jumpUntil;
         /// <summary>Relative speed (see Locomote) from which the run clip is used instead of the walk clip.</summary>
         const float RunThreshold = 0.9f;
@@ -134,6 +147,8 @@ namespace BuildingEscape
         float attackUntil;
 
         public bool ClipMode => clipMode;
+        /// <summary>Does this rig have the dazed loop <see cref="Stun"/> plays (clip mode only)?</summary>
+        public bool HasStun => clipMode && hasStun;
 
         /// <summary>
         /// Switch to clip mode: drop the animator controller and mix these clips with a playable graph.
@@ -155,8 +170,10 @@ namespace BuildingEscape
                 Pick(set.death, fallback.death),
                 Pick(set.attack, fallback.attack),
                 Pick(set.jump, fallback.jump),
+                Pick(set.stunned, fallback.stunned),
             };
             hasJump = set.jump || fallback.jump;
+            hasStun = set.stunned || fallback.stunned;
 
             anim.runtimeAnimatorController = null;
             anim.applyRootMotion = false; // the capsule moves, not the animation
@@ -175,6 +192,7 @@ namespace BuildingEscape
             play[(int)Slot.Down].SetSpeed(0);   // only runs while knocked over
             play[(int)Slot.Attack].SetSpeed(0); // only runs during a swing
             play[(int)Slot.Jump].SetSpeed(0);   // only runs during a jump
+            play[(int)Slot.Stun].SetSpeed(0);   // only runs while dazed
             output.SetSourcePlayable(mixer);
             graph.Play();
             clipMode = true;
@@ -199,6 +217,7 @@ namespace BuildingEscape
 
         void RecoverClips()
         {
+            if (pose == Pose.Dazed) { pose = Pose.Idle; return; }     // (the dazed loop fades out in Update)
             if (pose != Pose.Down || gettingUp) return;
             // the pack has no get-up clip, so the knock-down is played backwards
             var d = play[(int)Slot.Down];
@@ -234,15 +253,17 @@ namespace BuildingEscape
             }
 
             // keep the looping clips looping (does not depend on the clip's import settings)
-            for (int i = (int)Slot.Idle; i <= (int)Slot.Run; i++)
+            for (int i = (int)Slot.Idle; i < SlotCount; i++)
             {
+                if (i == (int)Slot.Down || i == (int)Slot.Attack || i == (int)Slot.Jump) continue;      // (these play once)
                 float len = slotClip[i].length;
                 double t = play[i].GetTime();
                 if (len > 0.01f && t >= len) play[i].SetTime(t % len);
             }
 
             if (jumping && Time.time >= jumpUntil) { jumping = false; play[(int)Slot.Jump].SetSpeed(0); }
-            var want = pose == Pose.Down ? Slot.Down : slashing ? Slot.Attack : jumping ? Slot.Jump : baseSlot;
+            var want = pose == Pose.Down ? Slot.Down : pose == Pose.Dazed ? Slot.Stun : slashing ? Slot.Attack : jumping ? Slot.Jump : baseSlot;
+            if (pose != Pose.Dazed && weight[(int)Slot.Stun] < 0.02f) play[(int)Slot.Stun].SetSpeed(0);      // (faded out: the loop rests until the next daze)
             float k = 1f - Mathf.Exp(-12f * Time.deltaTime);
             float sum = 0f;
             for (int i = 0; i < SlotCount; i++)
@@ -259,7 +280,7 @@ namespace BuildingEscape
             if (graph.IsValid()) graph.Destroy();
         }
 
-        /// <summary>For tests: how strongly each clip slot is currently shown (idle, walk, run, down, attack).</summary>
+        /// <summary>For tests: how strongly each clip slot is currently shown (idle, walk, run, down, attack, jump, dazed).</summary>
         public float[] DebugWeights() => (float[])weight.Clone();
     }
 }

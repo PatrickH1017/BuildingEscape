@@ -5,7 +5,7 @@ namespace BuildingEscape
 {
     /// <summary>
     /// Gives a guard capsule one of the mean Party Characters looks (PartyCharacterFactory.GuardLooks)
-    /// and animates it: runs while walking / investigating / chasing, falls down while stunned.
+    /// and animates it: runs while walking / investigating / chasing, stands dazed (head down, arms hanging) while stunned (the owner, 2026-10-20; it used to fall down).
     /// </summary>
     [RequireComponent(typeof(GuardAI))]
     public class GuardVisual : MonoBehaviour
@@ -69,7 +69,7 @@ namespace BuildingEscape
                 nextMunch = Time.time + 1.0f + 0.5f * Random.value;
                 GameAudio.PlaySound(SoundId.Munch, transform.position + Vector3.up * 1.5f, 0.6f, Random.Range(0.92f, 1.08f), true, 14f, 2f);
             }
-            if (ai.State == GuardState.Stunned) { anim.Fall(); return; }
+            if (ai.State == GuardState.Stunned) { anim.Stun(); return; }
             anim.Recover();
             float v = ai.CurrentSpeed; // a puppet has no agent running
             anim.Locomote(v > 0.15f, Mathf.Clamp(v / 3f, 0.5f, 1.8f));

@@ -189,7 +189,41 @@ namespace BuildingEscape.EditorTools
                     && (r.name == "box" || r.name.StartsWith("cabinet") || r.name.StartsWith("shelf") || r.name == "bookshelf" || r.name == "kshelve")));
 
             // the workers: the player's character and a coworker, in front of the TV, facing it
-            EtrCheck("tv: two workers stand in the docks - the player's character and a coworker, who is the one that speaks", intro.WorkerCount == 2 && intro.WorkerLabel(intro.SpeakerAt) == IntroContent.CoworkerLabel && intro.WorkerLabel(intro.ListenerAt) == IntroContent.PlayerLabel(0));
+            EtrCheck("tv: five workers hang out in the break room - the player's character and four coworkers, one of whom is the one that speaks to the player", intro.WorkerCount == IntroRules.Workers && intro.WorkerLabel(intro.SpeakerAt) == IntroContent.CoworkerLabel && intro.WorkerLabel(intro.ListenerAt) == IntroContent.PlayerLabel(0));
+            // the opening (the owner, 2026-10-20: "have them all in the break room in a circle talking then the tv plays and then they all line up to watch it"): the TV is dark and the five stand in a circle in the break room, turned in to its middle
+            intro.TestSeek(3.0f);
+            yield return new WaitForSeconds(0.5f);
+            var ringMid = intro.RingCentre;
+            bool ringOk = !tv.OnProgram && intro.WorkerCount == IntroRules.Workers;
+            for (int i = 0; i < intro.WorkerCount; i++)
+            {
+                var f0 = intro.WorkerFoot(i);
+                var inward = ringMid - f0; inward.y = 0f;
+                ringOk &= Mathf.Abs(inward.magnitude - IntroRules.RingRadius) < 0.05f && Mathf.Abs(Mathf.DeltaAngle(intro.WorkerYaw(i), Quaternion.LookRotation(inward, Vector3.up).eulerAngles.y)) < 15f && gen.BreakRoom.Contains(new Vector2(f0.x, f0.z));
+            }
+            EtrCheck("tv: before the announcement the TV is dark and the five workers stand in a circle in the break room, turned in to its middle", ringOk);
+            yield return Snap("intro_tv_opening_workers");
+            intro.TestSeek(1.6f);
+            yield return new WaitForSeconds(0.4f);
+            yield return Snap("intro_tv_opening_talk");
+            intro.TestSeek(IntroRules.TvOnAt - 0.35f);
+            yield return new WaitForSeconds(0.25f);
+            yield return Snap("intro_tv_opening_last_moment");
+            // the TV comes on: they look round at it and set off, each from its spot in the circle to its place in the line in front of the TV
+            intro.TestSeek(IntroRules.TvOnAt + 0.8f);
+            yield return new WaitForSeconds(0.25f);
+            int onTheWay = 0;
+            for (int i = 0; i < intro.WorkerCount; i++) if (intro.WorkerWalking(i)) onTheWay++;
+            EtrCheck("tv: when the TV comes on they set off for the line in front of it: most of them are on the walk a moment later", tv.OnProgram && onTheWay >= 3, $"({onTheWay} of {intro.WorkerCount} walking)");
+            yield return Snap("intro_tv_gather_walking");
+            intro.TestSeek(IntroRules.TvOnAt + 1.5f);
+            yield return new WaitForSeconds(0.25f);
+            yield return Snap("intro_tv_gather_arriving");
+            intro.TestSeek(IntroRules.Beats[IntroRules.FirstBossBeat].start + 0.35f);
+            yield return new WaitForSeconds(0.25f);
+            yield return Snap("intro_tv_gather_lined_up");
+            intro.TestSeek(IntroRules.Beats[IntroRules.FirstBossBeat].start + 0.5f);
+            yield return new WaitForSeconds(1.6f);
             bool toonWorkers = intro.WorkerCount > 0;
             for (int i = 0; i < intro.WorkerCount; i++) toonWorkers &= intro.WorkerIsToon(i);
             EtrCheck("tv: the workers are Tiny Toon people, not the colourful Party characters", toonWorkers, $"({intro.WorkerCount} workers)");
@@ -210,18 +244,25 @@ namespace BuildingEscape.EditorTools
             {
                 float at = (beats[i].start + beats[i].end) * 0.5f;
                 if (i == IntroRules.BeatAt(IntroRules.JetStart)) at = IntroRules.JetStart + 1.5f;
+                if (i == IntroRules.DoorBeat) at = beats[i].start + 0.2f;
                 intro.TestSeek(at);
                 yield return null; yield return null;
+                if (beats[i].dock == DockShot.TwoShot) EtrCheck("tv: while the workers talk the vendor's bay door is still shut", DockBayDoor.Current != null && DockBayDoor.Current.IsShut);
+                if (beats[i].dock == DockShot.Bay)
+                {
+                    yield return new WaitForSeconds(Mathf.Max(0f, IntroRules.BayOpensAt - at + DockBayDoor.RollSeconds + 0.3f));
+                    EtrCheck("tv: after the workers' line the vendor's bay door has rolled up and he is there to be seen (the owner, 2026-10-19 night)", DockBayDoor.Current != null && DockBayDoor.Current.IsOpen);
+                }
                 var c = intro.DockCamera.transform.position;
                 camOk &= c.x > 0.3f && c.x < 35.5f && c.z > 0.3f && c.z < 17.5f && c.y > 0.5f && c.y < 3.4f;
-                tvProgram &= beats[i].shot == IntroShot.None ? !tv.OnProgram : tv.OnProgram;
+                tvProgram &= beats[i].shot == IntroShot.None || beats[i].shot == IntroShot.Off ? !tv.OnProgram : tv.OnProgram;
                 yield return Snap($"intro_tv_{i}_{beats[i].dock}");
             }
             EtrCheck("tv: the camera stays inside the docks in every beat", camOk);
-            EtrCheck("tv: the TV shows the boss during the monologue and static after it", tvProgram);
+            EtrCheck("tv: the TV is dark at first, shows the boss during the monologue and static after it", tvProgram);
             // the worker's line: the two of them turn to each other
-            intro.TestSeek(31.5f);
-            yield return new WaitForSeconds(0.8f);
+            intro.TestSeek(IntroRules.Beats[IntroRules.WorkerBeat].start + 1.5f);
+            yield return new WaitForSeconds(1.2f);
             int s = intro.SpeakerAt, l = intro.ListenerAt;
             var toL = intro.WorkerFoot(l) - intro.WorkerFoot(s); toL.y = 0f;
             float want = Quaternion.LookRotation(toL, Vector3.up).eulerAngles.y;

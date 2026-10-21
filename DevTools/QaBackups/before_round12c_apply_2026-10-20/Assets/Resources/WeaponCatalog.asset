@@ -1,0 +1,69 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a6f9109d59da7f346aefc8b2b65a7d36, type: 3}
+  m_Name: WeaponCatalog
+  m_EditorClassIdentifier: 
+  crowbar: {fileID: 1053601135882890, guid: e836a075ea7fb4948a5ac07f447e206d, type: 3}
+  bat: {fileID: 1079387494257586, guid: 27af943660497544a943e5dc2595eea7, type: 3}
+  hatchet: {fileID: 1295617296399724, guid: c59e08db54612244384ff025bbac7d3f, type: 3}
+  pew: {fileID: 1508934165754910, guid: 68317e2c4c57a6e45be7063240f91cbb, type: 3}
+  pewBullet: {fileID: 1738196236741032, guid: 9316af0d181af92458371185644b6a72, type: 3}
+  slash: {fileID: 7400000, guid: 1e17815a8d3d5574cb14f3cefd383fe4, type: 2}
+  silencer: {fileID: 1516053780134580, guid: 0f491f9de5dd9b04d84663b053e837cc, type: 3}
+  crowbarTurn: {x: 0, y: 0, z: 0}
+  batTurn: {x: 0, y: 0, z: 0}
+  hatchetTurn: {x: 0, y: 0, z: 0}
+  pewTurn: {x: 0, y: 90, z: 0}
+  crowbarGrip: {x: 0, y: -0.31764424, z: -0.08922233}
+  batGrip: {x: -0.0000000055879354, y: 0.13891439, z: 0.0000000055879354}
+  hatchetGrip: {x: 0, y: -0.22837116, z: -0.0153270755}
+  pewMuzzleFace: {x: 0, y: 0.07906718, z: 0.2959765}
+  silencerAt: {x: 0, y: 0.07906718, z: 0.3650455}
+  silencerTurn: {x: 0, y: 0, z: 0}
+  modelsVersion: 1
+  longGuns:
+  - prefab: {fileID: 1540458763532602, guid: e4b5e619f4a1e5844b32eec0d702d1b6, type: 3}
+    turn: {x: 0, y: 90, z: 0}
+    muzzleFace: {x: -0.0004865043, y: 0.056119543, z: 0.31106696}
+    grip: {x: -0.00055510504, y: -0.018152544, z: 0.012983274}
+    foregrip: {x: -0.00048650242, y: -0.029069547, z: 0.2039997}
+    silencerAt: {x: -0.0004865043, y: 0.056119543, z: 0.38013595}
+    silencerTurn: {x: 0, y: 0, z: 0}
+    casing: {fileID: 1738196236741032, guid: 9316af0d181af92458371185644b6a72, type: 3}
+    magazinePart: _mag
+  - prefab: {fileID: 1296539039355890, guid: be20da268d490c44c8460e91a7cd3a44, type: 3}
+    turn: {x: 0, y: 90, z: 0}
+    muzzleFace: {x: -0.00032639597, y: 0.085345864, z: 0.66496223}
+    grip: {x: 0.0001999666, y: -0.0351767, z: 0.013782132}
+    foregrip: {x: 0.00025324337, y: 0.038890958, z: 0.4}
+    silencerAt: {x: -0.00032639597, y: 0.085345864, z: 0.73403126}
+    silencerTurn: {x: 0, y: 0, z: 0}
+    casing: {fileID: 1859234679933314, guid: 4700ce61fd21e32439977dd4e8211f37, type: 3}
+    magazinePart: _mag
+  - prefab: {fileID: 1345368308290578, guid: 9ec98e8c57546a746a43196444d9c97f, type: 3}
+    turn: {x: 0, y: 90, z: 0}
+    muzzleFace: {x: -0.0012703072, y: 0.09962246, z: 0.8621733}
+    grip: {x: -0.0013334816, y: -0.010493234, z: 0.024070192}
+    foregrip: {x: -0.0012703054, y: 0.007264765, z: 0.48414856}
+    silencerAt: {x: 0, y: 0, z: 0}
+    silencerTurn: {x: 0, y: 0, z: 0}
+    casing: {fileID: 1076261940137426, guid: 96631445180422140bb3de3e846561d6, type: 3}
+    magazinePart: 
+  - prefab: {fileID: 1224305756819350, guid: 0dadc2722297b3044b16aa695fd8ee62, type: 3}
+    turn: {x: 0, y: 90, z: 0}
+    muzzleFace: {x: -0.00094459485, y: 0.041616056, z: 0.964136}
+    grip: {x: -0.00082260976, y: -0.071286686, z: 0.014744375}
+    foregrip: {x: -0.000901903, y: -0.026081402, z: 0.26999998}
+    silencerAt: {x: 0, y: 0, z: 0}
+    silencerTurn: {x: 0, y: 0, z: 0}
+    casing: {fileID: 7140446120267980145, guid: 8c9f425d20a885745ac5b610ce122074, type: 3}
+    magazinePart: _mag

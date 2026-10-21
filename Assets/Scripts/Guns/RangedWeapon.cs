@@ -30,6 +30,9 @@ namespace BuildingEscape
         /// <summary>Is a gun silenced: only when a silencer was put on it and one fits it, whatever is asked.</summary>
         public static bool IsSilenced(Spec spec, bool silencerPutOn) => silencerPutOn && spec.CanSilence;
 
+        /// <summary>The rule for red dot sights (the owner, 2026-10-20: "Please add red dot sights for the machine guns and shotgun"): a sub machine gun, a rifle and a shotgun carry one; a pistol (its own sights) and a sniper rifle (its scope) do not.</summary>
+        public static bool TakesRedDot(WeaponClass c) => c == WeaponClass.SubMachineGun || c == WeaponClass.Rifle || c == WeaponClass.Shotgun;
+
         public struct Spec
         {
             public string name;
@@ -49,9 +52,13 @@ namespace BuildingEscape
             public WeaponClass weaponClass;
             /// <summary>Does a silencer fit this gun? Pistols, sub machine guns and rifles take one; shotguns and sniper rifles never do.</summary>
             public bool CanSilence => TakesSilencer(weaponClass);
+            /// <summary>Does this gun carry a red dot sight? Sub machine guns, rifles and shotguns do (<see cref="RangedWeapon.TakesRedDot"/>).</summary>
+            public bool CanSight => TakesRedDot(weaponClass);
             public int magazine;
             /// <summary>The spare clips a new gun comes with when it is bought or handed over by the test menu (the clip in the gun is the first of the three). A gun FOUND in a safe has none: one clip, the one in it (the owner, 2026-10-19).</summary>
             public int spareClips;
+            /// <summary>The most clips of this gun a player may carry, the one in the gun counted; 0 = the three of <see cref="GunRules.MaxClips"/>. The pistol carries twelve: 96 rounds (the owner, 2026-10-19 night: "Max ammo for the pistol should be about 100 shots").</summary>
+            public int maxClips;
             public float reloadSeconds, fireInterval;
             /// <summary>How far a bullet flies (m) and the cone it is fired into (degrees).</summary>
             public float range, spread;
@@ -85,7 +92,7 @@ namespace BuildingEscape
             {
                 name = "Pew", weight = 1.2f, length = 0.30f,
                 damage = 60f, guardHits = 4, stun = 0f, knock = 16f, noise = 45f, silencedNoise = 12f, silencerLength = 0.16f, weaponClass = WeaponClass.Pistol,
-                magazine = 8, spareClips = 2, reloadSeconds = 2.2f, fireInterval = 0.3f, range = 45f, spread = 1.2f,
+                magazine = 8, spareClips = 2, maxClips = 12, reloadSeconds = 2.2f, fireInterval = 0.3f, range = 45f, spread = 1.2f,
                 hold = HoldStyle.OneHand, sounds = SoundSet.Handgun, kick = 9f, flash = 1f, unlockFloor = 3, ammoName = "Pistol Clip", clipPrice = 120, ammoPlural = "pistol clips", pitch = 1f,
             },
             new Spec
@@ -186,6 +193,48 @@ namespace BuildingEscape
             return go;
         }
 
+        static Material dotMat;
+        static Bounds redDotBox; static bool redDotMeasured, redDotHasBox;
+
+        /// <summary>The red dot sight on top of the gun (the owner, 2026-10-20): a child of <paramref name="parent"/> called "RedDot", scaled like the gun, with its little red dot lit in the window. <paramref name="origin"/> and <paramref name="frame"/> are as for the silencer.</summary>
+        static GameObject AttachSight(Transform parent, Vector3 origin, Quaternion frame, Layout lay)
+        {
+            var go = Object.Instantiate(Catalog.redDot, parent, false);
+            StripColliders(go);
+            go.name = "RedDot";
+            go.transform.localPosition = origin + frame * (lay.sightAt * lay.scale);
+            go.transform.localRotation = frame * lay.sightRot;
+            go.transform.localScale = Vector3.one * lay.scale;
+            AddDot(go.transform);
+            return go;
+        }
+
+        /// <summary>The red dot itself: a small sphere that glows red whatever the light, in the middle of the sight's box (the model's own space, before it is scaled).</summary>
+        static void AddDot(Transform sight)
+        {
+            if (!redDotMeasured) { redDotMeasured = true; redDotHasBox = WeaponCatalog.Measure(Catalog.redDot, Quaternion.identity, null, out redDotBox); }
+            var dot = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            dot.name = "Dot";
+            var col = dot.GetComponent<Collider>();
+            if (col) Object.Destroy(col);
+            dot.transform.SetParent(sight, false);
+            dot.transform.localPosition = redDotHasBox ? new Vector3(redDotBox.center.x, redDotBox.center.y + 0.10f * redDotBox.size.y, redDotBox.center.z) : new Vector3(0f, 0.04f, 0f);
+            dot.transform.localScale = Vector3.one * 0.008f;
+            var r = dot.GetComponent<Renderer>();
+            if (!dotMat)
+            {
+                var sh = Shader.Find("Standard") ?? Shader.Find("Legacy Shaders/Diffuse") ?? Shader.Find("Sprites/Default");
+                dotMat = new Material(sh) { name = "RedDot", color = Color.black };
+                dotMat.EnableKeyword("_EMISSION");
+                dotMat.globalIlluminationFlags = MaterialGlobalIlluminationFlags.None;
+                if (dotMat.HasProperty("_EmissionColor")) dotMat.SetColor("_EmissionColor", new Color(3.2f, 0.12f, 0.08f));
+                else dotMat.color = new Color(1f, 0.1f, 0.06f);
+            }
+            r.sharedMaterial = dotMat;
+            r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            r.receiveShadows = false;
+        }
+
         GunMagazine magazine;
         /// <summary>The rounds in this gun: the state travels with the item (drop it and pick it up again, it is as you left it).</summary>
         public GunMagazine Magazine => magazine ??= NewMagazine(Data, startClips);
@@ -197,7 +246,7 @@ namespace BuildingEscape
         {
             var m = new GunMagazine(s.magazine, s.reloadSeconds, s.fireInterval);
             m.SetReserve((spareClips < 0 ? s.spareClips : spareClips) * s.magazine);
-            m.MaxRounds = GunRules.MaxClips * s.magazine;                    // (a player carries at most three clips)
+            m.MaxRounds = (s.maxClips > 0 ? s.maxClips : GunRules.MaxClips) * s.magazine;                    // (a player carries at most three clips of a gun; of the pistol twelve)
             return m;
         }
 
@@ -230,6 +279,10 @@ namespace BuildingEscape
             public bool hasSilencer;
             public Vector3 silencerAt, silencedMuzzle;
             public Quaternion silencerRot;
+            /// <summary>The red dot sight: this gun carries one, where its origin goes and how it is turned there (measured by the editor).</summary>
+            public bool hasSight;
+            public Vector3 sightAt;
+            public Quaternion sightRot;
             /// <summary>Where the left hand holds a gun that is held in both hands (the forend, the pump, the foregrip).</summary>
             public bool hasForegrip;
             public Vector3 foregrip;
@@ -240,7 +293,7 @@ namespace BuildingEscape
         static Bounds[] magBounds = new Bounds[Specs.Length];
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
-        static void ResetStatics() { layouts = new Layout[Specs.Length]; magMeasured = new bool[Specs.Length]; hasMag = new bool[Specs.Length]; magBounds = new Bounds[Specs.Length]; }
+        static void ResetStatics() { layouts = new Layout[Specs.Length]; magMeasured = new bool[Specs.Length]; hasMag = new bool[Specs.Length]; magBounds = new Bounds[Specs.Length]; redDotMeasured = false; dotMat = null; }
 
         static void Discard(Object o)
         {
@@ -295,6 +348,12 @@ namespace BuildingEscape
                     l.fullBounds.Encapsulate(l.silencerAt + l.silencerRot * corner);
                 }
             }
+            if (spec.CanSight && cat.redDot && gm.sightAt != Vector3.zero)
+            {
+                l.hasSight = true;
+                l.sightAt = turn * gm.sightAt;
+                l.sightRot = turn * Quaternion.Euler(gm.sightTurn);
+            }
             layouts[(int)k] = l;
             return l;
         }
@@ -339,6 +398,7 @@ namespace BuildingEscape
             rw.kind = k;
             rw.startClips = startClips;
             rw.silenced = true;
+            if (lay.hasSight) AttachSight(root.transform, model.transform.localPosition, lying, lay);          // (the red dot sight: the SMG, the rifle and the shotgun carry one)
             if (!spec.CanSilence) return root;                                                // (a shotgun or a sniper rifle never has a silencer on it)
             if (lay.hasSilencer) AttachSilencer(root.transform, model.transform.localPosition, lying, lay);
             else AddSilencer(root.transform, new Vector3(size.x * 0.5f + spec.silencerLength * 0.5f, 0f, 0f), Quaternion.Euler(0f, 0f, 90f), spec.silencerLength);      // (the plain tube lies along the barrel, a little to the front of the model)
@@ -389,7 +449,8 @@ namespace BuildingEscape
                     m.localPosition += new Vector3(0f, 0f, spec.silencerLength);
                 }
             }
-            // the empty case leaves the slide's ejection port, not the muzzle (with a silencer on, the muzzle is the far end of the gun)
+            if (lay.hasSight) AttachSight(grip, model.transform.localPosition, turn, lay);                   // (the red dot sight on top)
+            // the empty case leaves the slide''s ejection port, not the muzzle (with a silencer on, the muzzle is the far end of the gun)
             var port = new GameObject("Port").transform;
             port.SetParent(grip, false);
             port.localPosition = model.transform.localPosition + turn * (lay.port * lay.scale);
@@ -458,6 +519,7 @@ namespace BuildingEscape
             model.transform.localScale = Vector3.one * lay.scale;
             model.transform.localRotation = lying * turn;
             model.transform.localPosition = -(lying * (lay.bounds.center * lay.scale));
+            if (lay.hasSight) AttachSight(root.transform, model.transform.localPosition, lying, lay);
             thickness = lay.bounds.size.z * lay.scale;
             return root;
         }

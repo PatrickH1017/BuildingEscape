@@ -24,13 +24,61 @@ namespace BuildingEscape.EditorTools
             {
                 var cat = AssetDatabase.LoadAssetAtPath<CharacterCatalog>(AssetPath);
                 if (!cat && System.IO.File.Exists(AssetPath)) return;      // (a catalog that exists but does not load: its script is not imported yet - rebuilding now would overwrite it with a blank one)
-                if (!cat || cat.characters.Length == 0 || !cat.atlas || !cat.male.idle || HasFileNameLabels(cat)) Build(false);
+                if (!cat || cat.characters.Length == 0 || !cat.atlas || !cat.male.idle || HasFileNameLabels(cat) || StunnedMissing(cat) || ConstructionStale(cat)) Build(false);
             };
         }
 
         /// <summary>An earlier version named players after their files ("Female", "Male A"); those are renamed on the next build.</summary>
         static bool HasFileNameLabels(CharacterCatalog cat) =>
             cat.characters.Any(c => c != null && c.role == ToonRole.Player && (string.IsNullOrEmpty(c.label) || c.label == LabelOf(c.id)));
+
+        const string StunnedFbx = "Assets/Blink/Art/Animations/Animations_Starter_Pack/Combat/StunnedLoop.fbx";
+
+        /// <summary>The Blink dazed loop (the owner, 2026-10-20: stunned officers use it instead of falling down): its clip in the FBX (the file also holds a one-frame T pose), or null while the pack is absent.</summary>
+        static AnimationClip ReadStunned()
+        {
+            if (!File.Exists(StunnedFbx)) return null;
+            return AssetDatabase.LoadAllAssetsAtPath(StunnedFbx).OfType<AnimationClip>().FirstOrDefault(c => c.name == "StunnedLoop");
+        }
+
+        /// <summary>The Blink pack is in and the catalog has no dazed loop yet: it is rebuilt on the next editor start.</summary>
+        static bool StunnedMissing(CharacterCatalog cat) => File.Exists(StunnedFbx) && cat.humanMale != null && !cat.humanMale.stunned;
+
+        /// <summary>The Construction pack is in and the catalog has no builders, or builders without their hats yet: it is rebuilt on the next editor start.</summary>
+        static bool ConstructionStale(CharacterCatalog cat)
+        {
+            if (!AssetDatabase.IsValidFolder("Assets/Synty/PolygonConstruction")) return false;
+            var c = cat.Find("syn_builder_highvis_01");
+            return c == null || c.dress == null || c.dress.Length == 0;
+        }
+
+        const string AttachmentDir = "Assets/Synty/PolygonConstruction/Prefabs/Characters/Attachments/";
+        const string ThemeTexture = "Assets/Synty/PolygonConstruction/Textures/PolygonConstruction_Texture_0{0}_A.png";
+
+        /// <summary>
+        /// What the owner's pictures (2026-10-20) show on the builders' heads, which the pack's character prefabs leave bare: the man in the hi-vis vest a brown cap, the woman a yellow hard hat, the bearded man (tank top, knee pads) an orange hard hat with goggles and a brown
+        /// beard, the older man a white hard hat and a grey beard. The colour of a hat is the pack's colour theme it is drawn in (Textures 01 yellow, 02 orange, 03 blue, 04 white for a hard hat; a cap is red, blue, green or tan).
+        /// </summary>
+        static readonly Dictionary<string, (string attachment, int theme)[]> Dress = new Dictionary<string, (string attachment, int theme)[]>
+        {
+            ["syn_builder_highvis_01"] = new[] { ("SM_Chr_Attach_Hat_01", 4) },
+            ["syn_builder_female_01"] = new[] { ("SM_Chr_Attach_Helmet_01", 1) },
+            ["syn_builder_singlet_01"] = new[] { ("SM_Chr_Attach_Helmet_Goggles_01", 2), ("SM_Chr_Attach_Beard_02", 1) },
+            ["syn_builder_harness_01"] = new[] { ("SM_Chr_Attach_Helmet_01", 4), ("SM_Chr_Attach_Beard_Grey_01", 1) },
+        };
+
+        static ToonDress[] DressOf(string id)
+        {
+            if (!Dress.TryGetValue(id, out var items)) return new ToonDress[0];
+            var list = new List<ToonDress>();
+            foreach (var (name, theme) in items)
+            {
+                var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(AttachmentDir + name + ".prefab");
+                if (!prefab) continue;
+                list.Add(new ToonDress { prefab = prefab, atlas = AssetDatabase.LoadAssetAtPath<Texture2D>(string.Format(ThemeTexture, theme)) });
+            }
+            return list.ToArray();
+        }
 
         [MenuItem("Employees Take Revenge/Setup Characters", priority = 32)]
         static void Menu() => Build(true);
@@ -42,12 +90,14 @@ namespace BuildingEscape.EditorTools
         public static void BuildBatch() { Build(true); EditorApplication.Exit(0); }
 
         const string SyntyCharacters = "Assets/Synty/PolygonOffice/Prefabs/Characters";
+        /// <summary>The Synty Construction pack's people (the owner, 2026-10-20: "More assets have been added"): one Humanoid rig, one colour atlas, the characters dressed as the pack makes them (hard hats, caps, vests).</summary>
+        const string ConstructionCharacters = "Assets/Synty/PolygonConstruction/Prefabs/Characters";
 
         /// <summary>The Synty office pack's colour atlas: read from the serialized data of its material (the material's own Shader Graph shader is missing in this pipeline, so its properties cannot be asked for).</summary>
-        static Texture2D SyntyAtlas()
+        static Texture2D SyntyAtlas(string folder = "Assets/Synty/PolygonOffice", string material = "PolygonOffice_01_A")
         {
-            if (!AssetDatabase.IsValidFolder("Assets/Synty/PolygonOffice")) return null;
-            var path = AssetDatabase.FindAssets("PolygonOffice_01_A t:Material", new[] { "Assets/Synty/PolygonOffice" }).Select(AssetDatabase.GUIDToAssetPath).FirstOrDefault(p => Path.GetFileNameWithoutExtension(p) == "PolygonOffice_01_A");
+            if (!AssetDatabase.IsValidFolder(folder)) return null;
+            var path = AssetDatabase.FindAssets(material + " t:Material", new[] { folder }).Select(AssetDatabase.GUIDToAssetPath).FirstOrDefault(p => Path.GetFileNameWithoutExtension(p) == material);
             var mat = path != null ? AssetDatabase.LoadAssetAtPath<Material>(path) : null;
             if (!mat) return null;
             var envs = new SerializedObject(mat).FindProperty("m_SavedProperties.m_TexEnvs");
@@ -60,17 +110,18 @@ namespace BuildingEscape.EditorTools
         }
 
         /// <summary>
-        /// The four characters the owner showed in four pictures (2026-10-17 night, "The Dock workers should be these character models"): the man with the cap (Cleaner Male 01), the blonde woman in dark grey
-        /// (Boss Female 01), the man with glasses and headphones (Developer Male 02), the man with the red beard and the vest (Business Male 02). In the order of the pictures they are Dock worker 1 to 4
-        /// and the first four default looks (PlayerAppearance.DefaultToons).
+        /// The five characters of the owner's pictures (2026-10-20, "the attached images show the 5 characters that should be playable and present in the intro cinematic"): the man in the orange hi-vis vest with the brown cap (Builder HighVis 01), the woman with the
+        /// yellow hard hat (Builder Female 01), the bearded man with the orange hard hat and goggles (Builder Singlet 01), the older man with the white hard hat (Builder Harness 01) and the woman in the red plaid shirt (Developer Female 02, of the office pack): the only
+        /// ones a player may be, Dock worker 1 to 5 in the order of the pictures, the default looks of the five slots (PlayerAppearance.DefaultToons) and the five workers of the intro cinematic. (Before that: the four characters of 2026-10-17 night, the man with the cap,
+        /// the blonde woman in dark grey, the man with glasses and headphones, the man with the red beard and the vest; they and the rest of the office people are still in the catalog, for old saved looks, but are not offered.)
         /// </summary>
-        public static readonly string[] DockWorkerIds = { "syn_cleaner_male_01", "syn_boss_female_01", "syn_developer_male_02", "syn_business_male_02" };
+        public static readonly string[] DockWorkerIds = { "syn_builder_highvis_01", "syn_builder_female_01", "syn_builder_singlet_01", "syn_builder_harness_01", "syn_developer_female_02" };
 
         /// <summary>
         /// Who of the Synty people a player may be: everybody but the security guards (the owner: "let people choose between most of them for now (not officers of course)": a player must not look like
         /// a guard) and the boss of the cutscene (a player must not be him).
         /// </summary>
-        static ToonRole SyntyRole(string id) => id == IntroContent.BossModelId ? ToonRole.Other : id.Contains("_security_") ? ToonRole.Guard : ToonRole.Player;
+        static ToonRole SyntyRole(string id) => id == IntroContent.BossModelId ? ToonRole.Other : id.Contains("_security_") ? ToonRole.Guard : System.Array.IndexOf(DockWorkerIds, id) >= 0 ? ToonRole.Player : ToonRole.Other;
 
         /// <summary>"SM_Chr_Business_Female_01" -> "syn_business_female_01" (the Synty people; attachments are not people).</summary>
         static string SyntyId(string prefabName)
@@ -223,6 +274,17 @@ namespace BuildingEscape.EditorTools
                     if (sid == null || sid.Contains("attachment") || !CharacterCatalog.ValidId(sid) || synty.Any(c => c.id == sid)) continue;
                     synty.Add(new ToonCharacter { id = sid, label = null, prefab = sprefab, role = SyntyRole(sid), clips = sid.Contains("female") ? ToonClipSetId.HumanFemale : ToonClipSetId.HumanMale, atlas = syntyAtlas });
                 }
+            // the Construction people (the owner, 2026-10-20): the builders and inspectors of the Synty Construction pack; four of the owner's five are builders (they wear their hats: DressOf)
+            var buildAtlas = SyntyAtlas("Assets/Synty/PolygonConstruction", "PolygonConstruction_01_A");
+            if (buildAtlas != null && AssetDatabase.IsValidFolder(ConstructionCharacters))
+                foreach (var guid in AssetDatabase.FindAssets("t:Prefab", new[] { ConstructionCharacters }))
+                {
+                    var spath = AssetDatabase.GUIDToAssetPath(guid);
+                    var sprefab = AssetDatabase.LoadAssetAtPath<GameObject>(spath);
+                    var sid = sprefab ? SyntyId(sprefab.name) : null;
+                    if (sid == null || sid.Contains("attach") || !CharacterCatalog.ValidId(sid) || synty.Any(c => c.id == sid)) continue;
+                    synty.Add(new ToonCharacter { id = sid, label = null, prefab = sprefab, role = SyntyRole(sid), clips = sid.Contains("female") ? ToonClipSetId.HumanFemale : ToonClipSetId.HumanMale, atlas = buildAtlas, dress = DressOf(sid) });
+                }
             if (synty.Count > 0) foreach (var c in list) if (c.role == ToonRole.Player || (c.role == ToonRole.Guard && synty.Any(s => s.role == ToonRole.Guard))) c.role = ToonRole.Other;      // (the officers are the Synty security people when the pack is there)
             list.AddRange(synty);
             // (the four dock workers the owner showed come first, in the order of his pictures; then everybody else by id)
@@ -242,6 +304,8 @@ namespace BuildingEscape.EditorTools
             cat.zombie = ReadSet(fbx, "z");
             cat.humanMale = ReadHuman("M");
             cat.humanFemale = ReadHuman("F");
+            var stunned = ReadStunned();
+            foreach (var set in new[] { cat.male, cat.female, cat.zombie, cat.humanMale, cat.humanFemale }) set.stunned = stunned;          // (one clip for every rig: it is Humanoid)
             if (isNew) AssetDatabase.CreateAsset(cat, AssetPath); else EditorUtility.SetDirty(cat);
             AssetDatabase.SaveAssets();
             if (log)

@@ -76,7 +76,7 @@ namespace BuildingEscape
             },
             new Product
             {
-                name = "Pew Pistol", blurb = "gun: LMB fires, R reloads. 8 rounds a clip, 3 clips, 3 hits drop a guard. Try it on the dummy", price = PewPrice,
+                name = "Pew Pistol", blurb = "gun: LMB fires, R reloads. 8 rounds a clip, up to 12 clips, 3 hits drop a guard. Try it on the dummy", price = PewPrice,
                 isGun = true, gun = RangedWeapon.Kind.Pew
             },
             new Product
@@ -475,7 +475,7 @@ namespace BuildingEscape
                 var spec = RangedWeapon.Specs[(int)p.gun];
                 var gun = GunOf(buyer, p.gun);
                 if (gun == null) return p.gun == RangedWeapon.Kind.Pew ? "You have no pew to load - buy the pistol first" : $"You carry no {spec.name} to load";
-                if (gun.Magazine.Room < p.rounds) return "You can't carry more than three clips";
+                if (gun.Magazine.Room < p.rounds) return Backpack.TooManyClipsFor(gun.Magazine);
                 if (!hm.TrySpend(p.price)) return $"Not enough cash (a clip costs ${p.price})";
                 if (Net.NetRole.IsHost && buyer.TryGetComponent(out Net.NetPlayer ammoBuyer)) Net.RunSync.Instance.AnnounceAmmo(ammoBuyer.Slot, p.rounds, p.gun);      // (every machine adds the rounds to that player's gun)
                 else GiveAmmo(buyer, p.rounds, p.gun);

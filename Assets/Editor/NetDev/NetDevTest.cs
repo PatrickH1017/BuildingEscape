@@ -57,6 +57,7 @@ namespace BuildingEscape.EditorTools
             GunsTest();
             GuardsTest();
             ArmourTest();
+            Round12Test();
             ChecklistTest();
             string v = NetConst.BuildVersion;
             Check("allow", JoinPolicy.Evaluate(false, 1, v, v, true) == JoinVerdict.Allow);

@@ -31,6 +31,9 @@ namespace BuildingEscape
         public const float SpotBase = 0.15f, SpotPerMetre = 0.12f;
         public static float SpotSeconds(float distance, float baseSeconds = SpotBase, float perMetre = SpotPerMetre) => baseSeconds + perMetre * (distance > 0f ? distance : 0f);
 
+        /// <summary>A backup officer (called in by a radio call or the alarm) notices a player in his cone in this fraction of the usual time (the owner, 2026-10-20: "Backup guards should have a much shorter scan time when a player enters their vision cone"): 14 m takes about 0.5 s instead of 1.8 s.</summary>
+        public const float BackupSpotFactor = 0.25f;
+
         /// <summary>From this floor on a floor holds <see cref="BigFloorBonus"/> more patrolling guards than the plain "base + floor" (the owner, 2026-10-18: "Wave 3 should have more guards than 2 by a decent amount").</summary>
         public const int BigFloor = 3, BigFloorBonus = 2;
 

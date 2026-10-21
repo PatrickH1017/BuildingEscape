@@ -139,6 +139,7 @@ namespace BuildingEscape.EditorTools
             // ================= the PVP room (the owner, 2026-10-17): health bars, hurting a rival, a brief knock-out, getting up again
             {
                 var gen1 = FindFirstObjectByType<FloorGenerator>();
+                PvpBoard.Reset();
                 var me1 = WobblyPlayerRegistry.All[0];
                 var rivalGo = Object.Instantiate(me1.gameObject); rivalGo.name = "FakeRival";
                 var fa = me1.GetComponent<PvpFighter>(); var fb = rivalGo.GetComponent<PvpFighter>();
@@ -149,6 +150,7 @@ namespace BuildingEscape.EditorTools
                 wb.TeleportTo(mid + Vector3.right * 0.8f + Vector3.up, Quaternion.identity);
                 yield return new WaitForSeconds(0.6f);
                 R7Check("both are inside the PVP room", fa.Inside && fb.Inside);
+                R7Check("walking into the room put the player on the leaderboard, with no eliminations", PvpBoard.Listed(0) && PvpBoard.Count(0) == 0 && PvpBoard.Any);
                 bool hit1 = PvpFighter.TryStrike(me1, wb, PvpRules.FistDamage);
                 R7Check("a fist inside the room takes health off the rival and nothing off the one who threw it", hit1 && Mathf.Abs(fb.Health - (PvpRules.MaxHealth - PvpRules.FistDamage)) < 0.01f && fa.Health >= PvpRules.MaxHealth - 0.01f, $"(rival {fb.Health})");
                 for (int i = 0; i < 2; i++) PvpFighter.TryStrike(me1, wb, PvpRules.BulletDamage);
@@ -158,6 +160,7 @@ namespace BuildingEscape.EditorTools
                 R7Check("the third bullet knocks him out: no health, down, and his body stumbles", fb.Health <= 0.01f && fb.Down && wb.IsStumbling, $"(health {fb.Health}, down {fb.Down}, stumbling {wb.IsStumbling})");
                 bool hitDown = PvpFighter.TryStrike(me1, wb, PvpRules.BulletDamage);
                 R7Check("nothing can hurt him while he is down", !hitDown && fb.Health <= 0.01f);
+                R7Check("the knock-out counts for the one who made it: one elimination on the leaderboard (the blows that did not knock out, and the one on a rival who was down, count for nothing)", PvpBoard.Count(0) == 1, $"({PvpBoard.Count(0)})");
                 yield return new WaitForSeconds(PvpRules.KnockoutSeconds + 0.6f);
                 R7Check("a few seconds later he is up again with full health", !fb.Down && fb.Health >= PvpRules.MaxHealth - 0.01f, $"(health {fb.Health}, down {fb.Down})");
                 me1.TeleportTo(mid + Vector3.left * 0.8f + Vector3.up, Quaternion.identity);

@@ -3,7 +3,7 @@ using UnityEngine;
 
 namespace BuildingEscape
 {
-    /// <summary>What the scan and the journal's checklist tell apart (the owner, 2026-10-19): valuables glow gold, unique items such as weapons purple, safes red and cash green.</summary>
+    /// <summary>What the scan and the journal's checklist tell apart (the owner, 2026-10-20, over his 2026-10-19 colours): safes and valuables glow gold, unique items such as weapons red and cash green.</summary>
     public enum ScanKind { Valuable = 0, Unique = 1, Safe = 2, Cash = 3 }
 
     /// <summary>
@@ -20,13 +20,13 @@ namespace BuildingEscape
         public static string Label(ScanKind k) =>
             k == ScanKind.Valuable ? "All valuables collected" : k == ScanKind.Unique ? "All unique items collected" : k == ScanKind.Safe ? "All safes opened" : "All cash collected";
 
-        /// <summary>The glow of a kind as red, green and blue (0 to 1): safes red, unique items purple, cash green, valuables gold.</summary>
+        /// <summary>The glow of a kind as red, green and blue (0 to 1): safes and valuables gold, unique items (weapons) red, cash green (the owner, 2026-10-20: "safes and valuables should be gold when scanning, weapons should be red, and cash should be green").</summary>
         public static void Rgb(ScanKind k, out float r, out float g, out float b)
         {
             switch (k)
             {
-                case ScanKind.Safe: r = 0.95f; g = 0.22f; b = 0.22f; break;
-                case ScanKind.Unique: r = 0.70f; g = 0.36f; b = 1.00f; break;
+                case ScanKind.Safe: r = 1.00f; g = 0.80f; b = 0.18f; break;
+                case ScanKind.Unique: r = 0.95f; g = 0.22f; b = 0.22f; break;
                 case ScanKind.Cash: r = 0.28f; g = 0.92f; b = 0.42f; break;
                 default: r = 1.00f; g = 0.80f; b = 0.18f; break;
             }

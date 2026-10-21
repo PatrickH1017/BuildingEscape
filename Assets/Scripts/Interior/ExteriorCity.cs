@@ -29,10 +29,12 @@ namespace BuildingEscape
     {
         /// <summary>The sky dome, and so the farthest a tower stands, from the middle of the building (the camera's far plane is 1000 m).</summary>
         public const float Radius = 840f;
-        /// <summary>No tower is closer to the building than this (a street's width and more).</summary>
-        public const float KeepClear = 38f;
+        /// <summary>No tower is closer to the building than this (a street's width; it was 38 m until the owner, 2026-10-20, asked for buildings on the black squares near the building).</summary>
+        public const float KeepClear = 14f;
+        /// <summary>The owner's buildings (2026-10-19) stand in most plots of the near band out to this far from the building's middle; farther out are the box towers.</summary>
+        public const float BuildingReach = 200f;
 
-        public sealed class Stats { public int towers, meshes, quads, cars, roads; public float maxReach; }
+        public sealed class Stats { public int towers, meshes, quads, cars, roads, buildings; public float maxReach; }
 
         /// <summary>How bright a band of towers is (near, middle, far) and how bright a face is (top, north / south, east / west).</summary>
         static readonly float[] GainOfBand = { 1.00f, 0.85f, 0.70f };
@@ -147,6 +149,7 @@ namespace BuildingEscape
             root.transform.SetParent(parent, false);
             var owned = root.AddComponent<OwnedObjects>();
             var groups = new Dictionary<int, MeshBuilder>();
+            var pool = CityBuildings.Pool(CityCatalog.Instance);              // (the owner's buildings for the near ring; empty with no catalog)
             float floorAbove = -groundY;                                     // how high our floor is over the street
 
             // ---- the towers: one per grid cell of the band they are in, some cells empty (streets, parks)
@@ -163,7 +166,7 @@ namespace BuildingEscape
                         float outsideX = Mathf.Abs(cx) - halfX, outsideZ = Mathf.Abs(cz) - halfZ;
                         if (Mathf.Max(outsideX, outsideZ) < KeepClear + step * 0.5f) continue;      // too near the building: a street
                         int hx = ix + band * 1000 + seed * 7, hz = iz + band * 77;
-                        if (Hash(hx, hz) < 0.12f) continue;
+                        if (band > 0 && Hash(hx, hz) < 0.12f) continue;          // (some plots of the middle and far bands are empty: streets, parks; none of the near band is: the owner, 2026-10-20, "add building assets to the black squares")
                         // a tower stays inside its cell with a street's width to spare, so there are streets between the towers (CityStreets drives cars on them)
                         float room = step * (1f - CityStreets.StreetShare);
                         float w = room * (0.62f + 0.38f * Hash(hx + 11, hz)), d = room * (0.62f + 0.38f * Hash(hx, hz + 23));
@@ -173,8 +176,16 @@ namespace BuildingEscape
                         if (Hash(hx + 53, hz + 59) < 0.08f) h += 30f + 60f * Hash(hx + 61, hz + 67);                     // an odd tower
                         if (r > 300f && Hash(hx + 97, hz + 101) < 0.35f) h *= 1.4f;                                      // downtown
                         float edge = Mathf.Max(outsideX, outsideZ);
-                        h = Mathf.Min(h, floorAbove + 6f + 0.35f * edge + 40f * Hash(hx + 103, hz + 107));               // near towers do not wall the windows in on a high floor
-                        AddTower(groups, band, tx, tz, w, d, groundY, groundY + h, Hash(hx + 79, hz + 83), Hash(hx + 43, hz + 47), stats);
+                        float cap = floorAbove + 6f + 0.35f * edge + 40f * Hash(hx + 103, hz + 107);
+                        h = Mathf.Min(h, cap);               // near towers do not wall the windows in on a high floor
+                        // the owner's buildings stand in nine plots in ten of the near ring; where none fits (and in the tenth) the plot gets a box tower, with its lit windows: no plot of it is left empty
+                        bool built = false;
+                        if (band == 0 && pool.Length > 0 && r < BuildingReach && Hash(hx + 233, hz + 239) < 0.9f)
+                            for (int attempt = 0; attempt < 3 && !built; attempt++)
+                                built = CityBuildings.Place(root.transform, pool[(int)(Hash(hx + 211 + attempt * 17, hz + 223) * pool.Length) % pool.Length], new Vector3(centre.x + cx, groundY, centre.z + cz),
+                                    90f * Mathf.Floor(Hash(hx + 227, hz + 229) * 4f), room, room, cap, 1f, null, -1) != null;
+                        if (built) stats.buildings++;
+                        else AddTower(groups, band, tx, tz, w, d, groundY, groundY + h, Hash(hx + 79, hz + 83), Hash(hx + 43, hz + 47), stats);
                         stats.maxReach = Mathf.Max(stats.maxReach, Mathf.Sqrt((tx - centre.x) * (tx - centre.x) + (tz - centre.z) * (tz - centre.z)));
                     }
             }

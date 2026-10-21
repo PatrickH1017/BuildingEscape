@@ -56,6 +56,7 @@ namespace BuildingEscape.Net
                 HostPublishState();
                 HostSendSnapshots();
                 IntroServerTick();
+                HostPvpBoardTick();
             }
             else { ClientApplyState(); }
         }

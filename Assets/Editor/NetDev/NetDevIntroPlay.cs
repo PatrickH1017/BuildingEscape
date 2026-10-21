@@ -62,7 +62,7 @@ namespace BuildingEscape.EditorTools
             }
             IntroCheck("it is a run without a network session", !NetSession.Online && RunSync.Instance == null);
             IntroCheck("the player is held still while it plays", OutpostUi.Open && OutpostUi.Current == OutpostUi.Kind.Intro);
-            yield return WaitFor(() => IntroCinematic.Clock >= 3.8f, 20, "the first line");
+            yield return WaitFor(() => IntroCinematic.Clock >= IntroRules.Beats[IntroRules.FirstBossBeat].start + 0.6f, 20, "the first line");
             yield return SnapIntro(fromMenu ? "solo_first_line" : "offline_first_line");
 
             // a held Space skips it (1 of 1)

@@ -10,7 +10,7 @@ namespace BuildingEscape
     /// </summary>
     public static class OutpostUi
     {
-        public enum Kind { None, Hack, Safe, Journal, Intro, Computer, GunSafe }       // Intro: the run-start cinematic (IntroCinematic) holds the player still the same way
+        public enum Kind { None, Hack, Safe, Journal, Intro, Computer, GunSafe, Darts }       // Intro: the run-start cinematic (IntroCinematic) holds the player still the same way
 
         /// <summary>The screen that is up (None while there is none).</summary>
         public static Kind Current { get; private set; }
@@ -19,7 +19,7 @@ namespace BuildingEscape
         public static bool Open => Current != Kind.None;
 
         /// <summary>The screens that are worked with the mouse: the cursor is free while one is up. (The hack only needs the keyboard.)</summary>
-        public static bool FreeCursor => Current == Kind.Safe || Current == Kind.Computer || Current == Kind.Journal || Current == Kind.GunSafe;
+        public static bool FreeCursor => Current == Kind.Safe || Current == Kind.Computer || Current == Kind.Journal || Current == Kind.GunSafe || Current == Kind.Darts;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
         static void ResetStatics() { Current = Kind.None; }

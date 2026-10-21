@@ -53,13 +53,13 @@ namespace BuildingEscape
 
             if (held == null)
             {
-                if (Input.GetMouseButtonDown(0)) TryPunch();             // empty hands: a punch
+                if (Input.GetMouseButtonDown(0) && !DartBoard.Playing) TryPunch();             // empty hands: a punch
                 return;
             }
             if (!eq || !pack.Viewed || Backpack.UiOpen || Vendor.ShopOpen || EscapeMenu.Open || TestMode.PanelOpen || ElevatorPanel.Open || OutpostUi.Open || swinging || Time.time < nextSwing) return;
             if (wobbly && wobbly.InCustody) return; // pinned or busted: no swinging
             if (grab && grab.Held) return; // hands full: LMB throws instead
-            if (Input.GetMouseButtonDown(0)) StartCoroutine(Swing(eq.GetComponent<MeleeWeapon>()));
+            if (Input.GetMouseButtonDown(0) && !DartBoard.Playing) StartCoroutine(Swing(eq.GetComponent<MeleeWeapon>()));
         }
 
         /// <summary>
@@ -87,6 +87,9 @@ namespace BuildingEscape
             if (!hand) hand = FindDeep(anim.transform, "RightHand");
             if (!hand) { Debug.LogWarning("MeleeController: RightHand bone not found on the character."); return; }
             heldModel = MeleeWeapon.BuildHeld(mw.kind, hand);
+            var firstPerson = anim.GetComponent<FirstPersonMelee>();
+            if (!firstPerson) firstPerson = anim.gameObject.AddComponent<FirstPersonMelee>();
+            firstPerson.Hold(hand, heldModel.transform, anim);                      // (in first person the arm is raised so that the weapon is in the picture)
         }
 
         static Transform FindDeep(Transform t, string n)

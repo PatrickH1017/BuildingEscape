@@ -229,6 +229,8 @@ MonoBehaviour:
     prefab: {fileID: 1336148387795968, guid: a4911343e9ef5974e82af4372d4507c4, type: 3}
   - key: projector_screen
     prefab: {fileID: 1351417244661388, guid: 9e619ae75f77fa0438e5d3897ea4348e, type: 3}
+  - key: dartboard
+    prefab: {fileID: 1770305312127886, guid: b06fa9fe4ee0c3e459ea48edfb25e676, type: 3}
   - key: clock
     prefab: {fileID: 1800966491894966, guid: 869b815da57949e47ae1570919ad9813, type: 3}
   - key: ac_unit
@@ -261,6 +263,16 @@ MonoBehaviour:
     prefab: {fileID: 1185724528154638, guid: 4ac1a07cc86258541aa0b1d5264cc591, type: 3}
   - key: dartboard
     prefab: {fileID: 1770305312127886, guid: b06fa9fe4ee0c3e459ea48edfb25e676, type: 3}
+  - key: container
+    prefab: {fileID: 1287357858214794, guid: bb5372a4488a7414abff91d36b3fcdec, type: 3}
+  - key: container_small
+    prefab: {fileID: 1808195246080866, guid: 84a99c98a26b5db42a6ae70961fcf1f0, type: 3}
+  - key: crate_large
+    prefab: {fileID: 1475137749187476, guid: 7d261aef3b84ccb4b91a005a110cdafe, type: 3}
+  - key: pallet_loaded
+    prefab: {fileID: 1267816868441300, guid: 2c361a78502f5ac468f101b1c1ebb46f, type: 3}
+  - key: barrel
+    prefab: {fileID: 1118391213089184, guid: 8089c8951d9c6b44f89ee4403039bf5e, type: 3}
   - key: extinguisher
     prefab: {fileID: 1460474285358662, guid: 7e3a842bda3e7424e9fede8bc029c9fa, type: 3}
   - key: fire_alarm

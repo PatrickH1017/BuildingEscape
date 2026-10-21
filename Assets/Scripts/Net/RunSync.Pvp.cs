@@ -30,7 +30,7 @@ namespace BuildingEscape.Net
             float now = Time.unscaledTime;
             if (lastPvpHit.TryGetValue(who, out float t) && now - t < 0.25f) return;                             // (no faster than a blow can be thrown)
             lastPvpHit[who] = now;
-            v.Hurt(damage);
+            v.Hurt(damage, attacker.Slot);
             PvpStateRpc(victimSlot, v.Health, v.Down);
         }
 
@@ -39,6 +39,28 @@ namespace BuildingEscape.Net
         {
             var np = NetPlayer.BySlot(slot);
             if (np && np.TryGetComponent(out PvpFighter f)) f.SetState(health, down);
+        }
+
+        // ---- the leaderboard of the PVP room (the owner, 2026-10-20): the host keeps it (PvpBoard) and tells everybody when it changes and now and then while there is one (a machine that joins late)
+        int sentBoardVersion = -1;
+        float nextBoardBeat;
+        const float BoardBeatSeconds = 3f;
+
+        /// <summary>Host, every frame: sends the leaderboard when it changed, and every few seconds while there is one.</summary>
+        void HostPvpBoardTick()
+        {
+            float now = Time.unscaledTime;
+            if (PvpBoard.Version == sentBoardVersion && !(PvpBoard.Any && now >= nextBoardBeat)) return;
+            sentBoardVersion = PvpBoard.Version;
+            nextBoardBeat = now + BoardBeatSeconds;
+            if (NetworkManager.ConnectedClientsIds.Count > 1) PvpBoardRpc(PvpBoard.Pack());
+        }
+
+        /// <summary>Host -> everybody: the whole leaderboard of the PVP room (<see cref="PvpBoard.Pack"/>); the host's own list is the one that was sent.</summary>
+        [Rpc(SendTo.ClientsAndHost)]
+        void PvpBoardRpc(ulong packed)
+        {
+            if (!IsServer) PvpBoard.Apply(packed);
         }
     }
 }

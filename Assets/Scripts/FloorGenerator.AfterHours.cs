@@ -199,6 +199,15 @@ namespace BuildingEscape
                     rend.shadowCastingMode = ShadowCastingMode.Off;
                     rend.receiveShadows = false;
                 }
+            if (dockWalls)
+            {
+                // the part of the PVP room that goes out through the north wall of the first cell (FloorGenerator.DockRooms.cs): its ceiling
+                float ex0 = -0.2f, ex1 = PvpOpeningTo, ez0 = rows * cellSize + 0.2f, ez1 = rows * cellSize - 0.2f + PvpExtension + 0.4f;
+                var ext = Box("Ceiling_PvpNorth", new Vector3((ex0 + ex1) * 0.5f, wallHeight - CeilingSink + CeilingThickness * 0.5f, (ez0 + ez1) * 0.5f), new Vector3(ex1 - ex0, CeilingThickness, ez1 - ez0), mat, holder);
+                var er = ext.GetComponent<Renderer>();
+                er.shadowCastingMode = ShadowCastingMode.Off;
+                er.receiveShadows = false;
+            }
         }
 
         /// <summary>The light panels: one mesh per cell with up to four materials (frame, dark lens, warm lit lens, cold lit lens).</summary>

@@ -57,6 +57,7 @@ namespace BuildingEscape
     {
 
         const string Syn = "Assets/Synty/PolygonOffice/Prefabs/";
+        const string Br = "Assets/Synty/PolygonBattleRoyale/Prefabs/Props/";
 
         static readonly Dictionary<string, PropDef> map = new Dictionary<string, PropDef>();
         static readonly List<PropDef> all = new List<PropDef>();
@@ -183,6 +184,7 @@ namespace BuildingEscape
             Add("whiteboard", Syn + "Props/Misc/SM_Prop_Whiteboard_01", 1.5f, 1.02f, .06f, solid: false, cat: PropCat.Mount);
             Add("blackboard", Syn + "Props/Wall Props/SM_Prop_Blackboard_01", 1.52f, 1.08f, .04f, solid: false, cat: PropCat.Mount);
             Add("projector_screen", Syn + "Props/Wall Props/SM_Prop_ProjectorScreen_01", 2.61f, 1.56f, .07f, solid: false, cat: PropCat.Mount);
+            Add("dartboard", Syn + "Props/Wall Props/SM_Prop_Darkboard_01", .714f, .679f, .334f, solid: false, cat: PropCat.Mount);          // (the dart board: its name has a typo in the pack; the model stands on its back, its front +z, the board 0.7 m across with a dart stuck in it)
             Add("clock", Syn + "Props/Wall Props/SM_Prop_Clock_01", .39f, .37f, .05f, solid: false, cat: PropCat.Mount);
             Add("ac_unit", Syn + "Props/Wall Props/SM_Prop_Aircon_01", 1.84f, .45f, .45f, solid: false, cat: PropCat.Mount);
             Add("painting", Syn + "Props/Wall Props/SM_Prop_Poster_02", .96f, .56f, .08f, solid: false, cat: PropCat.Mount);
@@ -199,6 +201,12 @@ namespace BuildingEscape
             Add("wall_dressing2", Syn + "Props/Wall Props/SM_Prop_WallDressing_02", .9f, .76f, .06f, solid: false, cat: PropCat.Mount);
             Add("wall_shelf", Syn + "Props/Wall Props/SM_Prop_Shelf_Wall_01", 1.46f, .53f, .34f, solid: false, cat: PropCat.Mount);
             Add("dartboard", Syn + "Props/Wall Props/SM_Prop_Darkboard_01", .71f, .68f, .33f, solid: false, cat: PropCat.Mount);
+            // ---------- the Battle Royale pack's warehouse things for the PVP room (the owner, 2026-10-19 night: "storage containers for players to use as coverage ... somewhat like a warehouse"); measured by Editor\PropMeasure.cs
+            Add("container", Br + "SM_Prop_Container_01", 2.45f, 2.61f, 6.19f, cat: PropCat.Deco);
+            Add("container_small", Br + "SM_Prop_Container_Small_01", 2.45f, 2.61f, 3.14f, cat: PropCat.Deco);
+            Add("crate_large", Br + "SM_Prop_Crate_Large_01", .81f, .79f, .81f, cat: PropCat.Deco);
+            Add("pallet_loaded", Br + "SM_Prop_Pallet_Loaded_02", 1.44f, 1.14f, 1.42f, cat: PropCat.Deco);
+            Add("barrel", Br + "SM_Prop_Barrel_01", .66f, .91f, .57f, cat: PropCat.Deco);
             Add("extinguisher", Syn + "Props/Wall Props/SM_Prop_Fire_Extinguisher_01", .3f, .53f, .16f, solid: false, cat: PropCat.Mount);
             Add("fire_alarm", Syn + "Props/Wall Props/SM_Prop_FireAlarm_Switch_01", .2f, .2f, .06f, solid: false, cat: PropCat.Mount);
             Add("emergency_axe", Syn + "Props/Wall Props/SM_Prop_Emergency_Axe_01", .98f, .7f, .13f, solid: false, cat: PropCat.Mount);

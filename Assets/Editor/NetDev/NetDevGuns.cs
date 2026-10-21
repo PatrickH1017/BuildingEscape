@@ -66,6 +66,10 @@ namespace BuildingEscape.EditorTools
                 GunCheck($"catalog: the {S[(int)k].name}'s model is in the weapon catalog, turned the way the others are, with its muzzle face{(S[(int)k].hold == RangedWeapon.HoldStyle.TwoHand ? ", its grip and its foregrip" : "")}",
                     RangedWeapon.Has(k) && gm != null && gm.muzzleFace != Vector3.zero && (S[(int)k].hold == RangedWeapon.HoldStyle.OneHand || (gm.grip != Vector3.zero && gm.foregrip != Vector3.zero)));
             }
+            GunCheck("catalog: the sniper rifle is the Barrett .50 cal of the pack, SM_Wep_Sniper_Heavy_01 (the owner, 2026-10-20)", RangedWeapon.Has(RangedWeapon.Kind.Sniper) && RangedWeapon.PrefabOf(RangedWeapon.Kind.Sniper).name == "SM_Wep_Sniper_Heavy_01");
+            GunCheck("catalog: the red dot sight is in the weapon catalog, with a place on each gun that carries one (the SMG, the rifle, the shotgun) and none on the others",
+                RangedWeapon.Catalog.redDot != null && RangedWeapon.Catalog.Gun((int)RangedWeapon.Kind.Smg).sightAt != Vector3.zero && RangedWeapon.Catalog.Gun((int)RangedWeapon.Kind.Rifle).sightAt != Vector3.zero && RangedWeapon.Catalog.Gun((int)RangedWeapon.Kind.Shotgun).sightAt != Vector3.zero
+                && RangedWeapon.Catalog.Gun((int)RangedWeapon.Kind.Sniper).sightAt == Vector3.zero && RangedWeapon.Catalog.Gun((int)RangedWeapon.Kind.Pew).sightAt == Vector3.zero);
             var ac = GameAudio.Catalog;
             GunCheck("catalog: the audio catalog holds the rifle's sounds (3 shots, 2 tails, 4 reload steps, draw, aim) and the shotgun's (3, 2, 5, draw, aim)",
                 ac != null && AllSet(ac.rifleShot) && AllSet(ac.rifleTail) && AllSet(ac.rifleReload) && AllSet(ac.rifleEquip) && AllSet(ac.rifleAim) && ac.rifleShot.Length == 3 && ac.rifleTail.Length == 2 && ac.rifleReload.Length == 4
@@ -111,12 +115,17 @@ namespace BuildingEscape.EditorTools
                     GunCheck($"{tag} the same on the gun lying on the floor", lying, whyLying);
                 }
                 else GunCheck($"{tag} the gun lying on the floor has no silencer either", item.transform.Find("Silencer") == null);
+                bool wantDot = RangedWeapon.TakesRedDot(spec.weaponClass);
+                var redDot = held.Grip.Find("RedDot");
+                GunCheck($"{tag} {(wantDot ? "it has a red dot sight on top of the body with its red dot lit (the owner, 2026-10-20), on the gun in the hand and on the gun lying on the floor" : "it has no red dot sight")}",
+                    (redDot != null) == wantDot && (item.transform.Find("RedDot") != null) == wantDot && (!wantDot || (redDot.Find("Dot") != null && Vector3.Dot(redDot.position - held.Grip.position, held.Grip.up) > 0f)));
                 float gripToMuzzle = Vector3.Dot(held.Muzzle.position - held.Grip.position, held.Grip.forward);
                 GunCheck($"{tag} the muzzle is out in front of the hand along the barrel, and the left hand's place is on the gun between the two", gripToMuzzle > 0.25f * spec.length * held.BodyScale
                     && Vector3.Dot(held.Foregrip.position - held.Grip.position, held.Grip.forward) > 0.05f && Vector3.Dot(held.Foregrip.position - held.Grip.position, held.Grip.forward) < gripToMuzzle,
                     $"(grip to muzzle {gripToMuzzle:0.000} m, body scale {held.BodyScale:0.00}, {held.FitInfo()})");
-                GunCheck($"{tag} the magazine holds {spec.magazine} and the gun comes with {spec.spareClips} spare clips, none more fit",
-                    gun.Magazine.Capacity == spec.magazine && gun.Magazine.Rounds == spec.magazine && gun.Magazine.Reserve == spec.spareClips * spec.magazine && gun.Magazine.Room == 0);
+                GunCheck($"{tag} the magazine holds {spec.magazine} and the gun comes with {spec.spareClips} spare clips, and room for the rest of its limit ({(spec.maxClips > 0 ? spec.maxClips : GunRules.MaxClips)} clips)",
+                    gun.Magazine.Capacity == spec.magazine && gun.Magazine.Rounds == spec.magazine && gun.Magazine.Reserve == spec.spareClips * spec.magazine
+                    && gun.Magazine.Room == ((spec.maxClips > 0 ? spec.maxClips : GunRules.MaxClips) - 1 - spec.spareClips) * spec.magazine);
 
                 // ---- on the dummy
                 if (dummy == null) continue;
@@ -132,7 +141,7 @@ namespace BuildingEscape.EditorTools
                 AimCamera(cam, player, aimAt);
                 SetDummyHealth(dummy, 5000f);
                 var fx = GunFx.Get();
-                int flashes0 = fx.FlashesShown, tracers0 = fx.TracersShown, cases0 = fx.CasingsShown, shots0 = GunSounds.ShotsPlayed, sf0 = gc.ShotsFired;
+                int flashes0 = fx.FlashesShown, tracers0 = fx.TracersShown, cases0 = fx.CasingsShown, shots0 = GunSounds.ShotsPlayed, sf0 = gc.ShotsFired, silenced0 = GunSounds.SilencedShotsPlayed;
                 noiseHeard.Clear();
                 float h0 = dummy.Health;
                 bool fired = gc.Fire();
@@ -146,6 +155,7 @@ namespace BuildingEscape.EditorTools
                     GunCheck($"{tag} the {spec.Pellets} pellets each take {spec.damage} off the dummy, from {dist} m all {spec.Pellets} land", Mathf.Abs(dmg - hits * spec.damage) < 0.01f && hits == spec.Pellets, $"({hits} of {spec.Pellets} pellets, {dmg} health)");
                 GunCheck($"{tag} one flash, {spec.Pellets} tracers, one gunshot with its tail, one case thrown out", fx.FlashesShown == flashes0 + 1 && fx.TracersShown == tracers0 + spec.Pellets && GunSounds.ShotsPlayed == shots0 + 1 && fx.CasingsShown == cases0 + 1,
                     $"(flashes {fx.FlashesShown - flashes0}, tracers {fx.TracersShown - tracers0}, shots {GunSounds.ShotsPlayed - shots0}, cases {fx.CasingsShown - cases0})");
+                GunCheck($"{tag} {(should ? "the shot is the suppressed one made for guns with a silencer on (the owner, 2026-10-20)" : "the shot is the loud recording: this gun is never silenced")}", GunSounds.SilencedShotsPlayed - silenced0 == (should ? 1 : 0), $"(silenced shots {GunSounds.SilencedShotsPlayed - silenced0})");
                 GunCheck($"{tag} the guards hear it from {gun.NoiseRadius} m", noiseHeard.Any(n => n.Source == player.gameObject && Mathf.Approximately(n.Loudness, gun.NoiseRadius)));
                 GunCheck($"{tag} a second pull at once is too soon", !gc.Fire());
 

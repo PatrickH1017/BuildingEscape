@@ -155,7 +155,7 @@ namespace BuildingEscape
 
         IEnumerator Start()
         {
-            Say($"start: game {Application.version}, Unity {Application.unityVersion}, {SystemInfo.operatingSystem}, GPU {SystemInfo.graphicsDeviceName} ({SystemInfo.graphicsMemorySize} MB), {Screen.width}x{Screen.height}, quality {QualitySettings.names[QualitySettings.GetQualityLevel()]}, vSync {QualitySettings.vSyncCount}, runInBackground {Application.runInBackground}, shaders: Standard {(Shader.Find("Standard") != null)}, Legacy Diffuse {(Shader.Find("Legacy Shaders/Diffuse") != null)}, elevator mirror {(Shader.Find("BuildingEscape/ElevatorMirror") != null)}");
+            Say($"start: game {Application.version}, Unity {Application.unityVersion}, {SystemInfo.operatingSystem}, GPU {SystemInfo.graphicsDeviceName} ({SystemInfo.graphicsMemorySize} MB), {Screen.width}x{Screen.height}, quality {QualitySettings.names[QualitySettings.GetQualityLevel()]}, vSync {QualitySettings.vSyncCount}, runInBackground {Application.runInBackground}, shaders: Standard {(Shader.Find("Standard") != null)}, Legacy Diffuse {(Shader.Find("Legacy Shaders/Diffuse") != null)}, elevator mirror {(Shader.Find("BuildingEscape/ElevatorMirror") != null)}, first-person arms {(Shader.Find("BuildingEscape/FirstPersonArms") != null)}");
 
             // ---- two built players over the loopback: -be-autopilot-net host | client
             string netRole = Arg("-be-autopilot-net");
@@ -191,6 +191,22 @@ namespace BuildingEscape
             yield return Wait(3f);
             Check("a solo run starts in the docks, offline", hm.Floor == 0 && !NetSession.Online && WobblyPlayerRegistry.All.Count == 1, $"(players {WobblyPlayerRegistry.All.Count})");
             yield return Shot("02_docks_arrival");
+            {
+                // first person (the owner, 2026-10-20): the arms shader is in the build and the body is drawn as its arms; third person brings it back
+                var fpRig = FindFirstObjectByType<CameraFollow>();
+                bool fpShader = Shader.Find("BuildingEscape/FirstPersonArms") != null;
+                if (fpRig != null)
+                {
+                    fpRig.SetFirstPerson(true);
+                    yield return Wait(1.8f);
+                    bool fpArms = fpRig.IsFirstPerson && fpRig.ArmsShown;
+                    yield return Shot("02b_first_person");
+                    fpRig.SetFirstPerson(false);
+                    yield return Wait(1.2f);
+                    Check("first person works in the built game: the arms shader is in the build, the body is drawn as its arms; third person brings it back", fpShader && fpArms && !fpRig.IsFirstPerson && !fpRig.ArmsShown, $"(shader {fpShader}, arms shown in first person {fpArms}, back in third person {!fpRig.IsFirstPerson && !fpRig.ArmsShown})");
+                }
+                else Check("first person works in the built game: there is a camera rig", false);
+            }
             yield return Measure("docks", 4f);
             var vendor = Vendor.Current;
             if (vendor && gen) yield return View("03_docks_vendor", gen.DockTrailerEntrance + Vector3.up * 1.7f, gen.DockCounter + Vector3.up * 1.3f);
@@ -606,8 +622,8 @@ namespace BuildingEscape
             for (int s = 1; s < 200000; s++)
             {
                 int intel = s ^ 0x2D5AFE1;                                  // (what TowerManager makes of a run's seed)
-                for (int i = 0, n = SafeRules.SafeCount(intel, 3); i < n; i++)
-                    if (SafeRules.HoldsGun(intel, 3, i) && SafeRules.HasSideClip(intel, 3, i) && SafeRules.HasSideCash(intel, 3, i) && SafeRules.HasSideWatch(intel, 3, i)) return s;
+                for (int i = 0, n = SafeRules.SafeCount(intel, 4); i < n; i++)
+                    if (SafeRules.HoldsGun(intel, 4, i) && SafeRules.HasSideClip(intel, 4, i) && SafeRules.HasSideCash(intel, 4, i) && SafeRules.HasSideWatch(intel, 4, i)) return s;
             }
             return 0;
         }
@@ -744,6 +760,90 @@ namespace BuildingEscape
             }
         }
 
+        /// <summary>
+        /// The dart board's scoreboard over the network (the owner, 2026-10-19 night: "everyone should see the results"), in the docks, run by the host and the client at the same moment. The client goes to the board, starts a game
+        /// and throws three darts: its own wall shows them at once, and the HOST's wall must show PLAYER 2 and the same three scores. Then the host throws three: the client's wall must show PLAYER 1 and its three scores.
+        /// </summary>
+        IEnumerator DartsNet(bool host)
+        {
+            string who = host ? "host" : "client";
+            var board = DartBoard.Instance;
+            var wob = NetPlayer.Local != null ? NetPlayer.Local.GetComponent<WobblyPlayer>() : null;
+            var rb = wob != null ? wob.GetComponent<Rigidbody>() : null;
+            Check($"{who}: the docks have a dart board with its scoreboard and my body is here", board != null && board.ScoreboardView != null && wob != null && rb != null);
+            if (board == null || board.ScoreboardView == null || wob == null || rb == null) yield break;
+            int mySlot = NetPlayer.Local.Slot;
+            var spot = new Vector3(board.FaceCentre.x + board.Normal.x * 2.8f, 1.1f, board.FaceCentre.z + board.Normal.z * 2.8f);
+            if (!host)
+            {
+                wob.TeleportTo(spot, Quaternion.LookRotation(-board.Normal));
+                rb.linearVelocity = Vector3.zero;
+                yield return Wait(3f);                                                  // (the host's copy of me has to arrive near the board: the host checks that the thrower is there)
+                board.Begin(DartsRules.Mode.Game301);
+                yield return ThrowThree(board);
+                Check("client: my three darts are on the wall here: PLAYER " + (mySlot + 1) + " and a score for each", board.Scores.Slot == mySlot && board.Scores.Scores[0] >= 0 && board.Scores.Scores[2] >= 0 && board.ScoreboardView.Lines[0] == "PLAYER " + (mySlot + 1), $"({string.Join(" | ", board.ScoreboardView.Lines)})");
+                board.Leave();
+                yield return Until(() => board.Scores.Slot >= 0 && board.Scores.Slot != mySlot && board.Scores.Scores[2] >= 0, 120f, "the host's three darts on my scoreboard");
+                Check("client: the host's darts reached my wall: his name and a score for each of the three", board.ScoreboardView.Lines[0] == "PLAYER " + (board.Scores.Slot + 1) && board.Scores.Scores[0] >= 0 && board.Scores.Scores[1] >= 0 && board.Scores.Scores[2] >= 0, $"({string.Join(" | ", board.ScoreboardView.Lines)})");
+            }
+            else
+            {
+                yield return Until(() => board.Scores.Slot >= 0 && board.Scores.Slot != mySlot && board.Scores.Scores[2] >= 0, 150f, "the client's three darts on the host's scoreboard");
+                yield return Wait(0.5f);
+                var l = board.ScoreboardView.Lines;
+                Check("host: the client's darts reached the wall here: his name, a score for each of the three and what is left", l[0] == "PLAYER " + (board.Scores.Slot + 1) && board.Scores.Scores[0] >= 0 && board.Scores.Scores[1] >= 0 && board.Scores.Scores[2] >= 0  && (l[2].StartsWith("LEFT ") || l[2] == "BUST" || l[2] == "WON"), $"({string.Join(" | ", l)})");
+                wob.TeleportTo(spot, Quaternion.LookRotation(-board.Normal));
+                rb.linearVelocity = Vector3.zero;
+                yield return Wait(3f);
+                board.Begin(DartsRules.Mode.Game301);
+                yield return ThrowThree(board);
+                Check("host: my three darts are on the wall: PLAYER " + (mySlot + 1) + " and a score for each", board.Scores.Slot == mySlot && board.Scores.Scores[0] >= 0 && board.Scores.Scores[2] >= 0 && board.ScoreboardView.Lines[0] == "PLAYER " + (mySlot + 1), $"({string.Join(" | ", board.ScoreboardView.Lines)})");
+                board.Leave();
+                yield return Wait(4f);                                                  // (the client looks at it)
+            }
+        }
+
+        /// <summary>
+        /// The PVP room's leaderboard over the network (the owner, 2026-10-20), in the docks, run by the host and the client at the same moment: both walk into the room and are put on the list (the host keeps it and tells the client), then the client
+        /// knocks the host out through the real request to the host (three bullets' worth of blows) and the client's slot has one elimination on both machines.
+        /// </summary>
+        IEnumerator PvpNet(bool host)
+        {
+            string who = host ? "host" : "client";
+            var me = NetPlayer.Local;
+            var wob = me != null ? me.GetComponent<WobblyPlayer>() : null;
+            var gen = FindFirstObjectByType<FloorGenerator>();
+            Check($"{who}: the docks have the PVP room and my body is here", gen != null && gen.PvpRoomArea.width > 0f && wob != null);
+            if (gen == null || wob == null) yield break;
+            var other = NetPlayer.All.FirstOrDefault(p => p != null && p != me);
+            Check($"{who}: the other player is here", other != null);
+            if (other == null) yield break;
+            int hostSlot = host ? me.Slot : other.Slot, clientSlot = host ? other.Slot : me.Slot;
+            var mid = new Vector3((gen.PvpRoomArea.xMin + gen.PvpRoomArea.xMax) * 0.5f, 1.1f, (gen.PvpRoomArea.yMin + gen.PvpRoomArea.yMax) * 0.5f);
+            wob.TeleportTo(mid + (host ? Vector3.left : Vector3.right) * 1.2f, Quaternion.identity);
+            yield return Until(() => PvpBoard.Listed(hostSlot) && PvpBoard.Listed(clientSlot), 30f, "both players on the PVP leaderboard");
+            Check($"{who}: both players are on the PVP leaderboard once they are in the room, with no eliminations yet", PvpBoard.Listed(hostSlot) && PvpBoard.Listed(clientSlot) && PvpBoard.Count(hostSlot) == 0 && PvpBoard.Count(clientSlot) == 0,
+                $"(host listed {PvpBoard.Listed(hostSlot)} {PvpBoard.Count(hostSlot)}, client listed {PvpBoard.Listed(clientSlot)} {PvpBoard.Count(clientSlot)})");
+            if (!host)
+            {
+                var hostBody = other.GetComponent<WobblyPlayer>();
+                yield return Wait(1.5f);                                                   // (the host's body is here, where he stands)
+                for (int i = 0; i < 4 && hostBody != null; i++) { PvpFighter.TryStrike(wob, hostBody, PvpRules.BulletDamage); yield return Wait(0.4f); }
+            }
+            yield return Until(() => PvpBoard.Count(clientSlot) >= 1, 30f, "the client's elimination on the leaderboard");
+            Check($"{who}: the knock-out counts for the client (one elimination on my list), none for the host", PvpBoard.Count(clientSlot) == 1 && PvpBoard.Count(hostSlot) == 0, $"(client {PvpBoard.Count(clientSlot)}, host {PvpBoard.Count(hostSlot)})");
+            yield return Wait(PvpRules.KnockoutSeconds + 1f);
+            wob.TeleportTo(new Vector3(20f, 1.1f, 9f), Quaternion.identity);                // (out of the room again)
+            yield return Wait(1f);
+        }
+
+        IEnumerator ThrowThree(DartBoard board)
+        {
+            var from = board.FaceCentre + board.Normal * 2.8f + Vector3.down * 0.3f;
+            var aim = board.FaceCentre + Vector3.up * DartsRules.Drop(DartsRules.Speed(1f), 2.8f);
+            for (int i = 0; i < 3; i++) { board.Launch(from, aim, 1f, true); yield return Wait(1.2f); }
+        }
+
         IEnumerator RunHost()
         {
             Say("network test: HOST");
@@ -757,7 +857,7 @@ namespace BuildingEscape
             yield return Wait(2f);
             Check("two players are in the lobby", net.Roster.Count == 2, $"({net.Roster.Count})");
             yield return Shot("n2_host_lobby_two");
-            net.QaSeed = SeedWithPewSafe();          // (a safe holds a gun only by luck: this run's floor-3 safes hold a pew, a clip, a bit of cash and a watch for the test to take)
+            net.QaSeed = SeedWithPewSafe();          // (a safe holds a gun only by luck: this run's floor-4 safes hold a pew, a clip, a bit of cash and a watch for the test to take)
             net.StartRun();
             yield return Until(() => net.State == NetSessionState.InRun, 90f, "the run to start");
             yield return Until(() => FloorIs(0), 90f, "the docks");
@@ -767,7 +867,9 @@ namespace BuildingEscape
             Check("the host sees both players in the docks", NetPlayer.All.Count == 2, $"({NetPlayer.All.Count})");
             yield return Shot("n3_host_docks");
             yield return ArmourNet(true);
-            for (int floor = 1; floor <= 3; floor++)
+            yield return DartsNet(true);
+            yield return PvpNet(true);
+            for (int floor = 1; floor <= 4; floor++)
             {
                 tm.RideTo(floor);
                 yield return Until(() => tm.Loading || hm.Floor == floor, 15f, $"the ride to floor {floor}");
@@ -776,7 +878,7 @@ namespace BuildingEscape
                 yield return Wait(8f);
                 Check($"floor {floor} is built on the host with its guards", GuardAI.All.Count(g => g) >= 3 && NetPlayer.All.Count == 2, $"({GuardAI.All.Count(g => g)} guards, {NetPlayer.All.Count} players)");
                 if (floor == 1) yield return OutpostLockNet(true);
-                if (floor == 3) { yield return SafesNet(true, floor); yield return GuardsNet(true, floor); }
+                if (floor == 4) { yield return SafesNet(true, floor); yield return GuardsNet(true, floor); }
                 yield return Shot($"n4_host_floor{floor}");
                 yield return Measure($"host on floor {floor} with a client", 6f);
             }
@@ -806,7 +908,9 @@ namespace BuildingEscape
             Check("my own body stands in the elevator, not in the void", NetPlayer.Local != null && NetPlayer.Local.transform.position.y > -1f && NetPlayer.Local.transform.position.y < 3f);
             yield return Shot("n3_client_docks");
             yield return ArmourNet(false);
-            for (int floor = 1; floor <= 3; floor++)
+            yield return DartsNet(false);
+            yield return PvpNet(false);
+            for (int floor = 1; floor <= 4; floor++)
             {
                 yield return Until(() => FloorIs(floor), 240f, $"floor {floor} (the host rides up)");
                 yield return Wait(8f);
@@ -814,7 +918,7 @@ namespace BuildingEscape
                 Check($"floor {floor} is built here too: the guards are puppets", guards.Count >= 3 && guards.All(g => g.IsPuppet), $"({guards.Count} guards, {guards.Count(g => g.IsPuppet)} puppets)");
                 Check($"the quota is the host's", TowerManager.Instance.CurrentInfo.quota == HeistManager.Instance.Quota && HeistManager.Instance.Quota > 0, $"({HeistManager.Instance.Quota})");
                 if (floor == 1) yield return OutpostLockNet(false);
-                if (floor == 3) { yield return SafesNet(false, floor); yield return GuardsNet(false, floor); }
+                if (floor == 4) { yield return SafesNet(false, floor); yield return GuardsNet(false, floor); }
                 yield return Shot($"n4_client_floor{floor}");
                 yield return Measure($"client on floor {floor}", 6f);
             }
@@ -845,8 +949,16 @@ namespace BuildingEscape
             yield return Until(() => IntroCinematic.Playing, 120f, "the Intro to start after START RUN");
             Check("the Intro starts by itself when a run starts", IntroCinematic.Playing);
             Check("the player is held still while it plays (the screen switch is on)", OutpostUi.Open && OutpostUi.Current == OutpostUi.Kind.Intro);
-            Check("the cutscene is in the docks: a TV on the wall, the player's character and a coworker watching it", IntroCinematic.Current != null && IntroCinematic.Current.HasTv && IntroCinematic.Current.WorkerCount == 2 && IntroCinematic.Current.WorkerIsToon(0) && IntroCinematic.Current.WorkerIsToon(1), $"(Tiny Toon people: {(IntroCinematic.Current != null ? IntroCinematic.Current.WorkerCount : -1)} workers)");
-            yield return Until(() => IntroCinematic.Clock >= 3.8f, 20f, "the first line");
+            Check("the cutscene is in the docks: a TV on the wall and five workers (the player's character and coworkers) hanging out", IntroCinematic.Current != null && IntroCinematic.Current.HasTv && IntroCinematic.Current.WorkerCount == IntroRules.Workers && IntroCinematic.Current.WorkerIsToon(0) && IntroCinematic.Current.WorkerIsToon(1), $"(Tiny Toon people: {(IntroCinematic.Current != null ? IntroCinematic.Current.WorkerCount : -1)} workers)");
+            yield return Until(() => IntroCinematic.Clock >= 3.0f, 20f, "the workers talking in a circle");
+            var introNow = IntroCinematic.Current;
+            bool inACircle = introNow != null && introNow.WorkerCount == IntroRules.Workers && IntroCinematic.Clock < IntroRules.TvOnAt;
+            for (int w = 0; inACircle && w < introNow.WorkerCount; w++) { var toMiddle = introNow.RingCentre - introNow.WorkerFoot(w); toMiddle.y = 0f; inACircle &= Mathf.Abs(toMiddle.magnitude - IntroRules.RingRadius) < 0.1f; }
+            Check("the five workers stand in a circle round one middle while the TV is dark (the owner, 2026-10-20)", inACircle);
+            yield return Shot("i0_workers_in_a_circle");
+            yield return Until(() => IntroCinematic.Clock >= IntroRules.TvOnAt + 1.0f, 20f, "the workers walking to the line");
+            yield return Shot("i0b_workers_walking_to_the_line");
+            yield return Until(() => IntroCinematic.Clock >= IntroRules.Beats[IntroRules.FirstBossBeat].start + 0.6f, 20f, "the first line");
             yield return Shot("i1_boss_first_line");
             if (skipTest)
             {
@@ -859,16 +971,18 @@ namespace BuildingEscape
             }
             else
             {
-                yield return Until(() => IntroCinematic.Clock >= 12.8f, 30f, "the desk shot");
+                yield return Until(() => IntroCinematic.Clock >= IntroRules.Beats[IntroRules.BonusBeat].start + 1.0f, 30f, "the desk shot");
                 yield return Shot("i2_desk_bonuses");
-                yield return Until(() => IntroCinematic.Clock >= 20.8f, 30f, "the jet");
+                yield return Until(() => IntroCinematic.Clock >= IntroRules.JetStart + 1.0f, 30f, "the jet");
                 yield return Shot("i3_window_jet");
-                yield return Until(() => IntroCinematic.Clock >= 25.5f, 30f, "the last line of the boss");
+                yield return Until(() => IntroCinematic.Clock >= IntroRules.Beats[IntroRules.LastBossBeat].start + 1.5f, 30f, "the last line of the boss");
                 yield return Shot("i4_boss_last_line");
-                yield return Until(() => IntroCinematic.Clock >= 31.0f, 30f, "the workers' line");
+                yield return Until(() => IntroCinematic.Clock >= IntroRules.Beats[IntroRules.WorkerBeat].start + 1.0f, 30f, "the workers' line");
                 yield return Shot("i4b_worker_line");
-                yield return Until(() => !IntroCinematic.Playing, 20f, "the Intro to end by itself");
-                Check("the Intro ends by itself after its 35 s and was shown once", !IntroCinematic.Playing && IntroCinematic.TimesPlayed == 1);
+                yield return Until(() => IntroCinematic.Clock >= IntroRules.Beats[IntroRules.FirstVendorBeat + 2].start + 1.0f, 40f, "the vendor's third line");
+                yield return Shot("i4c_vendor_line");
+                yield return Until(() => !IntroCinematic.Playing, 40f, "the Intro to end by itself");
+                Check($"the Intro ends by itself after its {IntroRules.Total:0.#} s and was shown once", !IntroCinematic.Playing && IntroCinematic.TimesPlayed == 1);
             }
             Check("the player is free again", !OutpostUi.Open);
             yield return Until(() => FloorIs(0), 30f, "the docks");
@@ -889,8 +1003,8 @@ namespace BuildingEscape
             yield return Until(() => IntroCinematic.Playing, 60f, "the Intro to start after PLAY SOLO");
             Check("the Intro starts by itself in a solo run (no network session)", IntroCinematic.Playing && !NetSession.Online && RunSync.Instance == null);
             Check("the player is held still while it plays (the screen switch is on)", OutpostUi.Open && OutpostUi.Current == OutpostUi.Kind.Intro);
-            Check("the cutscene is in the docks: a TV on the wall, the player's character and a coworker watching it", IntroCinematic.Current != null && IntroCinematic.Current.HasTv && IntroCinematic.Current.WorkerCount == 2 && IntroCinematic.Current.WorkerIsToon(0) && IntroCinematic.Current.WorkerIsToon(1), $"(Tiny Toon people: {(IntroCinematic.Current != null ? IntroCinematic.Current.WorkerCount : -1)} workers)");
-            yield return Until(() => IntroCinematic.Clock >= 3.8f, 20f, "the first line");
+            Check("the cutscene is in the docks: a TV on the wall and five workers (the player's character and coworkers) hanging out", IntroCinematic.Current != null && IntroCinematic.Current.HasTv && IntroCinematic.Current.WorkerCount == IntroRules.Workers && IntroCinematic.Current.WorkerIsToon(0) && IntroCinematic.Current.WorkerIsToon(1), $"(Tiny Toon people: {(IntroCinematic.Current != null ? IntroCinematic.Current.WorkerCount : -1)} workers)");
+            yield return Until(() => IntroCinematic.Clock >= IntroRules.Beats[IntroRules.FirstBossBeat].start + 0.6f, 20f, "the first line");
             yield return Shot("io1_boss_first_line");
             if (skipTest)
             {
@@ -903,12 +1017,12 @@ namespace BuildingEscape
             }
             else
             {
-                yield return Until(() => IntroCinematic.Clock >= 20.8f, 30f, "the jet");
+                yield return Until(() => IntroCinematic.Clock >= IntroRules.JetStart + 1.0f, 30f, "the jet");
                 yield return Shot("io2_window_jet");
-                yield return Until(() => IntroCinematic.Clock >= 31.0f, 30f, "the workers' line");
+                yield return Until(() => IntroCinematic.Clock >= IntroRules.Beats[IntroRules.WorkerBeat].start + 1.0f, 30f, "the workers' line");
                 yield return Shot("io2b_worker_line");
-                yield return Until(() => !IntroCinematic.Playing, 30f, "the Intro to end by itself");
-                Check("the Intro ends by itself after its 35 s and was shown once", !IntroCinematic.Playing && IntroCinematic.TimesPlayed == 1);
+                yield return Until(() => !IntroCinematic.Playing, 45f, "the Intro to end by itself");
+                Check($"the Intro ends by itself after its {IntroRules.Total:0.#} s and was shown once", !IntroCinematic.Playing && IntroCinematic.TimesPlayed == 1);
             }
             Check("the player is free again", !OutpostUi.Open);
             yield return Until(() => FloorIs(0), 30f, "the docks");

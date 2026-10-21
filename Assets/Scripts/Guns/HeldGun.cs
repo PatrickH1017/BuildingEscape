@@ -58,6 +58,19 @@ namespace BuildingEscape
         /// <summary>Roll of the left hand about the barrel, in degrees (tuned with the pictures of every rig; the mirror of the right hand's grip is the start).</summary>
         public float LeftRoll;
 
+        // first person (the owner, 2026-10-20): the gun is shouldered, not carried at the chest - the grip a forearm's length in front of the eyes, a little right of the line of sight and below it, the barrel along it (metres from the camera)
+        const float FpForward = 0.42f, FpRight = 0.075f, FpDown = 0.215f, FpLeftRoll = 70f;
+
+        /// <summary>How far the camera is at this body's eyes: 0 in third person (and for every other body) up to 1 in first person (a blend of the zoom, so the hold does not pop), and the camera.</summary>
+        float FirstPersonShare(out Transform cam)
+        {
+            cam = null;
+            var r = CameraFollow.Current;
+            if (!r || !r.ViewedBody || !transform.IsChildOf(r.ViewedBody)) return 0f;
+            cam = r.transform;
+            return Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.5f, 0.95f, r.Zoom));
+        }
+
         Transform upper, fore, hand, lUpper, lFore, lHand;
         bool hasArm, twoHand;
         float raiseNow, kick, armLength;
@@ -207,6 +220,8 @@ namespace BuildingEscape
 
             float b = raiseNow;
             if (twoHand) { TwoHandPose(aim, b); return; }
+            float fp1 = FirstPersonShare(out var cam1);
+            if (fp1 > 0.001f) { OneHandShouldered(aim, b, fp1, cam1); return; }
             // the whole arm points along the aim (the shoulder stays where the animation has it)
             var du = fore.position - upper.position;
             if (du.sqrMagnitude > 1e-6f)
@@ -217,6 +232,20 @@ namespace BuildingEscape
             // the hand: the grip (child of the hand) must come out level and pointing along the aim
             var want = Quaternion.LookRotation(aim, Vector3.up) * Quaternion.Inverse(Grip.localRotation);
             hand.rotation = Quaternion.Slerp(hand.rotation, want, b);
+        }
+
+        /// <summary>A pistol in first person: held out in the right hand in front of the eyes, a little low, the barrel along the line of sight.</summary>
+        void OneHandShouldered(Vector3 aim, float b, float fp, Transform cam)
+        {
+            var right = Vector3.Cross(Vector3.up, aim);
+            if (right.sqrMagnitude < 1e-4f) right = transform.right;
+            right.Normalize();
+            var up = Vector3.Cross(aim, right);
+            var gunRot = Quaternion.LookRotation(aim, up);
+            var carried = upper.position + aim * (0.9f * armLength);                                  // (the third-person hold: the arm straight out along the aim)
+            var held = cam.position + aim * (FpForward * 1.2f) + right * (FpRight + 0.04f) - up * (FpDown - 0.02f);
+            SolveArm(upper, fore, hand, Vector3.Lerp(carried, held, fp), -up * 0.8f + right * 0.6f, b);
+            hand.rotation = Quaternion.Slerp(hand.rotation, gunRot * Quaternion.Inverse(Grip.localRotation), b);
         }
 
         // ------------------------------------------------------------------ a gun in both hands
@@ -236,11 +265,14 @@ namespace BuildingEscape
             var toForegrip = gunRot * Vector3.Scale(Foregrip.localPosition, Grip.lossyScale);
             // the right hand: in front of and below the shoulder and towards the middle of the chest, where FitTwoHand put it (so that the left hand reaches the foregrip)
             var pr = sR + f * (fitFwd * L) - up * (0.28f * L) - right * (half * (1f - fitLat));
+            float fp = FirstPersonShare(out var viewCam);
+            if (fp > 0.001f) pr = Vector3.Lerp(pr, viewCam.position + f * FpForward + right * FpRight - up * FpDown, fp);          // (first person: shouldered, the sight in the middle of the screen)
             var tl = pr + toForegrip;
+            if (fp > 0.001f) tl += (-right * 0.075f + up * 0.085f) * fp;                               // (first person: the left hand grips the side of the handguard, so that its forearm is seen reaching in from the left)
             SolveArm(upper, fore, hand, pr, -up * 0.8f + right * 0.6f, b);
             hand.rotation = Quaternion.Slerp(hand.rotation, gunRot * Quaternion.Inverse(Grip.localRotation), b);
             SolveArm(lUpper, lFore, lHand, tl, -up * 0.8f - right * 0.6f, b);
-            lHand.rotation = Quaternion.Slerp(lHand.rotation, gunRot * Quaternion.Euler(0f, 0f, LeftRoll) * MirrorX(Quaternion.Inverse(Grip.localRotation)), b);
+            lHand.rotation = Quaternion.Slerp(lHand.rotation, gunRot * Quaternion.Euler(0f, 0f, LeftRoll + FpLeftRoll * fp) * MirrorX(Quaternion.Inverse(Grip.localRotation)), b);
             LeftHandGap = (lHand.position - Foregrip.position).magnitude;
         }
 
@@ -251,7 +283,7 @@ namespace BuildingEscape
         /// A two-bone arm: the wrist goes to <paramref name="target"/> (as near as the arm reaches) and the elbow to the side the pole points to. Works from the bones' own directions, so it does not care how a rig names or turns its
         /// bones; <paramref name="weight"/> blends from the pose the animation gave to the solved one.
         /// </summary>
-        static void SolveArm(Transform up, Transform fo, Transform ha, Vector3 target, Vector3 pole, float weight)
+        public static void SolveArm(Transform up, Transform fo, Transform ha, Vector3 target, Vector3 pole, float weight)
         {
             var s = up.position;
             float l1 = (fo.position - s).magnitude, l2 = (ha.position - fo.position).magnitude;

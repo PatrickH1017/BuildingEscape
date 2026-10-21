@@ -43,7 +43,8 @@ namespace BuildingEscape
         public int Reserve { get; private set; }
 
         /// <summary>
-        /// The most rounds a player may carry for this gun, the clip in it counted (the owner, 2026-10-19: "A player should be allowed to have three gun clips max"): <see cref="GunRules.MaxClips"/> clips of it. A gun with no
+        /// The most rounds a player may carry for this gun, the clip in it counted (the owner, 2026-10-19: "A player should be allowed to have three gun clips max"): <see cref="GunRules.MaxClips"/> clips of it, the pistol twelve
+        /// (2026-10-19 night: "Max ammo for the pistol should be about 100 shots": see RangedWeapon.Spec.maxClips). A gun with no
         /// limit (an officer's, whose reserve is endless anyway) keeps the default.
         /// </summary>
         public int MaxRounds = int.MaxValue;

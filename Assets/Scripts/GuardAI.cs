@@ -60,6 +60,14 @@ namespace BuildingEscape
         bool calling; float callTimer;
         float unseenFor; Vector3 lastSeenPos;
 
+        // ---- a guard who was knocked over radios for backup when he gets up (the owner, 2026-10-20: "Guards that are hit should call for backup upon getting up")
+        bool callOnGetUp, callAnyway;
+        WobblyPlayer hitBy;
+        /// <summary>A backup officer (spawned by a radio call or the alarm): he notices a player in his cone much faster (<see cref="GuardRules.BackupSpotFactor"/>; the owner, 2026-10-20). Set by the floor when it spawns the reinforcements.</summary>
+        public bool IsBackup;
+        /// <summary>How long a player at <paramref name="distance"/> metres has to stay in his cone before he notices (a backup officer needs a quarter of it).</summary>
+        public float SpotSecondsAt(float distance) => GuardRules.SpotSeconds(distance, spotBase, spotPerMetre) * (IsBackup ? GuardRules.BackupSpotFactor : 1f);
+
         // ---- networking: on a remote client the guard is a puppet; the host runs the AI and streams its state
         /// <summary>Same on every machine.</summary>
         public int NetId { get; private set; } = Net.NetIds.None;
@@ -365,7 +373,12 @@ namespace BuildingEscape
             State = GuardState.Stunned;
             stunUntil = Time.time + seconds;
             agent.isStopped = true;
-            if (by) noiseTarget = by.transform.position;
+            if (by)
+            {
+                noiseTarget = by.transform.position;
+                hitBy = by.GetComponentInParent<WobblyPlayer>();
+                if (!IsBoss) callOnGetUp = true;                     // (knocked over by somebody: when he gets up he radios for backup)
+            }
         }
 
         GuardCorpse corpse;
@@ -419,6 +432,7 @@ namespace BuildingEscape
                     if (Time.time >= stunUntil)
                     {
                         if (calling) { agent.isStopped = true; State = GuardState.Calling; return; } // still watching
+                        if (callOnGetUp) { callOnGetUp = false; BeginGetUpCall(); return; }
                         agent.isStopped = false;
                         State = GuardState.Investigate;
                         agent.speed = investigateSpeed;
@@ -437,7 +451,7 @@ namespace BuildingEscape
         void StartCall(WobblyPlayer p)
         {
             target = p;
-            calling = true; callTimer = 0f; unseenFor = 0f;
+            calling = true; callTimer = 0f; unseenFor = 0f; callAnyway = false;
             lastSeenPos = p.transform.position;
             State = GuardState.Calling;
             agent.isStopped = true; // he stops and looks at what he saw
@@ -448,7 +462,7 @@ namespace BuildingEscape
         {
             if (!calling || Dead) return;
             // the player has to stay in view for the whole call: slip out of sight and it is dropped
-            if (State == GuardState.Calling && !StillSees()) { CancelCall(); return; }
+            if (State == GuardState.Calling && !callAnyway && !StillSees()) { CancelCall(); return; }
             callTimer += Time.deltaTime;
             if (callTimer >= callSeconds)
             {
@@ -456,6 +470,7 @@ namespace BuildingEscape
                 HeistManager.Instance?.CallBackup(this);
                 if (State == GuardState.Calling)
                 {
+                    if (callAnyway) { callAnyway = false; AfterGetUpCall(); return; }
                     // he still saw the player after watching: backup is on the way and he starts the chase
                     State = GuardState.Chase;
                     unseenFor = 0f;
@@ -489,6 +504,42 @@ namespace BuildingEscape
             agent.SetDestination(noiseTarget);
             waitUntil = 0;
             Debug.Log($"{name} lost sight of the player: no backup called");
+        }
+
+        /// <summary>
+        /// He was knocked over and is on his feet again: he radios for backup where he stands, for <see cref="callSeconds"/> and whether or not he sees anybody (the owner, 2026-10-20: "Guards that are hit should call for backup upon
+        /// getting up"). It is the call of a sighting (the ring over his head, another blow cuts it); at the end the officers are sent to him (<see cref="AfterGetUpCall"/>).
+        /// </summary>
+        void BeginGetUpCall()
+        {
+            calling = true; callTimer = 0f; unseenFor = 0f; callAnyway = true;
+            target = hitBy;
+            if (hitBy) lastSeenPos = hitBy.transform.position;
+            State = GuardState.Calling;
+            agent.isStopped = true;
+            Debug.Log($"{name} got up and is calling for backup");
+        }
+
+        /// <summary>The call he made on getting up is through (backup is on the way): he goes after the player who hit him, or to where the blow came from.</summary>
+        void AfterGetUpCall()
+        {
+            if (hitBy && hitBy.Custody == CustodyState.Free)
+            {
+                target = hitBy;
+                State = GuardState.Chase;
+                unseenFor = 0f;
+                agent.isStopped = false;
+                agent.speed = chaseSpeed;
+                agent.SetDestination(hitBy.transform.position);
+            }
+            else
+            {
+                State = GuardState.Investigate;
+                agent.isStopped = false;
+                agent.speed = investigateSpeed;
+                agent.SetDestination(noiseTarget);
+                waitUntil = 0;
+            }
         }
 
         /// <summary>The first seconds after spotting: the guard stands still and looks at what he saw. No chasing yet.</summary>
@@ -726,7 +777,7 @@ namespace BuildingEscape
                 {
                     float dist = Vector3.Distance(transform.position, p.transform.position);
                     seenFor += dt;
-                    if (seenFor >= GuardRules.SpotSeconds(dist, spotBase, spotPerMetre)) { noticed.Remove(p); StartCall(p); return; }
+                    if (seenFor >= SpotSecondsAt(dist)) { noticed.Remove(p); StartCall(p); return; }
                     noticed[p] = seenFor;
                 }
                 else if (seenFor > 0f) noticed[p] = Mathf.Max(0f, seenFor - 2f * dt);

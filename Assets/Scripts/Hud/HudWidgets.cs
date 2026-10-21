@@ -317,6 +317,42 @@ namespace BuildingEscape
             }
         }
 
+        // ====================================================================== the weapon bar (bottom centre)
+
+        /// <summary>What the weapon bar shows: the name of the weapon in each slot (null = empty) and which slot is in hand (-1 for none).</summary>
+        public struct WeaponBarModel
+        {
+            public string[] names;
+            public int equipped;
+        }
+
+        /// <summary>A chip with its left edge at <paramref name="x"/> (for the other screens that draw one); returns its width.</summary>
+        public static float ChipAt(float x, float y, float h, string text, Color fill, float size = 13f) => Chip(x, y, h, text, fill, size);
+
+        /// <summary>
+        /// The weapon bar (the owner, 2026-10-19 night): three plates above the stamina bar, each with its key (1, 2, 3) and the weapon in that slot (<see cref="WeaponBarRules"/>); the one in hand is bright, with a bar under it.
+        /// </summary>
+        public static void WeaponBar(in WeaponBarModel m)
+        {
+            if (Event.current.type != EventType.Repaint) return;
+            float s = S, sw = 176f * s, sh = 48f * s, gap = 8f * s, pad = 8f * s;
+            float total = WeaponBarRules.Slots * sw + (WeaponBarRules.Slots - 1) * gap;
+            float x0 = (Screen.width - total) * 0.5f, y = Screen.height - 74f * s - sh;
+            for (int i = 0; i < WeaponBarRules.Slots; i++)
+            {
+                var r = new Rect(x0 + i * (sw + gap), y, sw, sh);
+                HudTheme.Plate(r);
+                bool on = m.equipped == i, has = m.names != null && i < m.names.Length && !string.IsNullOrEmpty(m.names[i]);
+                float kw = HudTheme.KeyCap(r.x + pad, r.y + (sh - 28f * s) * 0.5f - 2f * s, (i + 1).ToString(), 28f * s, 15f);
+                if (has)
+                {
+                    float tx = r.x + pad + kw + 8f * s, tw = r.xMax - pad - tx;
+                    HudTheme.Text(new Rect(tx, r.y, tw, sh - 6f * s), MenuKit.Fit(m.names[i], 15f * s, tw), 15f, on ? HudTheme.Bright : HudTheme.Muted, TextAnchor.MiddleLeft);
+                }
+                if (on) HudTheme.Bar(new Rect(r.x + pad, r.yMax - 12f * s, r.width - pad * 2f, 6f * s), 1f, HudTheme.Info, 1.5f);
+            }
+        }
+
         // ====================================================================== the pew's ammunition (bottom right)
 
         /// <summary>What the ammunition panel shows.</summary>

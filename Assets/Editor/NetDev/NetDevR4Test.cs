@@ -54,7 +54,7 @@ namespace BuildingEscape.EditorTools
             var cat = CharacterCatalog.Instance;
             if (cat == null) { Check("dock workers: the character catalog exists", false); return; }
             var players = cat.Players();
-            bool allOffice = players.Count >= 12, atlas = true, numbered = true, noGuardLooks = true, fits = true;
+            bool allOffice = players.Count == 5, atlas = true, numbered = true, noGuardLooks = true, fits = true;
             for (int i = 0; i < players.Count; i++)
             {
                 var c = players[i];
@@ -65,12 +65,17 @@ namespace BuildingEscape.EditorTools
                 var a = PlayerAppearance.ForSlot(0); a.model = c.id;
                 fits &= a.Serialize().Length <= 61 && CharacterCatalog.ValidId(c.id);
             }
-            Check($"dock workers: the {players.Count} playable characters are all Synty office people with their own atlas", allOffice && atlas);
+            Check($"dock workers: the {players.Count} playable characters (the owner's five, 2026-10-20) are Synty people (the Construction builders, the office developer) with their own atlas", allOffice && atlas);
             Check("dock workers: Customize calls them Dock worker 1, Dock worker 2 ... in order, and nobody looks like a guard (security) or the cutscene's boss", numbered && noGuardLooks);
-            bool four = players.Count >= 4;
-            for (int i = 0; four && i < 4; i++) four &= players[i].id == CharacterCatalogBuilder.DockWorkerIds[i] && PlayerAppearance.DefaultToons[i] == players[i].id;
-            Check("dock workers: Dock worker 1-4 are the four characters the owner showed (cap, blonde woman, glasses + headphones, vest) and the first four defaults", four);
-            Check("dock workers: the security guards are not offered to players, but the pack's other people are (\"most of them\")", !players.Any(p => p.id.Contains("security")) && cat.Find("syn_security_male_01") != null && cat.Find("syn_security_female_01") != null && players.Any(p => p.id == "syn_business_female_01") && players.Any(p => p.id == "syn_developer_male_01"));
+            bool five = players.Count == 5;
+            for (int i = 0; five && i < 5; i++) five &= players[i].id == CharacterCatalogBuilder.DockWorkerIds[i] && PlayerAppearance.DefaultToons[i] == players[i].id;
+            Check("dock workers: Dock worker 1-5 are the five characters of the owner's pictures (hi-vis vest and cap, yellow hard hat, bearded man with goggles, older man with the white hard hat, plaid shirt) and the five defaults", five);
+            var dressCounts = new[] { 1, 1, 2, 2, 0 };
+            bool dressed = five;
+            for (int i = 0; dressed && i < 5; i++) dressed &= (players[i].dress == null ? 0 : players[i].dress.Count(d => d != null && d.prefab != null && d.atlas != null)) == dressCounts[i];
+            Check("dock workers: the four builders wear what the pictures show (a cap, a hard hat, a hard hat with goggles and a beard, a hard hat and a grey beard), each in its own colour theme; the developer wears nothing extra", dressed);
+            Check("dock workers: exactly the owner's five are offered; the security guards and the pack's other people stay in the catalog (old saved looks, friends' looks) but are not offered", players.Count == 5 && !players.Any(p => p.id.Contains("security")) && cat.Find("syn_security_male_01") != null && cat.Find("syn_security_female_01") != null
+                && cat.Find("syn_business_female_01") != null && !players.Any(p => p.id == "syn_business_female_01") && cat.Find("syn_cleaner_male_01") != null && !players.Any(p => p.id == "syn_cleaner_male_01") && cat.Find("syn_builder_overalls_01") != null && !players.Any(p => p.id == "syn_builder_overalls_01"));
             Check("dock workers: every id fits the look string that is sent over the network", fits);
             bool defaultsPlayable = PlayerAppearance.DefaultToons.Length >= 5 && PlayerAppearance.DefaultToons.Distinct().Count() == PlayerAppearance.DefaultToons.Length;
             foreach (var id in PlayerAppearance.DefaultToons) defaultsPlayable &= players.Any(p => p.id == id);

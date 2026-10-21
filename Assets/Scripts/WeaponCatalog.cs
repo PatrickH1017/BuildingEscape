@@ -19,6 +19,8 @@ namespace BuildingEscape
         [Header("How the models sit (the owner, 2026-10-18: the Synty weapons)")]
         [Tooltip("The silencer that goes on the pew's muzzle (Synty Battle Royale: SM_Wep_Attachment_Silencer_01). Empty = a plain dark tube.")]
         public GameObject silencer;
+        [Tooltip("The red dot sight that sits on top of the sub machine gun, the rifle and the shotgun (Synty Battle Royale: SM_Wep_Attachment_Redot_01; the owner, 2026-10-20). Empty = none.")]
+        public GameObject redDot;
         [Tooltip("How each model must be turned (Euler degrees) so that a melee weapon runs along +Y with its head up and the pew's barrel runs along +X with its top +Y (the game's frame). The Synty melee models already stand that way; the pistol's barrel runs along +Z, a quarter turn about Y.")]
         public Vector3 crowbarTurn, batTurn, hatchetTurn, pewTurn;
         [Tooltip("Where the hand closes round each melee weapon, in the model's own space: on the handle's own axis, a hand's width from the end opposite the head. Measured by the editor; zero = the model's own origin.")]
@@ -41,6 +43,8 @@ namespace BuildingEscape
             public Vector3 grip, foregrip;
             [Tooltip("Where the silencer model's origin goes so that its rear recess sits over the end of the barrel, and how it is turned there (the guns that take one: the SMG and the rifle). Measured by the editor.")]
             public Vector3 silencerAt, silencerTurn;
+            [Tooltip("Where the red dot sight's origin goes (on top of the body, on the barrel's own line) and how it is turned there, for the guns that carry one (the SMG, the rifle, the shotgun); zero sightAt = no sight. Measured by the editor.")]
+            public Vector3 sightAt, sightTurn;
             [Tooltip("The empty case that is thrown out of the gun (empty: the pistol's cartridge).")]
             public GameObject casing;
             [Tooltip("Part of a name of the magazine's mesh, for the spare clip model lying in a safe; empty = none.")]

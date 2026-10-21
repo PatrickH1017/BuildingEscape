@@ -96,7 +96,7 @@ namespace BuildingEscape.Net
                 var af = np.GetComponent<PvpFighter>(); var vf = rival.GetComponent<PvpFighter>();
                 if (af && vf && rivalNp && PvpRules.CanHurt(af.Inside, vf.Inside, af.Down, vf.Down, false))
                 {
-                    vf.Hurt(PvpRules.BulletDamage);
+                    vf.Hurt(PvpRules.BulletDamage, np.Slot);
                     PvpStateRpc((byte)rivalNp.Slot, vf.Health, vf.Down);
                 }
             }

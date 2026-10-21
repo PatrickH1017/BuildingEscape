@@ -22,6 +22,11 @@ namespace BuildingEscape
             new Color(0.10f, 0.10f, 0.12f), new Color(0.85f, 0.66f, 0.08f), new Color(0.12f, 0.42f, 0.20f),
         };
 
+        /// <summary>The pack's cars (2026-10-19) have their noses along +z, like the box car.</summary>
+        const float CarYaw = 0f;
+        /// <summary>A car's length (the pack's cars are 4.4 to 6.5 m long: all are fitted to about this) and where the bottom of its wheels is against its origin (the origin is 0.55 m above the ground, the road's top 0.15 m).</summary>
+        const float CarLength = 4.7f, CarBottom = -0.40f;
+
         static Texture2D beamTexture;
 
         /// <summary>A pale pool of light, brightest next to the car and fading along the road: 16 x 64, alpha only matters.</summary>
@@ -106,6 +111,10 @@ namespace BuildingEscape
             var holder = new GameObject("Traffic");
             holder.transform.SetParent(root, false);
             var traffic = holder.AddComponent<CityTraffic>();
+            var catalog = CityCatalog.Instance;
+            var models = catalog && catalog.cars != null ? System.Array.FindAll(catalog.cars, g => g != null) : new GameObject[0];       // (the owner's cars; with none the cars are the plain boxes)
+            bool useModels = models.Length > 0;
+            var night = new Dictionary<Material, Material>();
             var bodyMats = new Material[BodyColours.Length];
             var carMeshes = new Mesh[BodyColours.Length];
             var darkMat = Unlit(owned, new Color(0.02f, 0.02f, 0.03f));
@@ -113,7 +122,7 @@ namespace BuildingEscape
             var tailMat = Unlit(owned, new Color(1f, 0.10f, 0.06f) * 1.5f);
             var beamMat = new Material(Shader.Find("Sprites/Default")) { name = "CarBeam", mainTexture = BeamTexture(), hideFlags = HideFlags.HideAndDontSave };
             owned.items.Add(beamMat);
-            for (int i = 0; i < BodyColours.Length; i++)
+            for (int i = 0; i < BodyColours.Length && !useModels; i++)
             {
                 bodyMats[i] = Unlit(owned, BodyColours[i] * 0.55f);
                 carMeshes[i] = CarMesh(i);
@@ -160,13 +169,18 @@ namespace BuildingEscape
                 int onLoop = 1 + (int)(Hash(seed, l, 6) * 2.99f);
                 for (int c = 0; c < onLoop && cars < 16 && sideCars[side] < 4; c++)
                 {
-                    int variant = (int)(Hash(seed, l * 7 + c, 7) * BodyColours.Length) % BodyColours.Length;
+                    float pick = Hash(seed, l * 7 + c, 7);
                     var go = new GameObject("Car");
                     go.transform.SetParent(holder.transform, false);
-                    go.AddComponent<MeshFilter>().sharedMesh = carMeshes[variant];
-                    var mr = go.AddComponent<MeshRenderer>();
-                    mr.sharedMaterials = new[] { bodyMats[variant], darkMat, headMat, tailMat };
-                    ConfigureRenderer(mr);
+                    if (useModels) DressCar(go.transform, models[(int)(pick * models.Length) % models.Length], night, owned);
+                    else
+                    {
+                        int variant = (int)(pick * BodyColours.Length) % BodyColours.Length;
+                        go.AddComponent<MeshFilter>().sharedMesh = carMeshes[variant];
+                        var mr = go.AddComponent<MeshRenderer>();
+                        mr.sharedMaterials = new[] { bodyMats[variant], darkMat, headMat, tailMat };
+                        ConfigureRenderer(mr);
+                    }
                     var beam = new GameObject("Beam");
                     beam.transform.SetParent(go.transform, false);
                     beam.transform.localPosition = new Vector3(0f, -0.38f, 2.3f);
@@ -182,6 +196,43 @@ namespace BuildingEscape
                 }
             }
             return cars;
+        }
+
+        /// <summary>One of the owner's cars as a child of a car: turned to the car's frame, fitted to about 4.7 m, its wheels' bottom at the road, its materials made to glow by themselves (like the towers).</summary>
+        static void DressCar(Transform car, GameObject prefab, Dictionary<Material, Material> night, OwnedObjects owned)
+        {
+            var model = Object.Instantiate(prefab, car);
+            model.name = "Model " + prefab.name;
+            CityProps.Strip(model);
+            model.transform.localPosition = Vector3.zero; model.transform.localRotation = Quaternion.Euler(0f, CarYaw, 0f); model.transform.localScale = Vector3.one;
+            var rs = model.GetComponentsInChildren<Renderer>();
+            if (rs.Length == 0) return;
+            var b = rs[0].bounds;
+            foreach (var r in rs) b.Encapsulate(r.bounds);
+            float s = Mathf.Clamp(CarLength / Mathf.Max(0.5f, b.size.z), 0.7f, 1.15f);
+            var at = car.InverseTransformPoint(new Vector3(b.center.x, b.min.y, b.center.z));            // (the car has just been made: it lies at its parent's frame, unscaled)
+            model.transform.localScale = Vector3.one * s;
+            model.transform.localPosition = new Vector3(-at.x * s, CarBottom - at.y * s, -at.z * s);
+            foreach (var r in rs)
+            {
+                var mats = r.sharedMaterials;
+                for (int i = 0; i < mats.Length; i++) mats[i] = NightOf(mats[i], night, owned);
+                r.sharedMaterials = mats;
+                ConfigureRenderer(r);
+            }
+        }
+
+        /// <summary>The glowing copy of a pack material (one per material for the whole street; its lamps glow brighter than its paint).</summary>
+        static Material NightOf(Material src, Dictionary<Material, Material> night, OwnedObjects owned)
+        {
+            if (!src) return null;
+            if (!night.TryGetValue(src, out var m))
+            {
+                m = CityProps.NightCopy(src, CityProps.Glows(src) ? 1.6f : 0.55f);
+                owned.items.Add(m);
+                night[src] = m;
+            }
+            return m;
         }
 
         static void Glow(Transform car, Mesh mesh, Material mat, Vector3 at, float size)

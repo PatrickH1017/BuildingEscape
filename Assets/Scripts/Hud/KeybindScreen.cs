@@ -36,6 +36,7 @@ namespace BuildingEscape
                     new Entry("SHIFT", "sprint"),
                     new Entry("SPACE", "jump"),
                     new Entry("CTRL / C", "crouch (hold): slower, quieter"),
+                    new Entry("P", "first / third person"),
                 },
             },
             new Group
@@ -46,6 +47,7 @@ namespace BuildingEscape
                     new Entry("TAB", "inventory"),
                     new Entry("Q", "grab / drop heavy loot"),
                     new Entry("LMB", "throw / swing weapon / fire / punch"),
+                    new Entry("1 2 3", "switch weapon"),
                     new Entry("R", "reload the pew"),
                     new Entry("H", "hide at a desk"),
                     new Entry("J", "journal (safes you know about)"),

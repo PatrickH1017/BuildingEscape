@@ -16,8 +16,9 @@ namespace BuildingEscape
             ("Alt (or V) hold", "Look around your character"),
             ("Shift", "Sprint"),
             ("Ctrl (or C) hold", "Crouch: slower, but your footsteps are much quieter"),
+            ("P (or mouse wheel, Ctrl + Up / Down)", "Switch between first and third person: wheel up or Ctrl + Up for first person, wheel down or Ctrl + Down for third"),
             ("Space", "Jump"),
-            ("E", "Aim the crosshair, then press E: pick an item up into your backpack / open and close a door / talk to the vendor / hack a guard outpost's lock / use a guard outpost's computer / work a safe"),
+            ("E", "Aim the crosshair, then press E: pick an item up into your backpack / open and close a door / talk to the vendor / hack a guard outpost's lock / use a guard outpost's computer / work a safe / play darts at the dart board"),
             ("W A S D at a lock", "While hacking an outpost's keypad: press the key that appears within one second - four in a row opens the door, a miss sets off the alarm. Esc gives up"),
             ("J", "Your journal: the safes of the floor you are on that you have learned about from the outpost's computer (their room and, if the computer had it, their code)"),
             ("Z hold", "Scan for loot: a pulse sweeps the room you are standing in and marks the valuables lying in it (you have to go in to scan a room) with what they are, what they are worth and how far; the top of the screen says what the room holds. Not at the Loading Docks or in the elevator"),
@@ -29,7 +30,7 @@ namespace BuildingEscape
             ("G", "Hidden elevator to the boss: go (everyone must be inside)"),
             ("M", "Mute your microphone"),
             ("T", "Push to talk (when set in Settings)"),
-            ("1 - 7", "Buy from the vendor's shop"),
+            ("1 2 3", "Switch to the first, second or third weapon in your pack (the bar at the bottom of the screen shows them)"),
             ("Esc", "Menu"),
         };
 

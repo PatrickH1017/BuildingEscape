@@ -20,6 +20,16 @@ namespace BuildingEscape
         public AnimationClip idle, walk, run, death, attack, jump;
         public AnimationClip combatIdle, combatRun;
         public AnimationClip pistolIdle, pistolRun, pistolShoot;
+        /// <summary>The dazed loop (Blink's StunnedLoop: standing hunched, head down, arms hanging): what a stunned officer plays instead of falling down (the owner, 2026-10-20). Empty = he falls down as before.</summary>
+        public AnimationClip stunned;
+    }
+
+    /// <summary>A head attachment of a character (a hat, a hard hat, goggles or a beard of the Synty Construction pack): parented to the Head bone with no offset (the pack's pivots are made for that). <see cref="atlas"/> is the colour theme it is drawn in; empty = the character's own atlas.</summary>
+    [System.Serializable]
+    public class ToonDress
+    {
+        public GameObject prefab;
+        public Texture2D atlas;
     }
 
     [System.Serializable]
@@ -33,10 +43,12 @@ namespace BuildingEscape
         public ToonClipSetId clips;
         [Tooltip("This character's own colour atlas (the Synty office people); empty = the catalog's atlas (the Tiny Toon people).")]
         public Texture2D atlas;
+        [Tooltip("What this character wears on the head (the Construction builders: the pack's character prefabs leave the heads bare). Empty = nothing.")]
+        public ToonDress[] dress;
     }
 
     /// <summary>
-    /// The Tiny Toon People characters and animation clips, so Customize, the lobby stage and the guards can
+    /// The Tiny Toon People characters' and animation clips, so Customize, the lobby stage and the guards can
     /// use them at runtime. Lives at Assets/Resources/CharacterCatalog.asset, created by the editor
     /// (Employees Take Revenge > Setup Characters). Adding characters to the pack and running the setup again is enough.
     /// </summary>

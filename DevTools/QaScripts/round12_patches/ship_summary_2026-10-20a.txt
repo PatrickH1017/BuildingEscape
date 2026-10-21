@@ -1,0 +1,17 @@
+﻿Ship 2026-10-20a started 02:04:53
+apply: applied: 4 new, 12 changed, 606 already identical (backup of the replaced files: C:\Users\phick\OneDrive\Desktop\BuildingEscape\DevTools\QaBackups\before_round12b_apply_2026-10-20)
+trees identical
+Final build started 2026-10-20 02:05:09
+synced 02:05:09
+=== build (il2cpp): exit=0 in 80 s; [DemoBuild] result Succeeded: 0 errors, 10 warnings, 1123 MB, 62 s, output C:; compile errors in the log: 0
+=== send copy: C:\Users\phick\OneDrive\Desktop\BuildingEscape\Builds\Playtest_2026-10-20a = 175 MB; do-not-ship folders in it: 0; exe True; README True
+=== safety scan of the send copy: 0 problem(s)
+=== zip: C:\Users\phick\OneDrive\Desktop\BuildingEscape\Builds\Playtest_2026-10-20a.zip = 49 MB
+finished 02:06:41
+Built-player autopilot fl9 started 2026-10-20 02:06:42 on C:\bqs\Unzipped_fl9\Playtest_2026-10-20a\EmployeesTakeRevenge.exe
+=== autopilot solo on the unzipped build: exit=0 in 114 s; PASS 85 FAIL 0; finished after 105 s: checks failed 0, errors logged 0 (exceptions 0)
+    PASS the lobby has its loading dock behind the characters, and the lobby song is in this build and plays (dock True, music director True, song loaded True, playing True)
+=== autopilot host (two built players, loopback) in 148 s; PASS 36 FAIL 0; finished after 142 s: checks failed 0, errors logged 0 (exceptions 0)
+=== autopilot client (two built players, loopback) in 148 s; PASS 42 FAIL 0; finished after 125 s: checks failed 0, errors logged 0 (exceptions 0)
+finished 02:11:04
+finished

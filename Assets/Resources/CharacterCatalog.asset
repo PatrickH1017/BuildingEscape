@@ -13,144 +13,242 @@ MonoBehaviour:
   m_Name: CharacterCatalog
   m_EditorClassIdentifier: 
   characters:
-  - id: syn_cleaner_male_01
+  - id: syn_builder_highvis_01
     label: Dock worker 1
-    prefab: {fileID: 1353977574298584, guid: a690c3998952a6541bfa77d42dfe5078, type: 3}
+    prefab: {fileID: 1220888220448734, guid: 54a60470ee4d56046b34840ce90220be, type: 3}
     role: 0
     clips: 3
-    atlas: {fileID: 2800000, guid: 63070be2573ac6640a080b00e06cc159, type: 3}
-  - id: syn_boss_female_01
+    atlas: {fileID: 2800000, guid: 8d84c7406074732469399fa86e78e757, type: 3}
+    dress:
+    - prefab: {fileID: 1400103237924996, guid: 2e558b10397e6a44699f99b9cb480243, type: 3}
+      atlas: {fileID: 2800000, guid: 2fd1417ba3d6c4c4fac6cd9a4e612025, type: 3}
+  - id: syn_builder_female_01
     label: Dock worker 2
-    prefab: {fileID: 1975240265096882, guid: 886e38ce682403743b9b058cb21703f2, type: 3}
+    prefab: {fileID: 1322314552149874, guid: fb3d5dfd858d50849b27275f4d9be34c, type: 3}
     role: 0
     clips: 4
-    atlas: {fileID: 2800000, guid: 63070be2573ac6640a080b00e06cc159, type: 3}
-  - id: syn_developer_male_02
+    atlas: {fileID: 2800000, guid: 8d84c7406074732469399fa86e78e757, type: 3}
+    dress:
+    - prefab: {fileID: 1774983791734534, guid: 133439d27ce95cf4aaf560ed46792b1b, type: 3}
+      atlas: {fileID: 2800000, guid: 8d84c7406074732469399fa86e78e757, type: 3}
+  - id: syn_builder_singlet_01
     label: Dock worker 3
-    prefab: {fileID: 1742387174060844, guid: 08a2f1fda95d8de42ba936230a0610fe, type: 3}
+    prefab: {fileID: 1765157484963326, guid: 8f6fe0551a9dc684883b318ef0d1a9a8, type: 3}
     role: 0
     clips: 3
-    atlas: {fileID: 2800000, guid: 63070be2573ac6640a080b00e06cc159, type: 3}
-  - id: syn_business_male_02
+    atlas: {fileID: 2800000, guid: 8d84c7406074732469399fa86e78e757, type: 3}
+    dress:
+    - prefab: {fileID: 1663216663751722, guid: 3c274f531d6e753409041e570633855c, type: 3}
+      atlas: {fileID: 2800000, guid: 018b4394ecf6ba24686400e87ba3d9ca, type: 3}
+    - prefab: {fileID: 1263485882892100, guid: cf15db86dd31bec4faf0cefda55af2c1, type: 3}
+      atlas: {fileID: 2800000, guid: 8d84c7406074732469399fa86e78e757, type: 3}
+  - id: syn_builder_harness_01
     label: Dock worker 4
-    prefab: {fileID: 1652544263031632, guid: 3a07a1305adf7464bbd22995e1a94b51, type: 3}
+    prefab: {fileID: 1259414080112238, guid: 8450b0a9a1ea9bd4190aa3ed03b435a1, type: 3}
     role: 0
     clips: 3
-    atlas: {fileID: 2800000, guid: 63070be2573ac6640a080b00e06cc159, type: 3}
-  - id: syn_business_female_01
-    label: Dock worker 5
-    prefab: {fileID: 1214972348348976, guid: 55048683fb58f1d468dcb88416e892ee, type: 3}
-    role: 0
-    clips: 4
-    atlas: {fileID: 2800000, guid: 63070be2573ac6640a080b00e06cc159, type: 3}
-  - id: syn_business_female_02
-    label: Dock worker 6
-    prefab: {fileID: 1977554221320892, guid: 88f81e1631ea70f458d192631bf8886d, type: 3}
-    role: 0
-    clips: 4
-    atlas: {fileID: 2800000, guid: 63070be2573ac6640a080b00e06cc159, type: 3}
-  - id: syn_business_female_03
-    label: Dock worker 7
-    prefab: {fileID: 1822189464268616, guid: f78a881d3ec75d945ac878527dc26674, type: 3}
-    role: 0
-    clips: 4
-    atlas: {fileID: 2800000, guid: 63070be2573ac6640a080b00e06cc159, type: 3}
-  - id: syn_business_female_04
-    label: Dock worker 8
-    prefab: {fileID: 1360405817128342, guid: 39959bef43f00bd4296c4c6bf8333a52, type: 3}
-    role: 0
-    clips: 4
-    atlas: {fileID: 2800000, guid: 63070be2573ac6640a080b00e06cc159, type: 3}
-  - id: syn_business_male_01
-    label: Dock worker 9
-    prefab: {fileID: 1454114287192450, guid: 3c5b1db0b16674f40a46b5819998a15f, type: 3}
-    role: 0
-    clips: 3
-    atlas: {fileID: 2800000, guid: 63070be2573ac6640a080b00e06cc159, type: 3}
-  - id: syn_business_male_03
-    label: Dock worker 10
-    prefab: {fileID: 1099670560160142, guid: 72eac7e5c7348c94d8915f3dcaa2f5eb, type: 3}
-    role: 0
-    clips: 3
-    atlas: {fileID: 2800000, guid: 63070be2573ac6640a080b00e06cc159, type: 3}
-  - id: syn_business_male_04
-    label: Dock worker 11
-    prefab: {fileID: 1293306985708040, guid: 1479c81f0e50d034fbd932f2971da914, type: 3}
-    role: 0
-    clips: 3
-    atlas: {fileID: 2800000, guid: 63070be2573ac6640a080b00e06cc159, type: 3}
-  - id: syn_cleaner_female_01
-    label: Dock worker 12
-    prefab: {fileID: 1207000675054372, guid: 93e1de5d7ab0d25408e36ac4a41850db, type: 3}
-    role: 0
-    clips: 4
-    atlas: {fileID: 2800000, guid: 63070be2573ac6640a080b00e06cc159, type: 3}
-  - id: syn_developer_female_01
-    label: Dock worker 13
-    prefab: {fileID: 1464604485386400, guid: 1a96e91537e0d7f48809b9484dff7f3e, type: 3}
-    role: 0
-    clips: 4
-    atlas: {fileID: 2800000, guid: 63070be2573ac6640a080b00e06cc159, type: 3}
+    atlas: {fileID: 2800000, guid: 8d84c7406074732469399fa86e78e757, type: 3}
+    dress:
+    - prefab: {fileID: 1774983791734534, guid: 133439d27ce95cf4aaf560ed46792b1b, type: 3}
+      atlas: {fileID: 2800000, guid: 2fd1417ba3d6c4c4fac6cd9a4e612025, type: 3}
+    - prefab: {fileID: 1441171706525898, guid: b0e8a719c006e604ab291e1c389bdf08, type: 3}
+      atlas: {fileID: 2800000, guid: 8d84c7406074732469399fa86e78e757, type: 3}
   - id: syn_developer_female_02
-    label: Dock worker 14
+    label: Dock worker 5
     prefab: {fileID: 1371166957121120, guid: aa1d93d2d2812c647997998c269316dd, type: 3}
     role: 0
     clips: 4
     atlas: {fileID: 2800000, guid: 63070be2573ac6640a080b00e06cc159, type: 3}
-  - id: syn_developer_male_01
-    label: Dock worker 15
-    prefab: {fileID: 1295359657651894, guid: 32b926586df8d6f49b0136c82d26645f, type: 3}
-    role: 0
-    clips: 3
-    atlas: {fileID: 2800000, guid: 63070be2573ac6640a080b00e06cc159, type: 3}
+    dress: []
   - id: syn_security_female_01
     label: Syn Security Female 01
     prefab: {fileID: 1861045244336520, guid: 06a87c8b15efd30448d53857e94c45e9, type: 3}
     role: 1
     clips: 4
     atlas: {fileID: 2800000, guid: 63070be2573ac6640a080b00e06cc159, type: 3}
+    dress: []
   - id: syn_security_male_01
     label: Syn Security Male 01
     prefab: {fileID: 1611835758375592, guid: 1d5338d27c0839b46892a6390262c9d4, type: 3}
     role: 1
     clips: 3
     atlas: {fileID: 2800000, guid: 63070be2573ac6640a080b00e06cc159, type: 3}
+    dress: []
   - id: female
     label: Female
     prefab: {fileID: 6252356961377389083, guid: 2db03e7c8a8135146b280e5da7e0289c, type: 3}
     role: 2
     clips: 1
     atlas: {fileID: 0}
+    dress: []
   - id: male_a
     label: Male A
     prefab: {fileID: 7478225697116208144, guid: 6fb37f825ee63264b9c2600bf1a52006, type: 3}
     role: 2
     clips: 0
     atlas: {fileID: 0}
+    dress: []
   - id: male_b
     label: Male B
     prefab: {fileID: 7447163605589988728, guid: 907fd825e3988774caab4234b943bf44, type: 3}
     role: 2
     clips: 0
     atlas: {fileID: 0}
+    dress: []
   - id: police
     label: Police
     prefab: {fileID: 8619338778009079851, guid: 47a3741b253f088469eedd6d403dd89a, type: 3}
     role: 2
     clips: 0
     atlas: {fileID: 0}
+    dress: []
+  - id: syn_boss_female_01
+    label: Syn Boss Female 01
+    prefab: {fileID: 1975240265096882, guid: 886e38ce682403743b9b058cb21703f2, type: 3}
+    role: 2
+    clips: 4
+    atlas: {fileID: 2800000, guid: 63070be2573ac6640a080b00e06cc159, type: 3}
+    dress: []
   - id: syn_boss_male_01
     label: Syn Boss Male 01
     prefab: {fileID: 1604611627540692, guid: 0636a8b0926172c499640f89dacb0a94, type: 3}
     role: 2
     clips: 3
     atlas: {fileID: 2800000, guid: 63070be2573ac6640a080b00e06cc159, type: 3}
+    dress: []
+  - id: syn_builder_male_01
+    label: Syn Builder Male 01
+    prefab: {fileID: 1394367660995210, guid: 0c4f2b2dbeb9b1f40ae35319fd9995e6, type: 3}
+    role: 2
+    clips: 3
+    atlas: {fileID: 2800000, guid: 8d84c7406074732469399fa86e78e757, type: 3}
+    dress: []
+  - id: syn_builder_overalls_01
+    label: Syn Builder Overalls 01
+    prefab: {fileID: 1565896764387742, guid: d0a9ec5dc1484dc4bad93811a9c0ab65, type: 3}
+    role: 2
+    clips: 3
+    atlas: {fileID: 2800000, guid: 8d84c7406074732469399fa86e78e757, type: 3}
+    dress: []
+  - id: syn_builder_raincoat_01
+    label: Syn Builder Raincoat 01
+    prefab: {fileID: 1654854538775534, guid: d3088af5cb703ce42947223d4f444d97, type: 3}
+    role: 2
+    clips: 3
+    atlas: {fileID: 2800000, guid: 8d84c7406074732469399fa86e78e757, type: 3}
+    dress: []
+  - id: syn_business_female_01
+    label: Syn Business Female 01
+    prefab: {fileID: 1214972348348976, guid: 55048683fb58f1d468dcb88416e892ee, type: 3}
+    role: 2
+    clips: 4
+    atlas: {fileID: 2800000, guid: 63070be2573ac6640a080b00e06cc159, type: 3}
+    dress: []
+  - id: syn_business_female_02
+    label: Syn Business Female 02
+    prefab: {fileID: 1977554221320892, guid: 88f81e1631ea70f458d192631bf8886d, type: 3}
+    role: 2
+    clips: 4
+    atlas: {fileID: 2800000, guid: 63070be2573ac6640a080b00e06cc159, type: 3}
+    dress: []
+  - id: syn_business_female_03
+    label: Syn Business Female 03
+    prefab: {fileID: 1822189464268616, guid: f78a881d3ec75d945ac878527dc26674, type: 3}
+    role: 2
+    clips: 4
+    atlas: {fileID: 2800000, guid: 63070be2573ac6640a080b00e06cc159, type: 3}
+    dress: []
+  - id: syn_business_female_04
+    label: Syn Business Female 04
+    prefab: {fileID: 1360405817128342, guid: 39959bef43f00bd4296c4c6bf8333a52, type: 3}
+    role: 2
+    clips: 4
+    atlas: {fileID: 2800000, guid: 63070be2573ac6640a080b00e06cc159, type: 3}
+    dress: []
+  - id: syn_business_male_01
+    label: Syn Business Male 01
+    prefab: {fileID: 1454114287192450, guid: 3c5b1db0b16674f40a46b5819998a15f, type: 3}
+    role: 2
+    clips: 3
+    atlas: {fileID: 2800000, guid: 63070be2573ac6640a080b00e06cc159, type: 3}
+    dress: []
+  - id: syn_business_male_02
+    label: Syn Business Male 02
+    prefab: {fileID: 1652544263031632, guid: 3a07a1305adf7464bbd22995e1a94b51, type: 3}
+    role: 2
+    clips: 3
+    atlas: {fileID: 2800000, guid: 63070be2573ac6640a080b00e06cc159, type: 3}
+    dress: []
+  - id: syn_business_male_03
+    label: Syn Business Male 03
+    prefab: {fileID: 1099670560160142, guid: 72eac7e5c7348c94d8915f3dcaa2f5eb, type: 3}
+    role: 2
+    clips: 3
+    atlas: {fileID: 2800000, guid: 63070be2573ac6640a080b00e06cc159, type: 3}
+    dress: []
+  - id: syn_business_male_04
+    label: Syn Business Male 04
+    prefab: {fileID: 1293306985708040, guid: 1479c81f0e50d034fbd932f2971da914, type: 3}
+    role: 2
+    clips: 3
+    atlas: {fileID: 2800000, guid: 63070be2573ac6640a080b00e06cc159, type: 3}
+    dress: []
+  - id: syn_cleaner_female_01
+    label: Syn Cleaner Female 01
+    prefab: {fileID: 1207000675054372, guid: 93e1de5d7ab0d25408e36ac4a41850db, type: 3}
+    role: 2
+    clips: 4
+    atlas: {fileID: 2800000, guid: 63070be2573ac6640a080b00e06cc159, type: 3}
+    dress: []
+  - id: syn_cleaner_male_01
+    label: Syn Cleaner Male 01
+    prefab: {fileID: 1353977574298584, guid: a690c3998952a6541bfa77d42dfe5078, type: 3}
+    role: 2
+    clips: 3
+    atlas: {fileID: 2800000, guid: 63070be2573ac6640a080b00e06cc159, type: 3}
+    dress: []
+  - id: syn_developer_female_01
+    label: Syn Developer Female 01
+    prefab: {fileID: 1464604485386400, guid: 1a96e91537e0d7f48809b9484dff7f3e, type: 3}
+    role: 2
+    clips: 4
+    atlas: {fileID: 2800000, guid: 63070be2573ac6640a080b00e06cc159, type: 3}
+    dress: []
+  - id: syn_developer_male_01
+    label: Syn Developer Male 01
+    prefab: {fileID: 1295359657651894, guid: 32b926586df8d6f49b0136c82d26645f, type: 3}
+    role: 2
+    clips: 3
+    atlas: {fileID: 2800000, guid: 63070be2573ac6640a080b00e06cc159, type: 3}
+    dress: []
+  - id: syn_developer_male_02
+    label: Syn Developer Male 02
+    prefab: {fileID: 1742387174060844, guid: 08a2f1fda95d8de42ba936230a0610fe, type: 3}
+    role: 2
+    clips: 3
+    atlas: {fileID: 2800000, guid: 63070be2573ac6640a080b00e06cc159, type: 3}
+    dress: []
+  - id: syn_inspector_female_01
+    label: Syn Inspector Female 01
+    prefab: {fileID: 1734007842893198, guid: df4410ca090c12a44affda8a802217fd, type: 3}
+    role: 2
+    clips: 4
+    atlas: {fileID: 2800000, guid: 8d84c7406074732469399fa86e78e757, type: 3}
+    dress: []
+  - id: syn_inspector_male_01
+    label: Syn Inspector Male 01
+    prefab: {fileID: 1219505414906866, guid: 8b844c43c75baf14cab3e46159715e7b, type: 3}
+    role: 2
+    clips: 3
+    atlas: {fileID: 2800000, guid: 8d84c7406074732469399fa86e78e757, type: 3}
+    dress: []
   - id: zombie
     label: Zombie
     prefab: {fileID: 856601670117699726, guid: b14953694d54eea4eb66f453e525024c, type: 3}
     role: 2
     clips: 2
     atlas: {fileID: 0}
+    dress: []
   atlas: {fileID: 2800000, guid: 7a97bf571a8477f449be264c891871e1, type: 3}
   male:
     idle: {fileID: 7400000, guid: 3a8302c5bd6eb324ab81ef3690282de3, type: 3}
@@ -164,6 +262,7 @@ MonoBehaviour:
     pistolIdle: {fileID: 7400000, guid: fa42887335d725043833d746d15bad21, type: 3}
     pistolRun: {fileID: 7400000, guid: e4a2580082d5c394287cd697523e0fe6, type: 3}
     pistolShoot: {fileID: 7400000, guid: 9e3f937932b2a5649995a592185d9380, type: 3}
+    stunned: {fileID: -864111735752226204, guid: 8f760fa0100eb634b937fa931744496e, type: 3}
   female:
     idle: {fileID: 7400000, guid: 103a90a3600679b4697f20cc5792b742, type: 3}
     walk: {fileID: 7400000, guid: bcc64d51e079b6b4598ee4d3eceb0f6d, type: 3}
@@ -176,6 +275,7 @@ MonoBehaviour:
     pistolIdle: {fileID: 0}
     pistolRun: {fileID: 0}
     pistolShoot: {fileID: 0}
+    stunned: {fileID: -864111735752226204, guid: 8f760fa0100eb634b937fa931744496e, type: 3}
   zombie:
     idle: {fileID: 7400000, guid: 457c3c9d2739b984c9284b437f21ea6a, type: 3}
     walk: {fileID: 7400000, guid: cb06e389fe68e9549aaa4afde3c517d4, type: 3}
@@ -188,6 +288,7 @@ MonoBehaviour:
     pistolIdle: {fileID: 0}
     pistolRun: {fileID: 0}
     pistolShoot: {fileID: 0}
+    stunned: {fileID: -864111735752226204, guid: 8f760fa0100eb634b937fa931744496e, type: 3}
   humanMale:
     idle: {fileID: -2576967968662016515, guid: 56fd86b76fc74d24d83522069f5deb9b, type: 3}
     walk: {fileID: 3094330708855449807, guid: c133e3c197c12e04a9dd23bd0966910f, type: 3}
@@ -200,6 +301,7 @@ MonoBehaviour:
     pistolIdle: {fileID: 0}
     pistolRun: {fileID: 0}
     pistolShoot: {fileID: 0}
+    stunned: {fileID: -864111735752226204, guid: 8f760fa0100eb634b937fa931744496e, type: 3}
   humanFemale:
     idle: {fileID: 3094330708855449807, guid: 0f69fd4f4ad106447896fb775199ed37, type: 3}
     walk: {fileID: 3094330708855449807, guid: 2d87094962c8b48478651fa8fe1f7a5a, type: 3}
@@ -212,3 +314,4 @@ MonoBehaviour:
     pistolIdle: {fileID: 0}
     pistolRun: {fileID: 0}
     pistolShoot: {fileID: 0}
+    stunned: {fileID: -864111735752226204, guid: 8f760fa0100eb634b937fa931744496e, type: 3}

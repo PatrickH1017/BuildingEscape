@@ -59,7 +59,7 @@ namespace BuildingEscape.EditorTools
             ChecklistCheck("floor 1: nothing is done yet", !Done(ScanKind.Valuable) && !Done(ScanKind.Unique) && !Done(ScanKind.Safe) && !Done(ScanKind.Cash));
             yield return JournalShot("none");
 
-            // ---- the scan: unique items (the weapons on the outpost's desk) are purple-kind, a shut safe is red-kind
+            // ---- the scan: unique items (the weapons on the outpost's desk) are red-kind, a shut safe is gold-kind
             var scanner = LootScanner.Instance;
             var safe = FloorSafe.OnShow.FirstOrDefault(s => s);
             var weapons = FindObjectsByType<Pickup>(FindObjectsSortMode.None).Where(p => FloorChecklist.Classify(p) == (int)ScanKind.Unique && p.isActiveAndEnabled).ToList();
@@ -71,7 +71,7 @@ namespace BuildingEscape.EditorTools
                 LootScanner.TestHold = true;
                 yield return new WaitForSeconds(2.0f);
                 var inRoom = weapons.Where(p => gen.RoomSpotAt(p.transform.position).index == wr.index).ToList();
-                ChecklistCheck("the scan marks the weapons lying in the room, as unique items (purple)", inRoom.Count >= 1 && inRoom.All(p => scanner.TryGetKind(p, out var k) && k == ScanKind.Unique), $"({inRoom.Count} weapons)");
+                ChecklistCheck("the scan marks the weapons lying in the room, as unique items (red)", inRoom.Count >= 1 && inRoom.All(p => scanner.TryGetKind(p, out var k) && k == ScanKind.Unique), $"({inRoom.Count} weapons)");
                 LootScanner.TestHold = false;
                 yield return new WaitForSeconds(0.4f);
             }
@@ -82,7 +82,7 @@ namespace BuildingEscape.EditorTools
                 yield return new WaitForSeconds(0.8f);
                 LootScanner.TestHold = true;
                 yield return new WaitForSeconds(2.0f);
-                ChecklistCheck("the scan marks a shut safe, as a safe (red)", scanner.TryGetKind(safe, out var sk) && sk == ScanKind.Safe, scanner.TryGetKind(safe, out sk) ? $"({sk})" : "(not marked)");
+                ChecklistCheck("the scan marks a shut safe, as a safe (gold)", scanner.TryGetKind(safe, out var sk) && sk == ScanKind.Safe, scanner.TryGetKind(safe, out sk) ? $"({sk})" : "(not marked)");
                 LootScanner.TestHold = false;
                 yield return new WaitForSeconds(0.4f);
             }

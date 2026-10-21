@@ -74,7 +74,7 @@ namespace BuildingEscape.EditorTools
 
             // a run seed whose floor 1 has a safe (the same pure function the game uses) and whose weapon floors 3 and 7 each have a safe with a bit of cash and a safe with a spare clip, so that the tests can try them
             int seed = 1;
-            while (!SafeRules.HasSafe(seed, 1) || !SideItemsOn(seed, 3) || !SideItemsOn(seed, 7) || !SafeRules.HasSideWatch(seed, 1, 0) || !WatchOn(seed, 3) || !WatchOn(seed, 7) || !GunsOn(seed, 3) || !TallOn(seed, 7)) seed++;          // (and a gold watch in floor 1's safe and in a safe of floors 3 and 7)
+            while (!SafeRules.HasSafe(seed, 1) || !SideItemsOn(seed, 4) || !SideItemsOn(seed, 7) || !SafeRules.HasSideWatch(seed, 1, 0) || !WatchOn(seed, 4) || !WatchOn(seed, 7) || !FirstClipSafeHoldsGun(seed, 4) || !TallOn(seed, 7)) seed++;          // (and a gold watch in floor 1's safe and in a safe of floors 3 and 7)
             tm.SetIntelSeed(seed);
             OutpostCheck("setup: the safe seed is the one asked for", tm.IntelSeed == seed && SafeRules.HasSafe(tm.IntelSeed, 1), $"(seed {seed})");
 
@@ -352,7 +352,7 @@ namespace BuildingEscape.EditorTools
                 OutpostCheck("floor 2: one safe, with cash bundles and no gun", FloorSafe.OnShow.Count == 1 && SafeRules.SafeCount(seed, 2) == 1 && FloorSafe.Active != null && FloorSafe.Active.BundleCount > 0 && FloorSafe.Active.GunCount == 0);
 
                 // ---- floor 3 and up: several safes with pistols in them (the owner, 2026-10-18)
-                foreach (int wsFloor in new[] { 3, 7 })
+                foreach (int wsFloor in new[] { 4, 7 })
                 {
                     yield return LoadLevel(hm, wsFloor);
                     string wsTag = $"floor {wsFloor}:";
@@ -412,7 +412,7 @@ namespace BuildingEscape.EditorTools
                     {
                         OutpostCheck($"{wsTag} the computer's record is about this floor's own safes", wsComputer.safeFloor == wsFloor && wsComputer.outpostFloor == wsFloor);
                         SafeIntel.Reset();
-                        SafeIntel.Add(wsFloor == 3 ? 7 : 3, 0, 1, "999", 1111);                     // (something learned on another floor: the Safes tab and the journal must not list it)
+                        SafeIntel.Add(wsFloor == 4 ? 7 : 4, 0, 1, "999", 1111);                     // (something learned on another floor: the Safes tab and the journal must not list it)
                         GoTo(wsComputer.AimBox.center + Vector3.up * 0.4f);
                         wsComputer.Use(player);
                         yield return null;
@@ -482,7 +482,7 @@ namespace BuildingEscape.EditorTools
                         OutpostCheck($"{wsTag} every item of every open safe (pistol, clip, cash, watch) is aimed at on its own: one crosshair, one item", wsAimWanted == wsItemsWanted && wsAimed == wsAimWanted, $"({wsAimed} of {wsAimWanted} aimed, {wsItemsWanted} expected)");
                     }
 
-                    if (wsFloor == 3)
+                    if (wsFloor == 4)
                     {
                         // ---- taking them: with no pistol in the pack a clip is refused; with one, the clip's rounds go into its reserve and the clip is gone; the cash goes into the pack as an item of its own
                         FloorSafe tSafe = null;
@@ -510,11 +510,11 @@ namespace BuildingEscape.EditorTools
                             yield return new WaitForSeconds(0.2f);
                             var tGun = Vendor.GunOf(pack);
                             OutpostCheck($"{wsTag} a pistol found in a safe holds its one clip and no spare ones (the owner, 2026-10-19)", tGun != null && tGun.Magazine.Rounds == RangedWeapon.Specs[(int)RangedWeapon.Kind.Pew].magazine && tGun.Magazine.Reserve == 0, $"(rounds {(tGun != null ? tGun.Magazine.Rounds : -1)}, reserve {(tGun != null ? tGun.Magazine.Reserve : -1)})");
-                            if (tGun != null) tGun.Magazine.SetReserve(2 * RangedWeapon.Specs[(int)RangedWeapon.Kind.Pew].magazine);        // (two clips bought from the dealer)
-                            // (the owner, 2026-10-19: three clips at most) a pistol with its clip and two spare ones is full: a clip is refused and stays where it lies; with a spare clip used up there is room for one
+                            if (tGun != null) tGun.Magazine.SetReserve(tGun.Magazine.MaxRounds - tGun.Magazine.Rounds);        // (the pistol full to its limit: twelve clips, the owner, 2026-10-19 night)
+                            // a pistol with all its clips is full: a clip is refused and stays where it lies; with a spare clip used up there is room for one
                             bool tFullRefused = tGun != null && tGun.Magazine.Room == 0 && !pack.TryStore(tClip);
                             yield return null;
-                            OutpostCheck($"{wsTag} with the pistol and its two spare clips (three clips) the clip is refused too and stays where it lies", tFullRefused && tClip != null && tClip.isActiveAndEnabled);
+                            OutpostCheck($"{wsTag} with the pistol full to its limit (twelve clips) the clip is refused too and stays where it lies", tFullRefused && tClip != null && tClip.isActiveAndEnabled);
                             if (tGun != null) tGun.Magazine.SetReserve(8);
                             int tReserve0 = tGun != null ? tGun.Magazine.Reserve : -1;
                             int tRounds = tClip != null ? tClip.GetComponent<AmmoClip>().rounds : 0;
@@ -624,6 +624,13 @@ namespace BuildingEscape.EditorTools
         static bool GunsOn(int runSeed, int floor)
         {
             for (int i = 0, n = SafeRules.SafeCount(runSeed, floor); i < n; i++) if (SafeRules.HoldsGun(runSeed, floor, i)) return true;
+            return false;
+        }
+
+        /// <summary>Does the first safe of this floor that holds a spare clip also hold a gun (the test takes the pistol and the clip from that safe)? Floor 3 holds neither: the first weapon floor with guns in its safes is 4.</summary>
+        static bool FirstClipSafeHoldsGun(int runSeed, int floor)
+        {
+            for (int i = 0, n = SafeRules.SafeCount(runSeed, floor); i < n; i++) if (SafeRules.HasSideClip(runSeed, floor, i)) return SafeRules.HoldsGun(runSeed, floor, i);
             return false;
         }
 

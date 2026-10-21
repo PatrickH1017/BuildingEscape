@@ -345,7 +345,7 @@ namespace BuildingEscape
 
         // ------------------------------------------------------------------ on screen
 
-        /// <summary>The glow of a kind: safes red, unique items purple, cash green, valuables gold (the owner, 2026-10-19).</summary>
+        /// <summary>The glow of a kind: safes and valuables gold, unique items (weapons) red, cash green (the owner, 2026-10-20).</summary>
         static Color KindColour(ScanKind k)
         {
             ChecklistRules.Rgb(k, out float r, out float g, out float b);
@@ -436,7 +436,7 @@ namespace BuildingEscape
                 var c = new Color(colour.r, colour.g, colour.b, alpha);
                 var centre = new Vector2(sp.x, Screen.height - sp.y);
                 float d = (m.tier >= 3 ? 20f : m.tier == 2 ? 17f : 14f) * s * pop;
-                // the glow in the colour of its kind (seen through walls, like the diamond): red safes, purple unique items, green cash, gold valuables
+                // the glow in the colour of its kind (seen through walls, like the diamond): gold safes, red unique items, green cash, gold valuables
                 float glowSize = (74f + 20f * Mathf.Sin(Time.time * 4f + centre.x * 0.01f)) * s * pop;
                 var glowSaved = GUI.color;
                 GUI.color = new Color(colour.r, colour.g, colour.b, alpha * 0.8f);

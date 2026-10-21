@@ -30,6 +30,8 @@ namespace BuildingEscape
         public bool usePartyCharacter = true;
 
         public bool IsStumbling { get; private set; }
+        /// <summary>The body is held in place by something else (the dart game holds the player at the throw line): the keys do not walk, jump, sprint or crouch it.</summary>
+        [System.NonSerialized] public bool inputLocked;
         public bool IsHidden { get; set; }
 
         // ---- custody: free, pinned down by an officer, or busted (see CustodyRules). The host decides (HeistManager),
@@ -131,12 +133,13 @@ namespace BuildingEscape
             var raw = new Vector3(Input.GetAxisRaw("Horizontal"), 0, Input.GetAxisRaw("Vertical"));
             if (OutpostUi.Open) raw = Vector3.zero;       // (the hack is played on W A S D: the body stands still)
             bool sprintKey = Input.GetKey(KeyCode.LeftShift);
-            bool crouchKey = !OutpostUi.Open && (Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.C));
+            bool crouchKey = !OutpostUi.Open && ((Input.GetKey(KeyCode.LeftControl) && !Input.GetKey(KeyCode.UpArrow) && !Input.GetKey(KeyCode.DownArrow)) || Input.GetKey(KeyCode.C));          // (Ctrl + Up / Down is the view, not a crouch)
 #if UNITY_EDITOR
             if (testMove.HasValue) raw = testMove.Value;
             sprintKey |= testSprint;
             crouchKey |= testCrouch;
 #endif
+            if (inputLocked) { raw = Vector3.zero; sprintKey = false; crouchKey = false; }
             if (!rig && Time.unscaledTime >= nextRigLookup)       // (looked for twice a second at most while there is no camera rig)
             {
                 rig = FindFirstObjectByType<CameraFollow>();
@@ -150,7 +153,7 @@ namespace BuildingEscape
             bool wantsSprint = sprintKey && !IsCrouching && !InCustody && moveInput.sqrMagnitude > 0.01f;
             IsSprinting = wantsSprint && (stamina == null || stamina.CanSprint);            // (winded: no sprint until a quarter of the bar is back)
             if (stamina != null) stamina.Step(Time.deltaTime, IsSprinting);
-            if (Input.GetKeyDown(KeyCode.Space) && grounded && !IsStumbling && !IsCrouching && !InCustody && !OutpostUi.Open)
+            if (Input.GetKeyDown(KeyCode.Space) && grounded && !IsStumbling && !IsCrouching && !InCustody && !OutpostUi.Open && !inputLocked)
             {
                 rb.AddForce(Vector3.up * jumpImpulse, ForceMode.VelocityChange);
                 Jumped?.Invoke();

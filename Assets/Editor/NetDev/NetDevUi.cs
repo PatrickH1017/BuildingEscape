@@ -68,6 +68,26 @@ namespace BuildingEscape.EditorTools
             yield return new WaitForSeconds(1.6f);
             yield return Snap("hub");
             UiCheck("the pack holds the loot", pack.LootCount >= 1, $"loot={pack.LootCount}");
+            // ---- the dart game: the player held at the tape, the keys on the screen (the owner, 2026-10-20)
+            var dartBoard = FindFirstObjectByType<DartBoard>();
+            if (dartBoard != null)
+            {
+                player.TeleportTo(new Vector3(dartBoard.LineCentre.x + dartBoard.Normal.x * 0.8f, 1.1f, dartBoard.LineCentre.z + dartBoard.Normal.z * 0.8f), player.transform.rotation);
+                yield return new WaitForSeconds(0.4f);
+                dartBoard.Begin(DartsRules.Mode.Game301);
+                yield return new WaitForSeconds(1.2f);
+                yield return Snap("darts_stance");
+                UiCheck("the dart game holds the player at the tape", dartBoard.LockedBody == player && player.inputLocked, $"locked={dartBoard.LockedBody != null}");
+                dartBoard.Leave();
+                yield return new WaitForSeconds(0.3f);
+            }
+            // ---- the leaderboard of the PVP room at the right side of the screen (the owner, 2026-10-20)
+            PvpBoard.Reset(); PvpBoard.Enter(0); PvpBoard.Enter(1); PvpBoard.Enter(2);
+            PvpBoard.Eliminate(1); PvpBoard.Eliminate(1); PvpBoard.Eliminate(2);
+            yield return new WaitForSeconds(0.5f);
+            yield return Snap("pvp_board");
+            UiCheck("the PVP leaderboard is drawn: three rows", PvpBoardHud.LastRows == 3, $"(rows {PvpBoardHud.LastRows})");
+            PvpBoard.Reset();
             // no loot at all from here on: the pack must have room for the pew, and loot lying in the elevator would be banked on the next floor
             foreach (var l in pack.TakeLoot()) if (l) Object.Destroy(l.gameObject);
             foreach (var l in FindObjectsByType<HeavyLoot>(FindObjectsSortMode.None)) if (l) Object.Destroy(l.gameObject);

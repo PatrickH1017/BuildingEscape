@@ -30,6 +30,34 @@ namespace BuildingEscape
         WobblyPlayer wobbly;
 
         public IReadOnlyList<Pickup> Items => items;
+
+        // ---- the weapon bar (the owner, 2026-10-19 night: "a tool bar (hot bar) of 3 items so players can click 1, 2, 3 to switch between weapons"): the first three weapons of the pack, in the order they came into it
+        readonly List<bool> barFlags = new List<bool>();
+        readonly int[] barSlots = new int[WeaponBarRules.Slots];
+        readonly string[] barNames = new string[WeaponBarRules.Slots];
+
+        void RefreshBar()
+        {
+            barFlags.Clear();
+            for (int i = 0; i < items.Count; i++) barFlags.Add(items[i] && RangedWeapon.IsWeapon(items[i]));
+            WeaponBarRules.Fill(barFlags, barSlots);
+        }
+
+        /// <summary>The weapon of a bar slot (0 to 2), or null for an empty slot.</summary>
+        public Pickup BarWeapon(int slot)
+        {
+            RefreshBar();
+            return slot >= 0 && slot < barSlots.Length && barSlots[slot] >= 0 && barSlots[slot] < items.Count ? items[barSlots[slot]] : null;
+        }
+
+        /// <summary>Takes the weapon of a bar slot in hand (the keys 1, 2, 3); false for an empty slot, which changes nothing.</summary>
+        public bool SelectSlot(int slot)
+        {
+            var p = BarWeapon(slot);
+            if (!p) return false;
+            if (p != Equipped) SetEquipped(p);
+            return true;
+        }
         /// <summary>Is the crosshair on an item within reach that E would pick up right now?</summary>
         public bool HasPickupTarget => target != null;
         /// <summary>The weapon (a melee weapon or the pew) shown in the right hand (must be an item in the pack).</summary>
@@ -92,7 +120,9 @@ namespace BuildingEscape
         public static string ClipTaken(int rounds) => "+" + rounds + " rounds for your pew";
         /// <summary>The same for a clip of any gun: what a player is told who goes for a clip of a gun he does not carry, one who carries the most clips already, and who has taken one (placeholders: the owner writes the words).</summary>
         public static string NoGunForClip(RangedWeapon.Kind kind) => kind == RangedWeapon.Kind.Pew ? NoPewForClip : "You have no " + RangedWeapon.Specs[(int)kind].name + " for this clip";
-        public const string TooManyClips = "You can't carry more than three clips";
+        /// <summary>What a player is told who carries the most clips of a gun already: "three" for most guns, "twelve" for the pistol (the owner writes the words: this keeps the old sentence with the right number).</summary>
+        public static string TooManyClipsFor(GunMagazine m) => "You can't carry more than " + ClipWord(m.Capacity > 0 ? m.MaxRounds / m.Capacity : 3) + " clips";
+        static string ClipWord(int n) => n >= 1 && n <= 12 ? new[] { "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "eleven", "twelve" }[n - 1] : n.ToString();
         public static string ClipTaken(int rounds, RangedWeapon.Kind kind) => kind == RangedWeapon.Kind.Pew ? ClipTaken(rounds) : "+" + rounds + " rounds for your " + RangedWeapon.Specs[(int)kind].name;
 
         /// <summary>Offline: a spare clip (<see cref="AmmoClip"/>) is taken - its rounds go into the pew in this pack and the clip is used up; without a pew it stays where it lies. A networked run does the same through the host (RunSync.HostStore).</summary>
@@ -100,7 +130,7 @@ namespace BuildingEscape
         {
             var gun = Vendor.GunOf(this, clip.kind);
             if (gun == null) { Say(NoGunForClip(clip.kind)); return false; }
-            if (gun.Magazine.Room < clip.rounds) { Say(TooManyClips); return false; }               // (three clips at most: the clip stays where it lies)
+            if (gun.Magazine.Room < clip.rounds) { Say(TooManyClipsFor(gun.Magazine)); return false; }               // (three clips at most: the clip stays where it lies)
             Vendor.GiveAmmo(this, clip.rounds, clip.kind);
             int rounds = clip.rounds;
             Destroy(p.gameObject);
@@ -208,6 +238,9 @@ namespace BuildingEscape
             CleanUp();
             bool talk = Vendor.ShopOpen || ElevatorPanel.Open || OutpostUi.Open;
             if (Input.GetKeyDown(inventoryKey) && !Vendor.ShopOpen && !ElevatorPanel.Open && !OutpostUi.Open) { UiOpen = !UiOpen; scroll = Vector2.zero; }
+            if (!UiOpen && !talk && !EscapeMenu.Open && !TestMode.PanelOpen)
+                for (int d = 1; d <= WeaponBarRules.Slots; d++)
+                    if (Input.GetKeyDown(KeyCode.Alpha0 + d) || Input.GetKeyDown(KeyCode.Keypad0 + d)) SelectSlot(WeaponBarRules.SlotOfKey(d));
 
             // E works what the crosshair is on: an item here, a door in DoorManager, the dealer in Vendor
             var aimed = (UiOpen || talk) ? AimTarget.Nothing : Crosshair.Aim;
@@ -245,6 +278,15 @@ namespace BuildingEscape
             {
                 weight = w, capacity = capacity, lootCount = LootCount, lootValue = LootValue(), inHand = Equipped ? Equipped.Label : null,
             });
+            RefreshBar();
+            int inHand = -1;
+            for (int i = 0; i < barSlots.Length; i++)
+            {
+                var slotItem = barSlots[i] >= 0 && barSlots[i] < items.Count ? items[barSlots[i]] : null;
+                barNames[i] = slotItem ? slotItem.Label : null;
+                if (slotItem && slotItem == Equipped) inHand = i;
+            }
+            HudWidgets.WeaponBar(new HudWidgets.WeaponBarModel { names = barNames, equipped = inHand });
             if (UiOpen) return;
 
             string prompt = null;

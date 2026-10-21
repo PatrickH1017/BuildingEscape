@@ -161,7 +161,7 @@ namespace BuildingEscape.EditorTools
                         {
                             bool cash = SafeRules.HasSideCash(rs, f, i), clip = SafeRules.HasSideClip(rs, f, i);
                             if (f < 3) sideOk &= !cash && !clip;
-                            else { weaponSafes++; if (cash) cashHits++; if (!SafeRules.HoldsArmour(rs, f, i)) { clipSafes++; if (clip) clipHits++; } }
+                            else { weaponSafes++; if (cash) cashHits++; if (!SafeRules.HoldsArmour(rs, f, i) && SafeRules.SafesHoldGuns(f)) { clipSafes++; if (clip) clipHits++; } }
                             sideOk &= cash == SafeRules.HasSideCash(rs, f, i) && clip == SafeRules.HasSideClip(rs, f, i);
                         }
                         sideOk &= !SafeRules.HasSideCash(rs, f, n) && !SafeRules.HasSideClip(rs, f, n) && !SafeRules.HasSideCash(rs, f, -1) && !SafeRules.HasSideClip(rs, f, -1);
@@ -273,6 +273,22 @@ namespace BuildingEscape.EditorTools
                 && pewSpec.weaponClass == RangedWeapon.WeaponClass.Pistol && pewSpec.CanSilence && RangedWeapon.IsSilenced(pewSpec, true) && !RangedWeapon.IsSilenced(pewSpec, false)
                 && RangedWeapon.IsSilenced(new RangedWeapon.Spec { weaponClass = RangedWeapon.WeaponClass.SubMachineGun }, true) && RangedWeapon.IsSilenced(new RangedWeapon.Spec { weaponClass = RangedWeapon.WeaponClass.Rifle }, true)
                 && !RangedWeapon.IsSilenced(new RangedWeapon.Spec { weaponClass = RangedWeapon.WeaponClass.Shotgun }, true) && !RangedWeapon.IsSilenced(new RangedWeapon.Spec { weaponClass = RangedWeapon.WeaponClass.Sniper }, true));
+            bool madeShots;
+            try
+            {
+                var hand = GunSounds.SilencedShots(RangedWeapon.SoundSet.Handgun); var rifleShots = GunSounds.SilencedShots(RangedWeapon.SoundSet.Rifle);
+                madeShots = hand.Length >= 3 && rifleShots.Length >= 3 && System.Linq.Enumerable.All(hand, c => c && c.length > 0.15f && c.length < 0.45f) && System.Linq.Enumerable.All(rifleShots, c => c && c.length > 0.15f && c.length < 0.45f) && GunSounds.SilencedTail() != null && GunSounds.SilencedTail().length < 0.5f;
+            }
+            catch (System.Exception e) { madeShots = false; Debug.Log("[NetTest] silenced shot clips could not be made: " + e.Message); }
+            Check("silencer: a gun with a silencer SOUNDS silenced (the owner, 2026-10-20): its shot is a suppressed pop made here (a few variants of the handgun's and of the rifle's, 0.15 to 0.45 s, with a soft tail), not the loud recording turned down", madeShots);
+            Check("silencer: the sound follows the silencer rule - the pistol, the sub machine gun and the rifle sound silenced; the shotgun and the sniper rifle (and a rocket launcher) never do",
+                GunSounds.SoundsSilenced(RangedWeapon.WeaponClass.Pistol) && GunSounds.SoundsSilenced(RangedWeapon.WeaponClass.SubMachineGun) && GunSounds.SoundsSilenced(RangedWeapon.WeaponClass.Rifle)
+                && !GunSounds.SoundsSilenced(RangedWeapon.WeaponClass.Shotgun) && !GunSounds.SoundsSilenced(RangedWeapon.WeaponClass.Sniper));
+            Check("red dot sights: the sub machine gun, the rifle and the shotgun carry one; the pistol and the sniper rifle do not (the owner, 2026-10-20: \"Please add red dot sights for the machine guns and shotgun\")",
+                RangedWeapon.TakesRedDot(RangedWeapon.WeaponClass.SubMachineGun) && RangedWeapon.TakesRedDot(RangedWeapon.WeaponClass.Rifle) && RangedWeapon.TakesRedDot(RangedWeapon.WeaponClass.Shotgun)
+                && !RangedWeapon.TakesRedDot(RangedWeapon.WeaponClass.Pistol) && !RangedWeapon.TakesRedDot(RangedWeapon.WeaponClass.Sniper)
+                && RangedWeapon.Specs[(int)RangedWeapon.Kind.Smg].CanSight && RangedWeapon.Specs[(int)RangedWeapon.Kind.Rifle].CanSight && RangedWeapon.Specs[(int)RangedWeapon.Kind.Shotgun].CanSight
+                && !RangedWeapon.Specs[(int)RangedWeapon.Kind.Pew].CanSight && !RangedWeapon.Specs[(int)RangedWeapon.Kind.Sniper].CanSight);
 
             // ---- the look of the UI (the owner, 2026-10-18: "make the UI main color blue instead of purple ... The UI looks good please implement it")
             {

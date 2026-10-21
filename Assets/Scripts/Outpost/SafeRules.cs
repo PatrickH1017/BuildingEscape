@@ -8,7 +8,7 @@ namespace BuildingEscape
     /// machine of a networked run - and the guard outpost on an earlier floor, which has to name a safe on a floor that has not been
     /// built yet - gets exactly the same answer.
     ///
-    ///  - A floor (1 to 12) has a safe (every floor does, see OneIn). Floors 1 and 2 have one, with cash in it; from floor 3 on the safes may hold a gun (by luck), a piece of armour or nothing and there are several (up to four): two on floor 3, three on floors 4 to 6, four from floor 7 (the owner, 2026-10-18).
+    ///  - A floor (1 to 12) has a safe (every floor does, see OneIn). Floors 1 and 2 have one, with cash in it; from floor 3 on the safes may hold a gun (by luck; not on floor 3 itself: see NoGunFloor), a piece of armour or nothing and there are several (up to four): two on floor 3, three on floors 4 to 6, four from floor 7 (the owner, 2026-10-18).
     ///  - Every safe has a 4-digit code. The note about it either gives the code and the room, or only the room ("it has a safe, nobody
     ///    knows the code"): then it takes a crowbar, which breaks 35% of the time.
     ///  - The record of a floor's safes is on the computer of that floor's own guard outpost, and the computer shows the safes of that floor and no other (the owner, 2026-10-18: "only the safes for that current floor").
@@ -30,6 +30,10 @@ namespace BuildingEscape
         public const float CashShareOfQuota = 0.5f;
         /// <summary>From this floor on the safes hold weapons, not cash (the owner, 2026-10-18); floors 1 and 2 still hold cash.</summary>
         public const int WeaponFirstFloor = 3;
+        /// <summary>The floor whose safes hold no gun and no spare clip: the one pistol of floor 3 is in the guard outpost's gun safe (the owner, 2026-10-19 night: "there should only be one pistol on floor 3 (the one inside the outpost). Floor 3 should have no weapons or ammo in the safes"). Armour, cash and watches can still be in them.</summary>
+        public const int NoGunFloor = 3;
+        /// <summary>Do the safes of this floor hold guns and spare clips (every weapon floor but <see cref="NoGunFloor"/>)?</summary>
+        public static bool SafesHoldGuns(int floor) => floor != NoGunFloor;
         /// <summary>The most safes one floor can have.</summary>
         public const int MaxSafes = 4;
         /// <summary>The number of the pew pistol among what a safe holds (the same number as <see cref="OutpostLoot.PewKind"/>).</summary>
@@ -226,7 +230,7 @@ namespace BuildingEscape
         /// </summary>
         public static bool HoldsGun(int runSeed, int floor, int index, int slot = 0)
         {
-            if (!WeaponSafeExists(runSeed, floor, index) || HoldsArmour(runSeed, floor, index, slot)) return false;
+            if (!SafesHoldGuns(floor) || !WeaponSafeExists(runSeed, floor, index) || HoldsArmour(runSeed, floor, index, slot)) return false;
             return Hash(runSeed, floor, SaltGunChance + index * 149 + slot * 29) % 100U < (uint)GunPercent;
         }
 
@@ -301,7 +305,7 @@ namespace BuildingEscape
 
         /// <summary>Does this weapon safe also hold a spare clip for the pistol?</summary>
         public static bool HasSideClip(int runSeed, int floor, int index) =>
-            WeaponSafeExists(runSeed, floor, index) && !HoldsArmour(runSeed, floor, index) && Hash(runSeed, floor, SaltSideClip + index * 113) % 100U < (uint)SideClipPercent;
+            WeaponSafeExists(runSeed, floor, index) && SafesHoldGuns(floor) && !HoldsArmour(runSeed, floor, index) && Hash(runSeed, floor, SaltSideClip + index * 113) % 100U < (uint)SideClipPercent;
 
         /// <summary>The bit of cash: 3 % of the floor's quota in $25 steps, $50 at least.</summary>
         public static int SideCash(int floor) => Math.Max(50, (int)(Math.Round(TowerRules.QuotaFor(floor) * (double)SideCashShareOfQuota / 25.0) * 25.0));

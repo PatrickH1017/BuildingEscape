@@ -69,7 +69,7 @@ namespace BuildingEscape
             RangedWeapon wanted = null;
             var eq = pack.Equipped;
             if (eq) eq.TryGetComponent(out wanted);
-            if (wanted != gun && !ChangeTo(wanted)) return;
+            if (!ReferenceEquals(wanted, gun) && !ChangeTo(wanted)) return;          // (a gun that was destroyed while it was in the hand compares equal to "none" with ==: its model must still go)
             if (!gun) { if (pack.Viewed) LocalAimsAtFoe = false; return; }
 
             float now = Time.time;
@@ -97,7 +97,7 @@ namespace BuildingEscape
                 if (mag.StartReload(now)) reloadStep = 0;
                 else if (mag.OutOfAmmo) OutOfAmmoNotice();
             }
-            if (Input.GetMouseButton(0)) Fire();
+            if (Input.GetMouseButton(0) && !DartBoard.Playing) Fire();
         }
 
         /// <summary>The body is on its feet with free hands (not pinned, knocked over, hiding or carrying something).</summary>
