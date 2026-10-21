@@ -89,6 +89,25 @@ namespace BuildingEscape
         public void ToggleView() => zoomTarget = zoomTarget > 0.5f ? ViewRules.ThirdPerson : ViewRules.FirstPerson;
         bool cursorFree;
         Vector3 smoothedPivot;
+        // looking through a sight puts the gun's parts a hand's width from the lens: the near plane comes in with the first person view (the camera's own value is put back in third person)
+        public const float FirstPersonNear = 0.04f;
+        Camera viewCamera; float baseNear = -1f;
+        // the sniper rifle's scope (the owner, 2026-10-20 night: "look down the scope and it zooms in a little"): the field of view is narrowed by HeldGun.ScopeMagnification while the view is down the scope;
+        // the field it had is remembered when the zoom starts and put back when it ends
+        float scopeBaseFov; bool scopeFovTaken;
+
+        void ApplyScopeFov()
+        {
+            if (!viewCamera) return;
+            float t = HeldGun.LocalScope;
+            if (t > 0.001f)
+            {
+                if (!scopeFovTaken) { scopeBaseFov = viewCamera.fieldOfView; scopeFovTaken = true; }
+                float mag = Mathf.Lerp(1f, HeldGun.ScopeMagnification, t);
+                viewCamera.fieldOfView = 2f * Mathf.Atan(Mathf.Tan(scopeBaseFov * Mathf.Deg2Rad * 0.5f) / mag) * Mathf.Rad2Deg;
+            }
+            else if (scopeFovTaken) { viewCamera.fieldOfView = scopeBaseFov; scopeFovTaken = false; }
+        }
         readonly RaycastHit[] hits = new RaycastHit[16];
 
         void Start()
@@ -125,6 +144,11 @@ namespace BuildingEscape
 
             float mx = Input.GetAxis("Mouse X") * sensitivity;
             float my = Input.GetAxis("Mouse Y") * sensitivity;
+            if (scopeFovTaken && viewCamera)          // (down the scope the mouse turns the view less, by as much as the picture is narrowed)
+            {
+                float k = Mathf.Tan(viewCamera.fieldOfView * Mathf.Deg2Rad * 0.5f) / Mathf.Tan(scopeBaseFov * Mathf.Deg2Rad * 0.5f);
+                mx *= k; my *= k;
+            }
             FreeLooking = !aimLimited && (Input.GetKey(freeLookKey) || Input.GetKey(altFreeLookKey));
             if (FreeLooking)
             {
@@ -144,12 +168,19 @@ namespace BuildingEscape
 
         // ---- what is seen of the player's own body in first person (the owner, 2026-10-20: "When in first person with a weapon the character is somewhat visible blocking the screen": the gun and a forearm, nothing else)
         const string ArmsShaderName = "BuildingEscape/FirstPersonArms";
+        const float HeadClip = 0.22f;                                    // the radius (m) round the head that the arms shader throws away
         const float ArmReach = 0.105f;                                   // how far from a forearm's line the body is still drawn (m): the arm's own thickness and a little more
         static Shader armsShader; static bool armsShaderLooked;
         readonly Dictionary<Renderer, Material[]> armsOriginal = new Dictionary<Renderer, Material[]>();
         readonly Dictionary<Material, Material> armsMade = new Dictionary<Material, Material>();
         Transform armRU, armRE, armRH, armLU, armLE, armLH, armHead;     // the right and the left upper arm, elbow and wrist, and the head (what is worn on it is never part of the arms)
-        /// <summary>First person with a rig that has arms: the body is drawn as just its two forearms and hands (the shader throws the rest away), with the gun or the tool in the hands whole.</summary>
+        /// <summary>
+        /// Are the two forearms drawn in first person whatever is in the hands? No since 2026-10-20 night (the owner, with a picture of the view through the red dot: "when scrolled into first person can you remove the character model from being seen here"):
+        /// nothing of the body is drawn, only what is in the hands; except the right arm that holds a pistol out (<see cref="HeldGun.LocalArmMode"/>). Set it to true to bring both arms back.
+        /// </summary>
+        public static bool ShowArms = false;
+
+        /// <summary>First person with a rig that has arms and <see cref="ShowArms"/> on: the body is drawn as just its two forearms and hands (the shader throws the rest away), with the gun or the tool in the hands whole.</summary>
         public bool ArmsShown { get; private set; }
 
         /// <summary>The camera of this machine (the guns ask where it is: in first person they are held in front of its eyes) and the body it is looking from.</summary>
@@ -157,7 +188,12 @@ namespace BuildingEscape
         public Transform ViewedBody => spectate ? spectate : target;
 
         void OnEnable() { Camera.onPreCull += PreCullArms; Current = this; }
-        void OnDisable() { Camera.onPreCull -= PreCullArms; if (Current == this) Current = null; }
+        void OnDisable()
+        {
+            Camera.onPreCull -= PreCullArms; if (Current == this) Current = null;
+            if (viewCamera && baseNear > 0f) viewCamera.nearClipPlane = baseNear;
+            if (viewCamera && scopeFovTaken) { viewCamera.fieldOfView = scopeBaseFov; scopeFovTaken = false; }
+        }
         void PreCullArms(Camera c) => PushArms();
         void OnDestroy() { foreach (var m in armsMade.Values) if (m) Destroy(m); armsMade.Clear(); }
 
@@ -210,19 +246,50 @@ namespace BuildingEscape
         void PushArms()
         {
             if (!ArmsShown || !armRE || !armRH || !armLE || !armLH) return;
-            SetArm("_BEArmRA", "_BEArmRB", armRU, armRE, armRH);
-            SetArm("_BEArmLA", "_BEArmLB", armLU, armLE, armLH);
+            bool rightOnly = !ShowArms && HeldGun.LocalArmMode == 1;                   // (a pistol: the whole right arm reaching out, no left arm)
+            SetArm("_BEArmRA", "_BEArmRB", armRU, armRE, armRH, rightOnly ? 0.75f : 0.30f);
+            if (rightOnly) { Shader.SetGlobalVector("_BEArmLA", new Vector4(0f, -5000f, 0f, 0f)); Shader.SetGlobalVector("_BEArmLB", new Vector4(0f, -5000f, 0f, 0f)); }
+            else SetArm("_BEArmLA", "_BEArmLB", armLU, armLE, armLH, 0.30f);
             Shader.SetGlobalFloat("_BEArmReach", ArmReach);
+            // the head (a sphere round the middle of it): never drawn, except what is within a hand's reach of a fingertip (the shader keeps the hands whole)
+            if (armHead) { var hp = armHead.position + Vector3.up * 0.08f; Shader.SetGlobalVector("_BEHead", new Vector4(hp.x, hp.y, hp.z, HeadClip)); }
+            else Shader.SetGlobalVector("_BEHead", Vector4.zero);
         }
 
-        static void SetArm(string idA, string idB, Transform upper, Transform elbow, Transform hand)
+        static void SetArm(string idA, string idB, Transform upper, Transform elbow, Transform hand, float upperShare)
         {
             var dir = hand.position - elbow.position;
             float len = dir.magnitude;
             var tip = len > 0.001f ? hand.position + dir / len * 0.11f : hand.position;                    // (past the wrist: the fingers)
-            var start = upper ? Vector3.Lerp(elbow.position, upper.position, 0.30f) : elbow.position;       // (a little of the upper arm: the cut stays out of the picture)
+            var start = upper ? Vector3.Lerp(elbow.position, upper.position, upperShare) : elbow.position;       // (a little of the upper arm: the cut stays out of the picture)
             Shader.SetGlobalVector(idA, start);
             Shader.SetGlobalVector(idB, tip);
+        }
+
+        readonly List<Material> matScratch = new List<Material>();
+        bool armsAppliedFor;                                                     // the arms setting the body was last set up with (a pistol in the hand brings the right arm, another gun takes it away)
+
+        /// <summary>
+        /// Every frame in first person: a body part whose materials were swapped for others (a look that was applied again, a flash) or whose shadow mode was changed is put back the way the first person view wants it,
+        /// so that the body does not come back into the picture for a moment while the character moves (the owner, 2026-10-20 night: "I am able to see my whole character while I am moving").
+        /// </summary>
+        void KeepBodyHidden()
+        {
+            foreach (var r in hiddenBody)
+            {
+                if (!r) continue;
+                if (armsOriginal.ContainsKey(r))
+                {
+                    r.GetSharedMaterials(matScratch);
+                    if (matScratch.Count > 0 && matScratch[0] && !armsMade.ContainsValue(matScratch[0]))
+                    {
+                        armsOriginal[r] = r.sharedMaterials;                          // (the new look is what is put back in third person)
+                        if (armsShader != null && IsSkin(r)) r.sharedMaterials = ArmMaterialsFor(r.sharedMaterials);
+                    }
+                }
+                else if (r.shadowCastingMode != ShadowCastingMode.ShadowsOnly) r.shadowCastingMode = ShadowCastingMode.ShadowsOnly;
+                if (!r.enabled && armsOriginal.ContainsKey(r)) r.enabled = true;
+            }
         }
 
         /// <summary>In first person only the two arms are in the picture (the body casts its shadow still) with what is in the hands; in third person the body comes back as it was.</summary>
@@ -243,10 +310,13 @@ namespace BuildingEscape
                 bodyHidden = false; ArmsShown = false;
                 return;
             }
+            if (bodyHidden) KeepBodyHidden();
             if (bodyHidden && Time.unscaledTime < nextBodyScan) return;
-            nextBodyScan = Time.unscaledTime + 0.5f;                                  // (a hat or another look can come later: looked at again twice a second)
+            nextBodyScan = Time.unscaledTime + 0.2f;                                  // (a hat or another look can come later: looked at again five times a second)
             if (!armsShaderLooked) { armsShaderLooked = true; armsShader = Shader.Find(ArmsShaderName); }
-            bool arms = armsShader != null && FindArms(body);
+            bool wantArms = ShowArms || HeldGun.LocalArmMode != 0;
+            armsAppliedFor = wantArms;
+            bool arms = wantArms && armsShader != null && FindArms(body);
             foreach (var r in body.GetComponentsInChildren<Renderer>(true))
             {
                 if (!r || bodyModes.ContainsKey(r) || IsHeldModel(r.transform, body)) continue;
@@ -272,7 +342,11 @@ namespace BuildingEscape
             }
             zoom = ViewRules.Step(zoom, zoomTarget, Time.unscaledDeltaTime);
             float zs = ViewRules.Smooth(zoom);
-            smoothedPivot = Vector3.Lerp(smoothedPivot, Pivot(), 1f - Mathf.Exp(-followSmooth * Time.deltaTime));
+            // (first person: the eyes follow the body almost rigidly, or a running body gets ahead of the camera and its head and shoulders come into the picture)
+            smoothedPivot = Vector3.Lerp(smoothedPivot, Pivot(), 1f - Mathf.Exp(-followSmooth * Mathf.Lerp(1f, 8f, zs) * Time.deltaTime));
+            if (!viewCamera) { viewCamera = GetComponent<Camera>(); if (viewCamera) baseNear = viewCamera.nearClipPlane; }
+            if (viewCamera && baseNear > 0f) viewCamera.nearClipPlane = Mathf.Lerp(baseNear, Mathf.Min(baseNear, FirstPersonNear), zs);
+            ApplyScopeFov();
             var rot = Quaternion.Euler(pitch + lookPitch, aimYaw + lookYaw, 0f);
             var dir = rot * new Vector3(Mathf.Lerp(shoulderOffset, 0f, zs), 0f, -ViewRules.Distance(distance, zoom));
             float len = dir.magnitude;
@@ -294,7 +368,9 @@ namespace BuildingEscape
                 transform.position = smoothedPivot + ndir * Mathf.Max(Mathf.Lerp(0.3f, 0f, zs), best);
                 transform.rotation = rot;
             }
-            ShowBody(!ViewRules.IsFirstPerson(zoom));
+            bool firstNow = ViewRules.IsFirstPerson(zoom);
+            if (firstNow && bodyHidden && (ShowArms || HeldGun.LocalArmMode != 0) != armsAppliedFor) ShowBody(true);          // (the gun in the hand changed: the body is set up again)
+            ShowBody(!firstNow);
         }
     }
 }

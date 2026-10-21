@@ -24,7 +24,10 @@ namespace BuildingEscape
     /// </summary>
     public static class Ballistics
     {
-        static readonly RaycastHit[] hits = new RaycastHit[48];
+        // (RaycastNonAlloc hands back the first hits it finds, not the nearest ones, once there are more colliders on the line than the array holds: across a long floor, through walls, desks and chairs, 48 was
+        // not enough for a rifle's range and the guard at the end could be left out. 192 is more than any line of the building crosses.)
+        static readonly RaycastHit[] hits = new RaycastHit[192];
+        static readonly Collider[] inside = new Collider[16];
 
         sealed class ByDistance : System.Collections.Generic.IComparer<RaycastHit>
         {
@@ -37,6 +40,26 @@ namespace BuildingEscape
         public static Impact Trace(Vector3 origin, Vector3 direction, float range, Transform shooter, bool hitsPlayers)
         {
             direction.Normalize();
+            if (!hitsPlayers)
+            {
+                // A ray never reports a collider it starts inside. The muzzle is only half a metre from the shooter and a guard's hitbox is a metre wide, so a guard who stands close (one who is pinning somebody,
+                // say) had the muzzle INSIDE him and the bullet flew straight through (QA 2026-10-21, "the attack does not connect even though it definitely should"): such a bullet hits him where it starts.
+                int k = Physics.OverlapSphereNonAlloc(origin, 0.02f, inside, ~0, QueryTriggerInteraction.Ignore);
+                Impact atMuzzle = default;
+                bool startedInside = false;
+                for (int i = 0; i < k && !startedInside; i++)
+                {
+                    var c = inside[i];
+                    if (!c || (shooter && c.transform.IsChildOf(shooter))) continue;
+                    var g = c.GetComponentInParent<GuardAI>();
+                    var d = g == null ? c.GetComponentInParent<TrainingDummy>() : null;
+                    if ((g == null || g.Dead) && d == null) continue;
+                    atMuzzle = new Impact { hit = true, point = origin, normal = -direction, distance = 0f, collider = c, guard = g, dummy = d };
+                    startedInside = true;
+                }
+                System.Array.Clear(inside, 0, k);
+                if (startedInside) return atMuzzle;
+            }
             int n = Physics.RaycastNonAlloc(origin, direction, hits, range, ~0, QueryTriggerInteraction.Ignore);
             System.Array.Sort(hits, 0, n, ByDistance.Instance);
             var result = Impact.Miss(origin + direction * range);
@@ -56,6 +79,7 @@ namespace BuildingEscape
                 }
                 var guard = c.GetComponentInParent<GuardAI>();
                 if (guard != null && hitsPlayers) continue;               // a guard's bullet goes past his colleagues
+                if (guard != null && guard.Dead) continue;                // a guard who is down for good lies on the floor: his standing hitbox must not stop a bullet meant for somebody behind him (like a player in custody)
                 if (guard == null && c.GetComponentInParent<Pickup>() != null) continue;   // a mug on a desk does not stop a bullet
 
                 result = Fill(h, c);

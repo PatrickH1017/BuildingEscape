@@ -2,6 +2,12 @@ using System;
 
 namespace BuildingEscape
 {
+    /// <summary>
+    /// The colour a marked thing glows on the scan (the owner, 2026-10-21: "I only want the high valuables to glow gold including the safes. Make medium tier loot blue and the lowest tier loot glows green" and "keep the weapons glowing red"):
+    /// green for little, blue for the middle, gold for a lot and for every safe, red for the unique items (weapons, armour). See <see cref="LootScanRules.GlowOf"/>.
+    /// </summary>
+    public enum ScanGlow { Green = 0, Blue = 1, Gold = 2, Red = 3 }
+
     /// <summary>The room a point is in (any kind: an office, an open-plan area, a hallway, a lobby), as the loot scanner and the floor builder share it.</summary>
     public struct RoomSpot
     {
@@ -88,6 +94,36 @@ namespace BuildingEscape
             double unit = Math.Max(25.0, quota * 0.035);
             double r = value / unit;
             return r < 2.0 ? 0 : r < 4.0 ? 1 : r < 8.0 ? 2 : 3;
+        }
+
+        /// <summary>
+        /// From which <see cref="Tier"/> a thing glows blue and from which gold (tiers: 0 small, 1 good, 2 great, 3 jackpot; a typical valuable is about 3.5% of the quota, so on floor 1 tier 0 is under $302, tier 1 is up to $602 and tier 2 up to $1,204).
+        /// The one place to change if gold should be rarer: set <see cref="GoldFromTier"/> to 3 (and <see cref="BlueFromTier"/> to 2) and only the jackpots are gold.
+        /// </summary>
+        public const int BlueFromTier = 1, GoldFromTier = 2;
+
+        /// <summary>
+        /// The glow of a mark: a unique item (a weapon, armour) is red whatever it is worth, a safe is gold, and everything else by what it is worth now (<see cref="Tier"/> of <paramref name="value"/> on the floor's
+        /// <paramref name="quota"/>): green under <see cref="BlueFromTier"/>, blue under <see cref="GoldFromTier"/>, gold from there up. Cash, the big treasures and the small valuables all go by this.
+        /// </summary>
+        public static ScanGlow GlowOf(bool uniqueItem, bool safe, int value, int quota)
+        {
+            if (uniqueItem) return ScanGlow.Red;
+            if (safe) return ScanGlow.Gold;
+            int tier = Tier(value, quota);
+            return tier >= GoldFromTier ? ScanGlow.Gold : tier >= BlueFromTier ? ScanGlow.Blue : ScanGlow.Green;
+        }
+
+        /// <summary>A glow as red, green and blue (0 to 1): gold (1, .8, .18), blue (.3, .62, 1), green (.28, .92, .42), red (.95, .22, .22; the unique items' red of <see cref="ChecklistRules.Rgb"/>).</summary>
+        public static void GlowRgb(ScanGlow glow, out float red, out float green, out float blue)
+        {
+            switch (glow)
+            {
+                case ScanGlow.Gold: red = 1.00f; green = 0.80f; blue = 0.18f; break;
+                case ScanGlow.Blue: red = 0.30f; green = 0.62f; blue = 1.00f; break;
+                case ScanGlow.Red: red = 0.95f; green = 0.22f; blue = 0.22f; break;
+                default: red = 0.28f; green = 0.92f; blue = 0.42f; break;
+            }
         }
 
         /// <summary>When can a pulse leave? Not at the docks (nothing to steal there), not with a screen open.</summary>

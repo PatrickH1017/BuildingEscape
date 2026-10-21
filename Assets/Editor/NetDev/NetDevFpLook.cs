@@ -62,6 +62,7 @@ namespace BuildingEscape.EditorTools
             Log($"[FpLook] first person {rig.IsFirstPerson}, arms shown {rig.ArmsShown}, yaw {rig.AimYaw:0.0}, pitch {rig.AimPitch:0.0}");
             ShotCam(Camera.main, "fplook_empty_hands");
 
+            float fovBefore = Camera.main.fieldOfView;                                             // (the field of view with no scope: the sniper rifle's check compares with it)
             Pickup previous = null;
             var at = player.transform.position + Vector3.up * 0.5f;
             foreach (var kind in new[] { RangedWeapon.Kind.Smg, RangedWeapon.Kind.Rifle, RangedWeapon.Kind.Shotgun, RangedWeapon.Kind.Sniper, RangedWeapon.Kind.Pew })
@@ -79,12 +80,19 @@ namespace BuildingEscape.EditorTools
                 var gcn = player.GetComponent<GunController>();
                 var hg = gcn ? gcn.Held : null;
                 var vpMuzzle = hg ? camNow.WorldToViewportPoint(hg.Muzzle.position) : Vector3.zero;
-                FpLookCheck($"{kind}: the gun is in the picture - its muzzle is on the screen, in the lower half and not at the very edge, shouldered in front of the eyes (the owner, 2026-10-20)", hg != null && vpMuzzle.z > 0.3f && vpMuzzle.x > 0.25f && vpMuzzle.x < 0.8f && vpMuzzle.y > 0.12f && vpMuzzle.y < 0.62f, $"(muzzle at {vpMuzzle:F2})");
+                if (kind == RangedWeapon.Kind.Sniper)
+                {
+                    // the scope (the owner, 2026-10-20 night): the view is narrowed, the rifle is not drawn, the lens is up
+                    bool gunDrawn = hg != null && hg.Grip.GetComponentsInChildren<MeshRenderer>(true).Any(r => r.enabled);
+                    FpLookCheck("Sniper: looking down the scope - the lens is up, the view is zoomed in and the rifle itself is not drawn", hg != null && HeldGun.LocalScope > 0.95f && camNow.fieldOfView < fovBefore * 0.6f && !gunDrawn, $"(scope {HeldGun.LocalScope:0.00}, field of view {camNow.fieldOfView:0.0} from {fovBefore:0.0}, rifle drawn {gunDrawn})");
+                }
+                else
+                    FpLookCheck($"{kind}: the gun is in the picture - its muzzle is on the screen, in the lower half and not at the very edge, shouldered in front of the eyes (the owner, 2026-10-20)", hg != null && vpMuzzle.z > 0.3f && vpMuzzle.x > 0.25f && vpMuzzle.x < 0.8f && vpMuzzle.y > 0.12f && vpMuzzle.y < 0.62f, $"(muzzle at {vpMuzzle:F2})");
                 if (RangedWeapon.TakesRedDot(RangedWeapon.Specs[(int)kind].weaponClass))
                 {
                     var dotT = hg ? hg.Grip.Find("RedDot/Dot") : null;
                     var vpDot = dotT ? camNow.WorldToViewportPoint(dotT.position) : Vector3.zero;
-                    FpLookCheck($"{kind}: the red dot sight is near the middle of the screen, a little low and right of it, the way a shouldered gun's is", dotT != null && vpDot.z > 0.3f && vpDot.x > 0.42f && vpDot.x < 0.68f && vpDot.y > 0.30f && vpDot.y < 0.60f, $"(dot at {vpDot:F2})");
+                    FpLookCheck($"{kind}: the view is through the red dot sight - the dot is in the very middle of the screen, a hand's width in front of the camera (the owner, 2026-10-20 night: \"I should be looking out the red dot sight\")", dotT != null && vpDot.z > 0.1f && vpDot.z < 0.4f && Mathf.Abs(vpDot.x - 0.5f) < 0.04f && Mathf.Abs(vpDot.y - 0.5f) < 0.04f && HeldGun.LocalDotShare > 0.9f, $"(dot at {vpDot:F2}, dot share {HeldGun.LocalDotShare:0.00})");
                 }
                 var bodyBits = player.GetComponentsInChildren<Renderer>(true).Where(r => r && r.enabled && r.gameObject.activeInHierarchy && !CameraFollow.IsHeldModel(r.transform, player.transform)).ToList();
                 if (kind == RangedWeapon.Kind.Smg || kind == RangedWeapon.Kind.Sniper)
@@ -99,7 +107,7 @@ namespace BuildingEscape.EditorTools
                     ShotCam(side, "fplook_leftside_" + kind);
                     Destroy(side.gameObject);
                 }
-                FpLookCheck($"{kind}: nothing of the body but its arms is drawn", rig.ArmsShown && bodyBits.All(r => r.shadowCastingMode == UnityEngine.Rendering.ShadowCastingMode.ShadowsOnly || r.sharedMaterials.All(m => m && m.shader && m.shader.name == "BuildingEscape/FirstPersonArms")), $"({bodyBits.Count} parts)");
+                FpLookCheck($"{kind}: nothing of the body but its arms is drawn", rig.ArmsShown == (CameraFollow.ShowArms || kind == RangedWeapon.Kind.Pew) && bodyBits.All(r => r.shadowCastingMode == UnityEngine.Rendering.ShadowCastingMode.ShadowsOnly || r.sharedMaterials.All(m => m && m.shader && m.shader.name == "BuildingEscape/FirstPersonArms")), $"({bodyBits.Count} parts)");
             }
             if (previous) { pack.Drop(previous); Destroy(previous.gameObject); previous = null; yield return new WaitForSeconds(0.3f); }
             var crowbar = MeleeWeapon.Create(MeleeWeapon.Kind.Crowbar, at, null).GetComponent<Pickup>();

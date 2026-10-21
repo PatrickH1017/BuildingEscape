@@ -94,12 +94,12 @@ namespace BuildingEscape.EditorTools
             // ---- backup officers spot a player much faster (the owner, 2026-10-20)
             Check("guards: a backup officer notices a player in his cone in a quarter of the usual time (14 m: about 0.5 s instead of 1.8 s), the usual guard as before",
                 GuardRules.BackupSpotFactor <= 0.34f && GuardRules.BackupSpotFactor > 0f && GuardRules.SpotSeconds(14f) * GuardRules.BackupSpotFactor < 0.5f && GuardRules.SpotSeconds(14f) > 1.5f);
-            // ---- the weapon bar: the first three weapons of the pack, in the order they came into it
-            var bar = WeaponBarRules.Fill(new List<bool> { false, true, false, true, true, true });
+            // ---- the weapon bar: the first six weapons of the pack, in the order they came into it (six shortcuts, 1 to 6: the owner, 2026-10-20 night)
+            var bar = WeaponBarRules.Fill(new List<bool> { false, true, false, true, true, true, true, false, true, true });
             var oneWeapon = WeaponBarRules.Fill(new List<bool> { true }); var none = WeaponBarRules.Fill(new List<bool>());
-            Check("weapon bar: three slots hold the first three weapons of the pack (the loot between them is skipped), the other slots are empty, the keys 1, 2, 3 pick the slots and no other key does",
-                WeaponBarRules.Slots == 3 && bar[0] == 1 && bar[1] == 3 && bar[2] == 4 && oneWeapon[0] == 0 && oneWeapon[1] == -1 && oneWeapon[2] == -1 && none[0] == -1 && none[2] == -1
-                && WeaponBarRules.SlotOfKey(1) == 0 && WeaponBarRules.SlotOfKey(3) == 2 && WeaponBarRules.SlotOfKey(0) == -1 && WeaponBarRules.SlotOfKey(4) == -1);
+            Check("weapon bar: six slots hold the first six weapons of the pack (the loot between them is skipped), the other slots are empty, the keys 1 to 6 pick the slots and no other key does",
+                WeaponBarRules.Slots == 6 && bar.Length == 6 && bar[0] == 1 && bar[1] == 3 && bar[2] == 4 && bar[3] == 5 && bar[4] == 6 && bar[5] == 8 && oneWeapon[0] == 0 && oneWeapon[1] == -1 && oneWeapon[5] == -1 && none[0] == -1 && none[5] == -1
+                && WeaponBarRules.SlotOfKey(1) == 0 && WeaponBarRules.SlotOfKey(6) == 5 && WeaponBarRules.SlotOfKey(0) == -1 && WeaponBarRules.SlotOfKey(7) == -1);
 
             // ---- first and third person: wheel up / Ctrl + Up = in, wheel down / Ctrl + Down = out, P = the other one; a glide of a quarter of a second
             bool target = ViewRules.Target(0f, 1f, false, false, false) == 1f && ViewRules.Target(1f, -1f, false, false, false) == 0f && ViewRules.Target(0f, 0f, true, false, false) == 1f

@@ -414,6 +414,24 @@ namespace BuildingEscape.EditorTools
                     found ? $"({wallHit.collider.name} at {wallHit.distance:0.0} m, from {at}, bounds {wallHit.collider.bounds})" : "");
             }
 
+            // ---- 5c. the QA of 2026-10-21 on the guard hitboxes ("the attack does not connect even though it definitely should")
+            {
+                var qaGuard = guards.FirstOrDefault(g => g && !g.Dead);
+                if (qaGuard != null)
+                {
+                    var qaAt = qaGuard.transform.position + Vector3.up * 0.3f;
+                    var qaImp = Ballistics.Trace(qaAt, Vector3.forward, 20f, player.transform, false);
+                    PewCheck("a bullet that starts inside a guard's body hits him (the muzzle of a shooter who stands close is inside the guard's hitbox)", qaImp.hit && qaImp.guard == qaGuard,
+                        $"(hit {(qaImp.hit ? qaImp.collider.name : "nothing")} at {qaImp.distance:0.00} m)");
+                }
+                if (victim != null && victim.Dead)
+                {
+                    var qaFrom = victim.transform.position + Vector3.up * 0.3f - victim.transform.forward * 2.5f;
+                    var qaDead = Ballistics.Trace(qaFrom, victim.transform.forward, 5f, player.transform, false);
+                    PewCheck("a guard who is down for good does not stop a bullet: it goes through him", qaDead.guard != victim, $"(hit {(qaDead.hit ? qaDead.collider.name : "nothing")})");
+                }
+            }
+
             // ================= 6. armed guards
             var armTargets = guards.Where(g => g && !g.Dead).ToList();
             ArmedGuards.Everywhere = true;

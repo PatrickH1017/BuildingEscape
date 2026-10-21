@@ -30,7 +30,7 @@ namespace BuildingEscape
             ("G", "Hidden elevator to the boss: go (everyone must be inside)"),
             ("M", "Mute your microphone"),
             ("T", "Push to talk (when set in Settings)"),
-            ("1 2 3", "Switch to the first, second or third weapon in your pack (the bar at the bottom of the screen shows them)"),
+            ("1 - 6", "Switch to the weapon or tool in that slot of the bar at the bottom of the screen (the first six in your pack)"),
             ("Esc", "Menu"),
         };
 

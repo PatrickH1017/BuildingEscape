@@ -25,6 +25,7 @@ Shader "BuildingEscape/FirstPersonArms"
         half _Glossiness;
         float4 _BEArmRA, _BEArmRB, _BEArmLA, _BEArmLB;
         float _BEArmReach;
+        float4 _BEHead;          // xyz: the middle of the head, w: its radius (0: no head to cut)
 
         struct Input
         {
@@ -43,6 +44,10 @@ Shader "BuildingEscape/FirstPersonArms"
         {
             float d = min(SegDist(IN.worldPos, _BEArmRA.xyz, _BEArmRB.xyz), SegDist(IN.worldPos, _BEArmLA.xyz, _BEArmLB.xyz));
             clip(_BEArmReach - d);
+            // the head is never drawn, except within a hand's reach of a fingertip (a hand held up to the face stays whole)
+            float dHead = length(IN.worldPos - _BEHead.xyz);
+            float dTip = min(length(IN.worldPos - _BEArmRB.xyz), length(IN.worldPos - _BEArmLB.xyz));
+            clip((dHead >= _BEHead.w || dTip < 0.12) ? 1 : -1);
             fixed4 c = tex2D(_MainTex, IN.uv_MainTex) * _Color;
             o.Albedo = c.rgb;
             o.Metallic = 0;

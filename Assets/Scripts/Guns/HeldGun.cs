@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace BuildingEscape
@@ -69,6 +70,98 @@ namespace BuildingEscape
             if (!r || !r.ViewedBody || !transform.IsChildOf(r.ViewedBody)) return 0f;
             cam = r.transform;
             return Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.5f, 0.95f, r.Zoom));
+        }
+
+        // ---- first person, looking THROUGH the sight (the owner, 2026-10-20 night: "when zoomed in all the way to first person I should be looking out the red dot sight / scope / iron sights of whatever weapon it is"):
+        // the gun is placed so that its sight (the little dot of the red dot sight, the rear sight of a pistol, the eyepiece of the sniper's scope) is on the line of sight, this far (m) in front of the camera
+        // (a gun held in one hand is held at arm's length: its relief is worked out from the arm, see FindSight)
+        public const float RedDotRelief = 0.22f, IronRelief = 0.26f, ArmRelief = 0.85f, ArmReliefMin = 0.24f, ArmReliefMax = 0.45f;
+
+        /// <summary>How far the local player's view is through the red dot of the gun in hand (0 in third person, while reloading, with no gun or a gun without a red dot, up to 1): the crosshair gives way to the dot itself.</summary>
+        public static float LocalDotShare { get; private set; }
+
+        /// <summary>
+        /// What the local player's view shows of the body in first person (CameraFollow asks every frame): 0 nothing, 1 the right arm, reaching out with the pistol in its hand (the owner, 2026-10-20 night: "for the pistol make an arm extended and a hand
+        /// holding the gun"). A gun held in both hands shows no arms (the owner: "all the guns look good except the pistol and the sniper").
+        /// </summary>
+        public static int LocalArmMode { get; private set; }
+
+        // ---- the sniper rifle's scope (the owner, 2026-10-20 night: "for the sniper can you make it so we look down the scope and it zooms in a little with a normal crosshair in the scope"):
+        // in first person with the rifle up the view narrows to 1/ScopeMagnification of its field, the rifle itself is not drawn (the scope fills the view), and HudWidgets.Scope draws the dark lens with a plain crosshair.
+        /// <summary>How many times the scope magnifies (the field of view of the camera is narrowed by this much).</summary>
+        public const float ScopeMagnification = 2.5f;
+
+        /// <summary>How far the local player looks down the scope of a sniper rifle (0 with any other gun, in third person, while reloading, up to 1): the camera zooms and the lens is drawn by this much.</summary>
+        public static float LocalScope { get; private set; }
+
+        float scopeNow;                                         // the scope view coming in and going out (0..1, by time)
+        readonly List<Renderer> scopeHidden = new List<Renderer>();          // the rifle's meshes switched off while looking down the scope
+
+        /// <summary>The rifle is not drawn while the view is down its scope (it would fill the lens), and comes back the moment the view leaves it.</summary>
+        void HideForScope(bool hide)
+        {
+            if (hide)
+            {
+                if (scopeHidden.Count > 0 || !Grip) return;
+                foreach (var r in Grip.GetComponentsInChildren<MeshRenderer>(true)) if (r && r.enabled) { r.enabled = false; scopeHidden.Add(r); }
+            }
+            else
+            {
+                foreach (var r in scopeHidden) if (r) r.enabled = true;
+                scopeHidden.Clear();
+            }
+        }
+
+        // ---- a pistol arm that does not shake (the owner, 2026-10-20 night: "the arm is glitching while it moves if you could make it more stiff"): in first person the shoulder is held where the eyes are, not where the running animation
+        // and the wobbling body carry it; the animation's own offset of the shoulder from the eyes is followed only slowly (this many times a second), so the whole arm rides the camera
+        const float ShoulderFollow = 1.5f, ShoulderMaxMove = 0.15f;
+        Vector3 fpShoulder;                  // the shoulder from the eyes, in the frame of the view's heading (metres), smoothed
+        bool fpShoulderSet;
+
+        Vector3 sightLocal;                  // the sight, in the grip's own space (+Z the barrel, +Y the top of the gun)
+        float sightRelief;
+        bool hasSight, sightIsDot, sightSearched;
+
+        /// <summary>Where the sight is on the held model: the red dot sight's dot, else the gun's own sights worked out from the body of the model (the rear sight of a pistol, the eyepiece of the scope on the sniper rifle).</summary>
+        void FindSight()
+        {
+            sightSearched = true; hasSight = false; sightIsDot = false;
+            if (!Grip) return;
+            var dot = Grip.Find("RedDot/Dot");
+            if (dot) { sightLocal = Grip.InverseTransformPoint(dot.position); sightRelief = RedDotRelief; hasSight = true; sightIsDot = true; return; }
+            Bounds b = default; bool any = false;
+            foreach (Transform c in Grip)
+            {
+                if (!c.name.EndsWith("_Model")) continue;                      // (the gun's own body: not the silencer, not the muzzle and the other markers)
+                foreach (var mf in c.GetComponentsInChildren<MeshFilter>(true))
+                {
+                    if (!mf.sharedMesh) continue;
+                    var mb = mf.sharedMesh.bounds;
+                    for (int i = 0; i < 8; i++)
+                    {
+                        var corner = mb.center + Vector3.Scale(mb.extents, new Vector3((i & 1) == 0 ? -1f : 1f, (i & 2) == 0 ? -1f : 1f, (i & 4) == 0 ? -1f : 1f));
+                        var p = Grip.InverseTransformPoint(mf.transform.TransformPoint(corner));
+                        if (!any) { b = new Bounds(p, Vector3.zero); any = true; } else b.Encapsulate(p);
+                    }
+                }
+            }
+            if (!any || b.size.z < 0.01f) return;
+            // the iron sights (the owner, 2026-10-20 night, about the sniper rifle: "I just want iron sights for now"): the line of sight runs along the top of the gun from a point a sixth of the way along it; on the sniper rifle a little above
+            // the top of its scope, so that the scope is below the line and does not fill the screen. The crosshair stays (there is no dot).
+            bool sniper = Kind == RangedWeapon.Kind.Sniper;
+            sightLocal = new Vector3(b.center.x, b.max.y + (sniper ? 0.06f * b.size.y : 0f), Mathf.Lerp(b.min.z, b.max.z, 0.18f));
+            sightRelief = IronRelief;
+            if (!twoHand) sightRelief = Mathf.Clamp(armLength * ArmRelief, ArmReliefMin, ArmReliefMax);          // (one hand: the gun is held out at arm's length, the arm in the picture)
+            hasSight = true;
+        }
+
+        /// <summary>
+        /// The grip's place that puts the sight on the line of sight (<paramref name="f"/>: the way the view looks) <see cref="sightRelief"/> in front of the camera; for a gun whose sight is not known, the shouldered hold of before.
+        /// </summary>
+        Vector3 FirstPersonGrip(Transform cam, Vector3 f, Vector3 right, Vector3 up, Quaternion gunRot, float oneHandForward = 1f)
+        {
+            if (hasSight) return cam.position + f * sightRelief - gunRot * Vector3.Scale(sightLocal, Grip.lossyScale);
+            return cam.position + f * (FpForward * oneHandForward) + right * FpRight - up * FpDown;
         }
 
         Transform upper, fore, hand, lUpper, lFore, lHand;
@@ -197,6 +290,8 @@ namespace BuildingEscape
         public void Remove()
         {
             if (Grip) Destroy(Grip.gameObject);
+            HideForScope(false);
+            LocalDotShare = 0f; LocalArmMode = 0; LocalScope = 0f;
             Destroy(this);
         }
 
@@ -205,11 +300,23 @@ namespace BuildingEscape
             if (!Grip || !hasArm) return;
             raiseNow = Mathf.MoveTowards(raiseNow, Mathf.Clamp01(Raise), Time.deltaTime * 6f);
             kick = Mathf.MoveTowards(kick, 0f, Time.deltaTime * 9f);
-            if (raiseNow < 0.001f) return;
+            if (!sightSearched) FindSight();
+            // first person with the gun up (not while it is being reloaded, which tilts it): the barrel points where the view does, so that the sight is on the line of sight
+            float fpShare = FirstPersonShare(out var viewCamera);
+            float ads = viewCamera && hasSight ? fpShare * Mathf.InverseLerp(0.92f, 1f, raiseNow) : 0f;
+            if (viewCamera) { LocalDotShare = sightIsDot ? ads : 0f; LocalArmMode = !twoHand && fpShare > 0.5f ? 1 : 0; }
+            // the scope: only the sniper rifle, only at the eye with the rifle fully up; it eases in and out (a quarter of a second)
+            float scopeWant = viewCamera && Kind == RangedWeapon.Kind.Sniper && ads > 0.99f ? 1f : 0f;
+            scopeNow = Mathf.MoveTowards(scopeNow, scopeWant, Time.deltaTime * 4f);
+            if (viewCamera) LocalScope = Mathf.SmoothStep(0f, 1f, scopeNow);
+            else if (scopeNow > 0f) { scopeNow = 0f; LocalScope = 0f; }           // (the view left this body)
+            HideForScope(scopeNow > 0.5f);
+            if (raiseNow < 0.001f) { fpShoulderSet = false; return; }
 
             var aim = AimDirection;
             if (aim.sqrMagnitude < 1e-4f) aim = transform.forward;
             aim.Normalize();
+            if (ads > 0.001f) aim = Vector3.Slerp(aim, viewCamera.forward, ads).normalized;
             // never straight up or down: the gun's "up" is undefined there
             if (Mathf.Abs(aim.y) > 0.97f) aim = new Vector3(aim.x, Mathf.Sign(aim.y) * 0.97f, aim.z).normalized;
             if (kick > 0f)
@@ -222,6 +329,7 @@ namespace BuildingEscape
             if (twoHand) { TwoHandPose(aim, b); return; }
             float fp1 = FirstPersonShare(out var cam1);
             if (fp1 > 0.001f) { OneHandShouldered(aim, b, fp1, cam1); return; }
+            fpShoulderSet = false;
             // the whole arm points along the aim (the shoulder stays where the animation has it)
             var du = fore.position - upper.position;
             if (du.sqrMagnitude > 1e-6f)
@@ -237,13 +345,19 @@ namespace BuildingEscape
         /// <summary>A pistol in first person: held out in the right hand in front of the eyes, a little low, the barrel along the line of sight.</summary>
         void OneHandShouldered(Vector3 aim, float b, float fp, Transform cam)
         {
+            // the stiff arm: the shoulder rides the eyes (see ShoulderFollow) - measured in the view's heading, so looking up and down does not move it, then carried with the camera's full turn
+            var yawRot = Quaternion.Euler(0f, cam.eulerAngles.y, 0f);
+            var rawShoulder = Quaternion.Inverse(yawRot) * (upper.position - cam.position);
+            if (!fpShoulderSet) { fpShoulder = rawShoulder; fpShoulderSet = true; }
+            else fpShoulder = Vector3.Lerp(fpShoulder, rawShoulder, 1f - Mathf.Exp(-ShoulderFollow * Time.deltaTime));
+            upper.position += Vector3.ClampMagnitude(cam.position + cam.rotation * fpShoulder - upper.position, ShoulderMaxMove) * fp;
             var right = Vector3.Cross(Vector3.up, aim);
             if (right.sqrMagnitude < 1e-4f) right = transform.right;
             right.Normalize();
             var up = Vector3.Cross(aim, right);
             var gunRot = Quaternion.LookRotation(aim, up);
             var carried = upper.position + aim * (0.9f * armLength);                                  // (the third-person hold: the arm straight out along the aim)
-            var held = cam.position + aim * (FpForward * 1.2f) + right * (FpRight + 0.04f) - up * (FpDown - 0.02f);
+            var held = hasSight ? FirstPersonGrip(cam, aim, right, up, gunRot) : cam.position + aim * (FpForward * 1.2f) + right * (FpRight + 0.04f) - up * (FpDown - 0.02f);
             SolveArm(upper, fore, hand, Vector3.Lerp(carried, held, fp), -up * 0.8f + right * 0.6f, b);
             hand.rotation = Quaternion.Slerp(hand.rotation, gunRot * Quaternion.Inverse(Grip.localRotation), b);
         }
@@ -266,7 +380,7 @@ namespace BuildingEscape
             // the right hand: in front of and below the shoulder and towards the middle of the chest, where FitTwoHand put it (so that the left hand reaches the foregrip)
             var pr = sR + f * (fitFwd * L) - up * (0.28f * L) - right * (half * (1f - fitLat));
             float fp = FirstPersonShare(out var viewCam);
-            if (fp > 0.001f) pr = Vector3.Lerp(pr, viewCam.position + f * FpForward + right * FpRight - up * FpDown, fp);          // (first person: shouldered, the sight in the middle of the screen)
+            if (fp > 0.001f) pr = Vector3.Lerp(pr, FirstPersonGrip(viewCam, f, right, up, gunRot), fp);          // (first person: the sight on the line of sight, in the middle of the screen)
             var tl = pr + toForegrip;
             if (fp > 0.001f) tl += (-right * 0.075f + up * 0.085f) * fp;                               // (first person: the left hand grips the side of the handguard, so that its forearm is seen reaching in from the left)
             SolveArm(upper, fore, hand, pr, -up * 0.8f + right * 0.6f, b);

@@ -127,21 +127,28 @@ namespace BuildingEscape
 
             // the monitoring desks under the window, facing it; the computer with the record of a safe stands on the last of them
             var desks = new List<Item>();
+            var deskNo = new List<int>();                                   // (which of the three each placed desk is: the middle one gets the old monitor)
             for (int i = 0; i < 3; i++)
             {
                 float x = -3.4f + 2.1f * i;                                 // (the pack's desks are 2 m wide)
                 var desk = r.Wall('S', "desk_1", x);
                 if (desk == null) continue;
                 desks.Add(desk);
+                deskNo.Add(i);
                 float dd = desk.def.D;
                 r.Put("chair_office", x, desk.lz + dd / 2 + Tuck("chair_office"), 180f);
                 r.Top(desk, "monitor_new", -0.5f, -dd / 2 + 0.2f);
-                r.Top(desk, i == 1 ? "monitor_old" : "monitor_new", 0.3f, -dd / 2 + 0.2f);
+                // (the desk's second monitor is put on after the loop: the last desk is the computer's and has none, see below)
                 r.Top(desk, "keyboard", -0.25f, 0.10f);
                 r.Top(desk, "mouse", 0.2f, 0.10f);
                 if (i == 0) r.Top(desk, "phone", 0.75f, 0.22f);
                 if (i == 1) r.Top(desk, "papers", 0.7f, 0.0f, 90f);
             }
+            // The second monitor of each desk but the last. The computer (FillOutpost -> MakeComputer) stands on the last desk at u = 0.5 with a monitor of its own, and a second desk monitor at u = 0.3
+            // stood inside it: the owner, 2026-10-21, "two monitors inside each other for the screen you click E on. There should only be one monitor there". (Nothing here uses a random number.)
+            int withSecond = op != null ? desks.Count - 1 : desks.Count;
+            for (int k = 0; k < withSecond; k++)
+                r.Top(desks[k], deskNo[k] == 1 ? "monitor_old" : "monitor_new", 0.3f, -desks[k].def.D / 2 + 0.2f);
             if (op != null && desks.Count > 0)
                 op.itemSlots.Insert(0, TopSlot(r, desks[desks.Count - 1], 0.5f, 0.0f, "computer", 0f));
 

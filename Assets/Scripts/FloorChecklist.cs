@@ -3,7 +3,7 @@ using UnityEngine;
 
 namespace BuildingEscape
 {
-    /// <summary>What the scan and the journal's checklist tell apart (the owner, 2026-10-20, over his 2026-10-19 colours): safes and valuables glow gold, unique items such as weapons red and cash green.</summary>
+    /// <summary>What the scan and the journal's checklist tell apart. (The scan's glow went by kind - safes and valuables gold, unique items red, cash green - until 2026-10-21; it now goes by what a thing is worth, with weapons still red: see <see cref="LootScanRules.GlowOf"/>. The checklist still counts by kind.)</summary>
     public enum ScanKind { Valuable = 0, Unique = 1, Safe = 2, Cash = 3 }
 
     /// <summary>
@@ -20,7 +20,7 @@ namespace BuildingEscape
         public static string Label(ScanKind k) =>
             k == ScanKind.Valuable ? "All valuables collected" : k == ScanKind.Unique ? "All unique items collected" : k == ScanKind.Safe ? "All safes opened" : "All cash collected";
 
-        /// <summary>The glow of a kind as red, green and blue (0 to 1): safes and valuables gold, unique items (weapons) red, cash green (the owner, 2026-10-20: "safes and valuables should be gold when scanning, weapons should be red, and cash should be green").</summary>
+        /// <summary>The colour of a KIND as red, green and blue (0 to 1; the scan no longer glows by kind, from 2026-10-21 it goes by worth: see <see cref="LootScanRules.GlowOf"/>, and only the unique items' red is still this one): safes and valuables gold, unique items (weapons) red, cash green (the owner, 2026-10-20: "safes and valuables should be gold when scanning, weapons should be red, and cash should be green").</summary>
         public static void Rgb(ScanKind k, out float r, out float g, out float b)
         {
             switch (k)

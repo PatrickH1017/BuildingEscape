@@ -155,6 +155,12 @@ namespace BuildingEscape
             HudTheme.Chip(new Rect(Screen.width - w - 16f * s, 14f * s, w, h), text, HudTheme.PlayerColour(number), 20f, HudTheme.Ink);
         }
 
+        /// <summary>
+        /// Where the second thing of the top right column starts (reference pixels): right under the player badge (14 + 36 tall + a 6 gap). The owner, 2026-10-20 night: the badge and another bubble were drawn on top of each other ("put them below each
+        /// other so we can decide which one we want"): the test-mode tag (offline) and the voice pills (online) now start here, the pvp board under them.
+        /// </summary>
+        public const float TopRightBelowBadge = 56f;
+
         // ====================================================================== banner (the moments that matter)
 
         /// <summary>A slim ribbon at the top middle with a title and up to two lines under it; pops in with a spring.</summary>
@@ -279,6 +285,7 @@ namespace BuildingEscape
         /// <summary>
         /// The backpack, as small as it can be: the weight bar (green, orange, red as it fills) always; a line for the loot in it and a line for
         /// what is in hand only while there is something to say. The card grows upwards from the bottom corner.
+        /// NOT DRAWN ANY MORE (the owner, 2026-10-20 night: "remove the backpack from the bottom left corner"): the weight, and how much more fits, are in the Tab window (<c>Backpack.DrawInventory</c>). Kept for a quick way back.
         /// </summary>
         public static void PackCard(in PackModel m)
         {
@@ -330,19 +337,23 @@ namespace BuildingEscape
         public static float ChipAt(float x, float y, float h, string text, Color fill, float size = 13f) => Chip(x, y, h, text, fill, size);
 
         /// <summary>
-        /// The weapon bar (the owner, 2026-10-19 night): three plates above the stamina bar, each with its key (1, 2, 3) and the weapon in that slot (<see cref="WeaponBarRules"/>); the one in hand is bright, with a bar under it.
+        /// The weapon bar (the owner, 2026-10-19 night; six slots since 2026-10-20 night): plates above the stamina bar, each with its key (1 to 6) and the weapon in that slot (<see cref="WeaponBarRules"/>); the one in hand is bright, with a bar under it.
+        /// The plates are see-through (<see cref="HudTheme.Glass"/>) and as wide as the room that is left either side for the corners of the screen (the ammunition panel on the right, the same room on the left) allows, at most 176 px each.
         /// </summary>
         public static void WeaponBar(in WeaponBarModel m)
         {
             if (Event.current.type != EventType.Repaint) return;
-            float s = S, sw = 176f * s, sh = 48f * s, gap = 8f * s, pad = 8f * s;
+            float s = S, sh = 48f * s, gap = 6f * s, pad = 8f * s;
+            float room = Screen.width - 2f * 262f * s - (WeaponBarRules.Slots - 1) * gap;
+            float sw = Mathf.Clamp(room / WeaponBarRules.Slots, 56f * s, 176f * s);
             float total = WeaponBarRules.Slots * sw + (WeaponBarRules.Slots - 1) * gap;
             float x0 = (Screen.width - total) * 0.5f, y = Screen.height - 74f * s - sh;
             for (int i = 0; i < WeaponBarRules.Slots; i++)
             {
                 var r = new Rect(x0 + i * (sw + gap), y, sw, sh);
-                HudTheme.Plate(r);
                 bool on = m.equipped == i, has = m.names != null && i < m.names.Length && !string.IsNullOrEmpty(m.names[i]);
+                // see-through plates (the owner, 2026-10-20 night): the one in hand has a bright pale-blue edge, an empty slot a faint one
+                HudTheme.Glass(r, HudTheme.GlassAlpha, on ? 0.95f : has ? 0.5f : 0.28f, null, on ? new Color(0.84f, 0.91f, 1f) : (Color?)null);
                 float kw = HudTheme.KeyCap(r.x + pad, r.y + (sh - 28f * s) * 0.5f - 2f * s, (i + 1).ToString(), 28f * s, 15f);
                 if (has)
                 {
@@ -375,7 +386,7 @@ namespace BuildingEscape
             if (Event.current.type != EventType.Repaint) return;
             float s = S, w = 196f * s, h = 68f * s, pad = 9f * s;
             var r = new Rect(Screen.width - 14f * s - w, Screen.height - 14f * s - h, w, h);
-            HudTheme.Plate(r);
+            HudTheme.Glass(r, 0.3f, 0.5f);                                       // (see-through, like the weapon bar: the owner, 2026-10-20 night)
             Color accent = m.reloading ? HudTheme.Warning : m.rounds == 0 ? HudTheme.Danger : m.rounds <= 3 ? HudTheme.Warning : HudTheme.Bright;
             float x = r.x + pad, iw = r.width - pad * 2f, y = r.y + pad - 1f * s;
 
@@ -416,7 +427,7 @@ namespace BuildingEscape
         {
             if (Event.current.type != EventType.Repaint) return;
             float s = S, h = 24f * s, w = 138f * s;
-            var r = new Rect(Screen.width - w - 14f * s, 10f * s, w, h);
+            var r = new Rect(Screen.width - w - 16f * s, TopRightBelowBadge * s, w, h);          // (under the player badge, not behind it)
             HudTheme.Chip(r, "TEST MODE   F1", HudTheme.Warning, 12f);
         }
 
@@ -543,6 +554,30 @@ namespace BuildingEscape
             HudIcons.Cuffs(new Rect(r.x + 6f * s, r.y + 1f * s, h - 2f * s, h - 2f * s), HudTheme.Light(HudTheme.Dim, 0.6f));
             HudTheme.Text(new Rect(r.x + h * 1.15f, r.y, r.width - h * 1.25f, h), text, 14f, HudTheme.Bright, TextAnchor.MiddleLeft);
             HudAnim.End(mat);
+        }
+
+        // ====================================================================== the sniper rifle's scope
+
+        /// <summary>
+        /// Looking down the sniper rifle's scope (the owner, 2026-10-20 night: "a normal crosshair in the scope"): everything outside a round lens is dark, the lens has a thin rim and a plain fine cross with a small gap in the middle.
+        /// <paramref name="share"/> 0..1 fades it in; <paramref name="onFoe"/> turns the dot in the middle red.
+        /// </summary>
+        public static void Scope(float share, bool onFoe)
+        {
+            if (Event.current.type != EventType.Repaint || share <= 0.002f) return;
+            float s = S, cx = Screen.width * 0.5f, cy = Screen.height * 0.5f;
+            float lens = Screen.height * 0.47f;
+            float outer = Mathf.Sqrt(cx * cx + cy * cy) + 8f;                                      // (a ring that reaches past the corners of the screen: all that is outside the lens)
+            float a = Mathf.Clamp01(share);
+            HudTheme.Ring(new Rect(cx - outer, cy - outer, outer * 2f, outer * 2f), new Color(0.015f, 0.015f, 0.02f, a), outer - lens, outer);
+            HudTheme.Ring(new Rect(cx - lens, cy - lens, lens * 2f, lens * 2f), new Color(0.2f, 0.2f, 0.23f, a), Mathf.Max(3f, 5f * s), lens);
+            var line = new Color(0.02f, 0.02f, 0.03f, 0.92f * a);
+            float thin = Mathf.Max(2f, 2f * s), gap = 16f * s, reach = lens - Mathf.Max(3f, 5f * s);
+            HudTheme.Rounded(new Rect(cx - reach, cy - thin * 0.5f, reach - gap, thin), line, 0f);          // left
+            HudTheme.Rounded(new Rect(cx + gap, cy - thin * 0.5f, reach - gap, thin), line, 0f);           // right
+            HudTheme.Rounded(new Rect(cx - thin * 0.5f, cy - reach, thin, reach - gap), line, 0f);          // up
+            HudTheme.Rounded(new Rect(cx - thin * 0.5f, cy + gap, thin, reach - gap), line, 0f);           // down
+            HudTheme.Circle(new Vector2(cx, cy), Mathf.Max(4f, 5f * s), onFoe ? new Color(1f, 0.25f, 0.2f, a) : line);
         }
 
         // ====================================================================== the crosshair

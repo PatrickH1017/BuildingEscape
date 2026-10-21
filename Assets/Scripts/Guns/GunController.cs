@@ -43,6 +43,10 @@ namespace BuildingEscape
         HeldGun held;
         int reloadStep = 99;
         Vector3 lastAim;
+        // the camera's aim line of the last AimPoint (set only when the crosshair is on a guard or the dummy): where it starts and which way it goes
+        Vector3 aimStart, aimDir;
+        /// <summary>How far (m) from the shooter the camera's aim line may start for a bullet to leave it instead of the muzzle (the host takes a start up to <c>GunMuzzleSlack</c>, 4 m, from the shooter: this leaves it room for the lag).</summary>
+        const float CameraLineSlack = 3f;
         // a teammate's gun: where his last bullet went (his arm follows it for a moment, then points the way he faces)
         Vector3 remoteAim;
         float remoteAimUntil;
@@ -202,6 +206,7 @@ namespace BuildingEscape
             var start = o + d * t0;
             var imp = Ballistics.Trace(start, d, range, transform, false);
             foe = imp.hit && ((imp.guard != null && !imp.guard.Dead) || (imp.dummy != null && !imp.dummy.Down));
+            aimStart = start; aimDir = d;
             return imp.point;
         }
 
@@ -255,12 +260,32 @@ namespace BuildingEscape
         void Shoot(RangedWeapon.Spec spec, Vector3 muzzle)
         {
             ShotsFired++;
-            var aimPoint = AimPoint(out _);
+            var aimPoint = AimPoint(out bool onFoe);
             var dir = aimPoint - muzzle;
             var cam = Camera.main;
             // (a wall right in front of the gun puts the aim point behind or beside the muzzle: shoot along the view then)
             if (dir.sqrMagnitude < 0.04f || (cam && Vector3.Dot(dir, cam.transform.forward) < 0f)) dir = cam ? cam.transform.forward : transform.forward;
             dir.Normalize();
+            // The bullet leaves the MUZZLE but the red crosshair is the CAMERA's line, and the gun is lower than the eye and to one side of it: a cubicle panel, a desk edge or a doorway can stand in the muzzle's line to a
+            // guard that the camera's line clears, so the crosshair said "hit" and the bullet hit the panel (QA 2026-10-21, "the attack does not connect even though it definitely should"). When the crosshair is on a
+            // guard (or the dummy) and the muzzle's own line reaches neither, the bullets leave the camera's line instead (the tracer is still drawn from the muzzle), as long as nothing solid is between the muzzle and
+            // where that line starts and that start is near the shooter. The host is sent that start in place of the muzzle and traces the same line.
+            var origin = muzzle;
+            if (onFoe)
+            {
+                var straight = Ballistics.Trace(muzzle, dir, spec.range, transform, false);
+                if (straight.guard == null && straight.dummy == null)
+                {
+                    var toStart = aimStart - muzzle;
+                    float gap = toStart.magnitude;
+                    bool nearShooter = (aimStart - transform.position).sqrMagnitude <= CameraLineSlack * CameraLineSlack;
+                    if (nearShooter && (gap < 0.05f || !Ballistics.Trace(muzzle, toStart, gap, transform, false).hit))
+                    {
+                        origin = aimStart;
+                        dir = aimDir.normalized;
+                    }
+                }
+            }
             int seed = Random.Range(1, int.MaxValue);                    // (the shot's own: every pellet's spread comes from it, here and on the host)
             bool synced = Net.NetRole.Synced;
             var fx = GunFx.Get();
@@ -272,7 +297,7 @@ namespace BuildingEscape
             {
                 GunRules.Spread(GunRules.PelletSeed(seed, i), spec.spread, out float yaw, out float pitch);
                 var d = Quaternion.LookRotation(dir) * Quaternion.Euler(-pitch, yaw, 0f) * Vector3.forward;
-                var imp = Ballistics.Trace(muzzle, d, spec.range, transform, false);
+                var imp = Ballistics.Trace(origin, d, spec.range, transform, false);
                 if (i == 0) { LastMuzzle = muzzle; LastDirection = d; LastImpact = imp; }
                 if (!synced) Land(imp, d, spec, ref hitSounded);         // (in a networked run the host decides what the bullets do)
                 else if (imp.hit && ((imp.guard != null && !imp.guard.Dead) || (imp.dummy != null && !imp.dummy.Down))) foeSeen = true;
@@ -285,7 +310,7 @@ namespace BuildingEscape
             {
                 // the same hit sound at once (a guess: the host may disagree), then the host does the rest and tells everybody else
                 if (foeSeen) GameAudio.BulletHit(false, LastImpact.point);
-                Net.RunSync.Instance.RequestGunShot(muzzle, dir, LastImpact.guard != null ? LastImpact.guard.NetId : -1, seed);
+                Net.RunSync.Instance.RequestGunShot(origin, dir, LastImpact.guard != null ? LastImpact.guard.NetId : -1, seed);
             }
             else NoiseBus.Emit(muzzle, gun.NoiseRadius, gameObject);          // every guard within earshot comes to look
         }
@@ -362,7 +387,8 @@ namespace BuildingEscape
             int clips = GunRules.SpareClips(mag.Reserve, mag.Capacity);
             string text = mag.Reserve <= 0 ? "NO SPARE CLIPS" : "SPARE  " + mag.Reserve + "  (" + clips + (clips == 1 ? " clip)" : " clips)");
             var fill = mag.Reserve <= 0 ? HudTheme.Danger : mag.Reserve <= mag.Capacity ? HudTheme.Warning : HudTheme.Info;
-            HudTheme.Chip(r, text, fill, 13f);
+            HudTheme.Glass(r, 0.34f, 0.7f, fill, HudTheme.Light(fill, 0.5f), 9f);          // (see-through like the panel under it: the owner, 2026-10-20 night)
+            HudTheme.Text(r, text, 13f, HudTheme.Bright, TextAnchor.MiddleCenter);
         }
     }
 }

@@ -30,6 +30,7 @@ namespace BuildingEscape
             public float hitAt;
             public string label;
             public int value, tier, lifters;
+            public ScanGlow glow;
         }
 
         readonly Dictionary<Component, Find> marks = new Dictionary<Component, Find>();
@@ -63,6 +64,14 @@ namespace BuildingEscape
         public long RoomWorth => roomWorth;
         public bool InElevator => inCar;
         public bool IsMarked(Pickup p) => p && marks.ContainsKey(p);
+        /// <summary>What colour a marked thing glows (for tests).</summary>
+        public bool TryGetGlow(Component c, out ScanGlow glow)
+        {
+            if (c && marks.TryGetValue(c, out var m)) { glow = m.glow; return true; }
+            glow = ScanGlow.Green;
+            return false;
+        }
+
         /// <summary>What kind a marked thing is (for tests).</summary>
         public bool TryGetKind(Component c, out ScanKind kind)
         {
@@ -214,6 +223,15 @@ namespace BuildingEscape
             }
             m.hitAt = Time.time;
             if (m.pickup) m.value = m.pickup.Value;
+            m.glow = LootScanRules.GlowOf(m.kind == ScanKind.Unique, m.kind == ScanKind.Safe, m.value, TierQuota());          // (by what it is worth now; a safe is gold, a weapon red)
+        }
+
+        /// <summary>The quota the glow's tiers are calibrated on: the floor's old, unmultiplied one (as for the diamond's size), or floor 1's where there is none (the boss floor has no quota).</summary>
+        static int TierQuota()
+        {
+            var hm = HeistManager.Instance;
+            int q = hm ? Mathf.RoundToInt((float)(hm.Quota / TowerRules.QuotaMultiplier)) : 0;
+            return q > 0 ? q : TowerRules.FirstQuota;
         }
 
         void Prune()
@@ -345,10 +363,13 @@ namespace BuildingEscape
 
         // ------------------------------------------------------------------ on screen
 
-        /// <summary>The glow of a kind: safes and valuables gold, unique items (weapons) red, cash green (the owner, 2026-10-20).</summary>
-        static Color KindColour(ScanKind k)
+        /// <summary>
+        /// The colour of a mark's glow, diamond and label (the owner, 2026-10-21, over his 2026-10-20 colours by kind): by what it is worth - gold for a lot and for every safe, blue for the middle, green for little - and red for the unique
+        /// items (weapons). The rules are <see cref="LootScanRules.GlowOf"/>.
+        /// </summary>
+        static Color GlowColour(ScanGlow glow)
         {
-            ChecklistRules.Rgb(k, out float r, out float g, out float b);
+            LootScanRules.GlowRgb(glow, out float r, out float g, out float b);
             return new Color(r, g, b);
         }
 
@@ -368,11 +389,6 @@ namespace BuildingEscape
             glowTex.Apply();
             return glowTex;
         }
-
-        static readonly Color[] TierColour =
-        {
-            new Color(0.93f, 0.95f, 1.00f), new Color(0.40f, 0.95f, 0.55f), new Color(0.40f, 0.72f, 1.00f), new Color(1.00f, 0.80f, 0.20f)
-        };
 
         /// <summary>What the top of the screen says (also for tests): which room, and what is in it.</summary>
         public string StatusLine
@@ -423,7 +439,7 @@ namespace BuildingEscape
                         float margin = 46f * s;
                         float k = Mathf.Min((Screen.width * 0.5f - margin) / Mathf.Max(0.001f, Mathf.Abs(dir.x)), (Screen.height * 0.5f - margin) / Mathf.Max(0.001f, Mathf.Abs(dir.y)));
                         var at = new Vector2(Screen.width * 0.5f + dir.x * k, Screen.height * 0.5f - dir.y * k);
-                        var tc = KindColour(m.kind);
+                        var tc = GlowColour(m.glow);
                         edges.Add((at, new Color(tc.r, tc.g, tc.b, alpha), Vector3.Distance(cam.transform.position, world)));
                     }
                     continue;
@@ -432,11 +448,11 @@ namespace BuildingEscape
                 shown++;
                 float pop = LootScanRules.Pop(age);
                 float dist = Vector3.Distance(cam.transform.position, world);
-                var colour = KindColour(m.kind);
+                var colour = GlowColour(m.glow);
                 var c = new Color(colour.r, colour.g, colour.b, alpha);
                 var centre = new Vector2(sp.x, Screen.height - sp.y);
                 float d = (m.tier >= 3 ? 20f : m.tier == 2 ? 17f : 14f) * s * pop;
-                // the glow in the colour of its kind (seen through walls, like the diamond): gold safes, red unique items, green cash, gold valuables
+                // the glow in the colour of its worth (seen through walls, like the diamond): gold for a lot and for safes, blue for the middle, green for little, red for unique items (weapons)
                 float glowSize = (74f + 20f * Mathf.Sin(Time.time * 4f + centre.x * 0.01f)) * s * pop;
                 var glowSaved = GUI.color;
                 GUI.color = new Color(colour.r, colour.g, colour.b, alpha * 0.8f);

@@ -125,7 +125,7 @@ namespace BuildingEscape
             if (!hm || hm.Floor != 0 || IntroCinematic.Playing || !PvpBoard.Any) return;
             int n = PvpBoard.Ranked(order);
             float s = HudTheme.S, w = 200f * s, rowH = 30f * s, head = 30f * s, pad = 10f * s;
-            var r = new Rect(Screen.width - w - 16f * s, 64f * s, w, head + n * rowH + pad);
+            var r = new Rect(Screen.width - w - 16f * s, 94f * s, w, head + n * rowH + pad);          // (under the player badge and the first voice pill)
             HudTheme.Plate(r);
             HudTheme.Text(new Rect(r.x + pad, r.y + 4f * s, w - pad * 2f, head - 4f * s), Title, 16f, HudTheme.Muted, TextAnchor.MiddleLeft);
             for (int i = 0; i < n; i++)

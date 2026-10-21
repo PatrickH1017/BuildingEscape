@@ -31,7 +31,7 @@ namespace BuildingEscape
 
         public IReadOnlyList<Pickup> Items => items;
 
-        // ---- the weapon bar (the owner, 2026-10-19 night: "a tool bar (hot bar) of 3 items so players can click 1, 2, 3 to switch between weapons"): the first three weapons of the pack, in the order they came into it
+        // ---- the weapon bar (the owner, 2026-10-19 night: "a tool bar (hot bar) of 3 items so players can click 1, 2, 3 to switch between weapons"; 2026-10-20 night: six shortcuts, 1 to 6): the first six weapons of the pack, in the order they came into it
         readonly List<bool> barFlags = new List<bool>();
         readonly int[] barSlots = new int[WeaponBarRules.Slots];
         readonly string[] barNames = new string[WeaponBarRules.Slots];
@@ -43,14 +43,14 @@ namespace BuildingEscape
             WeaponBarRules.Fill(barFlags, barSlots);
         }
 
-        /// <summary>The weapon of a bar slot (0 to 2), or null for an empty slot.</summary>
+        /// <summary>The weapon of a bar slot (0 to 5), or null for an empty slot.</summary>
         public Pickup BarWeapon(int slot)
         {
             RefreshBar();
             return slot >= 0 && slot < barSlots.Length && barSlots[slot] >= 0 && barSlots[slot] < items.Count ? items[barSlots[slot]] : null;
         }
 
-        /// <summary>Takes the weapon of a bar slot in hand (the keys 1, 2, 3); false for an empty slot, which changes nothing.</summary>
+        /// <summary>Takes the weapon of a bar slot in hand (the keys 1 to 6); false for an empty slot, which changes nothing.</summary>
         public bool SelectSlot(int slot)
         {
             var p = BarWeapon(slot);
@@ -271,13 +271,10 @@ namespace BuildingEscape
             if (UiOpen) DrawInventory(w);
         }
 
-        /// <summary>The pack card (bottom left: the weight, the loot in the pack, what is in hand) and the pick-up prompt.</summary>
+        /// <summary>The weapon bar and the pick-up prompt (the pack card that used to be at the bottom left is gone: the Tab window shows the weight).</summary>
         void DrawHud(float w)
         {
-            HudWidgets.PackCard(new HudWidgets.PackModel
-            {
-                weight = w, capacity = capacity, lootCount = LootCount, lootValue = LootValue(), inHand = Equipped ? Equipped.Label : null,
-            });
+            // (no pack card at the bottom left any more - the owner, 2026-10-20 night: "remove the backpack from the bottom left corner": the weight and how much more fits are in the Tab window)
             RefreshBar();
             int inHand = -1;
             for (int i = 0; i < barSlots.Length; i++)
@@ -343,16 +340,23 @@ namespace BuildingEscape
             if (Event.current.type == EventType.Repaint)
             {
                 HudIcons.Pack(new Rect(panel.x + pad, top, 30f * s, 30f * s), HudTheme.Info);
-                float bx = panel.x + pad + 40f * s, bw = pw * 0.34f;
+                float bx = panel.x + pad + 40f * s, bw = pw * 0.30f;
                 HudTheme.Bar(new Rect(bx, top + 7f * s, bw, 16f * s), fill, wc, 2.5f);
-                HudTheme.Text(new Rect(bx + bw + 12f * s, top, 230f * s, 30f * s), WeightUnits.Num(w) + " / " + WeightUnits.Lbs(capacity), 18f, wc, TextAnchor.MiddleLeft, false);
+                string weightText = WeightUnits.Num(w) + " / " + WeightUnits.Lbs(capacity);
+                HudTheme.Text(new Rect(bx + bw + 12f * s, top, 230f * s, 30f * s), weightText, 18f, wc, TextAnchor.MiddleLeft, false);
                 int loot = LootCount;
+                float limit = panel.xMax - pad;                                   // (how far right the "left to carry" chip may go)
                 if (loot > 0)
                 {
                     string text = loot + " LOOT   " + HudTheme.Money(LootValue());
                     float cw = HudTheme.Width(text, 17f) + 36f * s;
                     HudTheme.Chip(new Rect(panel.xMax - pad - cw, top + 2f * s, cw, 28f * s), text, HudTheme.Quota, 17f);
+                    limit = panel.xMax - pad - cw - 8f * s;
                 }
+                // how much more fits (the owner, 2026-10-20 night: with the pack card gone, "you have to click tab to see how much more you can carry")
+                string leftText = WeightUnits.Lbs(Mathf.Max(0f, capacity - w)) + " left to carry";
+                float lw = HudTheme.Width(leftText, 14f) + 28f * s, lx = bx + bw + 12f * s + HudTheme.Width(weightText, 18f) + 14f * s;
+                if (lx + lw <= limit) HudTheme.Chip(new Rect(lx, top + 2f * s, lw, 28f * s), leftText, capacity - w < 2f ? HudTheme.Danger : HudTheme.Cash, 14f);
             }
 
             // ---- the lists

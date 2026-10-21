@@ -175,6 +175,23 @@ namespace BuildingEscape
         /// <summary>The small card of the in-run HUD (status, pack, ammunition): the same look as <see cref="Panel"/> with thinner lines, so it takes less room.</summary>
         public static void Plate(Rect r, float radius = 13f) => Body(r, Card, radius, 3f, 4f, true, 1.6f);
 
+        /// <summary>The tint of a see-through plate (<see cref="Glass"/>) and how much of it shows (0 clear .. 1 solid) unless asked otherwise.</summary>
+        public static readonly Color GlassTint = Hex(0x1A388A);
+        public const float GlassAlpha = 0.24f;
+
+        /// <summary>
+        /// A SEE-THROUGH plate (the owner, 2026-10-20 night, about the weapon bar and the ammunition: "have the equipment bubbles be see through"): the scene shows through a thin tint, a pale edge
+        /// (<paramref name="edgeAlpha"/>: 0.5 usual, brighter for the one in hand, fainter for an empty slot) and a faint dark line just outside it, so it still stands out from a bright wall.
+        /// </summary>
+        public static void Glass(Rect r, float alpha = GlassAlpha, float edgeAlpha = 0.5f, Color? tint = null, Color? edge = null, float radius = 11f)
+        {
+            if (r.width < 1f || r.height < 1f) return;
+            float s = S, rad = radius * s, ow = Mathf.Max(1.5f, 2f * s);
+            Rounded(r, Alpha(tint ?? GlassTint, alpha), rad);
+            Ring(new Rect(r.x - 1f, r.y - 1f, r.width + 2f, r.height + 2f), Alpha(Ink, 0.4f), Mathf.Max(1.5f, 1.5f * s), rad + 1f);
+            Ring(r, Alpha(edge ?? Color.white, edgeAlpha), ow, rad);
+        }
+
         /// <summary>A chunky progress bar: a dark track, <paramref name="fraction"/> of it filled in <paramref name="fill"/>.</summary>
         public static void Bar(Rect r, float fraction, Color fill, float outline = 3f)
         {

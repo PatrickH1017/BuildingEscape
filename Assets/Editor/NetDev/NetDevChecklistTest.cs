@@ -20,6 +20,20 @@ namespace BuildingEscape.EditorTools
                 sr > 0.9f && sg > 0.7f && sb < 0.3f && vr > 0.9f && vg > 0.7f && vb < 0.3f && ur > 0.8f && ug < 0.4f && ub < 0.4f && cg > 0.8f && cr < 0.4f && cb < 0.6f,
                 $"(safe {sr:0.00}/{sg:0.00}/{sb:0.00}, unique {ur:0.00}/{ug:0.00}/{ub:0.00}, cash {cr:0.00}/{cg:0.00}/{cb:0.00}, valuable {vr:0.00}/{vg:0.00}/{vb:0.00})");
 
+            // ---- the scan glows by worth (the owner, 2026-10-21): green little, blue the middle, gold a lot and every safe, red the weapons
+            const int q = TowerRules.FirstQuota;                                                         // (floor 1: the tiers start at $302, $602 and $1,204)
+            Check("scan: a thing glows green when it is worth little, blue in the middle and gold when it is worth a lot; a safe is gold and a unique item (a weapon) red whatever it is worth",
+                LootScanRules.GlowOf(false, false, 150, q) == ScanGlow.Green && LootScanRules.GlowOf(false, false, 300, q) == ScanGlow.Green
+                && LootScanRules.GlowOf(false, false, 310, q) == ScanGlow.Blue && LootScanRules.GlowOf(false, false, 600, q) == ScanGlow.Blue
+                && LootScanRules.GlowOf(false, false, 610, q) == ScanGlow.Gold && LootScanRules.GlowOf(false, false, 3000, q) == ScanGlow.Gold
+                && LootScanRules.GlowOf(false, true, 0, q) == ScanGlow.Gold && LootScanRules.GlowOf(true, false, 50, q) == ScanGlow.Red && LootScanRules.GlowOf(true, false, 5000, q) == ScanGlow.Red);
+            LootScanRules.GlowRgb(ScanGlow.Gold, out float gr, out float gg, out float gb);
+            LootScanRules.GlowRgb(ScanGlow.Blue, out float br, out float bg, out float bb);
+            LootScanRules.GlowRgb(ScanGlow.Green, out float nr, out float ng, out float nb);
+            LootScanRules.GlowRgb(ScanGlow.Red, out float rr, out float rg, out float rb);
+            Check("scan: the four glows are gold, blue, green and red",
+                gr > 0.9f && gg > 0.7f && gb < 0.3f && bb > 0.9f && br < 0.4f && ng > 0.8f && nr < 0.4f && nb < 0.6f && rr > 0.8f && rg < 0.4f && rb < 0.4f);
+
             // ---- when a line is done
             var st = new ChecklistState();
             const ScanKind val = ScanKind.Valuable, uni = ScanKind.Unique, safe = ScanKind.Safe, cash = ScanKind.Cash;

@@ -294,7 +294,9 @@ namespace BuildingEscape
 
             // a dot with four ticks, ink-outlined (HudWidgets.Reticle); it gives a little punch when what is under it changes
             int kind = (armed && a.Foe) || gunOnFoe ? 2 : a.Kind != AimKind.None ? 1 : 0;
-            HudWidgets.Reticle(Screen.width * 0.5f, Screen.height * 0.5f, c, locked, kind, size);
+            float scope = HeldGun.LocalScope;
+            if (scope > 0.001f) { GUI.depth = 40; HudWidgets.Scope(scope, gunOnFoe); }          // (down the sniper rifle's scope: the lens and its own cross, under the rest of the HUD)
+            else if (HeldGun.LocalDotShare < 0.6f) HudWidgets.Reticle(Screen.width * 0.5f, Screen.height * 0.5f, c, locked, kind, size);          // (looking through the red dot sight: the dot is the crosshair)
 
             if (a.Kind == AimKind.Interact && a.Interactable != null)
                 HudWidgets.Prompt(a.Interactable.Prompt, Screen.height * 0.62f);
