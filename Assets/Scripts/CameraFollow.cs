@@ -176,7 +176,7 @@ namespace BuildingEscape
         Transform armRU, armRE, armRH, armLU, armLE, armLH, armHead;     // the right and the left upper arm, elbow and wrist, and the head (what is worn on it is never part of the arms)
         /// <summary>
         /// Are the two forearms drawn in first person whatever is in the hands? No since 2026-10-20 night (the owner, with a picture of the view through the red dot: "when scrolled into first person can you remove the character model from being seen here"):
-        /// nothing of the body is drawn, only what is in the hands; except the right arm that holds a pistol out (<see cref="HeldGun.LocalArmMode"/>). Set it to true to bring both arms back.
+        /// nothing of the body is drawn, only what is in the hands (and not the pistol's arm either since 2026-10-21: <see cref="HeldGun.ShowPistolArm"/>, <see cref="HeldGun.LocalArmMode"/>). Set it to true to bring both arms back.
         /// </summary>
         public static bool ShowArms = false;
 

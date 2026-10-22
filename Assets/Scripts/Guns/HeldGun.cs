@@ -86,6 +86,12 @@ namespace BuildingEscape
         /// </summary>
         public static int LocalArmMode { get; private set; }
 
+        /// <summary>
+        /// Is the right arm drawn in first person when a pistol is held out in one hand? No since 2026-10-21 (the owner: "the first person mode for the pistol has the character's hands somewhat visible and blocking the weapon model a bit, please make
+        /// the hands not visible for the pistol similar to the rifle"): the gun alone is in the picture, as with every other gun (the arm still holds it, out of sight, and casts its shadow). Set it to true to bring the arm back.
+        /// </summary>
+        public static bool ShowPistolArm = false;
+
         // ---- the sniper rifle's scope (the owner, 2026-10-20 night: "for the sniper can you make it so we look down the scope and it zooms in a little with a normal crosshair in the scope"):
         // in first person with the rifle up the view narrows to 1/ScopeMagnification of its field, the rifle itself is not drawn (the scope fills the view), and HudWidgets.Scope draws the dark lens with a plain crosshair.
         /// <summary>How many times the scope magnifies (the field of view of the camera is narrowed by this much).</summary>
@@ -304,7 +310,7 @@ namespace BuildingEscape
             // first person with the gun up (not while it is being reloaded, which tilts it): the barrel points where the view does, so that the sight is on the line of sight
             float fpShare = FirstPersonShare(out var viewCamera);
             float ads = viewCamera && hasSight ? fpShare * Mathf.InverseLerp(0.92f, 1f, raiseNow) : 0f;
-            if (viewCamera) { LocalDotShare = sightIsDot ? ads : 0f; LocalArmMode = !twoHand && fpShare > 0.5f ? 1 : 0; }
+            if (viewCamera) { LocalDotShare = sightIsDot ? ads : 0f; LocalArmMode = ShowPistolArm && !twoHand && fpShare > 0.5f ? 1 : 0; }
             // the scope: only the sniper rifle, only at the eye with the rifle fully up; it eases in and out (a quarter of a second)
             float scopeWant = viewCamera && Kind == RangedWeapon.Kind.Sniper && ads > 0.99f ? 1f : 0f;
             scopeNow = Mathf.MoveTowards(scopeNow, scopeWant, Time.deltaTime * 4f);

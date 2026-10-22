@@ -334,6 +334,31 @@ namespace BuildingEscape
             return o;
         }
 
+        public const int PingVariants = 1;
+
+        /// <summary>A ping (the owner, 2026-10-21): two short bright notes going up (A5, then E6), soft at both ends - a marker has gone up. The game shifts its pitch a little for each player's slot.</summary>
+        public static float[] Ping(int variant)
+        {
+            var o = new float[Dsp.Samples(0.34f)];
+            float[] hz = { 880f, 1318.5f };
+            for (int n = 0; n < hz.Length; n++)
+            {
+                int at = Dsp.Samples(0.11f * n), len = Dsp.Samples(0.2f), atk = Dsp.Samples(0.004f);
+                float ph = 0f, dec = Dsp.DecayPerSample(0.09f), env = 1f;
+                for (int i = 0; at + i < o.Length && i < len; i++)
+                {
+                    ph += hz[n] / SR; ph -= (int)ph;
+                    float h2 = ph * 2f; h2 -= (int)h2;
+                    float tone = Dsp.Sine(ph) + 0.2f * Dsp.Sine(h2);
+                    o[at + i] += tone * env * System.Math.Min(1f, i / (float)atk) * 0.6f;
+                    env *= dec;
+                }
+            }
+            Dsp.FadeEnds(o, 0.006f);
+            Dsp.Normalize(o, 0.55f);
+            return o;
+        }
+
         public const int MunchVariants = 2;
 
         /// <summary>A bite of a donut: three soft crunches, each a short burst of low-passed noise (the guard stops to eat one now and then).</summary>

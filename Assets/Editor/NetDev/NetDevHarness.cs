@@ -156,6 +156,13 @@ namespace BuildingEscape.EditorTools
         }
         public static void DemoNet() => Start("demonet");
         public static void MeleeNet() => Start("meleenet");
+        public static void PingNet() => Start("pingnet");
+        public static void PingUi()
+        {
+            SessionState.SetString("netdev.mode", "pingui");
+            EditorSceneManager.OpenScene("Assets/Scenes/Greybox.unity");
+            EditorApplication.isPlaying = true;
+        }
         public static void EtrCarry()
         {
             SessionState.SetString("netdev.mode", "etrcarry");
@@ -337,6 +344,12 @@ namespace BuildingEscape.EditorTools
             EditorSceneManager.OpenScene("Assets/Scenes/Greybox.unity");
             EditorApplication.isPlaying = true;
         }
+        public static void Asks1021()
+        {
+            SessionState.SetString("netdev.mode", "asks1021");
+            EditorSceneManager.OpenScene("Assets/Scenes/Greybox.unity");
+            EditorApplication.isPlaying = true;
+        }
         public static void DockLook()
         {
             SessionState.SetString("netdev.mode", "docklook");
@@ -392,7 +405,7 @@ namespace BuildingEscape.EditorTools
             DontDestroyOnLoad(gameObject);
             started = Time.realtimeSinceStartup;
             GuardAI.DonutRollOverride = mode == "r7" ? -1f : 1f;           // (no donut breaks in the other scenarios: a guard standing still for 6 s could upset their timing)
-            if (mode != "offline" && mode != "sneak" && mode != "floors" && mode != "roomshots" && mode != "corelooks" && mode != "looks" && mode != "floatqa" && mode != "computerui" && mode != "r5" && mode != "r6" && mode != "r7" && mode != "r7look" && mode != "probe" && mode != "doors" && mode != "outpost" && mode != "pew" && mode != "pewlook" && mode != "weaponsheet" && mode != "meleelook" && mode != "gunsheet" && mode != "charsheet" && mode != "dresssheet" && mode != "themesheet" && mode != "fplook" && mode != "gunitems" && mode != "gunlook" && mode != "gunsafes" && mode != "guns" && mode != "gunui" && mode != "combat" && mode != "armour" && mode != "assetpreview" && mode != "citynew" && mode != "round12" && mode != "checklist" && mode != "docklook" && mode != "guardcall" && mode != "dockseeds" && mode != "ui" && mode != "menus" && mode != "shaft" && mode != "pewloot" && mode != "demo" && mode != "demoui" && mode != "lootqa" && mode != "etr" && mode != "etrcarry" && mode != "etrscan" && mode != "introtv" && mode != "introoffline" && mode != "invui" && mode != "doorsslide" && mode != "citylook")
+            if (mode != "offline" && mode != "sneak" && mode != "floors" && mode != "roomshots" && mode != "corelooks" && mode != "looks" && mode != "floatqa" && mode != "computerui" && mode != "r5" && mode != "r6" && mode != "r7" && mode != "r7look" && mode != "probe" && mode != "doors" && mode != "outpost" && mode != "pew" && mode != "pewlook" && mode != "weaponsheet" && mode != "meleelook" && mode != "gunsheet" && mode != "charsheet" && mode != "dresssheet" && mode != "themesheet" && mode != "fplook" && mode != "gunitems" && mode != "gunlook" && mode != "gunsafes" && mode != "guns" && mode != "gunui" && mode != "combat" && mode != "armour" && mode != "assetpreview" && mode != "citynew" && mode != "round12" && mode != "checklist" && mode != "docklook" && mode != "guardcall" && mode != "asks1021" && mode != "pingui" && mode != "dockseeds" && mode != "ui" && mode != "menus" && mode != "shaft" && mode != "pewloot" && mode != "demo" && mode != "demoui" && mode != "lootqa" && mode != "etr" && mode != "etrcarry" && mode != "etrscan" && mode != "introtv" && mode != "introoffline" && mode != "invui" && mode != "doorsslide" && mode != "citylook")
                 yield return WaitFor(() => NetSession.Instance != null && SceneManager.GetActiveScene().name == NetConst.MenuScene, 30, "menu");
             switch (mode)
             {
@@ -434,6 +447,9 @@ namespace BuildingEscape.EditorTools
                 case "armour": yield return ArmourScenario(); break;
                 case "docklook": yield return DockLookScenario(); break;
                 case "guardcall": yield return GuardCallScenario(); break;
+                case "asks1021": yield return Asks1021Scenario(); break;
+                case "pingui": yield return PingUiScenario(); break;
+                case "pingnet": yield return System.Environment.GetEnvironmentVariable("BE_QA_ROLE") == "host" ? PingNetHostScenario() : PingNetClientScenario(); break;
                 case "dockseeds": yield return DockSeedsScenario(); break;
                 case "checklist": yield return ChecklistScenario(); break;
                 case "assetpreview": yield return AssetPreviewScenario(); break;

@@ -7,7 +7,7 @@ namespace BuildingEscape.EditorTools
     /// <summary>
     /// Guards that are hit call for backup when they get up, and backup officers spot a player faster (the owner, 2026-10-20: "Guards that are hit should call for backup upon getting up" / "Backup guards should have a much shorter scan time when a
     /// player enters their vision cone"). On floor 1 nobody can see the player (sight range 0.1 m), so only the blows count: a melee blow knocks a guard over, on his feet he radios (the call ring) and backup is called when it is through; a second
-    /// blow cuts the call; a punch does the same; a bullet does not knock over and starts no call; the officers that come are backup officers with a quarter of the usual spotting time. Run: <c>qa_regress.ps1 -Methods GuardCall</c>.
+    /// blow cuts the call; a punch does the same; a bullet does not knock over, but (since 2026-10-21) it starts a call too: the shot officer stands and radios at once (the call is cancelled when he is put down in time: scenario <c>Asks1021</c>); the officers that come are backup officers with a quarter of the usual spotting time. Run: <c>qa_regress.ps1 -Methods GuardCall</c>.
     /// </summary>
     public partial class NetDevRunner
     {
@@ -62,14 +62,15 @@ namespace BuildingEscape.EditorTools
             GuardCallCheck("the officers that came are backup officers and notice a player at 10 m in a quarter of the usual time", officers.Count >= 1 && officers.All(g => g.IsBackup && Mathf.Abs(g.SpotSecondsAt(10f) - GuardRules.SpotSeconds(10f, g.spotBase, g.spotPerMetre) * GuardRules.BackupSpotFactor) < 0.001f) && usual > 1f && !melee.IsBackup,
                 $"({officers.Count} officers, usual {usual:0.00} s, backup {(officers.Count > 0 ? officers[0].SpotSecondsAt(10f) : -1f):0.00} s)");
 
-            // ---- a punch knocks over too: he calls on getting up. A bullet does not knock over: no call
+            // ---- a punch knocks over too: he calls on getting up. A bullet does not knock over, but it starts the call at once (the owner, 2026-10-21)
             punch.PunchHost(1.0f, player.gameObject);
             bullet.BulletHitHost(1f, false, player.gameObject);
             GuardCallCheck("a punch knocks a guard over, a bullet does not", punch.State == GuardState.Stunned && bullet.State != GuardState.Stunned);
+            GuardCallCheck("a bullet that does not put him down starts his radio call at once: he stands where he is and radios (the owner, 2026-10-21)", bullet.State == GuardState.Calling && bullet.IsCalling, $"(state {bullet.State}, calling {bullet.IsCalling})");
             yield return new WaitForSeconds(1.5f);
             GuardCallCheck("the guard who was punched radios for backup on getting up", punch.State == GuardState.Calling && punch.IsCalling, $"(state {punch.State}, calling {punch.IsCalling})");
             yield return new WaitForSeconds(2.0f);
-            GuardCallCheck("the guard who was only shot at starts no call", !bullet.IsCalling && bullet.State != GuardState.Calling, $"(state {bullet.State})");
+            GuardCallCheck("the shot guard's call is through by now (backup was called) and he is after the player who shot him", !bullet.IsCalling && (bullet.State == GuardState.Chase || bullet.State == GuardState.Investigate), $"(state {bullet.State})");
 
             Log($"[GuardCall] DONE fails={guardCallFails}");
             Quit(guardCallFails == 0 ? 0 : 1);

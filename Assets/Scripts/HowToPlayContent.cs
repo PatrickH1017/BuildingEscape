@@ -25,6 +25,7 @@ namespace BuildingEscape
             ("Tab", "Open your inventory"),
             ("Q", "Grab or drop heavy loot (more people carry heavier things)"),
             ("Left mouse", "Throw what you hold / swing your weapon"),
+            ("Middle mouse (click the wheel)", "Ping: point the crosshair at an item, a weapon or a door and click the mouse wheel - a marker with its name and how far it is shows for your whole team for a few seconds"),
             ("H", "Hide at a desk"),
             ("F", "Use the elevator panel (click a floor, then GO) / sell to the vendor"),
             ("G", "Hidden elevator to the boss: go (everyone must be inside)"),
