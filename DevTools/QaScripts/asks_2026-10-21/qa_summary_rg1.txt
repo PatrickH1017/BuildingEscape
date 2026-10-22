@@ -1,0 +1,26 @@
+﻿Q/A run rg1 on BE_dev, started 2026-10-21 17:46:27
+=== Offline : exit=0 in 29 s; PASS lines 0; FAIL lines 0; exceptions in log 0; DONE offline
+=== Sneak : exit=0 in 49 s; PASS lines 46; FAIL lines 0; exceptions in log 0; [Sneak] DONE fails=0
+=== Pew : exit=0 in 63 s; PASS lines 85; FAIL lines 0; exceptions in log 0; [Pew] DONE fails=0
+=== Guns : exit=0 in 52 s; PASS lines 96; FAIL lines 0; exceptions in log 0; [Guns] DONE fails=0
+=== Combat : exit=1 in 41 s; PASS lines 44; FAIL lines 1; exceptions in log 0; [Combat] DONE fails=1
+   [Combat] FAIL a bullet does its four hits to a guard, does not knock him over and sends him to look where it came from (was Patrol, now Calling, hits 4)
+=== Armour : exit=0 in 29 s; PASS lines 26; FAIL lines 0; exceptions in log 0; [Armour] DONE fails=0
+=== Shaft : exit=0 in 97 s; PASS lines 93; FAIL lines 0; exceptions in log 0; [Shaft] DONE fails=0
+=== PewLoot : exit=0 in 33 s; PASS lines 54; FAIL lines 0; exceptions in log 0; [PewLoot] DONE fails=0
+=== Doors : exit=0 in 101 s; PASS lines 76; FAIL lines 0; exceptions in log 0; [Doors] DONE fails=0
+=== Outpost : exit=0 in 76 s; PASS lines 113; FAIL lines 0; exceptions in log 0; [Outpost] DONE fails=0
+=== Demo : exit=0 in 30 s; PASS lines 40; FAIL lines 0; exceptions in log 0; [Demo] DONE fails=0
+=== Etr : exit=0 in 20 s; PASS lines 30; FAIL lines 0; exceptions in log 0; [Etr] DONE fails=0
+=== LootQa : exit=1 in 89 s; PASS lines 300; FAIL lines 1; exceptions in log 0; [LootQa] DONE fails=1
+   [LootQa] FAIL seed 20240 floor 3: the loot on show can be walked to (NavMesh path from a patrolling guard; at most 2 % in nooks) (4 of 146 unreachable: Prototype Server at (37.70, 0.70, 16.80); Prototype Server at (124.80, 0.70, 4
+=== R7 : exit=0 in 138 s; PASS lines 99; FAIL lines 0; exceptions in log 0; [R7] DONE fails=0
+=== Round12 : exit=0 in 28 s; PASS lines 46; FAIL lines 0; exceptions in log 0; [R12] DONE fails=0
+=== R5 : exit=0 in 40 s; PASS lines 36; FAIL lines 0; exceptions in log 0; [R5] DONE fails=0
+=== R6 : exit=0 in 20 s; PASS lines 22; FAIL lines 0; exceptions in log 0; [R6] DONE fails=0
+=== Looks : exit=0 in 18 s; PASS lines 30; FAIL lines 0; exceptions in log 0; [Looks] DONE fails=0
+=== FloatQa : exit=0 in 23 s; PASS lines 4; FAIL lines 0; exceptions in log 0; [Float] DONE fails=0
+=== GunSafes : exit=0 in 18 s; PASS lines 0; FAIL lines 0; exceptions in log 0; [GunSafes] DONE
+=== Checklist : exit=0 in 40 s; PASS lines 12; FAIL lines 0; exceptions in log 0; [Checklist] DONE fails=0
+=== Floors : exit=0 in 42 s; PASS lines 0; FAIL lines 0; exceptions in log 0; [Floors] DONE shots=56
+finished 18:04:23

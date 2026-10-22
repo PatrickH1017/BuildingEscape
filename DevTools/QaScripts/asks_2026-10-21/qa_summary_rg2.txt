@@ -1,0 +1,7 @@
+﻿Q/A run rg2 on BE_dev, started 2026-10-21 18:15:15
+=== Combat : exit=0 in 42 s; PASS lines 45; FAIL lines 0; exceptions in log 0; [Combat] DONE fails=0
+=== LootQa : exit=0 in 88 s; PASS lines 301; FAIL lines 0; exceptions in log 0; [LootQa] DONE fails=0
+=== Asks1021 : exit=0 in 58 s; PASS lines 57; FAIL lines 0; exceptions in log 0; [Asks] DONE fails=0
+=== GuardCall : exit=0 in 24 s; PASS lines 13; FAIL lines 0; exceptions in log 0; [GuardCall] DONE fails=0
+=== Etr : exit=0 in 20 s; PASS lines 30; FAIL lines 0; exceptions in log 0; [Etr] DONE fails=0
+finished 18:19:07

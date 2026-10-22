@@ -1,0 +1,109 @@
+            // ================================================================== the ping (the owner: "Add a ping system ... lootable items, consumable items, weapons and doors")
+            hm.godMode = true; hm.freezeTimer = true;
+            player = WobblyPlayerRegistry.All[0];
+            pack = player.GetComponent<Backpack>();
+            yield return new WaitForSeconds(1.0f);
+            // somewhere with a clear line of 4.5 m at the height of the eyes and of the floor (a corridor or a big room): the guards' stops are walkable spots
+            bool haveSpot = FindClearSpot(out var spot, out var forward);
+            AsksCheck("the ping: there is a clear line for the tests", haveSpot);
+            if (haveSpot) { player.TeleportTo(spot + Vector3.up * 1.0f, Quaternion.identity); yield return new WaitForSeconds(0.5f); }
+            var standAt = player.transform.position;
+            var eye = (haveSpot ? spot : player.transform.position) + Vector3.up * 1.6f;
+            var watchAt = eye + forward * 3f + Vector3.down * 0.9f;
+            var loot = AsksItem("Gold Watch", watchAt, 700);
+            yield return new WaitForFixedUpdate();
+            AsksCheck("the ping system is installed", PingSystem.Instance != null);
+            // aim at the watch from the player's eye
+            bool aimed = PingSystem.TryAim(eye, (watchAt - eye).normalized, player, out var tLoot);
+            AsksCheck("a ping on a valuable: it is the item, named, with its worth making it loot, a few metres away", aimed && tLoot.kind == PingTargetKind.Item && tLoot.label.StartsWith("Gold Watch") && tLoot.label.Contains("$700") && tLoot.category == PingCategory.Loot && Mathf.Abs(tLoot.distance - 3f) < 0.5f && tLoot.id == loot.NetId, $"({tLoot.kind} {tLoot.label} {tLoot.category} {tLoot.distance:0.0} m, id {tLoot.id}/{loot.NetId})");
+
+            // the other kinds, one at a time on the same spot (a second item on the same line would be hidden behind the first)
+            loot.transform.position = watchAt + Vector3.up * 200f;
+            var spare = AsksItem("Spare Clip", watchAt, 0, true);
+            yield return new WaitForFixedUpdate();
+            bool aimedClip = PingSystem.TryAim(eye, (watchAt - eye).normalized, player, out var tClip);
+            AsksCheck("a ping on a spare clip: something that is used up (a consumable)", aimedClip && tClip.category == PingCategory.Consumable && tClip.label == "Spare Clip", $"({tClip.category} '{tClip.label}')");
+            Destroy(spare.gameObject);
+            var gunPick = RangedWeapon.Create(RangedWeapon.Kind.Smg, watchAt + Vector3.up * 0.3f, null, 0f, 1).GetComponent<Pickup>();
+            yield return new WaitForSeconds(0.8f);                                                // (it falls to the floor)
+            Bounds gunBox = default;
+            bool gunHasBox = gunPick && gunPick.TryGetBounds(out gunBox);
+            PingTarget tGun = default;
+            bool aimedGun = gunHasBox && PingSystem.TryAim(eye, (gunBox.center - eye).normalized, player, out tGun) && tGun.category == PingCategory.Gear;
+            AsksCheck("a ping on a gun lying about: a weapon (gear)", aimedGun, gunHasBox ? $"({tGun.category} '{tGun.label}', box {gunBox.size:F2} at {gunBox.center})" : "(the gun has no box)");
+            AsksCheck("the categories: a weapon or armour is gear, a clip or a thing worth under $50 is used up, the rest is loot", PingSystem.CategoryOf(gunPick) == PingCategory.Gear && PingSystem.CategoryOf(loot) == PingCategory.Loot);
+            Destroy(gunPick.gameObject);
+            loot.transform.position = watchAt;
+            yield return new WaitForFixedUpdate();
+
+            // a wall between: not pingable (nothing is pinged through a wall)
+            var wall = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            wall.name = "AsksWall"; wall.transform.position = eye + forward * 1.2f; wall.transform.localScale = forward.x != 0f ? new Vector3(0.2f, 3f, 3f) : new Vector3(3f, 3f, 0.2f);
+            yield return new WaitForFixedUpdate();
+            AsksCheck("an item behind a wall cannot be pinged", !PingSystem.TryAim(eye, (watchAt - eye).normalized, player, out _));
+            AsksCheck("the wall itself cannot be pinged (only items and doors can)", !PingSystem.TryAim(eye, forward, player, out _));
+            Destroy(wall);
+            yield return new WaitForFixedUpdate();
+            AsksCheck("nothing in the crosshair (the sky, the floor), nothing to ping", !PingSystem.TryAim(eye, Vector3.up, player, out _) && !PingSystem.TryAim(eye, Vector3.down * 1f + forward * 0.01f, player, out _));
+            var faraway = AsksItem("Far Thing", eye + forward * 3f, 900);
+            faraway.transform.position = player.transform.position + Vector3.up * 40f + forward * 100f;     // (out of every wall's way but beyond the range: 100 m)
+            yield return new WaitForFixedUpdate();
+            AsksCheck("an item beyond the range (80 m) cannot be pinged", !PingSystem.TryAim(eye, (faraway.transform.position - eye).normalized, player, out _));
+            Destroy(faraway.gameObject);
+
+            // a door
+            int doorIndex = -1; Vector3 doorFrom = default, doorTo = default;
+            var dm = DoorManager.Active;
+            if (dm != null)
+            {
+                var order = Enumerable.Range(0, dm.Count).OrderBy(i => (dm.Get(i).Centre - player.transform.position).sqrMagnitude).Take(40).ToList();
+                // try the nearest doors from a clear spot in front of each, until one works
+                foreach (int i in order)
+                {
+                    var d = dm.Get(i);
+                    var n = d.AlongX ? Vector3.forward : Vector3.right;
+                    foreach (float side in new[] { -1f, 1f })
+                    {
+                        var from = d.Centre + n * side * 2.4f + Vector3.up * 1.5f;
+                        var to = d.Centre + Vector3.up * 1.2f;
+                        player.TeleportTo(from - Vector3.up * 1.5f, Quaternion.identity);
+                        yield return new WaitForFixedUpdate();
+                        if (PingSystem.TryAim(from, (to - from).normalized, player, out var tDoor) && tDoor.kind == PingTargetKind.Door && tDoor.id == i) { doorIndex = i; doorFrom = from; doorTo = to; break; }
+                    }
+                    if (doorIndex >= 0) break;
+                }
+            }
+            AsksCheck("a ping on a door: the doorway under the crosshair is the target, with its number", doorIndex >= 0, doorIndex >= 0 ? $"(door {doorIndex})" : "(no door could be pinged from in front of it)");
+
+            // the marker itself
+            player.TeleportTo(standAt, Quaternion.identity);
+            yield return new WaitForSeconds(PingRules.Cooldown + 0.1f);
+            bool placed = PingSystem.PingFromView(eye, (watchAt - eye).normalized, player);
+            AsksCheck("pinging puts a marker up for this player: one marker, on the watch", placed && PingSystem.Count == 1 && PingSystem.TryGet(PingSystem.LocalSlot, out var mk, out _) && mk.label.StartsWith("Gold Watch"), $"(placed {placed}, markers {PingSystem.Count})");
+            bool tooSoon = PingSystem.PingFromView(eye, (watchAt - eye).normalized, player);
+            AsksCheck("a second ping straight away is refused (half a second between pings)", !tooSoon && PingSystem.Count == 1);
+            yield return new WaitForSeconds(PingRules.Cooldown + 0.1f);
+            bool second = false;
+            if (doorIndex >= 0)
+            {
+                player.TeleportTo(doorFrom - Vector3.up * 1.5f, Quaternion.identity);
+                yield return new WaitForFixedUpdate();
+                second = PingSystem.PingFromView(doorFrom, (doorTo - doorFrom).normalized, player);
+                player.TeleportTo(standAt, Quaternion.identity);
+            }
+            AsksCheck("a new ping (on a door) replaces the player's old one: one marker each", second && PingSystem.Count == 1 && PingSystem.TryGet(PingSystem.LocalSlot, out var mk2, out _) && mk2.kind == PingTargetKind.Door && mk2.category == PingCategory.Door);
+            PingSystem.OnPinged(2, (byte)PingTargetKind.Item, loot.NetId, loot.transform.position);
+            AsksCheck("a teammate's ping (the host's message) adds a marker of theirs: two markers now", PingSystem.Count == 2 && PingSystem.TryGet(2, out var mk3, out _) && mk3.label.StartsWith("Gold Watch"));
+            bool stored = pack.TryStore(loot);
+            yield return new WaitForSeconds(0.3f);
+            AsksCheck("an item that is taken into a pack loses its marker (the teammate's marker on the watch is gone, the player's own on the door stays)", stored && !PingSystem.TryGet(2, out _, out _) && PingSystem.TryGet(PingSystem.LocalSlot, out _, out _) && PingSystem.Count == 1, $"(stored {stored}, markers {PingSystem.Count})");
+            var shortLived = AsksItem("Short Lived", watchAt, 300);
+            yield return new WaitForFixedUpdate();
+            PingSystem.OnPinged(3, (byte)PingTargetKind.Item, shortLived.NetId, shortLived.transform.position);
+            AsksCheck("a teammate pings another item", PingSystem.Count == 2);
+            Destroy(shortLived.gameObject);
+            yield return new WaitForSeconds(0.3f);
+            AsksCheck("... and a marker whose item is destroyed (banked, sold) goes with it", PingSystem.Count == 1 && !PingSystem.TryGet(3, out _, out _), $"(markers {PingSystem.Count})");
+            yield return new WaitForSeconds(PingRules.Seconds + 0.6f);
+            AsksCheck("a marker goes by itself after 8 seconds", PingSystem.Count == 0, $"(markers {PingSystem.Count})");
+

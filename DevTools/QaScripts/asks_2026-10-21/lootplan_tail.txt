@@ -1,0 +1,213 @@
+        /// <summary>
+        /// Can the people who must carry a treasure of <paramref name="lifters"/> hands get at it and walk it out? A thing for one needs nothing. A thing on a counter (<c>slot.host</c>) needs free room to stand and lift on one side of it - a disc 0.8 m
+        /// (0.95 m for three) wide round a point 1.15 m from it, where its carriers stand side by side in front of it (the owner, 2026-10-17: "Carrying loot together was glitchy because a lot of items where in places where two players couldn't fit together
+        /// while carrying"). A thing standing on the FLOOR (the prototype server, the executive safe) must be reachable from its sides (the owner, 2026-10-21: "a object that two people can pick up together but it is not accessible from both sides": the server
+        /// stood in the aisle between two racks, open at one end only): its box clear of furniture and walls; a spot for a person (a disc of <see cref="StandRadius"/>, inside the room) just beyond each face, <see cref="StandOffset"/> from it; two carriers stand on
+        /// OPPOSITE sides (a thing for three needs two sides, any two: three people cannot all stand opposite each other); and a second person must be able to WALK to the far side - with the box in place, both spots must be reachable from where people come into the
+        /// room (<see cref="WalkGrid"/>). <paramref name="sizeX"/> / <paramref name="sizeZ"/> are the box before the slot's turn.
+        /// </summary>
+        public static bool RoomForCarry(Layout layout, Slot slot, int lifters, float sizeX = 1f, float sizeZ = 1f) => RoomForCarryCore(layout, slot, lifters, sizeX, sizeZ, null);
+
+        /// <summary>The gap between a treasure's face and the middle of the spot a carrier stands at, and the free room (a disc, metres) one carrier needs there: a person is 0.6 m wide; the third carrier of a heavy thing needs a little more.</summary>
+        public const float StandOffset = 0.45f;
+        public static float StandRadius(int lifters) => lifters >= 3 ? 0.40f : 0.35f;
+
+        static bool RoomForCarryCore(Layout layout, Slot slot, int lifters, float sizeX, float sizeZ, WalkGrid grid)
+        {
+            if (lifters <= 1) return true;
+            var room = grid != null ? grid.Room : RoomOf(layout, slot.x, slot.z);
+            if (slot.host != null)
+            {
+                float need = lifters >= 3 ? 0.95f : 0.80f;
+                return SideFree(layout, slot, 1f, 0f, 1.15f, need, room) || SideFree(layout, slot, 0f, 1f, 1.15f, need, room) || SideFree(layout, slot, -1f, 0f, 1.15f, need, room) || SideFree(layout, slot, 0f, -1f, 1.15f, need, room);
+            }
+            bool yawed = Math.Abs(Math.Sin(slot.yaw * Math.PI / 180.0)) > 0.5;
+            float hw = (yawed ? sizeZ : sizeX) * 0.5f, hd = (yawed ? sizeX : sizeZ) * 0.5f;
+            var box = new Rc(slot.x - hw, slot.z - hd, slot.x + hw, slot.z + hd);
+            if (!BoxClear(layout, box)) return false;
+            float stand = StandRadius(lifters), ax = hw + StandOffset, az = hd + StandOffset;
+            bool east = SpotFree(layout, slot.x + ax, slot.z, stand, room), west = SpotFree(layout, slot.x - ax, slot.z, stand, room);
+            bool north = SpotFree(layout, slot.x, slot.z + az, stand, room), south = SpotFree(layout, slot.x, slot.z - az, stand, room);
+            int openSides = (east ? 1 : 0) + (north ? 1 : 0) + (west ? 1 : 0) + (south ? 1 : 0);
+            if (lifters >= 3 ? openSides < 2 : !((east && west) || (north && south))) return false;
+            // a second person must be able to WALK to the far side: with the box in place, the spots must be reachable from where people come into the room
+            if (room == null) return true;
+            if (grid == null) grid = new WalkGrid(layout, room);
+            if (!grid.HasSeeds) return true;                                                                  // (no way in is known: nothing to say about it)
+            var seen = grid.Flood(box);
+            bool reachE = east && grid.Reached(seen, slot.x + ax, slot.z), reachW = west && grid.Reached(seen, slot.x - ax, slot.z);
+            bool reachN = north && grid.Reached(seen, slot.x, slot.z + az), reachS = south && grid.Reached(seen, slot.x, slot.z - az);
+            if (lifters >= 3) return (reachE ? 1 : 0) + (reachN ? 1 : 0) + (reachW ? 1 : 0) + (reachS ? 1 : 0) >= 2;
+            return (reachE && reachW) || (reachN && reachS);
+        }
+
+        /// <summary>Is this box free of solid furniture (taller than a knee) and walls? (Touching within 3 cm is fine.)</summary>
+        static bool BoxClear(Layout layout, Rc box)
+        {
+            foreach (var p in layout.pieces)
+                if (p.solid && !p.onTop && !p.mount && p.h >= 0.35f && p.rc.Overlaps(box, 0.03f)) return false;
+            foreach (var w in layout.walls)
+                if (w.y0 <= 1.0f && w.y1 >= 0.5f && w.rc.Overlaps(box, 0.03f)) return false;
+            return true;
+        }
+
+        /// <summary>Is there room for a person to stand at this spot (a free disc of radius <paramref name="stand"/>, inside the room: its edge is a wall)?</summary>
+        static bool SpotFree(Layout layout, float x, float z, float stand, RoomInfo room)
+        {
+            if (room != null && EdgeClearance(room, x, z) < stand) return false;
+            return FreeRadius(layout, x, z, stand) >= stand;
+        }
+
+        /// <summary>
+        /// The floor of one room as a grid of cells a person can stand in (clear of furniture, walls and the room's edge by a person's half width), made once for every spot a treasure is tried at. <see cref="Flood"/> says which cells can be walked to from the
+        /// way in (a spot just inside each doorway, and the guards' standing spot of the room, which the planner made sure can be walked to) when a box stands somewhere.
+        /// </summary>
+        sealed class WalkGrid
+        {
+            const float Step = 0.25f, Person = 0.3f;
+            public readonly RoomInfo Room;
+            readonly float x0, z0;
+            readonly int nx, nz;
+            readonly bool[] blocked;
+            readonly List<int> seeds = new List<int>();
+            readonly Queue<int> queue = new Queue<int>();
+            public bool HasSeeds => seeds.Count > 0;
+
+            public WalkGrid(Layout layout, RoomInfo room)
+            {
+                Room = room;
+                x0 = room.bounds.x0; z0 = room.bounds.z0;
+                nx = Math.Max(1, (int)Math.Ceiling(room.bounds.W / Step));
+                nz = Math.Max(1, (int)Math.Ceiling(room.bounds.D / Step));
+                blocked = new bool[nx * nz];
+                var near = new List<Rc>();
+                var area = room.bounds.Grow(1.5f);
+                foreach (var p in layout.pieces) if (p.solid && !p.onTop && !p.mount && p.h >= 0.35f && p.rc.Overlaps(area)) near.Add(p.rc);
+                foreach (var w in layout.walls) if (w.y0 <= 1.0f && w.y1 >= 0.5f && w.rc.Overlaps(area)) near.Add(w.rc);
+                foreach (var b in room.blocks) near.Add(b);
+                for (int iz = 0; iz < nz; iz++)
+                    for (int ix = 0; ix < nx; ix++)
+                    {
+                        float cx = x0 + (ix + 0.5f) * Step, cz = z0 + (iz + 0.5f) * Step;
+                        bool bl = EdgeClearance(room, cx, cz) < Person;
+                        for (int k = 0; !bl && k < near.Count; k++) if (DistanceTo(near[k], cx, cz) < Person) bl = true;
+                        blocked[iz * nx + ix] = bl;
+                    }
+                foreach (var d in room.doors)
+                {
+                    float dx = d.Cx, dz = d.Cz;
+                    float ex = Math.Min(dx - room.bounds.x0, room.bounds.x1 - dx), ez = Math.Min(dz - room.bounds.z0, room.bounds.z1 - dz);
+                    if (ez <= ex) dz += dz - room.bounds.z0 < room.bounds.z1 - dz ? 0.6f : -0.6f; else dx += dx - room.bounds.x0 < room.bounds.x1 - dx ? 0.6f : -0.6f;
+                    AddSeed(dx, dz);
+                }
+                if (room.bounds.Contains(room.wx, room.wz)) AddSeed(room.wx, room.wz);
+            }
+
+            int CellOf(float x, float z)
+            {
+                int ix = (int)Math.Floor((x - x0) / Step), iz = (int)Math.Floor((z - z0) / Step);
+                return ix < 0 || iz < 0 || ix >= nx || iz >= nz ? -1 : iz * nx + ix;
+            }
+
+            void AddSeed(float x, float z) { int c = CellOf(x, z); if (c >= 0 && !blocked[c] && !seeds.Contains(c)) seeds.Add(c); }
+
+            bool BlockedWith(int i, Rc box) =>
+                blocked[i] || DistanceTo(box, x0 + (i % nx + 0.5f) * Step, z0 + (i / nx + 0.5f) * Step) < Person;
+
+            /// <summary>The cells that can be walked to from the way in with a box standing at <paramref name="box"/> (a cell is open when a person fits there: clear of everything, the box too, by a person's half width).</summary>
+            public bool[] Flood(Rc box)
+            {
+                var seen = new bool[nx * nz];
+                queue.Clear();
+                foreach (int s0 in seeds) if (!BlockedWith(s0, box) && !seen[s0]) { seen[s0] = true; queue.Enqueue(s0); }
+                while (queue.Count > 0)
+                {
+                    int c = queue.Dequeue(), cx = c % nx, cz = c / nx;
+                    if (cx > 0) Take(c - 1, box, seen);
+                    if (cx < nx - 1) Take(c + 1, box, seen);
+                    if (cz > 0) Take(c - nx, box, seen);
+                    if (cz < nz - 1) Take(c + nx, box, seen);
+                }
+                return seen;
+            }
+
+            void Take(int i, Rc box, bool[] seen)
+            {
+                if (seen[i] || BlockedWith(i, box)) return;
+                seen[i] = true; queue.Enqueue(i);
+            }
+
+            /// <summary>Can a person get to this spot (it is an open cell that the flood reached)?</summary>
+            public bool Reached(bool[] seen, float x, float z) { int c = CellOf(x, z); return c >= 0 && seen[c]; }
+        }
+
+        /// <summary>The smallest room whose bounds hold this point, or null (a plan made of nothing but furniture).</summary>
+        static RoomInfo RoomOf(Layout layout, float x, float z)
+        {
+            RoomInfo best = null; float area = float.MaxValue;
+            foreach (var r in layout.rooms)
+                if (r.bounds.Contains(x, z) && r.bounds.W * r.bounds.D < area) { best = r; area = r.bounds.W * r.bounds.D; }
+            return best;
+        }
+
+        /// <summary>How far a point is from the edge of a room (negative outside it): the maze's cell walls stand at the edge and are not in <see cref="Layout.walls"/>, so the edge itself has to count as a wall.</summary>
+        static float EdgeClearance(RoomInfo room, float x, float z) =>
+            Math.Min(Math.Min(x - room.bounds.x0, room.bounds.x1 - x), Math.Min(z - room.bounds.z0, room.bounds.z1 - z));
+
+        /// <summary>Is there room to stand and lift on one side of a treasure on a counter (a free disc of radius <paramref name="need"/> a distance <paramref name="ahead"/> from its middle, in the direction (fx, fz))?</summary>
+        static bool SideFree(Layout layout, Slot slot, float fx, float fz, float ahead, float need, RoomInfo room = null)
+        {
+            float px = slot.x + fx * ahead, pz = slot.z + fz * ahead;
+            if (room != null && EdgeClearance(room, px, pz) < need) return false;                      // (the spot is at, or beyond, the wall round the room)
+            return FreeRadius(layout, px, pz, need, slot.host) >= need;
+        }
+
+        /// <summary>
+        /// A treasure on the floor that cannot be reached from the sides where the planner put it moves to the nearest spot of its own room where it can: its box (grown a little) clear of furniture and walls, a metre clear of every doorway of the room and of the
+        /// guards' standing places and of the rectangles that must stay walkable, and <see cref="RoomForCarry"/> true there. A grid of 0.25 m steps up to 3.5 m from the planned spot, the nearest first (the first found wins a tie); nothing random, so every
+        /// machine finds the same spot. False when there is none (the treasure is then left out). Only for a thing for two or three on the floor.
+        /// </summary>
+        public static bool TryFindCarrySpot(Layout layout, Slot slot, int lifters, float sizeX, float sizeZ, out float x, out float z)
+        {
+            x = slot.x; z = slot.z;
+            if (lifters <= 1 || slot.host != null) return false;
+            var room = RoomOf(layout, slot.x, slot.z);
+            if (room == null) return false;
+            var grid = new WalkGrid(layout, room);
+            float hx = sizeX * 0.5f + 0.06f, hz = sizeZ * 0.5f + 0.06f;
+            const float step = 0.25f, reach = 3.5f;
+            int n = (int)(reach / step);
+            int best = int.MaxValue; bool found = false;
+            for (int iz = -n; iz <= n; iz++)
+                for (int ix = -n; ix <= n; ix++)
+                {
+                    int dd = ix * ix + iz * iz;
+                    if (dd >= best || dd > n * n) continue;
+                    float cx = slot.x + ix * step, cz = slot.z + iz * step;
+                    var foot = new Rc(cx - hx, cz - hz, cx + hx, cz + hz);
+                    if (foot.x0 < room.bounds.x0 + 0.05f || foot.x1 > room.bounds.x1 - 0.05f || foot.z0 < room.bounds.z0 + 0.05f || foot.z1 > room.bounds.z1 - 0.05f) continue;
+                    if (!FootprintClear(layout, room, foot)) continue;
+                    var spot = new Slot { x = cx, y = slot.y, z = cz, yaw = slot.yaw, kind = slot.kind, room = slot.room, host = null };
+                    if (!RoomForCarryCore(layout, spot, lifters, sizeX, sizeZ, grid)) continue;
+                    best = dd; x = cx; z = cz; found = true;
+                }
+            return found;
+        }
+
+        /// <summary>Is the box <paramref name="foot"/> free of solid furniture and walls, a metre from the room's doorways and the guards' standing places, and out of the rectangles that must stay walkable?</summary>
+        static bool FootprintClear(Layout layout, RoomInfo room, Rc foot)
+        {
+            foreach (var p in layout.pieces)
+                if (p.solid && !p.onTop && !p.mount && p.h >= 0.35f && p.rc.Overlaps(foot)) return false;
+            foreach (var w in layout.walls)
+                if (w.y0 <= 1.0f && w.y1 >= 0.5f && w.rc.Overlaps(foot)) return false;
+            foreach (var d in room.doors)
+                if (d.Grow(1.0f).Overlaps(foot)) return false;
+            foreach (var c in layout.clear)
+                if (c.Overlaps(foot)) return false;
+            foreach (var wp in layout.waypoints)
+                if (wp != null && wp.Length >= 2 && DistanceTo(foot, wp[0], wp[1]) < 1.0f) return false;
+            return true;
+        }
+    }
+}

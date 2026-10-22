@@ -1,0 +1,39 @@
+﻿Q/A run fin on BE_dev, started 2026-10-21 18:52:41
+=== compile + pure tests: exit=0 in 166 s; compile errors=0; compiler warnings=12; pure PASS=647 FAIL=0
+=== Offline : exit=0 in 28 s; PASS lines 0; FAIL lines 0; exceptions in log 0; DONE offline
+=== Sneak : exit=0 in 49 s; PASS lines 46; FAIL lines 0; exceptions in log 0; [Sneak] DONE fails=0
+=== Pew : exit=0 in 64 s; PASS lines 85; FAIL lines 0; exceptions in log 0; [Pew] DONE fails=0
+=== Guns : exit=0 in 52 s; PASS lines 96; FAIL lines 0; exceptions in log 0; [Guns] DONE fails=0
+=== Combat : exit=0 in 43 s; PASS lines 45; FAIL lines 0; exceptions in log 0; [Combat] DONE fails=0
+=== Armour : exit=0 in 29 s; PASS lines 26; FAIL lines 0; exceptions in log 0; [Armour] DONE fails=0
+=== Doors : exit=0 in 100 s; PASS lines 76; FAIL lines 0; exceptions in log 0; [Doors] DONE fails=0
+=== Outpost : exit=0 in 76 s; PASS lines 113; FAIL lines 0; exceptions in log 0; [Outpost] DONE fails=0
+=== Demo : exit=0 in 29 s; PASS lines 40; FAIL lines 0; exceptions in log 0; [Demo] DONE fails=0
+=== Etr : exit=0 in 19 s; PASS lines 30; FAIL lines 0; exceptions in log 0; [Etr] DONE fails=0
+=== LootQa : exit=0 in 88 s; PASS lines 301; FAIL lines 0; exceptions in log 0; [LootQa] DONE fails=0
+=== R7 : exit=0 in 137 s; PASS lines 99; FAIL lines 0; exceptions in log 0; [R7] DONE fails=0
+=== Round12 : exit=0 in 28 s; PASS lines 46; FAIL lines 0; exceptions in log 0; [R12] DONE fails=0
+=== R5 : exit=0 in 40 s; PASS lines 36; FAIL lines 0; exceptions in log 0; [R5] DONE fails=0
+=== R6 : exit=0 in 19 s; PASS lines 22; FAIL lines 0; exceptions in log 0; [R6] DONE fails=0
+=== Looks : exit=0 in 17 s; PASS lines 30; FAIL lines 0; exceptions in log 0; [Looks] DONE fails=0
+=== FloatQa : exit=0 in 23 s; PASS lines 4; FAIL lines 0; exceptions in log 0; [Float] DONE fails=0
+=== GunSafes : exit=0 in 18 s; PASS lines 0; FAIL lines 0; exceptions in log 0; [GunSafes] DONE
+=== Checklist : exit=0 in 39 s; PASS lines 12; FAIL lines 0; exceptions in log 0; [Checklist] DONE fails=0
+=== Floors : exit=0 in 43 s; PASS lines 0; FAIL lines 0; exceptions in log 0; [Floors] DONE shots=56
+=== GuardCall : exit=0 in 23 s; PASS lines 13; FAIL lines 0; exceptions in log 0; [GuardCall] DONE fails=0
+=== FpLook : exit=0 in 26 s; PASS lines 15; FAIL lines 0; exceptions in log 0; [FpLook] DONE fails=0
+finished 19:15:20
+--- two machines ---
+=== PingNet : host exit=1; c1 exit=1
+    host : PASS 1, FAIL 1, exceptions/desync 0; [Package Manager] Done registering packages in 0.10 seconds
+        FAIL timeout waiting for the client's ping
+    c1 : PASS 2, FAIL 1, exceptions/desync 0; [Package Manager] Done registering packages in 0.09 seconds
+        FAIL timeout waiting for signal h_saw1
+=== Armed : host exit=0; c1 exit=0
+    host : PASS 7, FAIL 0, exceptions/desync 0; DONE armedhost
+    c1 : PASS 10, FAIL 0, exceptions/desync 0; DONE armedclient
+=== MeleeNet : host exit=0; c1 exit=0
+    host : PASS 4, FAIL 0, exceptions/desync 0; DONE meleenethost
+    c1 : PASS 2, FAIL 0, exceptions/desync 0; DONE meleenetclient
+finished 19:18:38
+ALL DONE 19:18:38

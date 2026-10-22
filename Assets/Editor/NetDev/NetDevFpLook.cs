@@ -107,7 +107,9 @@ namespace BuildingEscape.EditorTools
                     ShotCam(side, "fplook_leftside_" + kind);
                     Destroy(side.gameObject);
                 }
-                FpLookCheck($"{kind}: nothing of the body but its arms is drawn", rig.ArmsShown == (CameraFollow.ShowArms || kind == RangedWeapon.Kind.Pew) && bodyBits.All(r => r.shadowCastingMode == UnityEngine.Rendering.ShadowCastingMode.ShadowsOnly || r.sharedMaterials.All(m => m && m.shader && m.shader.name == "BuildingEscape/FirstPersonArms")), $"({bodyBits.Count} parts)");
+                if (kind == RangedWeapon.Kind.Pew)
+                    FpLookCheck("Pew: no hands in the picture - the pistol is seen alone like every other gun, no arm is drawn (the owner, 2026-10-21)", !HeldGun.ShowPistolArm && HeldGun.LocalArmMode == 0 && !rig.ArmsShown && bodyBits.All(r => r.shadowCastingMode == UnityEngine.Rendering.ShadowCastingMode.ShadowsOnly), $"(arm mode {HeldGun.LocalArmMode}, arms shown {rig.ArmsShown}, {bodyBits.Count} parts)");
+                FpLookCheck($"{kind}: nothing of the body but its arms is drawn", rig.ArmsShown == (CameraFollow.ShowArms || (HeldGun.ShowPistolArm && kind == RangedWeapon.Kind.Pew)) && bodyBits.All(r => r.shadowCastingMode == UnityEngine.Rendering.ShadowCastingMode.ShadowsOnly || r.sharedMaterials.All(m => m && m.shader && m.shader.name == "BuildingEscape/FirstPersonArms")), $"({bodyBits.Count} parts)");
             }
             if (previous) { pack.Drop(previous); Destroy(previous.gameObject); previous = null; yield return new WaitForSeconds(0.3f); }
             var crowbar = MeleeWeapon.Create(MeleeWeapon.Kind.Crowbar, at, null).GetComponent<Pickup>();

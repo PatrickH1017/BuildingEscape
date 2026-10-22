@@ -61,6 +61,7 @@ namespace BuildingEscape
                 {
                     new Entry("F", "elevator panel / sell (docks)"),
                     new Entry("G", "hidden elevator to the boss: go"),
+                    new Entry("MMB", "ping loot, gear, doors (wheel)"),
                     new Entry("M", "mute your microphone"),
                     new Entry("T", "push to talk (if set in Settings)"),
                     new Entry("ESC", "menu: settings, keybinds, leave"),

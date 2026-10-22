@@ -94,15 +94,31 @@ namespace BuildingEscape
                 PoseArm(mag, aimPoint, BodyFree());
             }
             else PoseRemote();
-            if (!usable) return;
+            if (!usable) { if (viewed) trigger.Pull(false, TriggerHeld()); return; }       // (a click that begins now must not become a shot when the menu closes on it: see TriggerLatch)
 
             if (Input.GetKeyDown(KeyCode.R))
             {
                 if (mag.StartReload(now)) reloadStep = 0;
                 else if (mag.OutOfAmmo) OutOfAmmoNotice();
             }
-            if (Input.GetMouseButton(0) && !DartBoard.Playing) Fire();
+            if (trigger.Pull(!DartBoard.Playing, TriggerHeld())) Fire();
         }
+
+        TriggerLatch trigger;
+
+        /// <summary>A test's own fire button (null: the real mouse): the tests cannot press a mouse button.</summary>
+        public static bool? TestTrigger;
+
+        /// <summary>A test's own answer to "is the cursor locked in the game" (null: the real one): a batch run cannot lock the cursor.</summary>
+        public static bool? TestCursorLocked;
+
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        static void ResetTestTrigger() { TestTrigger = null; TestCursorLocked = null; }
+
+        static bool TriggerHeld() => TestTrigger ?? Input.GetMouseButton(0);
+
+        /// <summary>Is the click that is held right now one the gun is ignoring (it began while a menu or the elevator panel was up)? For the tests.</summary>
+        public bool TriggerLatched => trigger.Latched;
 
         /// <summary>The body is on its feet with free hands (not pinned, knocked over, hiding or carrying something).</summary>
         bool BodyFree()
@@ -113,7 +129,7 @@ namespace BuildingEscape
         }
 
         /// <summary>No menu is open, the cursor is in the game and the body is free.</summary>
-        bool CanUse() => !Crosshair.MenuOpen && Cursor.lockState == CursorLockMode.Locked && BodyFree();
+        bool CanUse() => !Crosshair.MenuOpen && (TestCursorLocked ?? Cursor.lockState == CursorLockMode.Locked) && BodyFree();
 
         /// <summary>Switch to another gun (or none): the old one's reload is cancelled and its model goes. False while the character's model is not ready yet.</summary>
         bool ChangeTo(RangedWeapon next)

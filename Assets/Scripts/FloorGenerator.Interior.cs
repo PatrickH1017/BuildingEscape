@@ -386,7 +386,7 @@ namespace BuildingEscape
                 int j = rng.Next(i + 1);
                 var t = slots[i]; slots[i] = slots[j]; slots[j] = t;
             }
-            int want = LootPlan.TreasureCount(floor), placed = 0, cramped = 0;
+            int want = LootPlan.TreasureCount(floor), placed = 0, cramped = 0, moved = 0;
             for (int i = 0; i < slots.Count && placed < want; i++)
             {
                 try
@@ -394,7 +394,14 @@ namespace BuildingEscape
                     var s = slots[i];
                     int idx = LootIndex(s.kind);
                     var t = LootTable[idx];
-                    if (!LootPlan.RoomForCarry(layout, s, t.lifters)) { cramped++; continue; }
+                    if (!LootPlan.RoomForCarry(layout, s, t.lifters, t.size.x, t.size.z))
+                    {
+                        // (the owner, 2026-10-21: "a object that two people can pick up together but it is not accessible from both sides") a treasure on the floor that has no room on two opposite sides where the planner put it
+                        // goes to the nearest spot of its room that has, and is left out when there is none
+                        if (!LootPlan.TryFindCarrySpot(layout, s, t.lifters, t.size.x, t.size.z, out float mx, out float mz)) { cramped++; continue; }
+                        s = new Slot { x = mx, y = s.y, z = mz, yaw = s.yaw, kind = s.kind, room = s.room, host = s.host };
+                        moved++;
+                    }
                     var pos = new Vector3(s.x, s.y + t.size.y * 0.5f + 0.03f, s.z);
                     var go = Box(t.name, pos, t.size, lootMat, null, dynamic: true);
                     go.transform.SetParent(current);
@@ -408,7 +415,7 @@ namespace BuildingEscape
                 }
                 catch (System.Exception e) { LogOnce("treasure " + slots[i].kind, e); }
             }
-            if (cramped > 0) Debug.Log($"[Loot] floor {floor}: {placed} treasures placed, {cramped} spots skipped because two or three people could not carry what stands there");
+            if (cramped > 0 || moved > 0) Debug.Log($"[Loot] floor {floor}: {placed} treasures placed, {moved} moved to where two or three people can reach them from both sides, {cramped} spots skipped because two or three people could not carry what stands there");
         }
 
         /// <summary>HeavyLoot adds its Pickup in Awake, which Unity skips in edit mode (the floor preview), so make sure it is there.</summary>

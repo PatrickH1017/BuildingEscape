@@ -185,12 +185,12 @@ namespace BuildingEscape.EditorTools
             CombatCheck("floor 4: some guards armed with the pew and a light shield, at least five unarmed ones to try things on", all4.Count(g => g.Loadout.Armed) >= 2 && bare4.Count >= 5 && bare4.All(g => g.Shield == ShieldTier.None), $"({Mix(all4)})");
             if (bare4.Count >= 5)
             {
-                // ---- a bullet: damage, no knock-over, he goes to look where it came from
+                // ---- a bullet: damage, no knock-over; he stops and radios for backup (the owner, 2026-10-21) and then goes after the shooter (before that, 2026-10-19: he went to look where it came from)
                 var a = bare4[0];
                 var before = a.State;
                 a.BulletHitHost(pewBullet, false, player.gameObject);
-                bool lookedAround = before == GuardState.Chase || before == GuardState.Stunned || a.State == GuardState.Investigate;
-                CombatCheck("a bullet does its four hits to a guard, does not knock him over and sends him to look where it came from", a.Hits == pewBullet && a.State != GuardState.Stunned && !a.Dead && lookedAround, $"(was {before}, now {a.State}, hits {a.Hits})");
+                bool lookedAround = before == GuardState.Chase || before == GuardState.Stunned || a.State == GuardState.Calling || a.State == GuardState.Investigate;
+                CombatCheck("a bullet does its four hits to a guard, does not knock him over, and he reacts: a patrolling guard stops and radios for backup (he goes after the shooter when the call is through)", a.Hits == pewBullet && a.State != GuardState.Stunned && !a.Dead && lookedAround, $"(was {before}, now {a.State}, hits {a.Hits})");
 
                 // ---- shot while he holds a player down: the player is free and he has let go
                 a.SetLoadout(a.Loadout);                                           // (no change)

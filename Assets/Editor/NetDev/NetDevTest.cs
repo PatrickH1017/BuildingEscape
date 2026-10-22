@@ -59,6 +59,7 @@ namespace BuildingEscape.EditorTools
             ArmourTest();
             Round12Test();
             ChecklistTest();
+            Asks1021Test();
             string v = NetConst.BuildVersion;
             Check("allow", JoinPolicy.Evaluate(false, 1, v, v, true) == JoinVerdict.Allow);
             Check("five players is the limit", NetConst.MaxPlayers == 5);

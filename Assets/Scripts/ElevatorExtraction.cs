@@ -275,18 +275,18 @@ namespace BuildingEscape
         {
             sealing = true; Sealing = true;
             int steps = Mathf.Max(1, Mathf.CeilToInt(CloseDelay));            // a countdown on every machine (the owner, 2026-10-17 night: "elevator door closing pop-up should be a countdown")
+            float stepSeconds = CloseDelay / steps;
             for (int left = steps; left >= 1; left--)
             {
                 Announce($"Doors closing in {left}");
-                yield return new WaitForSeconds(CloseDelay / steps);
+                for (float t = 0f; t < stepSeconds; t += Time.deltaTime)
+                {
+                    // somebody steps out while the doors count down: the countdown is cancelled at once, and it does not start again when they come back - a player has to click GO again (the owner, 2026-10-21)
+                    if (!EveryoneAboard) { CancelCountdown(); yield break; }
+                    yield return null;
+                }
             }
-            if (!EveryoneAboard)
-            {
-                // somebody stepped out while the doors waited: they stay open, and GO can be pressed again
-                Announce("Everyone must be inside the elevator");
-                Sealing = false; sealing = false;
-                yield break;
-            }
+            if (!EveryoneAboard) { CancelCountdown(); yield break; }
             if (door) door.SetOpen(false);
             yield return new WaitForSeconds(door ? 1.6f : 0.2f);
             yield return new WaitForSeconds(0.8f);
@@ -296,6 +296,16 @@ namespace BuildingEscape
             Sealing = false; sealing = false;
             if (door) door.SetOpen(true);
         }
+
+        /// <summary>The countdown is off: somebody left the car while it ran. The doors stay open; the floor stays chosen on the panel, and GO has to be clicked again (nothing restarts by itself when they get back in).</summary>
+        void CancelCountdown()
+        {
+            Announce(CancelledText);
+            Sealing = false; sealing = false;
+        }
+
+        /// <summary>What everybody is told when the countdown is cancelled (the words are a placeholder for the owner to rewrite).</summary>
+        public const string CancelledText = "Countdown cancelled - someone left the elevator. Click GO again";
 
         void OnDestroy() { EveryoneAboard = false; Sealing = false; LocalInside = false; if (Current == this) Current = null; }
 
