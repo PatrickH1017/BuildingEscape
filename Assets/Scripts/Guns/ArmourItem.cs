@@ -5,7 +5,7 @@ namespace BuildingEscape
     /// <summary>
     /// A piece of armour (the owner, 2026-10-19: Light / Medium / Heavy Armour, found in the safes of floors 3 / 7 / 10 and bought from the dealer once its finder is back in the Loading Docks; <see cref="ArmourRules"/>): an item lying about
     /// - in a safe, on the dealer's shelf - that goes into the pack like any item and is WORN while it is in the pack (<see cref="PlayerArmour"/>); one piece at a time. A piece found and carried back to the docks unlocks its tier at the dealer
-    /// for everybody (<see cref="RunUnlocks.CollectFrom"/>). A flat model of boxes in the colours of the guards' vests (<see cref="GuardArmour"/>).
+    /// for everybody (<see cref="RunUnlocks.CollectFrom"/>). Since 2026-10-23 the piece is the Synty Battle Royale pick-up armour of its tier (<see cref="ArmourFitRules"/>) when the weapon catalog has it; without it, a flat model of boxes in the colours of the guards' vests (<see cref="GuardArmour"/>).
     /// </summary>
     public sealed class ArmourItem : MonoBehaviour
     {
@@ -20,12 +20,24 @@ namespace BuildingEscape
         /// <summary>The size of a piece lying down: across, thick, deep (metres). It lies on its thin side.</summary>
         public static Vector3 Size(ShieldTier tier)
         {
+            if (PickupPrefab(tier))
+            {
+                ArmourFitRules.PickupSize(tier, out float across, out float thick, out float deep);
+                return new Vector3(across, thick, deep);
+            }
             switch (tier)
             {
                 case ShieldTier.Heavy: return new Vector3(0.64f, 0.14f, 0.36f);
                 case ShieldTier.Medium: return new Vector3(0.42f, 0.11f, 0.36f);
                 default: return new Vector3(0.42f, 0.06f, 0.36f);
             }
+        }
+
+        /// <summary>The pack's model of a piece of this tier lying about, or null when the weapon catalog has none (then the boxes are built).</summary>
+        public static GameObject PickupPrefab(ShieldTier tier)
+        {
+            var cat = MeleeWeapon.Catalog;
+            return cat ? cat.ArmourPickup(tier) : null;
         }
 
         static void Part(Transform parent, string partName, Vector3 localPos, Vector3 size, Material mat)
@@ -51,18 +63,33 @@ namespace BuildingEscape
             if (parent) go.transform.SetParent(parent, true);
             go.transform.SetPositionAndRotation(pos, Quaternion.Euler(0f, yaw, 0f));
             var size = Size(tier);
-            float bottom = -size.y * 0.5f;
-            float slab = tier == ShieldTier.Light ? 0.06f : tier == ShieldTier.Medium ? 0.07f : 0.08f;
-            Part(go.transform, "Body", new Vector3(0f, bottom + slab * 0.5f, 0f), new Vector3(0.42f, slab, 0.36f), GuardArmour.VestMaterial(tier));
-            if (tier != ShieldTier.Light)
+            var packModel = PickupPrefab(tier);
+            if (packModel)
             {
-                bool heavy = tier == ShieldTier.Heavy;
-                var plate = GuardArmour.PlateMaterial(tier);
-                Part(go.transform, "Plate", new Vector3(0f, bottom + slab + 0.02f, 0f), new Vector3(heavy ? 0.36f : 0.30f, 0.04f, heavy ? 0.30f : 0.26f), plate);
-                if (heavy)
+                // the pack's piece, lying flat as it is modelled, in the middle of its collider (the owner, 2026-10-23)
+                var model = Object.Instantiate(packModel, go.transform, false);
+                model.name = "Armour";
+                foreach (var c in model.GetComponentsInChildren<Collider>(true)) Object.Destroy(c);
+                ArmourFitRules.PickupCenter(tier, out float cx, out float cy, out float cz);
+                model.transform.localScale = Vector3.one * ArmourFitRules.PickupScale;
+                model.transform.localPosition = -new Vector3(cx, cy, cz) * ArmourFitRules.PickupScale;
+                model.transform.localRotation = Quaternion.identity;
+            }
+            else
+            {
+                float bottom = -size.y * 0.5f;
+                float slab = tier == ShieldTier.Light ? 0.06f : tier == ShieldTier.Medium ? 0.07f : 0.08f;
+                Part(go.transform, "Body", new Vector3(0f, bottom + slab * 0.5f, 0f), new Vector3(0.42f, slab, 0.36f), GuardArmour.VestMaterial(tier));
+                if (tier != ShieldTier.Light)
                 {
-                    Part(go.transform, "PadLeft", new Vector3(-0.26f, bottom + 0.05f, 0f), new Vector3(0.12f, 0.10f, 0.26f), plate);
-                    Part(go.transform, "PadRight", new Vector3(0.26f, bottom + 0.05f, 0f), new Vector3(0.12f, 0.10f, 0.26f), plate);
+                    bool heavy = tier == ShieldTier.Heavy;
+                    var plate = GuardArmour.PlateMaterial(tier);
+                    Part(go.transform, "Plate", new Vector3(0f, bottom + slab + 0.02f, 0f), new Vector3(heavy ? 0.36f : 0.30f, 0.04f, heavy ? 0.30f : 0.26f), plate);
+                    if (heavy)
+                    {
+                        Part(go.transform, "PadLeft", new Vector3(-0.26f, bottom + 0.05f, 0f), new Vector3(0.12f, 0.10f, 0.26f), plate);
+                        Part(go.transform, "PadRight", new Vector3(0.26f, bottom + 0.05f, 0f), new Vector3(0.12f, 0.10f, 0.26f), plate);
+                    }
                 }
             }
             var box = go.AddComponent<BoxCollider>();

@@ -54,6 +54,18 @@ namespace BuildingEscape
         [Tooltip("The sub machine gun, the assault rifle, the shotgun and the sniper rifle, in the order of RangedWeapon.Kind after the pew (Smg, Rifle, Shotgun, Sniper).")]
         public GunModel[] longGuns;
 
+        [Header("Body armour (the owner, 2026-10-23: the Synty Battle Royale armour)")]
+        [Tooltip("The armour lying about, Light / Medium / Heavy (Synty Battle Royale: SM_PickUp_Armor_01 to 03). Empty = the game's boxes (ArmourItem).")]
+        public GameObject[] armourPickups = new GameObject[3];
+        [Tooltip("The armour worn on the chest, Light / Medium / Heavy (Synty Battle Royale: SM_Chr_Attach_Male_Armor_01 to 03), scaled to the wearer (ArmourFitRules). Empty = the game's boxes (GuardArmour).")]
+        public GameObject[] armourWorn = new GameObject[3];
+
+        /// <summary>The model of a piece of this tier lying about, or null when the catalog has none (then the boxes are used).</summary>
+        public GameObject ArmourPickup(ShieldTier tier) { int i = (int)tier - 1; return armourPickups != null && i >= 0 && i < armourPickups.Length ? armourPickups[i] : null; }
+
+        /// <summary>The model of the vest of this tier worn on the chest, or null when the catalog has none.</summary>
+        public GameObject ArmourWorn(ShieldTier tier) { int i = (int)tier - 1; return armourWorn != null && i >= 0 && i < armourWorn.Length ? armourWorn[i] : null; }
+
         GunModel pewModel;
 
         /// <summary>The model entry of a gun (<paramref name="kind"/> is <see cref="RangedWeapon.Kind"/> as a number): the pew's from its own fields above, the others' from <see cref="longGuns"/>. Null when there is none.</summary>

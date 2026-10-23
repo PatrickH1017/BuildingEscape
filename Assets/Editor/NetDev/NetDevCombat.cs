@@ -125,7 +125,7 @@ namespace BuildingEscape.EditorTools
             var all3 = Patrolling();
             var armed3 = all3.Where(g => g.Loadout.Armed).ToList();
             CombatCheck("floor 3: some of the patrolling guards are armed, and not all of them", armed3.Count >= 1 && armed3.Count < all3.Count, $"({armed3.Count} of {all3.Count}: {Mix(all3)})");
-            CombatCheck("floor 3: the armed ones carry the pew and wear a light shield - the gun in the hand, the vest on the chest", armed3.All(g => Carries(g, RangedWeapon.Kind.Pew) && g.Shield == ShieldTier.Light && HasVest(g) && VestParts(g) == 1 && g.Gun != null && g.Gun.kind == RangedWeapon.Kind.Pew && g.Gun.HasModel));
+            CombatCheck("floor 3: the armed ones carry the pew and wear a light shield - the gun in the hand, the vest on the chest", armed3.All(g => Carries(g, RangedWeapon.Kind.Pew) && g.Shield == ShieldTier.Light && HasVest(g) && VestParts(g) == GuardArmour.VestParts(ShieldTier.Light) && g.Gun != null && g.Gun.kind == RangedWeapon.Kind.Pew && g.Gun.HasModel));
             CombatCheck("floor 3: the others carry nothing and wear nothing", all3.Where(g => !g.Loadout.Armed).All(g => g.Shield == ShieldTier.None && !HasVest(g) && g.Gun == null));
             CombatCheck("floor 3: the loadout is the plan of the floor (the same pew guards the plan says)", armed3.Count >= 1 && armed3.Count <= GuardLoadouts.ArmedShare(3) * GuardRules.PatrolGuards(3, 3) + 1.01f, $"(share {GuardLoadouts.ArmedShare(3)})");
 
@@ -133,7 +133,7 @@ namespace BuildingEscape.EditorTools
             var bare = all3.Where(g => !g.Loadout.Armed && !g.Dead).ToList();
             var tiers = new[] { ShieldTier.None, ShieldTier.Light, ShieldTier.Medium, ShieldTier.Heavy };
             var expectBullets = new[] { 3, 4, 5, 9 };
-            var expectParts = new[] { 0, 1, 3, 5 };
+            var expectParts = new[] { 0, GuardArmour.VestParts(ShieldTier.Light), GuardArmour.VestParts(ShieldTier.Medium), GuardArmour.VestParts(ShieldTier.Heavy) };
             int dropped0 = GuardDrops.Dropped;
             if (bare.Count >= 4)
             {

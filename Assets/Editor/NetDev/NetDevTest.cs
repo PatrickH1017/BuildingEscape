@@ -60,6 +60,7 @@ namespace BuildingEscape.EditorTools
             DockVendingTest();
             BarDragTest();
             GuardConesTest();
+            ArmourFitTest();
             ArmourTest();
             Round12Test();
             ChecklistTest();

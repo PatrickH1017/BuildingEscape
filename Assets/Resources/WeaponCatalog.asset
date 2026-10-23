@@ -76,3 +76,11 @@ MonoBehaviour:
     sightTurn: {x: 0, y: 0, z: 0}
     casing: {fileID: 7140446120267980145, guid: 8c9f425d20a885745ac5b610ce122074, type: 3}
     magazinePart: _mag
+  armourPickups:
+  - {fileID: 1507584485299854, guid: 0024a548e7da3a243b80d0845e3bcd2c, type: 3}
+  - {fileID: 1642032054989428, guid: f139f11b93b3e994abbaa342726ea385, type: 3}
+  - {fileID: 1085453403087020, guid: 4bfa68340f7f67b49b12a2d9729dc41a, type: 3}
+  armourWorn:
+  - {fileID: 3631628756969354018, guid: 2ed10eba2ed1381419d237171b886ac5, type: 3}
+  - {fileID: 6792398102597723929, guid: f2bc4b30b343b5e4ca819bd2992102eb, type: 3}
+  - {fileID: 4689380497675743781, guid: e0f289d0ad4ba3542b8737af5ad2623c, type: 3}

@@ -31,9 +31,38 @@ namespace BuildingEscape.EditorTools
                 {
                     if (!cat.pew || !cat.pewBullet) FillGuns(cat, false);
                     if (cat.modelsVersion < SyntyVersion) FillSynty(cat, false);
+                    if (!ArmourFilled(cat)) FillArmour(cat, true);
                     if (cat.longGuns == null || cat.longGuns.Length < LongGunNames.Length || !cat.longGuns[0].prefab || !cat.redDot || !cat.longGuns[LongGunNames.Length - 1].prefab || cat.longGuns[LongGunNames.Length - 1].prefab.name != LongGunNames[LongGunNames.Length - 1]) FillLongGuns(cat, false);
                 }
             };
+        }
+
+        const string SyntyChars = "Assets/Synty/PolygonBattleRoyale/Prefabs/Characters/";
+
+        static bool ArmourFilled(WeaponCatalog cat)
+        {
+            if (cat.armourPickups == null || cat.armourWorn == null || cat.armourPickups.Length < 3 || cat.armourWorn.Length < 3) return false;
+            for (int i = 0; i < 3; i++) if (!cat.armourPickups[i] || !cat.armourWorn[i]) return false;
+            return true;
+        }
+
+        /// <summary>
+        /// The body armour of the Synty Battle Royale pack (the owner, 2026-10-23: "replace all body armors in our current game with the body armor from the asset packs"): SM_PickUp_Armor_01 to 03 (the pieces lying about) and
+        /// SM_Chr_Attach_Male_Armor_01 to 03 (the vests worn), as the game's Light, Medium and Heavy. Only what is missing is filled, so a model chosen by hand stays.
+        /// </summary>
+        static void FillArmour(WeaponCatalog cat, bool log)
+        {
+            if (cat.armourPickups == null || cat.armourPickups.Length < 3) cat.armourPickups = new GameObject[3];
+            if (cat.armourWorn == null || cat.armourWorn.Length < 3) cat.armourWorn = new GameObject[3];
+            for (int i = 0; i < 3; i++)
+            {
+                string n = (i + 1).ToString("00");
+                if (!cat.armourPickups[i]) cat.armourPickups[i] = Load<GameObject>(SyntyChars + "Pickups/SM_PickUp_Armor_" + n + ".prefab");
+                if (!cat.armourWorn[i]) cat.armourWorn[i] = Load<GameObject>(SyntyChars + "Attachments/SM_Chr_Attach_Male_Armor_" + n + ".prefab");
+            }
+            EditorUtility.SetDirty(cat);
+            AssetDatabase.SaveAssets();
+            if (log) Debug.Log(ArmourFilled(cat) ? "Body armour set in the weapon catalog (Synty Battle Royale, three tiers)." : "The Synty Battle Royale armour was not all found under " + SyntyChars + ": the missing tiers keep the old boxes.");
         }
 
         /// <summary>The pew and its cartridge from the Guns pack (only what is missing is filled).</summary>
@@ -391,6 +420,7 @@ namespace BuildingEscape.EditorTools
             cat.modelsVersion = 0;
             FillGuns(cat, false);
             FillSynty(cat, false);
+            FillArmour(cat, false);
             EditorUtility.SetDirty(cat);
             AssetDatabase.SaveAssets();
             if (log) Debug.Log($"Weapon catalog ready ({kept} slash curves retargeted).");

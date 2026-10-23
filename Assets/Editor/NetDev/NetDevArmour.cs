@@ -25,6 +25,38 @@ namespace BuildingEscape.EditorTools
             return v ? v.childCount : 0;
         }
 
+        /// <summary>
+        /// The pack's vest on a player's model (the owner, 2026-10-23): one model called "Armour" with renderers and no colliders under "BodyArmour", its lower edge near his hips, its top near the base of his neck and as wide as his shoulders.
+        /// Returns what is wrong, or an empty string.
+        /// </summary>
+        static string VestFitProblem(WobblyPlayer p)
+        {
+            var holder = p.GetComponentsInChildren<Transform>(true).FirstOrDefault(t => t.name == "BodyArmour");
+            if (!holder) return "no BodyArmour";
+            var model = holder.Find("Armour");
+            if (!model) return "no model called Armour under BodyArmour";
+            var rs = model.GetComponentsInChildren<Renderer>(true);
+            if (rs.Length == 0) return "the model has no renderer";
+            if (model.GetComponentsInChildren<Collider>(true).Length > 0) return "the model has a collider";
+            var b = rs[0].bounds; foreach (var r in rs) b.Encapsulate(r.bounds);
+            Animator human = null;
+            foreach (var a in p.GetComponentsInChildren<Animator>(true)) if (a.isHuman) { human = a; break; }
+            if (!human) return "no humanoid animator to measure against";
+            var hips = human.GetBoneTransform(HumanBodyBones.Hips); var neck = human.GetBoneTransform(HumanBodyBones.Neck) ? human.GetBoneTransform(HumanBodyBones.Neck) : human.GetBoneTransform(HumanBodyBones.Head);
+            var l = human.GetBoneTransform(HumanBodyBones.LeftUpperArm); var rt = human.GetBoneTransform(HumanBodyBones.RightUpperArm);
+            if (!hips || !neck) return "no hips or neck bone";
+            float torso = neck.position.y - hips.position.y;
+            if (Mathf.Abs(b.min.y - hips.position.y) > 0.35f * torso) return $"lower edge {b.min.y:0.00} is not near the hips {hips.position.y:0.00} (torso {torso:0.00})";
+            if (b.max.y < neck.position.y - 0.35f * torso || b.max.y > neck.position.y + 0.6f * torso) return $"top {b.max.y:0.00} is not near the neck {neck.position.y:0.00} (torso {torso:0.00})";
+            if (l && rt)
+            {
+                var d = l.position - rt.position; d.y = 0f;
+                float across = Mathf.Max(b.size.x, b.size.z);
+                if (across < 0.8f * d.magnitude || across > 3f * d.magnitude) return $"width {across:0.00} against shoulders {d.magnitude:0.00}";
+            }
+            return "";
+        }
+
         /// <summary>1 when this weapon safe holds a gun (0 when it holds armour instead: a safe that is not the first of its floor may).</summary>
         static int GunsInSafe(int seed, int floor, int index)
         {
@@ -60,13 +92,40 @@ namespace BuildingEscape.EditorTools
             RunUnlocks.Reset();
             ArmourCheck("a new run: no armour is worn and the dealer sells none", PlayerArmour.TierOf(pack) == ShieldTier.None && il >= 0 && !Vendor.OnOffer(il, 5) && !Vendor.OnOffer(im, 5) && !Vendor.OnOffer(ih, 5));
             var spot = player.transform.position + Vector3.up * 1.0f + player.transform.forward * 0.8f;
+            // the pack's models (the owner, 2026-10-23): in the weapon catalog (Employees Take Revenge > Setup Weapons fills them), the pieces lying about built from them, each as big as ArmourItem.Size says
+            bool packModels = true;
+            foreach (var t in new[] { ShieldTier.Light, ShieldTier.Medium, ShieldTier.Heavy }) packModels &= ArmourItem.PickupPrefab(t) != null && GuardArmour.WornPrefab(t) != null;
+            ArmourCheck("the weapon catalog holds the Synty Battle Royale armour, three tiers lying about and three worn (else the old boxes are in use)", packModels);
+            if (packModels)
+            {
+                bool allFit = true; string misfit = "";
+                foreach (var t in new[] { ShieldTier.Light, ShieldTier.Medium, ShieldTier.Heavy })
+                {
+                    var piece = ArmourItem.Create(t, spot + Vector3.up * 3f, null, 0f);
+                    var box = piece.GetComponent<BoxCollider>(); var want = ArmourItem.Size(t);
+                    var model = piece.transform.Find("Armour");
+                    var rs = piece.GetComponentsInChildren<Renderer>(true);
+                    bool good = box && model && rs.Length > 0 && Vector3.Distance(box.size, want) < 0.005f && piece.GetComponentsInChildren<Collider>(true).Length == 1;
+                    if (good)
+                    {
+                        var b = rs[0].bounds; foreach (var r in rs) b.Encapsulate(r.bounds);
+                        good = Mathf.Abs(b.size.x - want.x) < 0.04f && Mathf.Abs(b.size.y - want.y) < 0.04f && Mathf.Abs(b.size.z - want.z) < 0.04f && Vector3.Distance(b.center, piece.transform.position) < 0.03f;
+                        if (!good) misfit += $" {t}: model {b.size.x:0.00}x{b.size.y:0.00}x{b.size.z:0.00} at {Vector3.Distance(b.center, piece.transform.position):0.00} m from its middle, box {want.x:0.00}x{want.y:0.00}x{want.z:0.00};";
+                    }
+                    else misfit += $" {t}: box/model/renderers/colliders wrong;";
+                    allFit &= good;
+                    Destroy(piece);
+                }
+                ArmourCheck("each piece lying about is the pack's model in the middle of one box collider as big as ArmourItem.Size says (within 4 cm)", allFit, misfit);
+            }
             var pLight = MakeArmour(ShieldTier.Light, spot);
             float w0 = pack.Weight;
             bool storedLight = pack.TryStore(pLight);
             ArmourCheck("Light Armour goes into the pack, weighs what the rules say, and the player wears it", storedLight && PlayerArmour.TierOf(pack) == ShieldTier.Light && Mathf.Abs(pack.Weight - w0 - ArmourRules.Weight(ShieldTier.Light)) < 0.01f, $"(weight {w0} -> {pack.Weight})");
             yield return new WaitForSeconds(0.8f);
             var vis = player.GetComponent<PlayerArmourVisual>();
-            ArmourCheck("his model wears a light vest - one part on the chest", vis != null && vis.Shown == ShieldTier.Light && ArmourVestParts(player) == 1, $"(shown {(vis != null ? vis.Shown.ToString() : "no component")}, parts {ArmourVestParts(player)})");
+            ArmourCheck("his model wears a light vest - " + GuardArmour.VestParts(ShieldTier.Light) + " part(s) on the chest (the pack's vest: one model)", vis != null && vis.Shown == ShieldTier.Light && ArmourVestParts(player) == GuardArmour.VestParts(ShieldTier.Light), $"(shown {(vis != null ? vis.Shown.ToString() : "no component")}, parts {ArmourVestParts(player)})");
+            if (packModels) { string fitProblem = VestFitProblem(player); ArmourCheck("the light vest is the pack's model, scaled to his torso: lower edge on his hips, top at his neck, as wide as his shoulders", fitProblem.Length == 0, fitProblem); }
             var pMedium = MakeArmour(ShieldTier.Medium, spot + Vector3.up * 0.4f);
             bool second = pack.TryStore(pMedium);
             ArmourCheck("a second piece is refused while one is worn (one at a time)", !second && PlayerArmour.TierOf(pack) == ShieldTier.Light && !pack.Contains(pMedium));
@@ -75,12 +134,14 @@ namespace BuildingEscape.EditorTools
             ArmourCheck("dropped, the armour is off: nothing worn and no vest on the model", PlayerArmour.TierOf(pack) == ShieldTier.None && vis.Shown == ShieldTier.None && ArmourVestParts(player) == 0, $"(parts {ArmourVestParts(player)})");
             bool storedMedium = pack.TryStore(pMedium);
             yield return new WaitForSeconds(0.8f);
-            ArmourCheck("with nothing worn the medium piece is taken and its vest has three parts (the plates)", storedMedium && PlayerArmour.TierOf(pack) == ShieldTier.Medium && vis.Shown == ShieldTier.Medium && ArmourVestParts(player) == 3, $"(parts {ArmourVestParts(player)})");
+            ArmourCheck("with nothing worn the medium piece is taken and its vest has " + GuardArmour.VestParts(ShieldTier.Medium) + " part(s) (the pack's: one; the old boxes: three)", storedMedium && PlayerArmour.TierOf(pack) == ShieldTier.Medium && vis.Shown == ShieldTier.Medium && ArmourVestParts(player) == GuardArmour.VestParts(ShieldTier.Medium), $"(parts {ArmourVestParts(player)})");
+            if (packModels) { string fitProblem = VestFitProblem(player); ArmourCheck("the medium vest fits his torso the same way", fitProblem.Length == 0, fitProblem); }
             pack.Drop(pMedium); Destroy(pMedium.gameObject);
             var pHeavy = MakeArmour(ShieldTier.Heavy, spot);
             bool storedHeavy = pack.TryStore(pHeavy);
             yield return new WaitForSeconds(0.8f);
-            ArmourCheck("Heavy Armour weighs 8 kg and its vest has five parts (plates and shoulder pads)", storedHeavy && PlayerArmour.TierOf(pack) == ShieldTier.Heavy && Mathf.Abs(ArmourRules.Weight(ShieldTier.Heavy) - 8f) < 0.01f && vis.Shown == ShieldTier.Heavy && ArmourVestParts(player) == 5, $"(parts {ArmourVestParts(player)})");
+            ArmourCheck("Heavy Armour weighs 8 kg and its vest has " + GuardArmour.VestParts(ShieldTier.Heavy) + " part(s) (the pack's: one; the old boxes: five)", storedHeavy && PlayerArmour.TierOf(pack) == ShieldTier.Heavy && Mathf.Abs(ArmourRules.Weight(ShieldTier.Heavy) - 8f) < 0.01f && vis.Shown == ShieldTier.Heavy && ArmourVestParts(player) == GuardArmour.VestParts(ShieldTier.Heavy), $"(parts {ArmourVestParts(player)})");
+            if (packModels) { string fitProblem = VestFitProblem(player); ArmourCheck("the heavy vest fits his torso the same way", fitProblem.Length == 0, fitProblem); }
 
             // ================= 2. the docks: what the player carries back is unlocked for the party
             RunUnlocks.Reset();
