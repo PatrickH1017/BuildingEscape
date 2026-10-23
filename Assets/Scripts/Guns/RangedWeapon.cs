@@ -218,8 +218,10 @@ namespace BuildingEscape
             var col = dot.GetComponent<Collider>();
             if (col) Object.Destroy(col);
             dot.transform.SetParent(sight, false);
-            dot.transform.localPosition = redDotHasBox ? new Vector3(redDotBox.center.x, redDotBox.center.y + 0.10f * redDotBox.size.y, redDotBox.center.z) : new Vector3(0f, 0.04f, 0f);
-            dot.transform.localScale = Vector3.one * 0.008f;
+            // The dot sits in the middle of the sight's glass window. Measured from the model (SM_Wep_Attachment_Redot_01.fbx, 6.46 cm tall): the foot of the sight is 0 to 2.78 cm, the hexagonal window 2.78 to 6.46 cm, so its middle is 4.62 cm up,
+            // 0.715 of the height (the dot used to sit at 0.6, 0.7 cm too low, which put it below the middle of the ring when one looked through it). Smaller than before (0.008 -> 0.006), the owner 2026-10-22: "a little smaller and more centered".
+            dot.transform.localPosition = redDotHasBox ? new Vector3(redDotBox.center.x, redDotBox.min.y + 0.715f * redDotBox.size.y, redDotBox.center.z) : new Vector3(0f, 0.046f, 0f);
+            dot.transform.localScale = Vector3.one * 0.006f;
             var r = dot.GetComponent<Renderer>();
             if (!dotMat)
             {

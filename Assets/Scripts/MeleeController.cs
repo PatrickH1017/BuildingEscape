@@ -49,7 +49,7 @@ namespace BuildingEscape
             if (!held) held = null;
             var eq = held;
             if (eq && !eq.TryGetComponent(out MeleeWeapon _)) eq = null;   // a gun in the hand is the GunController's
-            if (eq != shown) Show(eq);
+            if (eq != shown || (heldModel && !shown)) Show(eq);          // (the second part: the weapon in the hand was destroyed - a crowbar that snapped on a safe - and Unity says a destroyed object equals null, so "eq != shown" alone never noticed and the crowbar stayed in the hand)
 
             if (held == null)
             {
@@ -221,7 +221,7 @@ namespace BuildingEscape
                 {
                     if (!seen.Add(guard)) continue;
                     bool wasDead = guard.Dead;
-                    guard.MeleeHit(spec.stun, gameObject);                           // (a blow knocks over for the weapon's tier and does not count towards knocking him out: the owner, 2026-10-19)
+                    guard.MeleeHit(spec.stun, gameObject, spec.guardDamage);         // (a blow knocks over for the weapon's tier AND takes the weapon's damage off his 100 HP: the owner, 2026-10-22; before that a blow only knocked over)
                     if (!wasDead) { GameAudio.MeleeHit(kind, guard.Dead, guard.transform.position + Vector3.up); Announce((byte)kind, guard.Dead, guard.transform.position + Vector3.up); }
                     hitSomething = true;
                     if (guard.TryGetComponent(out Rigidbody grb))

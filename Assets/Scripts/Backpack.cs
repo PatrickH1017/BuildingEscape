@@ -31,16 +31,50 @@ namespace BuildingEscape
 
         public IReadOnlyList<Pickup> Items => items;
 
-        // ---- the weapon bar (the owner, 2026-10-19 night: "a tool bar (hot bar) of 3 items so players can click 1, 2, 3 to switch between weapons"; 2026-10-20 night: six shortcuts, 1 to 6): the first six weapons of the pack, in the order they came into it
-        readonly List<bool> barFlags = new List<bool>();
+        // ---- the weapon bar (the owner, 2026-10-19 night: "a tool bar (hot bar) of 3 items so players can click 1, 2, 3 to switch between weapons"; 2026-10-20 night: six shortcuts, 1 to 6): weapons of the pack come onto it in the order they came into
+        // the pack, each into the first empty slot; since 2026-10-22 the player arranges it by dragging in the Tab window (the owner: "drag equipment such as weapons into different shortcut menus from their backpack or from a different shortcut ...
+        // if they drag to another item it should swap spots with the item"). The layout is WeaponBarRules'; what is kept here is one key per slot (the weapon's instance id) and, rebuilt from it, where each slot's weapon is in the pack's list.
+        readonly int[] barKeys = WeaponBarRules.NewLayout();
+        readonly List<int> weaponKeys = new List<int>();
         readonly int[] barSlots = new int[WeaponBarRules.Slots];
         readonly string[] barNames = new string[WeaponBarRules.Slots];
 
         void RefreshBar()
         {
-            barFlags.Clear();
-            for (int i = 0; i < items.Count; i++) barFlags.Add(items[i] && RangedWeapon.IsWeapon(items[i]));
-            WeaponBarRules.Fill(barFlags, barSlots);
+            weaponKeys.Clear();
+            for (int i = 0; i < items.Count; i++) if (items[i] && RangedWeapon.IsWeapon(items[i])) weaponKeys.Add(items[i].GetInstanceID());
+            WeaponBarRules.Reconcile(barKeys, weaponKeys);
+            for (int s = 0; s < barSlots.Length; s++) barSlots[s] = -1;
+            for (int i = 0; i < items.Count; i++)
+            {
+                if (!items[i]) continue;
+                int slot = WeaponBarRules.SlotOf(barKeys, items[i].GetInstanceID());
+                if (slot >= 0) barSlots[slot] = i;
+            }
+        }
+
+        /// <summary>The bar slot (0 to 5) a weapon of the pack is on, or -1 when it is not on the bar (or is no weapon of this pack).</summary>
+        public int BarSlotOf(Pickup p)
+        {
+            if (!p || !items.Contains(p)) return -1;
+            RefreshBar();
+            return WeaponBarRules.SlotOf(barKeys, p.GetInstanceID());
+        }
+
+        /// <summary>A weapon of the pack is dropped on a slot of the bar: it takes the slot, and the weapon that stood there takes its old place (its old slot, or off the bar). False when nothing changed.</summary>
+        public bool MoveToBarSlot(Pickup p, int slot)
+        {
+            if (!p || !RangedWeapon.IsWeapon(p) || !items.Contains(p)) return false;
+            RefreshBar();
+            return WeaponBarRules.MoveToSlot(barKeys, p.GetInstanceID(), slot);
+        }
+
+        /// <summary>A weapon of the pack is dropped on another: they swap spots on the bar (one off the bar: the other takes its slot). False when nothing changed.</summary>
+        public bool SwapBarSpots(Pickup a, Pickup b)
+        {
+            if (!a || !b || !RangedWeapon.IsWeapon(a) || !RangedWeapon.IsWeapon(b) || !items.Contains(a) || !items.Contains(b)) return false;
+            RefreshBar();
+            return WeaponBarRules.SwapWith(barKeys, a.GetInstanceID(), b.GetInstanceID());
         }
 
         /// <summary>The weapon of a bar slot (0 to 5), or null for an empty slot.</summary>
@@ -86,7 +120,7 @@ namespace BuildingEscape
             TryGetComponent(out wobbly);
         }
 
-        void OnDisable() { if (UiOpen && Viewed) UiOpen = false; }
+        void OnDisable() { CancelDrag(); if (UiOpen && Viewed) UiOpen = false; }
 
         // ------------------------------------------------------------------ logic
 
@@ -183,7 +217,7 @@ namespace BuildingEscape
         public void DropAll()
         {
             if (Net.NetRole.Synced) { Net.RunSync.Instance.RequestDropAll(); return; }
-            foreach (var p in new List<Pickup>(items)) ApplyDropped(p, DropPosition());
+            foreach (var p in new List<Pickup>(items)) if (p && p.Loot) ApplyDropped(p, DropPosition());          // (loot only: weapons, armour and the other equipment stay)
         }
 
         /// <summary>Equip a weapon from the pack, or null to put it away.</summary>
@@ -233,6 +267,12 @@ namespace BuildingEscape
 
         void Update()
         {
+            // a drag whose mouse-up never reached the window (the mouse let go outside the game view) is given up two frames after the button is up (not sooner: this frame's mouse-up event is still to come)
+            if (dragLive || dragItem != null)
+            {
+                if (Input.GetMouseButton(0)) dragUpFrames = 0;
+                else if (++dragUpFrames >= 2) CancelDrag();
+            }
             if (!Viewed) return;
             if (wobbly && wobbly.InCustody) { UiOpen = false; target = null; return; } // pinned or busted: hands are full of officer
             CleanUp();
@@ -264,11 +304,25 @@ namespace BuildingEscape
         void OnGUI()
         {
             if (!Viewed) return;
-            if (!UiOpen) invCardH = 0f;
+            dragId = GUIUtility.GetControlID(FocusType.Passive);                    // (the first control of this window on every event, so its id is the same every time)
+            if (!UiOpen) { invCardH = 0f; CancelDrag(); }
+            var ev = Event.current;
+            mouse = ev.mousePosition;                                               // (screen pixels: read here, outside the window's scrolling area and its pop-up animation)
+            if (dragLive && (!dragItem || !items.Contains(dragItem))) CancelDrag(); // (the weapon was dropped or taken while it was dragged)
+            if (dragItem && !dragLive && ev.type == EventType.MouseDrag && (mouse - dragDown).sqrMagnitude > DragStartPx * DragStartPx)
+            {
+                dragLive = true;                                                    // (the mouse has moved: it is a drag, not a click; no button of the window answers the mouse until it is let go)
+                GUIUtility.hotControl = dragId;
+            }
             float w = Weight;
             // the weight bar and the prompts only draw on Repaint; the inventory window (buttons) needs every event
-            if (Event.current.type == EventType.Repaint) DrawHud(w);
-            if (UiOpen) DrawInventory(w);
+            if (ev.type == EventType.Repaint) DrawHud(w);
+            if (UiOpen)
+            {
+                DrawInventory(w);                                                   // (a weapon row the mouse comes up over is what the dragged weapon is dropped on: dropOnItem)
+                DrawBarOnTop();                                                     // (the slot the mouse comes up over: dropOnSlot)
+                FinishDrag();
+            }
         }
 
         /// <summary>The weapon bar and the pick-up prompt (the pack card that used to be at the bottom left is gone: the Tab window shows the weight).</summary>
@@ -276,14 +330,9 @@ namespace BuildingEscape
         {
             // (no pack card at the bottom left any more - the owner, 2026-10-20 night: "remove the backpack from the bottom left corner": the weight and how much more fits are in the Tab window)
             RefreshBar();
-            int inHand = -1;
-            for (int i = 0; i < barSlots.Length; i++)
-            {
-                var slotItem = barSlots[i] >= 0 && barSlots[i] < items.Count ? items[barSlots[i]] : null;
-                barNames[i] = slotItem ? slotItem.Label : null;
-                if (slotItem && slotItem == Equipped) inHand = i;
-            }
-            HudWidgets.WeaponBar(new HudWidgets.WeaponBarModel { names = barNames, equipped = inHand });
+            int inHand = FillBarNames();
+            if (!UiOpen && !(SafePanel.Instance && SafePanel.Instance.Showing))           // (the safe's keypad is tall and its bottom lines lay under the bar: no bar while it is up; with the Tab window open the bar is drawn over its dimmed screen: DrawBarOnTop)
+                HudWidgets.WeaponBar(new HudWidgets.WeaponBarModel { names = barNames, equipped = inHand });
             if (UiOpen) return;
 
             string prompt = null;
@@ -318,10 +367,11 @@ namespace BuildingEscape
         void DrawInventory(float w)
         {
             MenuKit.Begin();
+            RefreshBar();                                                  // (the slots the weapons are on: for the order of the list, the "SLOT" chips and what a drop does)
             float s = HudTheme.S, pad = 24f * s, inset = 8f * s;
             float pw = Mathf.Min(840f * s, Screen.width - 40f * s);
             float py = 126f * s;                                           // (the card stays under the banner at the top of the screen)
-            float maxH = Mathf.Max(260f * s, Screen.height - py - 24f * s);
+            float maxH = Mathf.Max(260f * s, Screen.height - py - 150f * s);        // (the weapon bar under the window is free to drop a weapon on: the card ends above it)
             float want = Mathf.Clamp(172f * s + invScroll.ContentHeight + 10f * s, 300f * s, Mathf.Min(maxH, 790f * s));    // (as tall as the lists were on the last frame)
             if (invCardH <= 0f) invCardH = want;
             else if (Event.current.type == EventType.Repaint) invCardH = Mathf.Lerp(invCardH, want, 1f - Mathf.Exp(-14f * Mathf.Min(0.1f, Time.unscaledDeltaTime)));
@@ -370,13 +420,14 @@ namespace BuildingEscape
             // what is in the pack: the things that can be held (weapons) apart from the loot, which is sorted with the most valuable first
             MenuKit.Header(f.Row(30f, 8f), "IN YOUR PACK", HudTheme.Info);
             SplitItems(items);
+            SortEquipByBar(invEquip);
             if (invEquip.Count + invLoot.Count + invOther.Count == 0) EmptyRow(f, "Nothing in your pack yet - aim at something and press E.");
             else
             {
-                ItemSection(f, "EQUIPMENT", HudTheme.Info, null, invEquip, true, w, ref picked, ref action);
+                ItemSection(f, "EQUIPMENT", HudTheme.Info, SlotHint, invEquip, true, w, ref picked, ref action, HudTheme.Dim);
                 ItemSection(f, "LOOT", HudTheme.Quota, SumValue(invLoot), invLoot, true, w, ref picked, ref action);
                 ItemSection(f, "OTHER", HudTheme.Dim, null, invOther, true, w, ref picked, ref action);
-                if (MenuKit.Button(f.Row(40f, 10f), "DROP EVERYTHING", HudTheme.Danger, 19f)) { picked = null; action = -1; }
+                if (MenuKit.Button(f.Row(40f, 10f), "DROP ALL LOOT", HudTheme.Danger, 19f)) { picked = null; action = -1; }
             }
 
             f.Gap(6f);
@@ -412,6 +463,119 @@ namespace BuildingEscape
             else if (action == ActTake && picked) { TryStore(picked); nearby.Remove(picked); }
         }
 
+        // ---- dragging a weapon (the owner, 2026-10-22: "give players the ability to drag equipment such as weapons into different shortcut menus from their backpack or from a different shortcut. Meaning I want them to be able to
+        // rearrange the equipment by dragging the item. if they drag to another item it should swap spots with the item"). With the Tab window open, a weapon is picked up by pressing the mouse on its row in the pack list or on its slot of the
+        // bar and moving the mouse; it is dropped by letting go over a slot of the bar (it takes the slot, what was there goes to the weapon's old place) or over another weapon of the list (they swap spots). Anywhere else it goes nowhere.
+        // The layout is this player's own and is not sent to the others (the weapon in hand is, as ever).
+        const float DragStartPx = 6f;
+        public const string SlotHint = "DRAG TO A SLOT TO ARRANGE";
+        Pickup dragItem;                    // the weapon the mouse went down on (a click if the mouse never moves)
+        bool dragLive;                      // the mouse moved: it is being dragged
+        Vector2 dragDown, mouse;            // where the mouse went down, and where it is (screen pixels)
+        Pickup dropOnItem;                  // the weapon row the mouse came up over, found while the window is drawn (the mouse-up event only)
+        int dropOnSlot = -1;                // the bar slot the mouse came up over (the mouse-up event only)
+        int dragId, dragUpFrames;
+
+        /// <summary>Is a weapon being dragged right now (for tests)?</summary>
+        public bool Dragging => dragLive && dragItem;
+
+        /// <summary>The names on the bar's slots, and which slot is in hand (-1 for none).</summary>
+        int FillBarNames()
+        {
+            int inHand = -1;
+            for (int i = 0; i < barSlots.Length; i++)
+            {
+                var slotItem = barSlots[i] >= 0 && barSlots[i] < items.Count ? items[barSlots[i]] : null;
+                barNames[i] = slotItem ? slotItem.Label : null;
+                if (slotItem && slotItem == Equipped) inHand = i;
+            }
+            return inHand;
+        }
+
+        /// <summary>The weapons of the list: the ones on the bar first in the order of the slots, then the others in the order they came into the pack (so a swap on the bar is a swap in the list).</summary>
+        void SortEquipByBar(List<Pickup> list)
+        {
+            for (int i = 1; i < list.Count; i++)
+            {
+                var p = list[i];
+                int key = EquipOrder(p), j = i - 1;
+                while (j >= 0 && EquipOrder(list[j]) > key) { list[j + 1] = list[j]; j--; }
+                list[j + 1] = p;
+            }
+        }
+
+        int EquipOrder(Pickup p)
+        {
+            int slot = WeaponBarRules.SlotOf(barKeys, p.GetInstanceID());
+            return slot >= 0 ? slot : 100 + items.IndexOf(p);
+        }
+
+        /// <summary>The row of a weapon in the pack list: the mouse going down on it (not on one of its buttons, which take the event first) picks the weapon up; the mouse coming up over it while another weapon is dragged drops that one here.</summary>
+        void GrabAndDrop(Pickup p, Rect r)
+        {
+            var ev = Event.current;
+            if (ev.type == EventType.MouseDown && ev.button == 0 && dragItem == null && GUIUtility.hotControl == 0 && MenuKit.Over(r)) { dragItem = p; dragLive = false; dragDown = mouse; dragUpFrames = 0; }
+            else if (ev.type == EventType.MouseUp && ev.button == 0 && dragLive && p != dragItem && MenuKit.Over(r)) dropOnItem = p;
+        }
+
+        /// <summary>
+        /// The weapon bar while the window is open: drawn over the dimmed screen (the window leaves the room under it), the slots lit while a weapon is dragged over them. A weapon of a slot is picked up from here too; the slot the mouse comes up over is
+        /// where a dragged weapon is dropped (<see cref="dropOnSlot"/>).
+        /// </summary>
+        void DrawBarOnTop()
+        {
+            if (SafePanel.Instance && SafePanel.Instance.Showing) return;
+            RefreshBar();
+            int inHand = FillBarNames();
+            var ev = Event.current;
+            int hover = -1;
+            for (int i = 0; i < WeaponBarRules.Slots; i++) if (HudWidgets.WeaponBarSlot(i).Contains(mouse)) { hover = i; break; }
+            if (ev.type == EventType.MouseDown && ev.button == 0 && dragItem == null && GUIUtility.hotControl == 0 && hover >= 0 && barSlots[hover] >= 0 && barSlots[hover] < items.Count)
+            {
+                dragItem = items[barSlots[hover]]; dragLive = false; dragDown = mouse; dragUpFrames = 0;
+                ev.Use();                                                  // (nothing else answers this press)
+            }
+            if (ev.type == EventType.MouseUp && ev.button == 0 && dragLive) dropOnSlot = hover;
+            int pickedFrom = dragLive && dragItem ? WeaponBarRules.SlotOf(barKeys, dragItem.GetInstanceID()) : -1;
+            if (ev.type == EventType.Repaint) HudWidgets.WeaponBar(new HudWidgets.WeaponBarModel { names = barNames, equipped = inHand, dragging = dragLive, hover = dragLive ? hover : -1, source = pickedFrom });
+        }
+
+        /// <summary>The end of every event of the window: the mouse let go drops the weapon (or not), and a weapon in the air is drawn at the mouse.</summary>
+        void FinishDrag()
+        {
+            var ev = Event.current;
+            if (dragItem == null) return;
+            if (ev.type == EventType.MouseUp && ev.button == 0)
+            {
+                if (dragLive)
+                {
+                    if (dropOnSlot >= 0) MoveToBarSlot(dragItem, dropOnSlot);
+                    else if (dropOnItem && dropOnItem != dragItem) SwapBarSpots(dragItem, dropOnItem);
+                    ev.Use();
+                }
+                CancelDrag();
+            }
+            else if (dragLive && ev.type == EventType.Repaint) DrawDragGhost();
+        }
+
+        /// <summary>The weapon in the air: a see-through plate with its name, at the mouse.</summary>
+        void DrawDragGhost()
+        {
+            float s = HudTheme.S;
+            string label = dragItem ? dragItem.Label : "";
+            float w = Mathf.Max(130f * s, HudTheme.Width(label, 17f) + 40f * s), h = 40f * s;
+            var r = new Rect(Mathf.Clamp(mouse.x - w * 0.5f, 4f, Mathf.Max(4f, Screen.width - w - 4f)), Mathf.Clamp(mouse.y - h * 0.5f, 4f, Mathf.Max(4f, Screen.height - h - 4f)), w, h);
+            HudTheme.Glass(r, 0.55f, 1f, null, HudTheme.Info);
+            HudTheme.Text(r, MenuKit.Fit(label, 17f * s, w - 24f * s), 17f, HudTheme.Bright, TextAnchor.MiddleCenter);
+        }
+
+        /// <summary>Lets go of a weapon (dropped or not) and gives the mouse back to the window's buttons.</summary>
+        void CancelDrag()
+        {
+            if (dragId != 0 && GUIUtility.hotControl == dragId) GUIUtility.hotControl = 0;
+            dragItem = null; dragLive = false; dropOnItem = null; dropOnSlot = -1; dragUpFrames = 0;
+        }
+
         // the three kinds of thing a list is split into (reused: the window is drawn on every event)
         readonly List<Pickup> invEquip = new List<Pickup>(), invLoot = new List<Pickup>(), invOther = new List<Pickup>();
         static readonly System.Comparison<Pickup> ByValueDescending = (a, b) => b.Value.CompareTo(a.Value);
@@ -439,7 +603,7 @@ namespace BuildingEscape
         }
 
         /// <summary>A small title (a coloured dot, the words, and what the lot is worth) and the rows under it; nothing at all for an empty list.</summary>
-        void ItemSection(MenuKit.Flow f, string title, Color dot, string right, List<Pickup> list, bool inPack, float weightNow, ref Pickup picked, ref int action)
+        void ItemSection(MenuKit.Flow f, string title, Color dot, string right, List<Pickup> list, bool inPack, float weightNow, ref Pickup picked, ref int action, Color? rightColor = null)
         {
             if (list.Count == 0) return;
             float s = HudTheme.S;
@@ -449,7 +613,7 @@ namespace BuildingEscape
                 HudTheme.Circle(new Vector2(r.x + 12f * s, r.center.y), 14f * s, HudTheme.Ink);
                 HudTheme.Circle(new Vector2(r.x + 12f * s, r.center.y), 9f * s, dot);
                 HudTheme.Text(new Rect(r.x + 30f * s, r.y, 200f * s, r.height), title, 15f, HudTheme.Muted, TextAnchor.MiddleLeft, false);
-                if (!string.IsNullOrEmpty(right)) HudTheme.Text(new Rect(r.xMax - 240f * s, r.y, 232f * s, r.height), right, 15f, HudTheme.Quota, TextAnchor.MiddleRight, false);
+                if (!string.IsNullOrEmpty(right)) HudTheme.Text(new Rect(r.xMax - 240f * s, r.y, 232f * s, r.height), right, 15f, rightColor ?? HudTheme.Quota, TextAnchor.MiddleRight, false);
             }
             for (int i = 0; i < list.Count; i++)
             {
@@ -478,6 +642,11 @@ namespace BuildingEscape
             MenuKit.Plate(r, 0.18f);
             int act = ActNone;
             bool gun = RangedWeapon.IsWeapon(p);
+            if (Event.current.type == EventType.Repaint && inPack && gun && dragLive)
+            {
+                if (p == dragItem) HudTheme.Rounded(r, HudTheme.Alpha(HudTheme.Ink, 0.35f), 12f * s);                                  // (the weapon in the mouse's hand: dimmed where it was)
+                else if (MenuKit.Over(r)) HudTheme.Rounded(r, HudTheme.Alpha(HudTheme.Info, 0.30f), 12f * s);                         // (the weapon it would swap places with)
+            }
 
             // the buttons, from the right
             float bh = 40f * s, by = r.y + (r.height - bh) * 0.5f, gap = 8f * s, x = r.xMax - 10f * s;
@@ -501,6 +670,8 @@ namespace BuildingEscape
                 if (MenuKit.Button(takeRect, fits ? "TAKE" : "TOO HEAVY", HudTheme.Good, fits ? 19f : 16f, fits)) act = ActTake;
             }
 
+            if (inPack && gun) GrabAndDrop(p, r);
+
             if (Event.current.type != EventType.Repaint) return act;
 
             // the badge: a coin for something worth money, a bullet for a gun, a coloured disc with its first letter for the rest
@@ -519,10 +690,16 @@ namespace BuildingEscape
             // the name (with a chip when it is in hand) and the line under it
             float tx = badge.xMax + 14f * s, textW = Mathf.Max(60f * s, x - tx);
             bool inHand = inPack && p == Equipped;
+            int barSlot = inPack && gun ? WeaponBarRules.SlotOf(barKeys, p.GetInstanceID()) : -1;                  // (the shortcut it is on, if any: the owner, 2026-10-22)
+            string slotText = barSlot >= 0 ? "SLOT " + (barSlot + 1) : null;
             float chipW = inHand ? HudTheme.Width("IN HAND", 12f) + 24f * s : 0f;
-            string name = MenuKit.Fit(p.Label, 21f * s, textW - chipW - (inHand ? 10f * s : 0f));
-            HudTheme.Text(new Rect(tx, r.y + 7f * s, textW - chipW - 10f * s, 28f * s), name, 21f, HudTheme.Bright, TextAnchor.MiddleLeft, false);
-            if (inHand) HudTheme.Chip(new Rect(tx + Mathf.Min(HudTheme.TextWidthPx(name, 21f * s), textW - chipW - 10f * s) + 10f * s, r.y + 10f * s, chipW, 22f * s), "IN HAND", HudTheme.Info, 12f);
+            float slotW = slotText != null ? HudTheme.Width(slotText, 12f) + 24f * s : 0f;
+            float chipsW = chipW + slotW + ((inHand ? 1 : 0) + (slotText != null ? 1 : 0)) * 10f * s;               // (the chips and the gap before each)
+            string name = MenuKit.Fit(p.Label, 21f * s, textW - chipsW);
+            HudTheme.Text(new Rect(tx, r.y + 7f * s, textW - chipsW, 28f * s), name, 21f, HudTheme.Bright, TextAnchor.MiddleLeft, false);
+            float chipX = tx + Mathf.Min(HudTheme.TextWidthPx(name, 21f * s), textW - chipsW) + 10f * s;
+            if (inHand) { HudTheme.Chip(new Rect(chipX, r.y + 10f * s, chipW, 22f * s), "IN HAND", HudTheme.Info, 12f); chipX += chipW + 10f * s; }
+            if (slotText != null) HudTheme.Chip(new Rect(chipX, r.y + 10f * s, slotW, 22f * s), slotText, HudTheme.Quota, 12f);
 
             float dx = tx, dy = r.y + 34f * s;
             string weight = WeightUnits.Lbs(p.weight);

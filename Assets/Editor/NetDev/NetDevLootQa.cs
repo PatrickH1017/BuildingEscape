@@ -113,6 +113,24 @@ namespace BuildingEscape.EditorTools
             }
             Log($"[LootQa] part 1 looked at {floorsLooked} floors ({seeds.Length} seeds x 4)");
 
+            // ---- part 1b: a restarted run puts the guards elsewhere (the owner, 2026-10-22: "every time a run restarts it should be a random start to where the guards are on that floor"); the same guard seed puts them on the same patrols
+            {
+                tm.baseSeed = ownSeed;
+                System.Func<string> gsRoutes = () => string.Join("|", GuardAI.All.Where(g => g && g.isActiveAndEnabled && g.patrolPoints != null && g.patrolPoints.Length > 0 && g.name.StartsWith("Guard_") && g.name != "Guard_Outpost").OrderBy(g => g.name)
+                    .Select(g => string.Join(">", g.patrolPoints.Where(w => w).Select(w => $"{w.position.x:0.0},{w.position.z:0.0}"))));
+                var gsSeen = new List<string>();
+                foreach (int gsSeed in new[] { 1111, 2222, 1111 })
+                {
+                    tm.SetGuardSeed(gsSeed);
+                    tm.GoToLevel(2);
+                    yield return new WaitUntil(() => tm.Loading || hm.Floor == 2);
+                    yield return WaitFor(() => !tm.Loading && hm.Floor == 2, 90, $"guard seed {gsSeed} floor 2");
+                    yield return new WaitForSeconds(0.3f);
+                    gsSeen.Add(gsRoutes());
+                }
+                LqCheck("guard seed: the same seed puts every guard on the same patrol, another seed puts them elsewhere", gsSeen[0].Length > 0 && gsSeen[0] == gsSeen[2] && gsSeen[0] != gsSeen[1], $"({gsSeen[0].Length} chars, same seed again {gsSeen[0] == gsSeen[2]}, other seed differs {gsSeen[0] != gsSeen[1]})");
+            }
+
             // ---- part 2: the real loop on the offline run's own seed: bank loot in the car until the quota is met, then go down
             tm.baseSeed = ownSeed;
             hm.godMode = true;
@@ -130,6 +148,32 @@ namespace BuildingEscape.EditorTools
                 var pieces = LootOnShow().Where(p => p.Loot == null || p.Loot.lifters <= 1).OrderByDescending(p => p.Value).ToList();
                 int banked0 = hm.Banked, cash0 = hm.Cash, put = 0;
                 var b = car.bounds;
+                // a heavy piece let go in the car, or in its doorway, and thrown at the open door, never gets past the door line (the owner, 2026-10-22: "it fell outside of the elevator ... make it so it guarantees the loot stays in the elevator")
+                var heavyOne = FindObjectsByType<HeavyLoot>(FindObjectsSortMode.None).FirstOrDefault(h => h && !h.Broken && h.Holders == 0 && h.TryGetComponent(out Rigidbody _));
+                var carRules = car.GetComponent<ElevatorExtraction>();
+                if (heavyOne != null && carRules != null && carRules.doorDir != Vector2.zero)
+                {
+                    var heavyBody = heavyOne.GetComponent<Rigidbody>();
+                    var doorWay = new Vector3(carRules.doorDir.x, 0f, carRules.doorDir.y);
+                    float furthest = 0f; int samples = 0;
+                    foreach (float spot in new[] { 2.6f, 4.4f })          // (let go well inside the car, and in its doorway)
+                    {
+                        var at = new Vector3(b.center.x, b.min.y + 0.8f, b.center.z) + doorWay * spot;
+                        heavyBody.position = at; heavyOne.transform.position = at;
+                        heavyOne.NoteSetDown();
+                        heavyBody.linearVelocity = doorWay * 9f;          // (thrown at the door)
+                        for (int t = 0; t < 6 && heavyOne; t++)
+                        {
+                            yield return new WaitForSeconds(0.1f);
+                            if (!heavyOne) break;
+                            var off = heavyOne.transform.position - b.center;
+                            furthest = Mathf.Max(furthest, Mathf.Max(Mathf.Abs(off.x), Mathf.Abs(off.z)));
+                            samples++;
+                        }
+                        if (!heavyOne) break;
+                    }
+                    LqCheck($"{tag}: a heavy piece let go in the car or its doorway, and thrown at the open door, never gets past the door line", samples > 0 && furthest <= CarLootRules.InnerHalf + 0.001f, $"(furthest {furthest:0.00} m from the car's middle in {samples} samples, the wall's face is at {CarLootRules.InnerHalf})");
+                }
                 for (int batch = 0; batch * 8 < pieces.Count && hm.Phase == HeistPhase.Heist; batch++)
                 {
                     for (int k = 0; k < 8 && batch * 8 + k < pieces.Count; k++)

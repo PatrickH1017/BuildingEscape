@@ -45,6 +45,27 @@ namespace BuildingEscape
         public int Holders => holders.Count;
         public bool IsLiftable => holders.Count >= lifters;
 
+        /// <summary>When its last carrier let go of it (Time.time; long ago if never). The elevator car keeps what was let go of in it, or in its doorway a moment ago, inside it (see <see cref="ElevatorExtraction"/>).</summary>
+        public float SetDownAt { get; private set; } = -1000f;
+        /// <summary>Marks it as let go of now (<see cref="RemoveHolder"/> does; so do the tests).</summary>
+        public void NoteSetDown() { SetDownAt = Time.time; }
+
+        /// <summary>Half the width of the piece on the floor, turned any way (m): how far its middle has to stay from a wall for the piece to be inside it.</summary>
+        public float FootprintRadius
+        {
+            get
+            {
+                bool any = false; Bounds box = default;
+                if (own != null)
+                    foreach (var c in own)
+                    {
+                        if (!c || c.isTrigger) continue;
+                        if (!any) { box = c.bounds; any = true; } else box.Encapsulate(c.bounds);
+                    }
+                return any ? Mathf.Max(0.3f, Mathf.Max(box.extents.x, box.extents.z)) : 0.5f;
+            }
+        }
+
         readonly HashSet<PlayerGrab> holders = new();
         Rigidbody rb;
         Collider[] own;
@@ -82,6 +103,7 @@ namespace BuildingEscape
             if (holders.Count == 0)
             {
                 stuckFor = 0f;
+                NoteSetDown();
                 graceUntil = thrown ? 0f : Time.time + SetDownGrace;
                 if (rb) rb.angularDamping = normalAngularDamping;
             }

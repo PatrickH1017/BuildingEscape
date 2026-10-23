@@ -241,6 +241,29 @@ namespace BuildingEscape
             return items.Length > 0 && IsGunItem(items[0]) ? GunOfItem(items[0]) : RangedWeapon.Kind.Pew;
         }
 
+        /// <summary>
+        /// What safe number <paramref name="index"/> of this floor holds, in words, for the test menu (the owner, 2026-10-22: the list used to say "a pistol" after every safe; this reads the same rules the floor is built from):
+        /// cash on floors 1 and 2, else the gun (by name), the piece of armour (by tier) or nothing it holds, then what lies beside it: a bit of cash, a spare clip, a gold watch. Empty when there is no such safe.
+        /// </summary>
+        public static string ContentsText(int runSeed, int floor, int index)
+        {
+            if (index < 0 || index >= SafeCount(runSeed, floor)) return "";
+            string text;
+            if (IsWeaponFloor(floor))
+            {
+                var items = WeaponContents(runSeed, floor, index);
+                if (items.Length == 0) text = "no gun or armour";
+                else if (IsArmourItem(items[0])) text = ArmourRules.Name(ArmourOfItem(items[0]));
+                else if (IsGunItem(items[0])) { var kind = GunOfItem(items[0]); text = kind == RangedWeapon.Kind.Pew ? "Pew pistol" : RangedWeapon.Specs[(int)kind].name; }
+                else text = "item " + items[0];
+                if (HasSideCash(runSeed, floor, index)) text += " + cash";
+                if (HasSideClip(runSeed, floor, index)) text += " + spare clip";
+            }
+            else text = index == 0 ? "cash" : "nothing";
+            if (HasSideWatch(runSeed, floor, index)) text += " + gold watch";
+            return text;
+        }
+
         // ------------------------------------------------------------------ armour instead of a gun (the owner, 2026-10-19)
 
         const int SaltArmour = 43, SaltArmourTier = 47;

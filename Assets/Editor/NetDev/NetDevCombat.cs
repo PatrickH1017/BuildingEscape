@@ -215,24 +215,50 @@ namespace BuildingEscape.EditorTools
                 yield return null;
                 CombatCheck("a blow while he pins a player: the player is free and he is knocked over", player.Custody == CustodyState.Free && b.Holding == null && b.State == GuardState.Stunned && !b.Dead, $"(player {player.Custody}, guard {b.State})");
 
-                // ---- a blow knocks over for the weapon's own time (bat 3 s, crowbar 4 s, hatchet 6 s) and counts for nothing
+                // ---- a blow knocks over for the weapon's own time (bat 3 s, crowbar 4 s, hatchet 6 s) AND takes the weapon's damage off the guard's 100 HP (crowbar 15, bat 25, hatchet 35; the owner, 2026-10-22: it used to take nothing)
                 var specs = MeleeWeapon.Specs;
-                bool timesOk = true; string timesText = "";
+                bool timesOk = true, healthOk = true; string timesText = "";
                 for (int i = 0; i < specs.Length && i + 2 < bare4.Count; i++)
                 {
                     var g = bare4[i + 2];
-                    g.MeleeHitHost(specs[i].stun, player.gameObject);
+                    healthOk &= Mathf.Approximately(g.MaxHealth, 100f) && Mathf.Approximately(g.Health, 100f);       // (a base guard starts with exactly 100 HP, untouched)
+                    g.MeleeHitHost(specs[i].stun, player.gameObject, specs[i].guardDamage);
                     float left = (float)fStun.GetValue(g) - Time.time;
-                    timesOk &= g.State == GuardState.Stunned && Mathf.Abs(left - specs[i].stun) < 0.3f && g.Hits == 0 && !g.Dead;
-                    timesText += $"{specs[i].name} {left:0.0} s; ";
+                    timesOk &= g.State == GuardState.Stunned && Mathf.Abs(left - specs[i].stun) < 0.3f && !g.Dead;
+                    healthOk &= Mathf.Abs(g.Health - (100f - specs[i].guardDamage)) < 0.01f;
+                    timesText += $"{specs[i].name} {left:0.0} s, {g.Health:0} HP left; ";
                 }
-                CombatCheck("a blow knocks the guard over for the weapon's own time and does not count towards knocking him out", timesOk, $"({timesText})");
+                CombatCheck("a blow knocks the guard over for the weapon's own time", timesOk, $"({timesText})");
+                CombatCheck("a base guard starts with 100 HP and one blow takes exactly the weapon's damage off it (crowbar 15, bat 25, hatchet 35)", healthOk && specs[0].guardDamage == 15f && specs[1].guardDamage == 25f && specs[2].guardDamage == 35f, $"({timesText})");
                 var s0 = specs.OrderBy(s => s.stun).First(); var s2 = specs.OrderBy(s => s.stun).Last();
                 CombatCheck("the better the weapon the longer the guard stays down (bat 3 s < crowbar 4 s < hatchet 6 s)", s0.stun < s2.stun && specs.Length == 3 && specs.Select(s => s.stun).Distinct().Count() == 3);
-                var c = bare4[Mathf.Min(bare4.Count - 1, 4)];
-                int hitsBefore = c.Hits;
-                for (int i = 0; i < 12; i++) c.MeleeHitHost(0.05f, player.gameObject);
-                CombatCheck("twelve blows never knock a guard out: no damage, still alive", !c.Dead && c.Hits == hitsBefore, $"(hits {hitsBefore} -> {c.Hits})");
+
+                // ---- the same guards go on being hit: their health does not reset, and they go down after exactly 7 crowbar, 4 bat and 3 hatchet blows in all
+                bool killsOk = true; string killsText = "";
+                for (int i = 0; i < specs.Length && i + 2 < bare4.Count; i++)
+                {
+                    var g = bare4[i + 2];
+                    int blows = 1;                                              // (the blow above)
+                    float last = g.Health; bool shrinking = true;
+                    while (!g.Dead && blows < 20)
+                    {
+                        g.MeleeHitHost(0.05f, player.gameObject, specs[i].guardDamage);
+                        blows++;
+                        shrinking &= g.Health < last;
+                        last = g.Health;
+                    }
+                    int expected = GuardHealthRules.BlowsToKill(GuardHealthRules.BaseHealth, specs[i].guardDamage);
+                    killsOk &= g.Dead && blows == expected && shrinking && g.Health <= 0.01f;
+                    killsText += $"{specs[i].name} {blows} blows (expected {expected}); ";
+                }
+                CombatCheck("the same guards lose health blow by blow (no reset) and go down after exactly 7 crowbar, 4 bat and 3 hatchet blows",
+                    killsOk && GuardHealthRules.BlowsToKill(100f, specs[0].guardDamage) == 7 && GuardHealthRules.BlowsToKill(100f, specs[1].guardDamage) == 4 && GuardHealthRules.BlowsToKill(100f, specs[2].guardDamage) == 3, $"({killsText})");
+
+                // ---- a guard who is down takes nothing more
+                var downGuard = bare4[Mathf.Min(bare4.Count - 1, 4)];
+                float damageAtDeath = downGuard.Damage;
+                for (int i = 0; i < 5; i++) downGuard.MeleeHitHost(0.05f, player.gameObject, specs[2].guardDamage);
+                CombatCheck("a guard who is down takes no more damage (five more hatchet blows change nothing)", downGuard.Dead && Mathf.Approximately(downGuard.Damage, damageAtDeath) && downGuard.Health <= 0.01f, $"(damage {damageAtDeath} -> {downGuard.Damage})");
             }
 
             // ================= 4. the loadouts of the higher floors

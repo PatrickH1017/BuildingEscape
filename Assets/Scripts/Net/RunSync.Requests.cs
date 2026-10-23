@@ -117,7 +117,7 @@ namespace BuildingEscape.Net
             var bp = np ? np.GetComponent<Backpack>() : null;
             if (bp == null) return;
             foreach (var p in bp.Snapshot())
-                if (p && p.NetId >= 0) DroppedRpc((ushort)p.NetId, (byte)np.Slot, bp.DropPosition());
+                if (p && p.Loot && p.NetId >= 0) DroppedRpc((ushort)p.NetId, (byte)np.Slot, bp.DropPosition());          // (loot only: the equipment stays)
         }
 
         /// <summary>Equip a weapon from the pack, or pass null to put it away.</summary>
@@ -193,6 +193,7 @@ namespace BuildingEscape.Net
         [Rpc(SendTo.Server)]
         void GuardHitRequestRpc(ushort id, RpcParams rp = default) => HostGuardHit(rp.Receive.SenderClientId, id);
 
+        /// <summary>When each player last hit each guard (key: the player's id and the guard's id): one swing is one request per guard it finds, so a swing that finds two guards counts for both, and a request that arrives twice for one guard (a repeat) counts once.</summary>
         readonly System.Collections.Generic.Dictionary<ulong, float> lastHit = new();
 
         void HostGuardHit(ulong who, int id)
@@ -206,10 +207,12 @@ namespace BuildingEscape.Net
             if (weapon == null && !punch) return;
             if (!Near(np.transform, g.transform, GuardHitReach)) return;
             float now = Time.unscaledTime;
-            if (lastHit.TryGetValue(who, out float t) && now - t < 0.35f) return; // faster than any swing
-            lastHit[who] = now;
+            ulong key = (who << 16) | (ushort)id;                                   // (per player AND guard: the blow that finds two guards counts for both)
+            if (lastHit.TryGetValue(key, out float t) && now - t < 0.35f) return;   // faster than any swing: the same blow twice counts once
+            if (lastHit.Count > 256) lastHit.Clear();                               // (a long run: the old entries are far past 0.35 s)
+            lastHit[key] = now;
             if (punch) g.PunchHost(PunchRules.StunSeconds, np.gameObject);
-            else g.MeleeHitHost(weapon.Data.stun, np.gameObject);
+            else g.MeleeHitHost(weapon.Data.stun, np.gameObject, weapon.Data.guardDamage);       // (the damage is the weapon the host sees in his hand, never a number the client sends)
         }
 
         /// <summary>This player swung a weapon (<paramref name="kind"/> 0-2) or threw a punch (<see cref="MeleeWeapon.PunchKind"/>): the teammates see it and hear it when they are near.</summary>

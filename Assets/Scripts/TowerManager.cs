@@ -20,11 +20,15 @@ namespace BuildingEscape
         public int baseSeed = 20240;
         [Tooltip("The seed for the floor safes and the notes about them. 0 = a new random one each run (offline the floors themselves repeat, the safes do not). Online it comes from the host's seed.")]
         public int intelSeedOverride = 0;
+        [Tooltip("The seed for where the guards start and patrol. 0 = a new random one each run: a restarted run puts them elsewhere, so nobody can learn the starts by heart (the floors themselves still repeat offline). Online it comes from the host's seed.")]
+        public int guardSeedOverride = 0;
         [Tooltip("Share of the floor's loot value that must be banked to unlock the elevator.")]
         public float quotaShare = 0.6f;
 
         /// <summary>The run's seed for the floor safes and the notes about them (see <see cref="SafeRules"/>).</summary>
         public int IntelSeed { get; private set; } = 1;
+        /// <summary>The run's seed for where the guards start and patrol (see <see cref="GuardRules.RouteSeed"/>): new with every run, the same on every machine of an online run.</summary>
+        public int GuardSeed { get; private set; } = 1;
 
         public FloorInfo CurrentInfo { get; private set; }
         public bool Loading { get; private set; }
@@ -79,6 +83,7 @@ namespace BuildingEscape
             SafeIntel.Reset();      // a new run: nothing is known about any safe yet
             RunUnlocks.Reset();     // ...and nothing is unlocked at the dealer's yet (a gun found and brought back unlocks its ammunition)
             IntelSeed = intelSeedOverride != 0 ? intelSeedOverride : Random.Range(1, int.MaxValue);
+            GuardSeed = guardSeedOverride != 0 ? guardSeedOverride : Random.Range(1, int.MaxValue);      // (a new run - a restart too - puts the guards elsewhere: the owner, 2026-10-22)
             StartCoroutine(Net.NetSession.Online ? StartNetworked() : LoadFloor(startLevel));
         }
 
@@ -103,6 +108,7 @@ namespace BuildingEscape
                 Debug.LogWarning($"TowerManager: {Net.NetPlayer.All.Count} players arrived of {Net.RunSync.Instance.ExpectedPlayers} expected; starting without the rest.");
             baseSeed = Net.RunSync.Instance.Seed;
             IntelSeed = baseSeed ^ 0x2D5AFE1;      // (the same on every machine: the host's seed)
+            GuardSeed = GuardRules.OnlineGuardSeed(baseSeed);      // (so is this, and the host's seed is new with every run)
             yield return LoadFloor(startLevel);
         }
 
@@ -167,6 +173,13 @@ namespace BuildingEscape
             if (Net.NetSession.Online) return;
             IntelSeed = seed != 0 ? seed : 1;
             SafeIntel.Reset();
+        }
+
+        /// <summary>Test mode and the QA scenarios: use this seed for where the guards start from the next floor on (nothing is rebuilt; offline only, online it comes from the host's seed).</summary>
+        public void SetGuardSeed(int seed)
+        {
+            if (Net.NetSession.Online) return;
+            GuardSeed = seed != 0 ? seed : 1;
         }
 
         /// <summary>Test mode: jump straight to a level (0 = basement).</summary>
@@ -277,6 +290,7 @@ namespace BuildingEscape
             generator.Clear();
             yield return null; // let the old floor and its NavMesh go before baking the new one
 
+            generator.guardSeed = GuardSeed;                                  // (where the guards start: new with every run)
             var info = generator.Generate(floor, baseSeed + floor * 7919);
             CurrentInfo = info;
 

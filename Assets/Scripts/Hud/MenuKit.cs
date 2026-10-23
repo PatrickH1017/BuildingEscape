@@ -36,6 +36,9 @@ namespace BuildingEscape
             return r.Contains(m) && clip.Contains(m);
         }
 
+        /// <summary>Is the mouse over this rectangle (in the current GUI coordinates) and in the part of the page that can be clicked? The same test the buttons use; for the screens that handle a drag themselves.</summary>
+        public static bool Over(Rect r) => Hit(r);
+
         static Rect Grow(Rect r, float g) => new Rect(r.x - g, r.y - g, r.width + g * 2f, r.height + g * 2f);
 
         // ------------------------------------------------------------------ layout

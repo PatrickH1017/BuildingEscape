@@ -59,6 +59,15 @@ namespace BuildingEscape
         /// <summary>Does a scan from room <paramref name="mine"/> show a thing lying in room <paramref name="theirs"/>? Only the room itself (and never a point that is in no room).</summary>
         public static bool SameRoom(int mine, int theirs) => mine >= 0 && mine == theirs;
 
+        /// <summary>
+        /// A little more than the room (the owner, 2026-10-22: "increase the radius of the scanner by just a little bit to make it a tad bit easier to find loot"): a thing in ANOTHER room (or in none) is marked too when it lies
+        /// this close (m) to the player, a little way through the walls. 0 gives the old rule back: the room only.
+        /// </summary>
+        public const float ExtraReach = 3f;
+
+        /// <summary>Does a scan from the player mark a thing <paramref name="distance"/> metres away, lying in the player's room (<paramref name="sameRoom"/>) or not? The room, and anything within <see cref="ExtraReach"/>.</summary>
+        public static bool InScan(bool sameRoom, float distance) => sameRoom || (ExtraReach > 0f && distance >= 0f && distance <= ExtraReach);
+
         /// <summary>What the scan calls the room: "ROOM 114" for a numbered one, "THE OPEN AREA", "THE LOBBY" or "THE HALLWAY" for the others.</summary>
         public static string RoomTitle(RoomSpot room)
         {

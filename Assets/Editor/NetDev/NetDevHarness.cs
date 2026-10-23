@@ -344,6 +344,30 @@ namespace BuildingEscape.EditorTools
             EditorSceneManager.OpenScene("Assets/Scenes/Greybox.unity");
             EditorApplication.isPlaying = true;
         }
+        public static void GuardSight()
+        {
+            SessionState.SetString("netdev.mode", "guardsight");
+            EditorSceneManager.OpenScene("Assets/Scenes/Greybox.unity");
+            EditorApplication.isPlaying = true;
+        }
+        public static void Vending()
+        {
+            SessionState.SetString("netdev.mode", "vending");
+            EditorSceneManager.OpenScene("Assets/Scenes/Greybox.unity");
+            EditorApplication.isPlaying = true;
+        }
+        public static void BarDrag()
+        {
+            SessionState.SetString("netdev.mode", "bardrag");
+            EditorSceneManager.OpenScene("Assets/Scenes/Greybox.unity");
+            EditorApplication.isPlaying = true;
+        }
+        public static void Cones()
+        {
+            SessionState.SetString("netdev.mode", "cones");
+            EditorSceneManager.OpenScene("Assets/Scenes/Greybox.unity");
+            EditorApplication.isPlaying = true;
+        }
         public static void Asks1021()
         {
             SessionState.SetString("netdev.mode", "asks1021");
@@ -405,7 +429,7 @@ namespace BuildingEscape.EditorTools
             DontDestroyOnLoad(gameObject);
             started = Time.realtimeSinceStartup;
             GuardAI.DonutRollOverride = mode == "r7" ? -1f : 1f;           // (no donut breaks in the other scenarios: a guard standing still for 6 s could upset their timing)
-            if (mode != "offline" && mode != "sneak" && mode != "floors" && mode != "roomshots" && mode != "corelooks" && mode != "looks" && mode != "floatqa" && mode != "computerui" && mode != "r5" && mode != "r6" && mode != "r7" && mode != "r7look" && mode != "probe" && mode != "doors" && mode != "outpost" && mode != "pew" && mode != "pewlook" && mode != "weaponsheet" && mode != "meleelook" && mode != "gunsheet" && mode != "charsheet" && mode != "dresssheet" && mode != "themesheet" && mode != "fplook" && mode != "gunitems" && mode != "gunlook" && mode != "gunsafes" && mode != "guns" && mode != "gunui" && mode != "combat" && mode != "armour" && mode != "assetpreview" && mode != "citynew" && mode != "round12" && mode != "checklist" && mode != "docklook" && mode != "guardcall" && mode != "asks1021" && mode != "pingui" && mode != "dockseeds" && mode != "ui" && mode != "menus" && mode != "shaft" && mode != "pewloot" && mode != "demo" && mode != "demoui" && mode != "lootqa" && mode != "etr" && mode != "etrcarry" && mode != "etrscan" && mode != "introtv" && mode != "introoffline" && mode != "invui" && mode != "doorsslide" && mode != "citylook")
+            if (mode != "offline" && mode != "sneak" && mode != "floors" && mode != "roomshots" && mode != "corelooks" && mode != "looks" && mode != "floatqa" && mode != "computerui" && mode != "r5" && mode != "r6" && mode != "r7" && mode != "r7look" && mode != "probe" && mode != "doors" && mode != "outpost" && mode != "pew" && mode != "pewlook" && mode != "weaponsheet" && mode != "meleelook" && mode != "gunsheet" && mode != "charsheet" && mode != "dresssheet" && mode != "themesheet" && mode != "fplook" && mode != "gunitems" && mode != "gunlook" && mode != "gunsafes" && mode != "guns" && mode != "gunui" && mode != "combat" && mode != "armour" && mode != "assetpreview" && mode != "citynew" && mode != "round12" && mode != "checklist" && mode != "docklook" && mode != "guardcall" && mode != "guardsight" && mode != "vending" && mode != "bardrag" && mode != "cones" && mode != "asks1021" && mode != "pingui" && mode != "dockseeds" && mode != "ui" && mode != "menus" && mode != "shaft" && mode != "pewloot" && mode != "demo" && mode != "demoui" && mode != "lootqa" && mode != "etr" && mode != "etrcarry" && mode != "etrscan" && mode != "introtv" && mode != "introoffline" && mode != "invui" && mode != "doorsslide" && mode != "citylook")
                 yield return WaitFor(() => NetSession.Instance != null && SceneManager.GetActiveScene().name == NetConst.MenuScene, 30, "menu");
             switch (mode)
             {
@@ -447,6 +471,10 @@ namespace BuildingEscape.EditorTools
                 case "armour": yield return ArmourScenario(); break;
                 case "docklook": yield return DockLookScenario(); break;
                 case "guardcall": yield return GuardCallScenario(); break;
+                case "guardsight": yield return GuardSightScenario(); break;
+                case "vending": yield return VendingScenario(); break;
+                case "bardrag": yield return BarDragScenario(); break;
+                case "cones": yield return ConesScenario(); break;
                 case "asks1021": yield return Asks1021Scenario(); break;
                 case "pingui": yield return PingUiScenario(); break;
                 case "pingnet": yield return System.Environment.GetEnvironmentVariable("BE_QA_ROLE") == "host" ? PingNetHostScenario() : PingNetClientScenario(); break;

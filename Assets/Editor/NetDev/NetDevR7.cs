@@ -307,8 +307,11 @@ namespace BuildingEscape.EditorTools
                 int bullet = RangedWeapon.Specs[0].guardHits;
                 for (int i = 0; i < 3; i++) bare[0].BulletHitHost(bullet, false, null);
                 R7Check("an unshielded guard takes three pew bullets", bare[0].Dead, $"(hits {bare[0].Hits})");
-                for (int i = 0; i < 12; i++) bare[1].MeleeHitHost(0.05f, null);
-                R7Check("a melee blow knocks a guard over and never knocks him out (twelve blows: damage 0, still alive)", !bare[1].Dead && bare[1].Hits == 0, $"(hits {bare[1].Hits})");
+                float crowbarHp = MeleeWeapon.Specs[(int)MeleeWeapon.Kind.Crowbar].guardDamage;       // (the owner, 2026-10-22: a blow takes the weapon's damage off the guard's 100 HP; it used to take nothing)
+                for (int i = 0; i < 6; i++) bare[1].MeleeHitHost(0.05f, null, crowbarHp);
+                R7Check("six crowbar blows (15 HP each) leave an unshielded guard alive with 10 of his 100 HP", !bare[1].Dead && Mathf.Abs(bare[1].Health - 10f) < 0.01f, $"(health {bare[1].Health})");
+                bare[1].MeleeHitHost(0.05f, null, crowbarHp);
+                R7Check("the seventh crowbar blow puts him down for good", bare[1].Dead && bare[1].Health <= 0.01f, $"(health {bare[1].Health})");
             }
             var other = armoured.FirstOrDefault(g => g && !g.Dead);
             // the backup: the clock runs on the floor's interval
@@ -352,8 +355,18 @@ namespace BuildingEscape.EditorTools
                     ctl.HostStandDown();
                     yield return new WaitForSeconds(0.5f);
                     R7Check("the alarm panel calms it down and the safe can be tried again", !ctl.AlarmOn && !gs.Jammed);
+                    // backing out (here by walking off; Esc and a jam end the same way) takes the screen away at once and the safe can be tried again (the owner, 2026-10-22: "escape is not closing the menu out when you go to hack the chest")
                     GunSafeHackPanel.Begin(gs, me2);
                     yield return null;
+                    bool upBeforeBackOut = GunSafeHackPanel.Running;
+                    me2.TeleportTo(gs.transform.position + gs.transform.forward * (GunSafeProp.HackReach + 3f) + Vector3.up * 0.2f, Quaternion.identity);
+                    yield return new WaitForSeconds(0.3f);
+                    R7Check("backing out of the hack (walking off) takes the screen away at once and frees the player: no session is left running", upBeforeBackOut && !GunSafeHackPanel.Running && GunSafeHackPanel.Instance.Session == null && !OutpostUi.Open);
+                    me2.TeleportTo(gs.transform.position + gs.transform.forward * 1.0f + Vector3.up * 0.2f, Quaternion.identity);
+                    yield return new WaitForSeconds(0.5f);
+                    GunSafeHackPanel.Begin(gs, me2);
+                    yield return null;
+                    R7Check("... and the hack can be started again at once", GunSafeHackPanel.Running && OutpostUi.Current == OutpostUi.Kind.GunSafe);
                     path = GunSafeHackPanel.Instance.Session.Path;
                     ptr = path[0]; btn = true; yield return null; yield return null;
                     for (int i = 0; i + 1 < path.Length && GunSafeHackPanel.Running; i++)

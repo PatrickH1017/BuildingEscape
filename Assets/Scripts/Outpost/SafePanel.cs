@@ -73,7 +73,7 @@ namespace BuildingEscape
             OutpostUi.Hide(OutpostUi.Kind.Safe);
         }
 
-        bool Showing => OutpostUi.Current == OutpostUi.Kind.Safe && safe != null;
+        public bool Showing => OutpostUi.Current == OutpostUi.Kind.Safe && safe != null;
 
         // ------------------------------------------------------------------ the keys and the clock
 

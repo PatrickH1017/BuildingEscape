@@ -103,6 +103,14 @@ namespace BuildingEscape.EditorTools
             Check("tuning: every gun has a real range, magazine, aim, rate, reload and stumble", sane);
             Check("drops: a guard drops one magazine of his gun's ammunition", GuardLoadouts.DropRounds(pewK) == S[(int)pewK].magazine && GuardLoadouts.DropRounds(smgK) == 24 && GuardLoadouts.DropRounds(rifleK) == 30 && GuardLoadouts.DropRounds(shotgunK) == 6 && GuardLoadouts.DropRounds(sniperK) == 5);
             Check("armed: the guards of the game are armed from floor 3 (it was 4)", ArmedGuards.DefaultFirstArmedFloor == 3 && GuardLoadouts.FirstArmedFloor == 3 && OutpostLoot.PewFloor == 3);
+            Check("guard starts: the route seed is the same for the same run and floor, differs from floor to floor and from run to run, and an online run's guard seed follows the host's seed and is never 0",
+                GuardRules.RouteSeed(1234, 3) == GuardRules.RouteSeed(1234, 3) && GuardRules.RouteSeed(1234, 3) != GuardRules.RouteSeed(1234, 4) && GuardRules.RouteSeed(1234, 3) != GuardRules.RouteSeed(1235, 3)
+                && GuardRules.OnlineGuardSeed(77) == GuardRules.OnlineGuardSeed(77) && GuardRules.OnlineGuardSeed(77) != GuardRules.OnlineGuardSeed(78) && GuardRules.OnlineGuardSeed(0x3C6EF372) != 0);
+            {
+                var firstDraws = new System.Collections.Generic.HashSet<int>();
+                for (int runSeed = 1; runSeed <= 200; runSeed++) firstDraws.Add(new System.Random(GuardRules.RouteSeed(runSeed, 2)).Next(10000));
+                Check("guard starts: 200 different runs give about 200 different first picks for a floor's routes (a restarted run starts the guards elsewhere)", firstDraws.Count >= 190, $"({firstDraws.Count} different of 200)");
+            }
         }
     }
 }

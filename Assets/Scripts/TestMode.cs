@@ -10,6 +10,8 @@ namespace BuildingEscape
     public class TestMode : MonoBehaviour
     {
         public const string PrefKey = "OvertimeEscape.TestMode";
+        /// <summary>The check box "Show guards' vision cones" is remembered between Play sessions (the editor only: the menu exists only with Test Mode on).</summary>
+        public const string ConesPrefKey = "OvertimeEscape.TestMode.ShowGuardCones";
 
         /// <summary>True while the panel is open (the camera frees the cursor).</summary>
         public static bool PanelOpen { get; private set; }
@@ -25,6 +27,7 @@ namespace BuildingEscape
         {
             if (!Application.isEditor || PlayerPrefs.GetInt(PrefKey, 0) != 1) return;
             if (FindFirstObjectByType<TestMode>()) return;
+            GuardVision.ShowCones = PlayerPrefs.GetInt(ConesPrefKey, 0) == 1;          // (off unless the check box was ticked in an earlier session)
             var go = new GameObject("TestMode");
             DontDestroyOnLoad(go);
             go.AddComponent<TestMode>();
@@ -37,6 +40,48 @@ namespace BuildingEscape
         {
             if (Net.NetSession.Online) { open = false; PanelOpen = false; return; } // cheats create things the sync does not know about
             if (Input.GetKeyDown(KeyCode.F1)) { open = !open; PanelOpen = open; }
+            TickSafeTrip();
+        }
+
+        // ------------------------------------------------------------------ "Go" to a safe: to the room it stands in
+
+        int tripFloor = -1, tripIndex;
+        float tripSince, tripReadyAt;
+
+        /// <summary>Go to the room of safe <paramref name="index"/> on floor <paramref name="floor"/>: at once when that floor is on show, else the floor is built first and the trip finishes when it stands.</summary>
+        void GoToSafe(TowerManager tm, int floor, int index)
+        {
+            var hm = HeistManager.Instance;
+            tripFloor = floor; tripIndex = index; tripSince = Time.time; tripReadyAt = 0f;
+            if (hm && hm.Floor == floor && !tm.Loading && TryTripToSafe()) return;
+            tm.GoToLevel(floor);
+            Say("Going to floor " + floor + ", then to the safe's room");
+        }
+
+        void TickSafeTrip()
+        {
+            if (tripFloor < 0) return;
+            var tm = TowerManager.Instance;
+            if (!tm || Time.time - tripSince > 90f) { tripFloor = -1; return; }
+            if (tm.Loading || !tm.HasFloor) { tripReadyAt = 0f; return; }
+            if (tripReadyAt <= 0f) tripReadyAt = Time.time + 0.6f;            // (let the team be put down in the elevator first)
+            if (Time.time < tripReadyAt) return;
+            if (!TryTripToSafe()) { Say("Floor " + tripFloor + " has no safe " + (tripIndex + 1) + " on show"); tripFloor = -1; }
+        }
+
+        bool TryTripToSafe()
+        {
+            var pack = LocalPack();
+            if (!pack) return false;
+            foreach (var safe in FloorSafe.OnShow)
+            {
+                if (!safe || safe.Index != tripIndex) continue;
+                TeleportTo(pack, new Vector3(safe.transform.position.x, 1.1f, safe.transform.position.z) + safe.transform.forward * 1.4f);
+                Say("In the room of safe " + (tripIndex + 1) + " on floor " + tripFloor);
+                tripFloor = -1;
+                return true;
+            }
+            return false;
         }
 
         static Backpack LocalPack()
@@ -67,11 +112,12 @@ namespace BuildingEscape
             var hm = HeistManager.Instance;
             var tm = TowerManager.Instance;
             var pack = LocalPack();
-            const float w = 360f;
-            var r = new Rect(12, 60, w, Mathf.Min(Screen.height - 80f, 640f));
+            float w = Mathf.Min(Screen.width - 24f, 620f);                  // (wide enough that the rows fit without sliding the menu left and right)
+            float barTop = Screen.height - 130f * HudTheme.S;                // (the item shortcut bar starts about 122 px up from the bottom: the window ends above it)
+            var r = new Rect(12, 60, w, Mathf.Max(200f, Mathf.Min(barTop - 66f, 760f)));
             GUI.Box(r, "TEST MODE");
             GUILayout.BeginArea(new Rect(r.x + 10, r.y + 26, w - 20, r.height - 34));
-            scroll = GUILayout.BeginScrollView(scroll);
+            scroll = GUILayout.BeginScrollView(scroll, false, false, GUIStyle.none, GUI.skin.verticalScrollbar);          // (no sideways scrollbar: up and down only)
 
             GUILayout.Label($"Cash: ${(hm ? hm.Cash : 0)}");
             GUILayout.BeginHorizontal();
@@ -79,6 +125,8 @@ namespace BuildingEscape
             if (GUILayout.Button("+$1,000") && hm) hm.AddCash(1000);
             if (GUILayout.Button("+$10,000") && hm) hm.AddCash(10000);
             GUILayout.EndHorizontal();
+
+            AlarmTools(hm, pack);
 
             Header("Weapons (into your pack, equipped)");
             if (!MeleeWeapon.Available) GUILayout.Label("Weapons not set up: run Employees Take Revenge > Setup Weapons");
@@ -100,7 +148,7 @@ namespace BuildingEscape
             GUILayout.Label($"Capacity {WeightUnits.Lbs(capacity)}   (using {WeightUnits.Num(pack ? pack.Weight : 0)})");
             float nc = GUILayout.HorizontalSlider(capacity, 5f, 300f);
             if (!Mathf.Approximately(nc, capacity)) { capacity = Mathf.Round(nc); if (pack) pack.capacity = capacity; }
-            if (pack && GUILayout.Button("Empty pack (drop everything)")) pack.DropAll();
+            if (pack && GUILayout.Button("Drop all loot")) pack.DropAll();                   // (loot only: weapons, armour and the rest of the equipment stay in the pack)
 
             Header("Spawn loot in front of you");
             var gen = FindFirstObjectByType<FloorGenerator>();
@@ -137,6 +185,8 @@ namespace BuildingEscape
                 }
             }
 
+            TeleportTools(tm, gen, pack);
+
             Header("Floor tools");
             if (hm && GUILayout.Button("Complete quota (unlock elevator up)")) hm.DebugCompleteFloor();
             if (GUILayout.Button("Stun all guards 30s"))
@@ -145,8 +195,14 @@ namespace BuildingEscape
             {
                 hm.godMode = GUILayout.Toggle(hm.godMode, "God mode (guards can't catch you)");
             }
+            bool cones = GUILayout.Toggle(GuardVision.ShowCones, "Show guards' vision cones (hidden from players by default; what the guards see is the same either way)");
+            if (cones != GuardVision.ShowCones)
+            {
+                GuardVision.ShowCones = cones;
+                PlayerPrefs.SetInt(ConesPrefKey, cones ? 1 : 0);
+                Say(cones ? "Guards' vision cones ON" : "Guards' vision cones off");
+            }
             OutpostTools(tm, gen, pack);
-            SignTools(gen, pack);
             Header("Police (pinning / busted / backup)");
             WobblyPlayer me = null;
             if (pack) pack.TryGetComponent(out me);
@@ -159,12 +215,84 @@ namespace BuildingEscape
                 GUILayout.EndHorizontal();
                 GUILayout.Label("Pin needs a guard to hold you: the nearest one is used. Wait 12 s to get busted.");
             }
-            if (hm && GUILayout.Button("Call backup now (starts the 30 s repeat)")) hm.CallBackup(null);
-            if (tm && pack && GUILayout.Button("Teleport to elevator")) TeleportTo(pack, tm.CurrentInfo.spawn + new Vector3(0, 1.1f, 0));
+            if (hm)
+            {
+                GUILayout.BeginHorizontal();
+                if (GUILayout.Button("Call backup now (starts the 30 s repeat)")) hm.CallBackup(null);
+                if (GUILayout.Button("Cancel backup call"))
+                    Say(hm.StandDown() ? "Backup called off: no more officers are coming" : "No backup call going - nothing to cancel");
+                GUILayout.EndHorizontal();
+            }
 
             if (Time.time < statusUntil) GUILayout.Label(status);
             GUILayout.EndScrollView();
             GUILayout.EndArea();
+        }
+
+        // ------------------------------------------------------------------ the guard outpost and its alarm
+
+        /// <summary>Switch the reinforcement alarm on or off (the teleports are in <see cref="TeleportTools"/>).</summary>
+        void AlarmTools(HeistManager hm, Backpack pack)
+        {
+            Header("Alarm (reinforcements)");
+            // The reinforcement alarm: what a guard's radio does. Two officers now, one more every 30 s until it is called off.
+            GUILayout.Label("Reinforcements: " + (hm && hm.BackupActive ? "ON (an officer every 30 s)" : "off"));
+            GUILayout.BeginHorizontal();
+            if (GUILayout.Button("Trip the alarm (call reinforcements)"))
+            {
+                if (!hm || hm.Phase != HeistPhase.Heist) Say("Reinforcements only come on a floor with the heist on (not the basement)");
+                else
+                {
+                    hm.CallBackupAt(pack ? pack.transform.position : Vector3.zero, "BACKUP CALLED");
+                    Say("Reinforcements called: officers are on the way");
+                }
+            }
+            if (GUILayout.Button("Turn alarm OFF (call them off)"))
+                Say(hm && hm.StandDown() ? "Reinforcements called off" : "No reinforcements going - nothing to switch off");
+            GUILayout.EndHorizontal();
+            if (Time.time < statusUntil) GUILayout.Label(status);          // (the answer shows here, next to the buttons)
+        }
+
+        // ------------------------------------------------------------------ all the teleports, in one place (right under "Go to level")
+
+        /// <summary>Every "take me there" button of the menu: the elevator, the guard outpost (door / inside / alarm panel), this floor's safes and the direction signs.</summary>
+        void TeleportTools(TowerManager tm, FloorGenerator gen, Backpack pack)
+        {
+            Header("Teleports (this level)");
+            var outpost = OutpostController.Active;
+
+            GUILayout.BeginHorizontal();
+            if (GUILayout.Button("Elevator") && tm && pack) TeleportTo(pack, tm.CurrentInfo.spawn + new Vector3(0, 1.1f, 0));
+            if (GUILayout.Button("Outpost door"))
+            {
+                if (!outpost || !pack) Say("No guard outpost on this level");
+                else TeleportTo(pack, new Vector3(outpost.KeypadPosition.x, 1.1f, outpost.KeypadPosition.z) + outpost.Outward * 1.4f);
+            }
+            if (GUILayout.Button("Inside outpost"))
+            {
+                if (!outpost || !pack) Say("No guard outpost on this level");
+                else
+                {
+                    var door = outpost.Door != null ? outpost.Door.Centre : outpost.KeypadPosition;
+                    TeleportTo(pack, new Vector3(door.x, 1.1f, door.z) - outpost.Outward * 1.6f);
+                }
+            }
+            if (outpost && outpost.PanelLamps != null && outpost.PanelLamps.Length > 0 && pack && GUILayout.Button("Alarm panel"))       // (the outposts have no alarm panel any more; the button stays for a floor that builds one)
+                TeleportTo(pack, new Vector3(outpost.PanelPosition.x, 1.1f, outpost.PanelPosition.z) - outpost.Outward * 1.2f);
+            GUILayout.EndHorizontal();
+
+            bool anySafe = false;
+            foreach (var safe in FloorSafe.OnShow) { if (safe) { anySafe = true; break; } }
+            if (anySafe)
+            {
+                GUILayout.BeginHorizontal();
+                foreach (var safe in FloorSafe.OnShow)
+                    if (safe && pack && GUILayout.Button($"This floor's safe {safe.Index + 1}"))
+                        TeleportTo(pack, new Vector3(safe.transform.position.x, 1.1f, safe.transform.position.z) + safe.transform.forward * 1.4f);
+                GUILayout.EndHorizontal();
+            }
+
+            SignTools(gen, pack);
         }
 
         static void TeleportTo(Backpack pack, Vector3 position)
@@ -180,7 +308,6 @@ namespace BuildingEscape
         /// <summary>The signs of this floor: what they say and a button that walks you from one to the next.</summary>
         void SignTools(FloorGenerator gen, Backpack pack)
         {
-            Header("Direction signs");
             var signs = gen ? gen.PlanSigns() : null;
             if (signs == null || signs.Count == 0) { GUILayout.Label("This level has no direction signs."); return; }
             var s = signs[signTour % signs.Count];
@@ -194,6 +321,14 @@ namespace BuildingEscape
         }
 
         // ------------------------------------------------------------------ guard outposts and safes
+
+        /// <summary>What a safe on show was really filled with (the rules' words are in the list above): guns and armour, bundles of cash, clips, watches - and a warning when the rules call for a gun or armour that was not made.</summary>
+        static string SafeFilling(FloorSafe safe, int seed)
+        {
+            string text = safe.GunCount + " gun/armour, " + safe.BundleCount + " cash bundle(s), " + safe.ClipCount + " clip(s), " + safe.WatchCount + " watch(es)";
+            if (SafeRules.IsWeaponFloor(safe.Floor) && safe.GunCount == 0 && SafeRules.WeaponContents(seed, safe.Floor, safe.Index).Length > 0) text += " - the gun/armour the rules call for was NOT made";
+            return text;
+        }
 
         /// <summary>The floors with a safe (and their codes), the lock of this floor's outpost, and this floor's safe.</summary>
         void OutpostTools(TowerManager tm, FloorGenerator gen, Backpack pack)
@@ -211,9 +346,9 @@ namespace BuildingEscape
                 {
                     string room = gen ? gen.SafeRoomLabel(f, i) : null;
                     GUILayout.BeginHorizontal();
-                    GUILayout.Label($"F{f}" + (count > 1 ? $" safe {i + 1}/{count}" : "") + $": room {room ?? "?"}, code {SafeRules.CodeText(SafeRules.Code(seed, f, i))}, {(SafeRules.IsWeaponFloor(f) ? "a pistol" : "cash")}, " +
-                                    $"({(SafeRules.RecordGivesCode(seed, f, i) ? "code on record" : "no code: crowbar")})");
-                    if (i == 0 && GUILayout.Button("Go", GUILayout.Width(40))) { tm.GoToLevel(f); Say("Going to floor " + f); }
+                    GUILayout.Label($"F{f}" + (count > 1 ? $" safe {i + 1}/{count}" : "") + $": room {room ?? "?"}, code {SafeRules.CodeText(SafeRules.Code(seed, f, i))}, " +
+                                    $"({(SafeRules.RecordGivesCode(seed, f, i) ? "code on record" : "no code: crowbar")}) - holds {SafeRules.ContentsText(seed, f, i)}", GUILayout.MaxWidth(Screen.width > 700 ? 500f : 300f));
+                    if (GUILayout.Button("Go", GUILayout.Width(36))) GoToSafe(tm, f, i);
                     GUILayout.EndHorizontal();
                 }
             }
@@ -234,15 +369,12 @@ namespace BuildingEscape
                 GUILayout.Label("Outpost lock: " + (outpost.Unlocked ? "OPEN" : outpost.AlarmOn ? "ALARM (jammed)" : "locked"));
                 GUILayout.BeginHorizontal();
                 if (GUILayout.Button("Unlock it")) outpost.HostHackResult(true);
-                if (GUILayout.Button("Trip the alarm")) outpost.HostHackResult(false);
-                if (pack && GUILayout.Button("To its door")) TeleportTo(pack, new Vector3(outpost.KeypadPosition.x, 1.1f, outpost.KeypadPosition.z) + outpost.Outward * 1.4f);
                 GUILayout.EndHorizontal();
                 if (outpost.PanelLamps != null && outpost.PanelLamps.Length > 0)      // (the outposts have no alarm panel any more; the row stays for a floor that builds one)
                 {
                 GUILayout.BeginHorizontal();
                 GUILayout.Label("Alarm panel: " + (outpost.AlertOn ? "ALERT (alarm or backup going)" : "quiet"));
                 if (GUILayout.Button("Press it")) { if (outpost.HostStandDown()) outpost.PlayStandDown(); else Say("Nothing to switch off"); }
-                if (pack && GUILayout.Button("To the panel")) TeleportTo(pack, new Vector3(outpost.PanelPosition.x, 1.1f, outpost.PanelPosition.z) - outpost.Outward * 1.2f);
                 GUILayout.EndHorizontal();
                 }
             }
@@ -251,10 +383,9 @@ namespace BuildingEscape
             foreach (var safe in FloorSafe.OnShow)
             {
                 if (!safe) continue;
-                GUILayout.Label($"This floor's safe {safe.Index + 1}: {(safe.IsOpen ? "OPEN" : "shut")}, code {SafeRules.CodeText(safe.Code)}, " + (safe.GunCount > 0 ? safe.GunCount + " pistol(s)" : safe.BundleCount + " bundles"));
+                GUILayout.Label($"This floor's safe {safe.Index + 1}: {(safe.IsOpen ? "OPEN" : "shut")}, code {SafeRules.CodeText(safe.Code)}, rules say {SafeRules.ContentsText(seed, safe.Floor, safe.Index)}; in it: {SafeFilling(safe, seed)}");
                 GUILayout.BeginHorizontal();
                 if (!safe.IsOpen && GUILayout.Button("Open it")) safe.ApplyOpen(false);
-                if (pack && GUILayout.Button("To the safe")) TeleportTo(pack, new Vector3(safe.transform.position.x, 1.1f, safe.transform.position.z) + safe.transform.forward * 1.4f);
                 GUILayout.EndHorizontal();
             }
         }

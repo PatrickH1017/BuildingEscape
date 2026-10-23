@@ -6,7 +6,9 @@ namespace BuildingEscape
     /// A guard's flashlight and the cone of vision the player can see.
     /// - A small flashlight is held at the guard's right hand and aimed where he looks (with a real spot light).
     /// - A translucent fan lies on the floor, exactly as wide and as long as the guard's sight check
-    ///   (GuardAI.sightAngle / sightRange), and is cut short by walls so you can see what he can really see.
+    ///   (GuardAI.sightAngle / sightRange, the long beam: the rays are GuardRules.ConeRay, the numbers GuardRules.InVision judges by), and is
+    ///   cut short by walls so you can see what he can really see: its rays start at his eyes (GuardAI.EyePoint) and are stopped by exactly the
+    ///   things that stop his sight (GuardSight.Blocks), so the fan on the floor and what he sees are the same area (the owner, 2026-10-22).
     ///   It is warm yellow while he patrols, orange while he investigates, and turns red as his backup call fills.
     /// It is only a picture: it reads the guard's synced position / rotation / state, so it works the same on a client.
     /// Added to every guard by GuardVisual.
@@ -46,6 +48,17 @@ namespace BuildingEscape
 
         /// <summary>A test hook: the cone and the beam are always drawn (the tests read them whatever the camera sees).</summary>
         public static bool AlwaysShownForTests;
+
+        /// <summary>
+        /// Is the cone of vision drawn on the floor? OFF by default (the owner, 2026-10-22: "Make all guards vision cones off by default to players but still work the same way. Put a check box in the test menu that lets us toggle it on and off so we can
+        /// see their vision as we dev"). Only the picture is switched off: what a guard sees, how he notices a player and the flashlight in his hand are exactly as before, and with the cone off its rays are not even cast. The test menu's check box
+        /// (TestMode, F1) turns it on; the tests that read the cone force it on with <see cref="AlwaysShownForTests"/>.
+        /// </summary>
+        public static bool ShowCones { get; set; }
+
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        static void ResetShowCones() { ShowCones = false; AlwaysShownForTests = false; }          // (a play session starts with the cones off even when the editor keeps statics between sessions)
+
 
         /// <summary>How much of the cone and the beam is drawn right now (0 hidden, 1 fully shown).</summary>
         public float Shown => shown;
@@ -202,18 +215,16 @@ namespace BuildingEscape
             fanObject.SetActive(false);
         }
 
-        /// <summary>How far a horizontal view ray gets before a wall or a piece of furniture stops it.</summary>
+        /// <summary>How far a horizontal view ray gets before a wall or a piece of furniture stops it (the things that stop his sight: <see cref="GuardSight.Blocks"/>; people, other officers and loose objects do not cut the cone short, nor does the guard himself).</summary>
         float Clip(Vector3 from, Vector3 dir, float range)
         {
-            int count = Physics.RaycastNonAlloc(from, dir, hits, range, ~0, QueryTriggerInteraction.Ignore);
+            int count = Physics.RaycastNonAlloc(from, dir, hits, range, ai.sightBlockers, QueryTriggerInteraction.Ignore);
             float best = range;
             for (int i = 0; i < count; i++)
             {
                 var h = hits[i];
                 if (h.distance >= best) continue;
-                var col = h.collider;
-                if (col.attachedRigidbody != null) continue;      // people and loose objects do not cut the cone short
-                if (col.transform.IsChildOf(transform)) continue; // not the guard himself
+                if (!GuardSight.Blocks(h.collider, transform)) continue;
                 best = h.distance;
             }
             return best;
@@ -303,7 +314,7 @@ namespace BuildingEscape
 
             float range = ai.sightRange, half = ai.sightAngle;
             float far = range * Mathf.Max(1f, ai.longSightFactor), longHalf = ai.longSightAngle;
-            var rayOrigin = origin + Vector3.up * 0.9f;
+            var rayOrigin = ai.EyePoint;                                       // (his eyes: where the rays of his sight check start too)
             var fwd = transform.forward; fwd.y = 0f;
             if (fwd.sqrMagnitude < 0.001f) fwd = Vector3.forward;
             fwd.Normalize();
@@ -316,9 +327,7 @@ namespace BuildingEscape
             cols[0] = Alpha(col, 0.32f * pulse * shown);
             for (int i = 0; i <= n; i++)
             {
-                float u = i / (float)n * 2f - 1f;                                    // -1 .. 1
-                float ang = half * Mathf.Sign(u) * Mathf.Pow(Mathf.Abs(u), 1.7f);     // (the rays crowd together straight ahead, where the long beam is)
-                float reach = GuardRules.RangeAt(ang, range, far, longHalf);
+                float reach = GuardRules.ConeRay(i, n, half, range, far, longHalf, out float ang);     // (the rays crowd together straight ahead, where the long beam is; the very numbers his sight check judges by)
                 var dir = Quaternion.AngleAxis(ang, Vector3.up) * fwd;
                 float d = ClipToGate(origin, dir, Clip(rayOrigin, dir, reach));
                 var rim = origin + dir * d;
@@ -362,7 +371,7 @@ namespace BuildingEscape
                 beam.intensity = 2.2f * shown;
                 beam.color = Color.Lerp(new Color(1f, 0.93f, 0.7f), StateColor(), 0.6f);
             }
-            UpdateFan(awake && near && shown > 0.01f);
+            UpdateFan(GuardRules.ConeDrawn(awake, near, shown, ShowCones, AlwaysShownForTests));          // (the picture only: the rules in GuardRules, the sight check does not look at it)
         }
 
         void OnDisable() { if (fanObject) fanObject.SetActive(false); }

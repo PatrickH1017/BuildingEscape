@@ -162,6 +162,27 @@ namespace BuildingEscape.EditorTools
                 smgFirstOn5 > 0 && smgFirstOn5 < runsOn5 / 2 && smgOn5 > 0 && smgOn5 < safesOn5 / 4 && shotgunOn6 > 0 && shotgunOn6 < safesOn6 / 6, $"(SMG in the first safe of floor 5: {smgFirstOn5} of {runsOn5} runs, in any safe of floor 5: {smgOn5} of {safesOn5}; shotgun on floor 6: {shotgunOn6} of {safesOn6})");
             Check("safes: floor 12 has every kind of gun that can be in a safe about (a mix of all four over 150 runs, no sniper rifle), and the spare clip in a safe is for the gun in it (the pew's when it holds none)", seenKinds.Count == 4 && !seenKinds.Contains(sniper) && clipMatches, $"({seenKinds.Count} kinds, clips match {clipMatches})");
             Check("safes: floors 1 and 2 hold no gun, a safe that is not there holds nothing", SafeRules.WeaponContents(1, 1, 0).Length == 0 && SafeRules.WeaponContents(1, 2, 0).Length == 0 && SafeRules.WeaponContents(1, 3, 7).Length == 0 && SafeRules.WeaponContents(1, 3, -1).Length == 0);
+            {
+                // the test menu's words for a safe (the owner, 2026-10-22: it said "a pistol" after every safe): they come from the same rules, so each safe is named for what it really holds
+                bool wordsRight = true, wordsDiffer = false; string firstWords = null;
+                for (int wRun = 1; wRun <= 60; wRun++)
+                    for (int wFloor = 1; wFloor <= 12; wFloor++)
+                    {
+                        int wCount = SafeRules.SafeCount(wRun, wFloor);
+                        if (SafeRules.ContentsText(wRun, wFloor, -1) != "" || SafeRules.ContentsText(wRun, wFloor, wCount) != "") wordsRight = false;
+                        for (int wIdx = 0; wIdx < wCount; wIdx++)
+                        {
+                            string wText = SafeRules.ContentsText(wRun, wFloor, wIdx);
+                            if (firstWords == null) firstWords = wText; else if (wText != firstWords) wordsDiffer = true;
+                            var wHeld = SafeRules.WeaponContents(wRun, wFloor, wIdx);
+                            if (!SafeRules.IsWeaponFloor(wFloor)) { if (!wText.StartsWith("cash")) wordsRight = false; }
+                            else if (wHeld.Length == 0) { if (!wText.StartsWith("no gun or armour")) wordsRight = false; }
+                            else if (SafeRules.IsArmourItem(wHeld[0])) { if (!wText.StartsWith(ArmourRules.Name(SafeRules.ArmourOfItem(wHeld[0])))) wordsRight = false; }
+                            else if (SafeRules.IsGunItem(wHeld[0])) { if (!wText.StartsWith(RangedWeapon.Specs[(int)SafeRules.GunOfItem(wHeld[0])].name)) wordsRight = false; }
+                        }
+                    }
+                Check("safes: the test menu names each safe for what it really holds - cash, a gun by name, a tier of armour or nothing - and not the same word for every safe", wordsRight && wordsDiffer, $"(the words match the rules {wordsRight}, they differ from safe to safe {wordsDiffer})");
+            }
         }
 
         static int Sum(int[] a) { int t = 0; foreach (var x in a) t += x; return t; }

@@ -25,8 +25,8 @@ namespace BuildingEscape
         [Tooltip("A chasing guard keeps after a player for as long as the player is in his cone of vision. Out of it for this many seconds in a row and he gives up.")]
         public float loseSightSeconds = GuardRules.LoseSightSeconds;
         public LayerMask sightBlockers = ~0;
-        [Tooltip("The damage it takes to knock a guard out for good, in hits: a bullet does its gun's guardHits (less through a shield), a melee blow none (it knocks him over).")]
-        public int hitsToKill = 10;
+        [Tooltip("The damage it takes to put a guard down for good, in hits of 10 HP each (GuardHealthRules.HpPerHit): 10 hits = 100 HP for a base guard. A bullet does its gun's guardHits (less through a shield); a melee blow takes its weapon's damage (crowbar 15, bat 25, hatchet 35 HP).")]
+        public int hitsToKill = GuardHealthRules.BaseHitsToKill;
 
         /// <summary>What he carries and wears (<see cref="GuardLoadout"/>): set when he is made (the host) or from the host's snapshot (a puppet); GuardVisual puts the vest and the gun on him.</summary>
         public GuardLoadout Loadout { get; private set; } = GuardLoadout.Unarmed;
@@ -39,6 +39,10 @@ namespace BuildingEscape
         public float Damage { get; private set; }
         /// <summary>The damage taken so far, in whole hits.</summary>
         public int Hits => Mathf.RoundToInt(Damage);
+        /// <summary>His full health in HP (the owner, 2026-10-22): 100 for a base guard (hitsToKill x 10 HP, see <see cref="GuardHealthRules"/>); the boss's thirty hits are 300. The host's (or the offline game's) number: a client's guard is a puppet.</summary>
+        public float MaxHealth => GuardHealthRules.MaxHealth(hitsToKill);
+        /// <summary>His health now in HP, never below 0: <see cref="MaxHealth"/> less the damage he has taken (bullets and blows take from the same pool). At 0 he is <see cref="Dead"/>.</summary>
+        public float Health => GuardHealthRules.HealthLeft(Damage, hitsToKill);
         /// <summary>Knocked out for good: lies on the ground and never gets up.</summary>
         public bool Dead { get; private set; }
 
@@ -65,7 +69,7 @@ namespace BuildingEscape
         WobblyPlayer hitBy;
         /// <summary>A backup officer (spawned by a radio call or the alarm): he notices a player in his cone much faster (<see cref="GuardRules.BackupSpotFactor"/>; the owner, 2026-10-20). Set by the floor when it spawns the reinforcements.</summary>
         public bool IsBackup;
-        /// <summary>How long a player at <paramref name="distance"/> metres has to stay in his cone before he notices (a backup officer needs a quarter of it).</summary>
+        /// <summary>How long a player who stays <paramref name="distance"/> metres away has to stay in his cone before he notices, that is, how long the whole notice meter takes to fill at that distance (a backup officer needs a quarter of it; see <see cref="NoticeProgress"/>).</summary>
         public float SpotSecondsAt(float distance) => GuardRules.SpotSeconds(distance, spotBase, spotPerMetre) * (IsBackup ? GuardRules.BackupSpotFactor : 1f);
 
         // ---- networking: on a remote client the guard is a puppet; the host runs the AI and streams its state
@@ -276,21 +280,26 @@ namespace BuildingEscape
 
         /// <summary>
         /// A melee blow (the owner, 2026-10-19: "Melee weapons knock over a guard one shot (depending on the tier of the weapon determines on how long guard are knocked down)"): he is knocked over for <paramref name="stunSeconds"/>
-        /// (the weapon's: bat 3 s, crowbar 4 s, hatchet 6 s), it cuts his radio call and frees a player he holds down, and it does not count towards knocking him out - bullets do that. (Only the boss still takes it as one of his thirty
-        /// hits, until his floor is redone.) A client's blow is a request: the host decides.
+        /// (the weapon's: bat 3 s, crowbar 4 s, hatchet 6 s), it cuts his radio call and frees a player he holds down. Since 2026-10-22 ("melee weapons are not killing guards ... a health based system") it also takes
+        /// <paramref name="damage"/> HP off his health (the weapon's <see cref="MeleeWeapon.Spec.guardDamage"/>: crowbar 15, bat 25, hatchet 35 of a base guard's 100): the blow that takes his last HP puts him down for good instead of
+        /// knocking him over. (The boss keeps his old count - a blow is one of his thirty hits - until his floor is redone.) A client's blow is a request: the host decides, and takes the damage from the weapon the client holds.
         /// </summary>
-        public void MeleeHit(float stunSeconds, GameObject by = null)
+        public void MeleeHit(float stunSeconds, GameObject by = null, float damage = 0f)
         {
             if (IsPuppet) { Net.RunSync.Instance?.RequestGuardHit(this); return; }
-            MeleeHitHost(stunSeconds, by);
+            MeleeHitHost(stunSeconds, by, damage);
         }
 
-        /// <summary>The real effect of a melee blow: offline, or on the host (after it checked a client's request).</summary>
-        public void MeleeHitHost(float stunSeconds, GameObject by = null)
+        /// <summary>
+        /// The real effect of a melee blow: offline, or on the host (after it checked a client's request). It takes <paramref name="damage"/> HP off the guard once (the caller says it once per blow and guard: a swing finds each guard once);
+        /// a guard who is down takes nothing more. 0 (the default) is a blow that only knocks over. How many guards are about does not matter: the same blow takes the same off every guard.
+        /// </summary>
+        public void MeleeHitHost(float stunSeconds, GameObject by = null, float damage = 0f)
         {
-            if (Dead) return;
+            if (Dead) return;                                  // (down for good: no more damage, no second fall, no second drop of the key)
             CutRadioAndRelease();
-            if (IsBoss) { Damage += 1f; if (CheckDown()) return; }
+            Damage = IsBoss ? Damage + 1f : GuardHealthRules.DamageAfterBlow(Damage, damage);
+            if (CheckDown()) return;                           // (the blow that takes his last HP puts him down for good: he is not knocked over)
             Stun(stunSeconds, by);
         }
 
@@ -319,13 +328,14 @@ namespace BuildingEscape
         /// <summary>Has his damage reached his health? Then he is down for good: he drops the key if he has it and the clip of his gun, and the boss's floor is won.</summary>
         bool CheckDown()
         {
-            if (Damage < hitsToKill - 0.001f) return false;
+            if (Dead) return true;                                          // (already down: the fall, the drops and the boss's win happen once)
+            if (!GuardHealthRules.IsDown(Damage, hitsToKill)) return false;
             Dead = true;
             calling = false; callTimer = 0f; callAnyway = false; callOnGetUp = false;      // (eliminated before his call was through: no backup, the ring over his head goes - the owner, 2026-10-21)
             State = GuardState.Stunned;
             stunUntil = float.MaxValue;
             agent.isStopped = true;
-            Debug.Log($"{name} is down for good after {Damage:0.#} hits.");
+            Debug.Log($"{name} is down for good after {Damage:0.#} hits (0 of {MaxHealth:0} HP left).");
             if (carriesKey)
             {
                 carriesKey = false;
@@ -810,50 +820,133 @@ namespace BuildingEscape
             if (Time.time >= waitUntil) { waitUntil = 0; State = GuardState.Patrol; GoNextPatrol(); }
         }
 
-        [Tooltip("Spotting takes time, and the further away a player is the longer: seconds = spotBase + spotPerMetre x distance (14 m = about 1.8 s, 40 m = about 5 s). Looking away lets the notice fade twice as fast.")]
+        [Tooltip("Spotting takes time, and the further away a player is the longer. A guard's notice of a player is a meter: while the player is in his sight it fills by 1 / (spotBase + spotPerMetre x metres) of the meter every second (14 m = about 1.8 s for the whole meter, 40 m = about 5 s), so the closer the player the faster, whichever way he got there; when it is full the guard has noticed him. Out of his sight the meter holds for a moment (GuardRules.NoticeHoldSeconds) and then fades twice as fast as it filled (GuardRules.NoticeStep).")]
         public float spotBase = GuardRules.SpotBase, spotPerMetre = GuardRules.SpotPerMetre;
-        readonly System.Collections.Generic.Dictionary<WobblyPlayer, float> noticed = new System.Collections.Generic.Dictionary<WobblyPlayer, float>();
+
+        /// <summary>One guard's notice of one player: how full the meter is (0 to 1) and how long the player has been out of his sight in a row.</summary>
+        sealed class NoticeMeter { public float progress, unseenFor; }
+        readonly System.Collections.Generic.Dictionary<WobblyPlayer, NoticeMeter> noticed = new System.Collections.Generic.Dictionary<WobblyPlayer, NoticeMeter>();
         readonly System.Collections.Generic.List<WobblyPlayer> noticeKeys = new System.Collections.Generic.List<WobblyPlayer>();
 
+        /// <summary>How far this guard's notice of a player has got: 0 (nothing) to 1 (he has noticed him: his radio call begins and the meter starts again from 0).</summary>
+        public float NoticeProgress(WobblyPlayer p) => p && noticed.TryGetValue(p, out var m) ? m.progress : 0f;
+
+        /// <summary>A test hook: he forgets everything he had noticed.</summary>
+        public void ForgetNotices() => noticed.Clear();
+
+        /// <summary>
+        /// Looks for players (every frame, host / offline, while he is not calling, chasing or holding somebody down) and keeps his notice meter of each (<see cref="GuardRules.NoticeStep"/>): it fills while <see cref="CanSee"/> says the player is in his
+        /// sight, the faster the closer the player is (the distance on the floor, the one the cone is measured in), and when it is full he starts his radio call (<see cref="StartCall"/>). Each guard keeps his own meters and nothing here depends on how many
+        /// other guards there are.
+        /// </summary>
         void ScanForPlayers()
         {
             float dt = Time.deltaTime;
+            float factor = IsBackup ? GuardRules.BackupSpotFactor : 1f;
+            float far = sightRange * Mathf.Max(1f, longSightFactor);
             foreach (var p in WobblyPlayerRegistry.All)
             {
                 if (!p) continue;
-                noticed.TryGetValue(p, out float seenFor);
-                if (CanSee(p))
+                bool inSight = CanSee(p);
+                if (!noticed.TryGetValue(p, out var meter))
                 {
-                    float dist = Vector3.Distance(transform.position, p.transform.position);
-                    seenFor += dt;
-                    if (seenFor >= SpotSecondsAt(dist)) { noticed.Remove(p); StartCall(p); return; }
-                    noticed[p] = seenFor;
+                    if (!inSight) continue;                              // (nothing noticed, so nothing to fade)
+                    meter = new NoticeMeter();
+                    noticed[p] = meter;
                 }
-                else if (seenFor > 0f) noticed[p] = Mathf.Max(0f, seenFor - 2f * dt);
+                var flat = p.transform.position - transform.position; flat.y = 0f;
+                float distance = Mathf.Min(flat.magnitude, far);         // (a player who got away is measured no further than he could be seen from)
+                meter.progress = GuardRules.NoticeStep(meter.progress, ref meter.unseenFor, inSight, dt, distance, spotBase, spotPerMetre, factor);
+                if (meter.progress >= 1f) { noticed.Remove(p); StartCall(p); return; }
             }
             if (noticed.Count > 0)
             {
                 noticeKeys.Clear();
-                foreach (var kv in noticed) if (!kv.Key || kv.Value <= 0f) noticeKeys.Add(kv.Key);
+                foreach (var kv in noticed) if (!kv.Key || kv.Value.progress <= 0f) noticeKeys.Add(kv.Key);
                 foreach (var k in noticeKeys) noticed.Remove(k);
             }
         }
 
+        /// <summary>
+        /// Where his eyes are: <see cref="GuardRules.EyeAboveMiddle"/> above the middle of his body (times his scale). Every ray of his sight starts here, the ones that cut the cone short on the floor (<see cref="GuardVision"/>) and the ones in
+        /// <see cref="CanSee"/>.
+        /// </summary>
+        public Vector3 EyePoint => transform.position + Vector3.up * (GuardRules.EyeAboveMiddle * Mathf.Abs(transform.lossyScale.y));
+
+        /// <summary>
+        /// Is this player in his sight? THE one rule, and it is what the cone on the floor shows (the owner, 2026-10-22): the player is inside the cone (<see cref="GuardRules.InVision"/>: the same angle, range and long beam the cone is drawn with),
+        /// and nothing that stays where it is stands in the way (<see cref="HasClearView"/>). Pinned or arrested players are not what he is looking for, and one who hides is seen only from close by (<see cref="hiddenSightRange"/>).
+        /// </summary>
         bool CanSee(WobblyPlayer p)
         {
             if (p.Custody != CustodyState.Free) return false; // pinned or arrested players are not what he is looking for
             if (noticeGate != null && !noticeGate(p.transform.position)) return false;      // outside the room he guards: he does not see it
-            var eye = transform.position + Vector3.up * 1.6f;
-            var to = p.transform.position + Vector3.up * 0.9f - eye;
             float range = p.IsHidden ? hiddenSightRange : sightRange;
             float far = p.IsHidden ? range : range * Mathf.Max(1f, longSightFactor);       // (down a straight line of sight he sees much further)
             // the cone is the fan he shows on the floor (GuardVision): flat, so standing close to him does not hide you from him
             var flat = p.transform.position - transform.position;
             var fwd = transform.forward;
             if (!GuardRules.InVision(fwd.x, fwd.z, flat.x, flat.z, sightAngle, range, far, longSightAngle)) return false;
-            // trigger volumes (hide spots, the elevator zone...) must not block the view, or standing in one would make you invisible
-            if (Physics.Raycast(eye, to.normalized, out var hit, far, sightBlockers, QueryTriggerInteraction.Ignore))
-                return hit.collider.GetComponentInParent<WobblyPlayer>() == p;
+            return HasClearView(p);
+        }
+
+        readonly RaycastHit[] sightHits = new RaycastHit[64];
+        GuardRules.SightLine sightLine;
+
+        /// <summary>
+        /// Is there a clear view from his eyes to this player (<see cref="GuardRules.SeesBody"/>)? The lines run to his head, chest and knees, worked out from where his feet are and how tall he is (lower when he crouches), and END at the player: the
+        /// first thing a line meets does not have to be him, which is what used to make a crouching player, or one with a crate, another player or the wall behind him on the line, invisible to a guard whose cone he stood in. Only things that stay
+        /// where they are stop a line (<see cref="GuardSight.Blocks"/>), the same things that cut the cone short.
+        /// </summary>
+        bool HasClearView(WobblyPlayer p)
+        {
+            var eye = EyePoint;
+            var at = p.transform.position;
+            float scale = Mathf.Abs(p.transform.lossyScale.y);
+            float height = GuardRules.BodyHeight * scale * (p.IsCrouching ? Mathf.Clamp(p.crouchHeight, 0.3f, 1f) : 1f);
+            float feet = at.y - GuardRules.FeetBelowMiddle * scale;
+            if (sightLine == null) sightLine = LineIsClear;
+            return GuardRules.SeesBody(eye.x, eye.y, eye.z, at.x, feet, at.z, height, sightLine);
+        }
+
+        bool LineIsClear(float ax, float ay, float az, float bx, float by, float bz) =>
+            GuardSight.LineClear(new Vector3(ax, ay, az), new Vector3(bx, by, bz), sightBlockers, transform, sightHits);
+    }
+
+    /// <summary>
+    /// What stops a guard's sight: one rule for the cone he shows on the floor (<see cref="GuardVision"/>) and for the check that decides what he sees (<see cref="GuardAI"/>), so that they cannot disagree (the owner, 2026-10-22). Walls, doors and
+    /// furniture that stays where it is stop it. Anything with a rigidbody does not - a loose crate, the loot somebody carries, a player - and neither do the guard's own body and the other officers: guards queueing up in a corridor must not blind each other
+    /// (a chase would be given up and a radio call dropped depending on how many of them there are). Trigger volumes (hide spots, the elevator zone) are never in the way: standing in one must not make you invisible.
+    /// </summary>
+    public static class GuardSight
+    {
+        /// <summary>Does this collider stop the sight of <paramref name="guard"/>?</summary>
+        public static bool Blocks(Collider c, Transform guard)
+        {
+            if (!c || c.attachedRigidbody != null) return false;                 // (loose things and people move: they are not walls)
+            if (guard && c.transform.IsChildOf(guard)) return false;             // (his own body)
+            return c.GetComponentInParent<GuardAI>() == null;                    // (nor are the other officers)
+        }
+
+        /// <summary>Is the straight line from <paramref name="from"/> to <paramref name="to"/> free of anything that stops <paramref name="guard"/>'s sight? <paramref name="mask"/> is his <see cref="GuardAI.sightBlockers"/>; <paramref name="hits"/> a buffer to cast into.</summary>
+        public static bool LineClear(Vector3 from, Vector3 to, int mask, Transform guard, RaycastHit[] hits)
+        {
+            var d = to - from;
+            float dist = d.magnitude;
+            if (dist < 0.05f) return true;
+            var dir = d / dist;
+            int count = Physics.RaycastNonAlloc(from, dir, hits, dist, mask, QueryTriggerInteraction.Ignore);
+            for (int i = 0; i < count; i++) if (Blocks(hits[i].collider, guard)) return false;
+            if (count < hits.Length) return true;
+            // (the list was full, so a blocker may have been left off it: walk the line one hit at a time, nearest first)
+            var at = from; float left = dist;
+            for (int step = 0; step < 64 && left > 0.02f; step++)
+            {
+                if (!Physics.Raycast(at, dir, out var hit, left, mask, QueryTriggerInteraction.Ignore)) return true;
+                if (Blocks(hit.collider, guard)) return false;
+                float moved = hit.distance + 0.02f;
+                at += dir * moved; left -= moved;
+            }
             return true;
         }
     }

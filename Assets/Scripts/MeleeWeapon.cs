@@ -18,16 +18,21 @@ namespace BuildingEscape
         {
             public string name;
             public float weight, length, stun, knock, cooldown, noise;
-            /// <summary>Health taken off a training dummy per hit (guards go down by hit count instead).</summary>
+            /// <summary>Health taken off a training dummy (and a rival in the PVP room) per hit.</summary>
             public float damage;
+            /// <summary>
+            /// Health taken off a guard per hit (the owner, 2026-10-22): a base guard has 100 HP (<see cref="GuardHealthRules.BaseHealth"/>), so the crowbar's 15 takes seven hits, the bat's 25 four, the hatchet's 35 three. Crowbar &lt; bat &lt; hatchet.
+            /// The same on every hit, whatever the number of guards about; change the numbers in <see cref="GuardHealthRules"/>.
+            /// </summary>
+            public float guardDamage;
         }
 
         // length = how long the weapon is in metres when held; stun in seconds; knock = shove on hit.
         public static readonly Spec[] Specs =
         {
-            new Spec { name = "Crowbar",      weight = 3f, length = 0.85f, stun = 4f, knock = 5f, cooldown = 0.9f, noise = 16f, damage = 14f },
-            new Spec { name = "Baseball Bat", weight = 2f, length = 1.00f, stun = 3f, knock = 9f, cooldown = 0.8f, noise = 14f, damage = 11f },
-            new Spec { name = "Hatchet",      weight = 3f, length = 0.70f, stun = 6f, knock = 4f, cooldown = 1.0f, noise = 18f, damage = 22f },
+            new Spec { name = "Crowbar",      weight = 3f, length = 0.85f, stun = 4f, knock = 5f, cooldown = 0.9f, noise = 16f, damage = 14f, guardDamage = GuardHealthRules.CrowbarDamage },
+            new Spec { name = "Baseball Bat", weight = 2f, length = 1.00f, stun = 3f, knock = 9f, cooldown = 0.8f, noise = 14f, damage = 11f, guardDamage = GuardHealthRules.BatDamage },
+            new Spec { name = "Hatchet",      weight = 3f, length = 0.70f, stun = 6f, knock = 4f, cooldown = 1.0f, noise = 18f, damage = 22f, guardDamage = GuardHealthRules.HatchetDamage },
         };
 
         /// <summary>How far up the handle (m, as held) the hand closes, from the end opposite the head: a hand's width, so that a little of the handle shows below the fist (crowbar, bat, hatchet).</summary>

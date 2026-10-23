@@ -58,6 +58,7 @@ namespace BuildingEscape
 
         const string Syn = "Assets/Synty/PolygonOffice/Prefabs/";
         const string Br = "Assets/Synty/PolygonBattleRoyale/Prefabs/Props/";
+        const string Nap = "Assets/nappin/OfficeEssentialsPack/Prefabs/(Prb)";
 
         static readonly Dictionary<string, PropDef> map = new Dictionary<string, PropDef>();
         static readonly List<PropDef> all = new List<PropDef>();
@@ -253,6 +254,9 @@ namespace BuildingEscape
             Add("cs_menu", Syn + "Props/Wall Props/SM_Prop_Blackboard_01", 1.52f, 1.08f, .04f, solid: false, cat: PropCat.Mount);
             Add("pastry", Syn + "Props/Kitchen Props/SM_Prop_Donut_Box_01", .54f, .36f, .43f, solid: false, cat: PropCat.DeskItem, value: 60, weight: .5f, label: "Donut Box");
             Add("takeaway", Syn + "Props/Desk Props/SM_Prop_Cup_Coffee_Disposable_Closed_01", .18f, .22f, .18f, solid: false, cat: PropCat.DeskItem, value: 50, weight: .4f, label: "Takeaway Coffee");
+            // the big RED vending machine of the nappin Office Essentials pack, for the loading dock's main room (the owner, 2026-10-22: "add them both to the main room of the loading dock"; the black one is "vending" above). Its front faces +X once
+            // imported (frontQ -1, see PropDef); 1.28 m deep, 1.51 m wide, 2.43 m high from the FBX (FloorGenerator.GetProto measures the real thing at run time and warns if this is off by more than 15 %).
+            Add("vending_red", Nap + "VendingMachine", 1.28f, 2.43f, 1.51f, frontQ: -1, cat: PropCat.Appliance, label: "Vending Machine");
 
             // ---------- built from boxes in code (no prefab, so the editor's catalog builder skips them): the guard outpost's lockers
             // and the floor safe. The safe is under 0.9 m tall on purpose: you cannot duck behind it.

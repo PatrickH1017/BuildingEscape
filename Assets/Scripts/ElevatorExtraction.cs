@@ -61,6 +61,72 @@ namespace BuildingEscape
 
         void Reset() { GetComponent<Collider>().isTrigger = true; }
 
+        // ------------------------------------------------------------------ what is let go of in the car stays in it (the owner, 2026-10-22: "make it so it guarantees the loot stays in the elevator")
+
+        [Header("Loot stays in the car (set by the floor generator)")]
+        [Tooltip("Which way the front door lies from the car's middle on the floor plan: (1, 0) east, (0, 1) north. Zero: not set, nothing is kept in.")]
+        public Vector2 doorDir;
+        [Tooltip("Floor 12: which way the back door lies ((-1, 0) west, (0, -1) south); zero on every other floor.")]
+        public Vector2 backDoorDir;
+        [Tooltip("From the car's middle to the inner face of a wall (m).")]
+        public float innerHalf = CarLootRules.InnerHalf;
+        readonly Collider[] sillHits = new Collider[24];
+        readonly List<HeavyLoot> keepScratch = new();
+        float nextKeepLog;
+
+        /// <summary>
+        /// A heavy piece that nobody holds can neither leave the car nor lie in its doorway: its middle is kept inside the walls' faces (less its own half width), a piece that is let go of in the doorway (or thrown at it) lands inside,
+        /// and what pushes it outwards is taken away. The car's zone stops short of the door gap and a piece let go of by somebody running or throwing keeps its speed, so without this a piece could roll out of the open door and not count.
+        /// A piece that is HELD is never touched: the team can carry it out again. Small items are left alone (they are thrown on purpose). Only the host moves things (the clients' pieces are puppets).
+        /// </summary>
+        void FixedUpdate()
+        {
+            if (!Net.NetRole.Simulates || doorDir == Vector2.zero) return;
+            var centre = transform.position;
+            keepScratch.Clear();
+            foreach (var l in inside) if (l) keepScratch.Add(l);
+            AddFromSill(doorDir, centre);
+            if (backDoorDir != Vector2.zero) AddFromSill(backDoorDir, centre);
+            for (int i = 0; i < keepScratch.Count; i++) KeepIn(keepScratch[i], centre);
+            keepScratch.Clear();
+        }
+
+        /// <summary>The pieces lying in the doorway (outside the car's zone) that were let go of a moment ago.</summary>
+        void AddFromSill(Vector2 dir, Vector3 centre)
+        {
+            float mid = (CarLootRules.SillFrom + CarLootRules.SillTo) * 0.5f, along = (CarLootRules.SillTo - CarLootRules.SillFrom) * 0.5f;
+            var at = centre + new Vector3(dir.x, 0f, dir.y) * mid;
+            var half = new Vector3(Mathf.Abs(dir.x) > 0.5f ? along : CarLootRules.SillHalfWidth, 1.2f, Mathf.Abs(dir.y) > 0.5f ? along : CarLootRules.SillHalfWidth);
+            int n = Physics.OverlapBoxNonAlloc(at, half, sillHits, Quaternion.identity, ~0, QueryTriggerInteraction.Ignore);
+            for (int i = 0; i < n; i++)
+            {
+                var l = sillHits[i] ? sillHits[i].GetComponentInParent<HeavyLoot>() : null;
+                if (l && CarLootRules.CatchInSill(Time.time - l.SetDownAt) && !keepScratch.Contains(l)) keepScratch.Add(l);
+            }
+        }
+
+        void KeepIn(HeavyLoot l, Vector3 centre)
+        {
+            if (!l || l.Broken || !l.gameObject.activeInHierarchy || l.Holders > 0) return;
+            if (l.TryGetComponent(out Pickup pk) && pk.IsHeld) return;
+            if (!l.TryGetComponent(out Rigidbody rb)) return;
+            float limit = CarLootRules.Limit(l.FootprintRadius, innerHalf);
+            var p = rb.position;
+            float x = CarLootRules.Keep(p.x, centre.x, limit), z = CarLootRules.Keep(p.z, centre.z, limit);
+            if (Mathf.Approximately(x, p.x) && Mathf.Approximately(z, p.z)) return;
+            var v = rb.linearVelocity;
+            v.x = CarLootRules.AfterWall(v.x, p.x, centre.x, limit);
+            v.z = CarLootRules.AfterWall(v.z, p.z, centre.z, limit);
+            var to = new Vector3(x, p.y, z);
+            rb.position = to; l.transform.position = to;
+            rb.linearVelocity = v;
+            if (Time.time >= nextKeepLog && (to - p).sqrMagnitude > 0.09f)
+            {
+                nextKeepLog = Time.time + 2f;
+                Debug.Log($"[Elevator] {l.displayName} was heading out of the car: kept in ({(to - p).magnitude:0.0} m back)");
+            }
+        }
+
         void OnEnable()
         {
             Current = this;
@@ -398,6 +464,41 @@ namespace BuildingEscape
             items.Clear();
             return cargo;
         }
+    }
+
+    /// <summary>
+    /// The numbers that keep a heavy piece of loot in the elevator car (the owner, 2026-10-22: "make it so it guarantees the loot stays in the elevator"), without Unity types so they are tested outside Unity.
+    /// The car is a room 8 m across with walls 0.4 m thick and a door gap 3 m wide; what is let go of in it (or in the doorway) has its middle held within <see cref="Limit"/> of the car's middle.
+    /// </summary>
+    public static class CarLootRules
+    {
+        /// <summary>From the car's middle to the inner face of a wall (m): the wall's middle is 4 away and the wall 0.4 thick.</summary>
+        public const float InnerHalf = 3.8f;
+        /// <summary>A piece's middle stays this much (m) further from the wall than its own half width.</summary>
+        public const float Margin = 0.1f;
+        /// <summary>The doorway strip in front of a door, along the door's way from the car's middle (m): from the edge of the car's banking zone to a little past the wall's outer face (4.2).</summary>
+        public const float SillFrom = 3.6f, SillTo = 5.1f;
+        /// <summary>Half the strip's width (m): the door gap is 3 wide.</summary>
+        public const float SillHalfWidth = 1.8f;
+        /// <summary>A piece let go of in the doorway this recently (s) counts as let go of in the car (what was set down further back is left where it lies).</summary>
+        public const float SetDownWindow = 2f;
+
+        /// <summary>How far from the car's middle (m) the middle of a piece with this half width may be, at most: never less than a metre.</summary>
+        public static float Limit(float footprintRadius, float innerHalf = InnerHalf) => System.Math.Max(1f, innerHalf - footprintRadius - Margin);
+
+        /// <summary>The nearest place within the limit of the car's middle <paramref name="centre"/>, on one axis.</summary>
+        public static float Keep(float value, float centre, float limit) => System.Math.Max(centre - limit, System.Math.Min(centre + limit, value));
+
+        /// <summary>A piece's speed on one axis after it was brought back: nothing if it was going out past the limit, as it was if it was coming in or was inside.</summary>
+        public static float AfterWall(float velocity, float value, float centre, float limit)
+        {
+            if (value > centre + limit && velocity > 0f) return 0f;
+            if (value < centre - limit && velocity < 0f) return 0f;
+            return velocity;
+        }
+
+        /// <summary>Was a piece in the doorway let go of recently enough (seconds ago; negative: not yet) to count as let go of in the car?</summary>
+        public static bool CatchInSill(float secondsSinceSetDown) => secondsSinceSetDown >= 0f && secondsSinceSetDown <= SetDownWindow;
     }
 
     /// <summary>

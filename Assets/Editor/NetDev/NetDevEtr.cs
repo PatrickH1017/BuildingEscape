@@ -81,6 +81,12 @@ namespace BuildingEscape.EditorTools
             var all = FindObjectsByType<Pickup>(FindObjectsSortMode.None).Where(scannable).ToList();
             // (the scan marks the shut safes of the room as well, the owner, 2026-10-19: they glow red)
             System.Func<int, int> safesIn = idx => FloorSafe.OnShow.Count(s => s && !s.IsOpen && gen.RoomSpotAt(s.transform.position).index == idx) + (GunSafeProp.Active && !GunSafeProp.Active.IsOpen && gen.RoomSpotAt(GunSafeProp.Active.transform.position).index == idx ? 1 : 0);
+            // (a little more than the room, the owner, 2026-10-22: what lies within LootScanRules.ExtraReach m of the player is scanned too, whatever room it is in)
+            System.Func<Pickup, Vector3, bool> nearBy = (p, pos) => Vector3.Distance(p.transform.position, pos) <= LootScanRules.ExtraReach;
+            System.Func<Pickup, bool> isValuable = p => FloorChecklist.Classify(p) == (int)ScanKind.Valuable || FloorChecklist.Classify(p) == (int)ScanKind.Cash;
+            System.Func<int, Vector3, int> safesNear = (idx, pos) => FloorSafe.OnShow.Count(s => s && !s.IsOpen && gen.RoomSpotAt(s.transform.position).index != idx && Vector3.Distance(s.transform.position, pos) <= LootScanRules.ExtraReach)
+                + (GunSafeProp.Active && !GunSafeProp.Active.IsOpen && gen.RoomSpotAt(GunSafeProp.Active.transform.position).index != idx && Vector3.Distance(GunSafeProp.Active.transform.position, pos) <= LootScanRules.ExtraReach ? 1 : 0);
+            System.Func<int, Vector3, int> marksWanted = (idx, pos) => all.Count(p => gen.RoomSpotAt(p.transform.position).index == idx || nearBy(p, pos)) + safesIn(idx) + safesNear(idx, pos);
             // rooms by what they hold: a numbered room with several things for the main test, another one for the move, a hallway
             var byRoom = all.GroupBy(p => gen.RoomSpotAt(p.transform.position).index).Where(g => g.Key >= 0).OrderByDescending(g => g.Count()).ToList();
             var first = byRoom.First(g => gen.RoomSpotAt(g.First().transform.position).kind == 0 && !string.IsNullOrEmpty(gen.RoomSpotAt(g.First().transform.position).label));
@@ -104,16 +110,16 @@ namespace BuildingEscape.EditorTools
             yield return RoomShot(roomA, "etr_scan_marks");
             EtrCheck("scan: holding the key scans (a pulse has left)", LootScanner.Scanning && scanner.Pulses >= 1 && scanner.Room.index == roomA.index);
             EtrCheck("scan: every valuable in the room is marked", inA.Count >= 2 && inA.All(p => scanner.IsMarked(p)), $"({inA.Count(p => scanner.IsMarked(p))} of {inA.Count} marked)");
-            EtrCheck("scan: not one in any other room is, however near", nextDoor.Count >= 1 && !nextDoor.Any(p => scanner.IsMarked(p)) && scanner.MarkCount == inA.Count + safesIn(roomA.index), $"({scanner.MarkCount} marks, {inA.Count} in the room, {nextDoor.Count(p => scanner.IsMarked(p))} of {nextDoor.Count} others)");
-            EtrCheck("scan: the top of the screen names the room and counts what is in it", scanner.StatusLine.Contains("ROOM " + roomA.label) && scanner.StatusLine.Contains(inA.Count(p => FloorChecklist.Classify(p) == (int)ScanKind.Valuable || FloorChecklist.Classify(p) == (int)ScanKind.Cash) + " valuable"), $"('{scanner.StatusLine}')");
+            EtrCheck("scan: of the other rooms only what lies within ExtraReach m of the player is marked", nextDoor.Count >= 1 && !nextDoor.Any(p => !nearBy(p, player.transform.position) && scanner.IsMarked(p)) && nextDoor.Where(p => nearBy(p, player.transform.position)).All(p => scanner.IsMarked(p)) && scanner.MarkCount == marksWanted(roomA.index, player.transform.position), $"({scanner.MarkCount} marks, {marksWanted(roomA.index, player.transform.position)} wanted, {inA.Count} in the room, {nextDoor.Count(p => scanner.IsMarked(p))} of {nextDoor.Count} others)");
+            EtrCheck("scan: the top of the screen names the room and counts what is in it", scanner.StatusLine.Contains("ROOM " + roomA.label) && scanner.StatusLine.Contains(all.Count(p => (gen.RoomSpotAt(p.transform.position).index == roomA.index || nearBy(p, player.transform.position)) && isValuable(p)) + " valuable"), $"('{scanner.StatusLine}')");
 
             // ---- walk into room B: the old marks go and the new room's things are marked
             player.TeleportTo(new Vector3(roomB.bounds.Cx, 1.1f, roomB.bounds.Cz), Quaternion.Euler(0f, 90f, 0f));
             yield return new WaitForSeconds(0.45f);
-            EtrCheck("scan: in another room the old room's marks are gone at once", !inA.Any(p => scanner.IsMarked(p)));
+            EtrCheck("scan: in another room the old room's marks are gone at once (bar what lies within ExtraReach m of the player)", !inA.Any(p => !nearBy(p, player.transform.position) && scanner.IsMarked(p)));
             yield return new WaitForSeconds(2.4f);
             var inB = all.Where(p => gen.RoomSpotAt(p.transform.position).index == roomB.index).ToList();
-            EtrCheck("scan: ... and the new room's things are marked, only those", scanner.Room.index == roomB.index && inB.All(p => scanner.IsMarked(p)) && scanner.MarkCount == inB.Count + safesIn(roomB.index) && !inA.Any(p => scanner.IsMarked(p)), $"({scanner.MarkCount} marks, {inB.Count} in room {roomB.label})");
+            EtrCheck("scan: ... and the new room's things are marked, only those", scanner.Room.index == roomB.index && inB.All(p => scanner.IsMarked(p)) && scanner.MarkCount == marksWanted(roomB.index, player.transform.position) && !inA.Any(p => !nearBy(p, player.transform.position) && scanner.IsMarked(p)), $"({scanner.MarkCount} marks, {marksWanted(roomB.index, player.transform.position)} wanted, {inB.Count} in room {roomB.label})");
             EtrCheck("scan: while the key is held another pulse leaves every couple of seconds", scanner.Pulses >= 2, $"({scanner.Pulses} pulses)");
 
             // ---- a hallway: it says what it holds (here, nothing)
@@ -132,7 +138,7 @@ namespace BuildingEscape.EditorTools
                 player.TeleportTo(hallPos, Quaternion.identity);
                 yield return new WaitForSeconds(0.6f);
                 yield return new WaitForSeconds(2.4f);
-                EtrCheck("scan: in a hallway it says so and finds nothing there", scanner.Room.index == hall.index && scanner.MarkCount == 0 && scanner.StatusLine.Contains("THE HALLWAY") && scanner.StatusLine.Contains("nothing to steal"), $"('{scanner.StatusLine}')");
+                EtrCheck("scan: in a hallway it says so and finds nothing in it (bar what lies within ExtraReach m of the player)", scanner.Room.index == hall.index && scanner.MarkCount == marksWanted(hall.index, hallPos) && scanner.StatusLine.Contains("THE HALLWAY") && (marksWanted(hall.index, hallPos) > 0 || scanner.StatusLine.Contains("nothing to steal")), $"('{scanner.StatusLine}')");
                 yield return RoomShot(hall, "etr_scan_hall");
             }
 

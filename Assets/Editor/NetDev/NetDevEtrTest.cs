@@ -20,6 +20,7 @@ namespace BuildingEscape.EditorTools
             ValuablePlanTest();
             CarryRoomTest();
             ScanRulesTest();
+            CarLootRulesTest();
         }
 
         // ------------------------------------------------------------------ the valuables
@@ -183,6 +184,19 @@ namespace BuildingEscape.EditorTools
             Check("carry room: on the real floors some heavy treasure spots have room and some do not (the rule is neither empty nor blind)", heavy > 0 && roomy > 0 && roomy < heavy, $"({roomy} of {heavy})");
         }
 
+        // ------------------------------------------------------------------ loot stays in the elevator car (the owner, 2026-10-22)
+
+        static void CarLootRulesTest()
+        {
+            Check("car: a piece's middle is kept inside the wall by its own half width and a margin (never closer than a metre to the middle)", System.Math.Abs(CarLootRules.Limit(0.7f) - 3.0f) < 1e-4f && CarLootRules.Limit(10f) == 1f && CarLootRules.Limit(0.5f, 3.6f) > 2.9f - 1e-4f);
+            Check("car: what would be past the limit is brought back to it, on either side and round any middle; what is inside is left alone", CarLootRules.Keep(4.6f, 0f, 3f) == 3f && CarLootRules.Keep(-4f, 0f, 3f) == -3f && CarLootRules.Keep(1f, 0f, 3f) == 1f && CarLootRules.Keep(14f, 10f, 3f) == 13f && CarLootRules.Keep(6f, 10f, 3f) == 7f);
+            Check("car: a piece going out past the limit loses that speed, one coming back in or lying inside keeps it",
+                CarLootRules.AfterWall(9f, 4.6f, 0f, 3f) == 0f && CarLootRules.AfterWall(-9f, -4f, 0f, 3f) == 0f && CarLootRules.AfterWall(-2f, 4.6f, 0f, 3f) == -2f && CarLootRules.AfterWall(5f, 1f, 0f, 3f) == 5f && CarLootRules.AfterWall(9f, 14f, 10f, 3f) == 0f);
+            Check("car: a piece let go of in the doorway a moment ago is caught, one set down long ago or never is not",
+                CarLootRules.CatchInSill(0.5f) && CarLootRules.CatchInSill(0f) && CarLootRules.CatchInSill(CarLootRules.SetDownWindow) && !CarLootRules.CatchInSill(CarLootRules.SetDownWindow + 0.1f) && !CarLootRules.CatchInSill(-1f) && !CarLootRules.CatchInSill(1000f));
+            Check("car: the doorway strip starts at the car's zone and reaches past the outer face of the wall (4.2 m), and the inside is 4 less half a wall", CarLootRules.SillFrom == 3.6f && CarLootRules.SillTo > 4.2f && CarLootRules.InnerHalf == 4f - 0.4f / 2f && CarLootRules.SillHalfWidth >= 1.5f);
+        }
+
         // ------------------------------------------------------------------ the loot scanner
 
         static void ScanRulesTest()
@@ -194,6 +208,9 @@ namespace BuildingEscape.EditorTools
                 && System.Math.Abs(LootScanRules.Reach(14f, 23f, room) - 5f) < 1e-4f && LootScanRules.Reach(0f, 0f, new Rc(-100f, -100f, 100f, 100f)) == LootScanRules.MaxReach);
             Check("scan: a thing is marked once the pulse has reached it", LootScanRules.Reached(10f, 10f) && LootScanRules.Reached(9f, 10f) && !LootScanRules.Reached(10.1f, 10f));
             Check("scan: only the room the player is in is scanned (never the room next door, never no room)", LootScanRules.SameRoom(7, 7) && !LootScanRules.SameRoom(7, 8) && !LootScanRules.SameRoom(7, -1) && !LootScanRules.SameRoom(-1, -1) && !LootScanRules.SameRoom(-1, 3));
+            Check("scan: a little more than the room (the owner, 2026-10-22) - what lies within ExtraReach m of the player is scanned too, in another room or in none, and nothing further",
+                LootScanRules.ExtraReach > 0f && LootScanRules.ExtraReach <= 4f && LootScanRules.InScan(true, 25f) && LootScanRules.InScan(false, 0.5f) && LootScanRules.InScan(false, LootScanRules.ExtraReach)
+                && !LootScanRules.InScan(false, LootScanRules.ExtraReach + 0.1f) && !LootScanRules.InScan(false, 30f) && !LootScanRules.InScan(false, -1f));
             var office = new RoomSpot { index = 3, label = "114", kind = 0, theme = "office" };
             Check("scan: the room is named by its number, or as the open area, the lobby or the hallway", LootScanRules.RoomTitle(office) == "ROOM 114" && LootScanRules.RoomTitle(new RoomSpot { index = 4, kind = 1, theme = "open" }) == "THE OPEN AREA"
                 && LootScanRules.RoomTitle(new RoomSpot { index = 5, kind = 2, theme = "lobby" }) == "THE LOBBY" && LootScanRules.RoomTitle(new RoomSpot { index = 6, kind = 2, theme = "hall" }) == "THE HALLWAY"

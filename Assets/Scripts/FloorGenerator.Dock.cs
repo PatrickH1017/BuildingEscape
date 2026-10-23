@@ -208,6 +208,7 @@ namespace BuildingEscape
             // the two side rooms: the break room, with the TV that the workers watch the boss's monologue on when a run starts (IntroCinematic), and the PVP room (FloorGenerator.DockRooms.cs)
             BuildDockRooms(root.transform);
             BuildDartBoard(root.transform);
+            BuildDockVending(root.transform, tx);          // (the vending machines: before the scatter below, which keeps clear of them)
 
             // and a basement's worth of junk everywhere else
             DockClutter = ScatterStorage(root.transform, seed, c, tx, zWall);
@@ -246,6 +247,70 @@ namespace BuildingEscape
             DockDressing.GunWall(h, tx, zf - 0.2f, 0.8f);          // (the guns on the wall behind him hang there once they are unlocked: the owner, 2026-10-19)
         }
 
+        /// <summary>
+        /// Where the dock's vending machines stand (<see cref="DockVendingRules"/>): [0] the black one and [1] the red one on the main room's south wall, [2] the black one in the break room. Empty when the machines could not be built (their packs are
+        /// not in the project). For tests and tools.
+        /// </summary>
+        public DockVendingRules.Spot[] DockVendingSpots { get; private set; } = new DockVendingRules.Spot[0];
+
+        /// <summary>The inner face of the basement's outer walls (they are 0.4 m thick and centred on the edge of the floor).</summary>
+        const float DockWallInner = 0.2f;
+
+        /// <summary>
+        /// The vending machines (the owner, 2026-10-22: "add them both to the main room of the loading dock and add the smaller black one to the break room ... In the main room I want them on the wall across from the vendor"): the black Synty one
+        /// ("vending") and the big red nappin one ("vending_red") side by side on the main room's south wall, which is across from the vendor's trailer in the north wall, the pair centred on the vendor; and a second black one in the break room, against
+        /// its east wall in the corner by the south wall (the cast of the run-start cutscene stands further north and the doorway is beside it). Plain solid props for now: nothing is sold from them yet.
+        /// </summary>
+        void BuildDockVending(Transform parent, float vendorX)
+        {
+            DockVendingSpots = new DockVendingRules.Spot[0];
+            if (!PropTable.TryGet("vending", out var black) || !PropTable.TryGet("vending_red", out var red)) return;
+            DockVendingRules.MainRoom(vendorX, DockWallInner, black.W, black.D, red.W, red.D, out var blackSpot, out var redSpot);
+            var breakSpot = DockVendingRules.BreakRoom(BreakRoom.xMax, BreakRoom.yMin, black.W, black.D);
+            DockVendingSpots = new[] { blackSpot, redSpot, breakSpot };
+            var blackGo = PlaceKey("vending", blackSpot.x, blackSpot.z, blackSpot.yaw, parent, 0f, true);
+            SnapBackToWall(blackGo, blackSpot, DockWallInner);
+            HideVendingGlass(blackGo);
+            var redGo = PlaceKey("vending_red", redSpot.x, redSpot.z, redSpot.yaw, parent, 0f, true);
+            SnapBackToWall(redGo, redSpot, DockWallInner);
+            var breakGo = PlaceKey("vending", breakSpot.x, breakSpot.z, breakSpot.yaw, parent, 0f, true);
+            SnapBackToWall(breakGo, breakSpot, BreakRoom.xMax);
+            HideVendingGlass(breakGo);
+            // the red machine is the nappin pack's stocked one: 168 parts and 3.8 million vertices (24 bags of chips at 72,000 vertices each, 42 cans, 56 bars). The goods inside are small, so they cast no shadow (the casing still does): that is the cheaper half of the cost
+            if (redGo != null)
+                foreach (var r in redGo.GetComponentsInChildren<Renderer>(true))
+                    if (r.bounds.size.magnitude < 0.45f) r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+        }
+
+        /// <summary>
+        /// The black Synty machine's glass front is a flat quad (SM_Prop_VendingMachine_01_Glass) that uses the SAME opaque colour-atlas material as the body, so it is a solid blue-grey panel that hides the stock inside (the owner, 2026-10-22, from Unity:
+        /// "the inside didnt load"). The quad is switched off here, so the goods show; only the dock's two machines are touched (the tower's break rooms build theirs from the same prop and are not changed).
+        /// </summary>
+        static void HideVendingGlass(GameObject go)
+        {
+            if (go == null) return;
+            foreach (var r in go.GetComponentsInChildren<Renderer>(true))
+                if (r.name.IndexOf("Glass", System.StringComparison.OrdinalIgnoreCase) >= 0) r.enabled = false;
+        }
+
+        /// <summary>
+        /// Slides a placed machine along the way it faces until the back of the REAL model (the measured bounds of its renderers, not the numbers of the prop table) stands <see cref="DockVendingRules.WallGap"/> off the wall, whose inner face is at
+        /// <paramref name="wall"/> (z for a machine facing north or south, x for one facing east or west).
+        /// </summary>
+        static void SnapBackToWall(GameObject go, DockVendingRules.Spot spot, float wall)
+        {
+            if (go == null) return;
+            var rs = go.GetComponentsInChildren<Renderer>(true);
+            if (rs.Length == 0) return;
+            var b = rs[0].bounds;
+            for (int i = 1; i < rs.Length; i++) b.Encapsulate(rs[i].bounds);
+            spot.Front(out int fx, out int fz);
+            float back = fz > 0 ? b.min.z : fz < 0 ? b.max.z : fx > 0 ? b.min.x : b.max.x;
+            float want = (fz > 0 || fx > 0) ? wall + DockVendingRules.WallGap : wall - DockVendingRules.WallGap;
+            float d = want - back;
+            go.transform.position += new Vector3(fx != 0 ? d : 0f, 0f, fz != 0 ? d : 0f);
+        }
+
         /// <summary>Where the dummy stands, and how many pieces of storage were scattered (for tests).</summary>
         public Vector3 DummyAt { get; private set; }
         public int DockClutter { get; private set; }
@@ -282,6 +347,11 @@ namespace BuildingEscape
             // the hallway outside the break room, from its doorway to the wall between the two halves of the docks, where the dart board hangs (the owner, 2026-10-20: "the hallway should just be cleaned up a bit (leave the shelves
             // against the wall)"): no boxes, pallets, drums or forklift stand on its floor; the steel shelves against the walls may (those are placed against a wall, which is not checked against this list)
             var floorClear = new List<Vector4> { new Vector4(BreakRoomDoor.x, 0f, cellSize - 0.2f, (cellSize - doorWidth) / 2f) };
+            foreach (var vm in DockVendingSpots)                                                                             // the vending machines and the room in front of them (DockVendingRules)
+            {
+                DockVendingRules.KeepClear(vm, out float vx0, out float vz0, out float vx1, out float vz1);
+                clear.Add(new Vector4(vx0, vz0, vx1, vz1));
+            }
             var placed = new List<Vector3>(); // x, z, radius
 
             bool Free(float x, float z, float r, bool againstWall = false)

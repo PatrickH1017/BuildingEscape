@@ -148,13 +148,13 @@ namespace BuildingEscape
             if (!room.Valid || !gen) return;                           // (nothing to scan: the elevator car, a doorway between nothing)
             origin = me.position;
             pulseAge = 0f; pulsing = true; scannedRoom = true;
-            reach = LootScanRules.Reach(origin.x, origin.z, room.bounds) + 0.6f;
+            reach = Mathf.Max(LootScanRules.Reach(origin.x, origin.z, room.bounds), LootScanRules.ExtraReach) + 0.6f;
             Pulses++;
             foreach (var p in FindObjectsByType<Pickup>(FindObjectsSortMode.None))
             {
                 if (!Scannable(p)) continue;
                 var at = p.transform.position;
-                if (!LootScanRules.SameRoom(room.index, gen.RoomSpotAt(at).index)) continue;          // (only what lies in this room)
+                if (!LootScanRules.InScan(LootScanRules.SameRoom(room.index, gen.RoomSpotAt(at).index), Vector3.Distance(origin, at))) continue;          // (what lies in this room, and a little way beyond its walls: LootScanRules.ExtraReach)
                 candidates.Add(p);
                 int kind = FloorChecklist.Classify(p);
                 if (kind == (int)ScanKind.Valuable || kind == (int)ScanKind.Cash) { roomCount++; roomWorth += p.Value; } else roomOther++;
@@ -162,11 +162,11 @@ namespace BuildingEscape
             // the safes that are still shut glow red (the owner, 2026-10-19)
             foreach (var safe in FloorSafe.OnShow)
             {
-                if (!safe || safe.IsOpen || !LootScanRules.SameRoom(room.index, gen.RoomSpotAt(safe.transform.position).index)) continue;
+                if (!safe || safe.IsOpen || !LootScanRules.InScan(LootScanRules.SameRoom(room.index, gen.RoomSpotAt(safe.transform.position).index), Vector3.Distance(origin, safe.transform.position))) continue;
                 candidates.Add(safe); roomOther++;
             }
             var gunSafe = GunSafeProp.Active;
-            if (gunSafe && !gunSafe.IsOpen && LootScanRules.SameRoom(room.index, gen.RoomSpotAt(gunSafe.transform.position).index)) { candidates.Add(gunSafe); roomOther++; }
+            if (gunSafe && !gunSafe.IsOpen && LootScanRules.InScan(LootScanRules.SameRoom(room.index, gen.RoomSpotAt(gunSafe.transform.position).index), Vector3.Distance(origin, gunSafe.transform.position))) { candidates.Add(gunSafe); roomOther++; }
             candidates.Sort((a, b) => (a.transform.position - origin).sqrMagnitude.CompareTo((b.transform.position - origin).sqrMagnitude));
             if (!audioSource)
             {
@@ -451,13 +451,22 @@ namespace BuildingEscape
                 var colour = GlowColour(m.glow);
                 var c = new Color(colour.r, colour.g, colour.b, alpha);
                 var centre = new Vector2(sp.x, Screen.height - sp.y);
-                float d = (m.tier >= 3 ? 20f : m.tier == 2 ? 17f : 14f) * s * pop;
+                float d = (m.tier >= 3 ? 24f : m.tier == 2 ? 20f : 17f) * s * pop;           // (the diamond: a little bigger since 2026-10-22)
                 // the glow in the colour of its worth (seen through walls, like the diamond): gold for a lot and for safes, blue for the middle, green for little, red for unique items (weapons)
-                float glowSize = (74f + 20f * Mathf.Sin(Time.time * 4f + centre.x * 0.01f)) * s * pop;
+                float glowSize = (92f + 22f * Mathf.Sin(Time.time * 4f + centre.x * 0.01f)) * s * pop;
                 var glowSaved = GUI.color;
                 GUI.color = new Color(colour.r, colour.g, colour.b, alpha * 0.8f);
                 GUI.DrawTexture(new Rect(centre.x - glowSize * 0.5f, centre.y - glowSize * 0.5f, glowSize, glowSize), GlowTex());
                 GUI.color = glowSaved;
+                // rings round it, like a radar lock (the owner, 2026-10-22: "the loot more visible if it gets scanned ... similar to the screenshot, not as big"): one steady ring and two that swell out of it and fade, in the colour of its glow
+                float ringBase = 46f * s * pop;
+                HudTheme.Ring(new Rect(centre.x - ringBase * 0.5f, centre.y - ringBase * 0.5f, ringBase, ringBase), new Color(colour.r, colour.g, colour.b, alpha * 0.9f), 2.5f * s, ringBase * 0.5f);
+                for (int k = 0; k < 2; k++)
+                {
+                    float phase = Mathf.Repeat(Time.time * 0.8f + k * 0.5f + centre.x * 0.0007f, 1f);
+                    float swell = Mathf.Lerp(46f, 118f, phase) * s * pop;
+                    HudTheme.Ring(new Rect(centre.x - swell * 0.5f, centre.y - swell * 0.5f, swell, swell), new Color(colour.r, colour.g, colour.b, alpha * (1f - phase) * 0.85f), 2f * s, swell * 0.5f);
+                }
                 // the diamond
                 var saved = GUI.matrix;
                 GUIUtility.RotateAroundPivot(45f, centre);
@@ -465,16 +474,22 @@ namespace BuildingEscape
                 HudTheme.Rounded(new Rect(centre.x - d * 0.5f, centre.y - d * 0.5f, d, d), c, 2f * s);
                 GUI.matrix = saved;
                 if (pop < 0.6f) continue;
-                // the label: what it is and what it is worth, and below it how far
-                string top = m.value <= 0 ? m.label : m.lifters > 1 ? $"{m.label}  {HudTheme.Money(m.value)}  (x{m.lifters} carry)" : $"{m.label}  {HudTheme.Money(m.value)}";
-                float tw = HudTheme.Width(top, 15f) + 22f * s, th = 26f * s;
-                var chip = new Rect(centre.x - tw * 0.5f, centre.y - d * 0.5f - th - 6f * s, tw, th);
-                HudTheme.Chip(chip, top, new Color(0.10f, 0.08f, 0.26f, alpha * 0.92f), 15f, new Color(c.r, c.g, c.b, alpha));
-                HudTheme.Text(new Rect(centre.x - 80f * s, centre.y + d * 0.5f + 3f * s, 160f * s, 18f * s), $"{dist:0} m", 12f, new Color(1f, 1f, 1f, alpha * 0.9f), TextAnchor.MiddleCenter);
+                // the label in two boxes, like the screenshot but smaller (the owner, 2026-10-22): the name on top, "Value: $x" (and how many carry it) under it, both tinted in the glow's colour; below the mark how far
+                var boxFill = Color.Lerp(new Color(0.10f, 0.08f, 0.26f), colour, 0.22f); boxFill.a = alpha * 0.94f;
+                string nameText = m.label;
+                string worthText = m.value <= 0 ? null : m.lifters > 1 ? $"Value: {HudTheme.Money(m.value)}   (x{m.lifters} carry)" : $"Value: {HudTheme.Money(m.value)}";
+                float nameH = 30f * s, worthH = worthText == null ? 0f : 25f * s;
+                float boxW = Mathf.Max(HudTheme.Width(nameText, 18f) + 26f * s, worthText == null ? 0f : HudTheme.Width(worthText, 15f) + 22f * s);
+                float clear = Mathf.Max(d * 0.5f, 23f * s);                 // (above the steady ring)
+                float boxBottom = centre.y - clear - 6f * s;
+                HudTheme.Chip(new Rect(centre.x - boxW * 0.5f, boxBottom - worthH - nameH, boxW, nameH), nameText, boxFill, 18f, new Color(1f, 1f, 1f, alpha));
+                if (worthText != null)
+                    HudTheme.Chip(new Rect(centre.x - boxW * 0.5f, boxBottom - worthH + 1f * s, boxW, worthH - 1f * s), worthText, boxFill, 15f, new Color(c.r, c.g, c.b, alpha));
+                HudTheme.Text(new Rect(centre.x - 80f * s, centre.y + clear + 3f * s, 160f * s, 18f * s), $"{dist:0} m", 13f, new Color(1f, 1f, 1f, alpha * 0.9f), TextAnchor.MiddleCenter);
             }
             foreach (var e in edges)
             {
-                float d = 12f * s;
+                float d = 14f * s;
                 var saved = GUI.matrix;
                 GUIUtility.RotateAroundPivot(45f, e.at);
                 HudTheme.Rounded(new Rect(e.at.x - d * 0.5f - 2f * s, e.at.y - d * 0.5f - 2f * s, d + 4f * s, d + 4f * s), new Color(0.07f, 0.05f, 0.18f, e.colour.a * 0.9f), 2.5f * s);

@@ -410,6 +410,9 @@ namespace BuildingEscape
             var car = zone.AddComponent<ElevatorExtraction>();
             car.door = door;
             car.panelPosition = panel.transform.position;
+            car.doorDir = doorEast ? Vector2.right : Vector2.up;                              // (what is let go of in the car stays in it: ElevatorExtraction.FixedUpdate, 2026-10-22)
+            car.backDoorDir = backWest ? Vector2.left : backSouth ? Vector2.down : Vector2.zero;
+            car.innerHalf = half - t / 2f;
 
             // keep guards out of the car
             AddKeepOut(room.transform, Vector3.zero, new Vector3(half * 2 - 0.2f, 3f, half * 2 - 0.2f));
@@ -830,21 +833,24 @@ namespace BuildingEscape
                 if (lobby != null && NavMesh.SamplePosition(new Vector3(lobby.wx, 0f, lobby.wz), out var lh, 4f, NavMesh.AllAreas)) { haveRef = true; reference = lh.position; }
             }
             var walkCheck = new NavMeshPath();
+            // where the guards start and patrol: from the run's guard seed when there is one (a restarted run puts them elsewhere - the owner, 2026-10-22: "I dont want players to be able to memorize guard spawns"), else from the floor's own numbers
+            // (nothing after the guards uses `rng`, so the maze and the loot, which came first, stay what they were)
+            var routeRng = guardSeed != 0 ? new System.Random(GuardRules.RouteSeed(guardSeed, floor)) : rng;
             for (int g = 0; g < count; g++)
             {
                 var route = new List<Vector3>();
-                int stops = 3 + rng.Next(2);
+                int stops = 3 + routeRng.Next(2);
                 for (int s = 0; s < stops; s++)
                 {
                     Vector2Int cell;
                     int tries = 0;
-                    do { cell = new Vector2Int(rng.Next(cols), rng.Next(rows)); tries++; }
+                    do { cell = new Vector2Int(routeRng.Next(cols), routeRng.Next(rows)); tries++; }
                     while ((dist[cell.x, cell.y] < 2 || cell == elevCell) && tries < 30); // calm spawn, no guards in the elevator room
                     // a walkable spot in one of that cell's rooms or corridors (or near its middle if there is no plan)
                     var list = spots[cell.x, cell.y];
                     var p = list != null && list.Count > 0
-                        ? list[rng.Next(list.Count)]
-                        : CellCenter(cell) + new Vector3(Rand(rng, -3f, 3f), 0, Rand(rng, -3f, 3f));
+                        ? list[routeRng.Next(list.Count)]
+                        : CellCenter(cell) + new Vector3(Rand(routeRng, -3f, 3f), 0, Rand(routeRng, -3f, 3f));
                     if (NavMesh.SamplePosition(p, out var hit, 6f, NavMesh.AllAreas))
                     {
                         bool connected = !haveRef || (NavMesh.CalculatePath(reference, hit.position, NavMesh.AllAreas, walkCheck) && walkCheck.status == NavMeshPathStatus.PathComplete);
@@ -860,6 +866,8 @@ namespace BuildingEscape
         }
 
         int planSeed;
+        /// <summary>The run's seed for where the guards start and patrol (<see cref="TowerManager.GuardSeed"/>), set before each floor is built. 0 (the editor tools): from the floor's own random numbers, as before.</summary>
+        [System.NonSerialized] public int guardSeed;
         int FloorNow => HeistManager.Instance ? HeistManager.Instance.Floor : 0;
 
         /// <param name="loadout">What he carries and wears (<see cref="GuardLoadouts"/>); the default is nothing (a remote client's guard is told by the host).</param>

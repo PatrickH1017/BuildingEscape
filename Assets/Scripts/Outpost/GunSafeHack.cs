@@ -215,6 +215,9 @@ namespace BuildingEscape
             resultUntil = report ? Time.unscaledTime + ResultSeconds : 0f;
             if (report && safe) safe.SubmitResult(won);
             else if (text.Length > 0) Backpack.NoticeToLocal(text);
+            // A back-out (Esc, walking off, a jam) leaves nothing behind (the owner, 2026-10-22: "escape is not closing the menu out"): the session was only Released - a stroke given up is not Finished (only a win or a wall is) -
+            // so it stayed "running": the screen stayed up (OnGUI draws a live session), the safe could not be tried again (Running) and the mouse was locked again behind it. The hack screen (HackPanel) ends its session the same way.
+            if (!report) { session = null; safe = null; trail.Clear(); wasDown = false; }
         }
 
         // ------------------------------------------------------------------ the screen

@@ -53,11 +53,12 @@ namespace BuildingEscape.EditorTools
             float dist = clientPlayer && g ? Vector3.Distance(clientPlayer.transform.position, g.transform.position) : -1f;
             var cpack = clientPlayer ? clientPlayer.GetComponent<Backpack>() : null;
             MeleeCheck("host: the client's crowbar is in his hand here", cpack != null && cpack.Equipped != null && cpack.Equipped.GetComponent<MeleeWeapon>() != null);
-            MeleeCheck("host: the first blow knocked the guard over and did not count towards knocking him out", g != null && g.State == GuardState.Stunned && g.Hits == 0, $"(state {g?.State}, hits {g?.Hits}, the client was {dist:0.0} m away)");
+            float crowbarHp = MeleeWeapon.Specs[(int)MeleeWeapon.Kind.Crowbar].guardDamage;           // (the owner, 2026-10-22: a blow takes the weapon's damage off the guard's 100 HP; before that it only knocked him over)
+            MeleeCheck("host: the first blow knocked the guard over and took the crowbar's damage (15) off his 100 HP", g != null && g.State == GuardState.Stunned && !g.Dead && Mathf.Abs(g.Health - (g.MaxHealth - crowbarHp)) < 0.01f, $"(state {g?.State}, health {g?.Health} of {g?.MaxHealth}, the client was {dist:0.0} m away)");
             Signal("h_saw1");
             yield return WaitSig("c_hit2", 90);
             yield return new WaitForSeconds(1.0f);
-            MeleeCheck("host: a second blow does not count either, and he is still up to be hit", g != null && g.Hits == 0 && !g.Dead, $"(hits {g?.Hits})");
+            MeleeCheck("host: a second blow takes the same again (70 of 100 HP left) and he is still up to be hit", g != null && !g.Dead && Mathf.Abs(g.Health - (g.MaxHealth - 2f * crowbarHp)) < 0.01f, $"(health {g?.Health} of {g?.MaxHealth})");
             Signal("h_done");
             yield return WaitSig("c_done", 60);
             Log($"[MeleeNet] host DONE fails={meleeFails}");
