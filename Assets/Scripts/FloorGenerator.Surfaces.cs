@@ -443,7 +443,7 @@ namespace BuildingEscape
                 foreach (var s in outerSegs) AddWindowWall(wall, frame, s, s.alongX ? (cz > s.line ? 1f : -1f) : (cx > s.line ? 1f : -1f));
                 var walls = wall.ToMesh("OuterWalls");
                 var frames = frame.ToMesh("WindowFrames");
-                if (walls != null) MeshObject(holder, "OuterWalls", walls, wallMat, true);
+                if (walls != null) MeshObject(holder, "OuterWalls", walls, WallSkinActive && SkinFlatMat() ? SkinFlatMat() : wallMat, true);       // (floor 7 with the pack walls: the piers and sills take the paint of the halls)
                 if (frames != null) MeshObject(holder, "WindowFrames", frames, SurfaceMat("window_frame", Texture2D.whiteTexture, Rgb(0.11f, 0.12f, 0.14f), 0.45f, 0.55f), true);
                 var city = ExteriorCity.Build(holder, new Vector3(cx, 0f, cz), cx, cz, -(4f + 3.2f * Mathf.Max(0, floor)), seed, out var stats);
                 CityTowers = stats.towers; CityMeshes = stats.meshes; CityReach = stats.maxReach; CityCars = stats.cars; CityRoads = stats.roads;

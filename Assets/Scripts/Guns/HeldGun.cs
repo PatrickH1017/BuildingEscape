@@ -61,6 +61,35 @@ namespace BuildingEscape
 
         // first person (the owner, 2026-10-20): the gun is shouldered, not carried at the chest - the grip a forearm's length in front of the eyes, a little right of the line of sight and below it, the barrel along it (metres from the camera)
         const float FpForward = 0.42f, FpRight = 0.075f, FpDown = 0.215f, FpLeftRoll = 70f;
+        /// <summary>First person, the left hand grips the side of the handguard (not the foregrip itself): this far (m) to the left and up of it, in the gun's own frame.</summary>
+        static readonly Vector3 FpLeftShift = new Vector3(-0.075f, 0.085f, 0f);
+
+        // ---- the Kinemation "FPS Shooter Aiming" pack (the owner, 2026-10-23: "make it so the fps shooting in game when you zoom in uses this asset pack for shooting aiming and reloading"): see SightsAimLayer and ReloadMotionRules
+        /// <summary>First person: put the gun's sight on the line of sight with the pack's solver (<see cref="SightsAimLayer"/>, the pack's two-bone IK in <c>AnimToolkitLib</c>). False: the direct arm solve of before. It also takes over by itself, frame by frame, when the layer cannot do it.</summary>
+        public static bool UseSightsAligner = true;
+        /// <summary>First person: show a reload by moving the gun out of the sight line and back (<see cref="ReloadMotionRules"/>; the pack has no reload animation, so this is made here). False: the gun is tilted up as in third person. Needs <see cref="UseSightsAligner"/>.</summary>
+        public static bool UseReloadMotion = true;
+
+        /// <summary>0 = the gun is not being reloaded, else how far the reload has got (0..1): the owner's controller sets it every frame; only first person uses it.</summary>
+        public float ReloadProgress;
+        /// <summary>Where the sounds of this gun's reload fall as shares of it (<see cref="ReloadMotionRules.StepFractions"/>), so the motion keeps time with them; null = the rifle's.</summary>
+        public float[] ReloadSteps;
+        /// <summary>The reload is shown by moving the gun from the sight line (first person, a gun with a sight, the layer working): the controller keeps the gun aimed then instead of tilting it up.</summary>
+        public bool FirstPersonReload => UseReloadMotion && AlignerAllowed && hasSight && fpShareNow > 0.5f;
+        /// <summary>The layer is switched on, has not failed for good, and is not resting after a frame it could not do (see <see cref="NoteFallback"/>).</summary>
+        bool AlignerAllowed => UseSightsAligner && !(aimLayer != null && aimLayer.Failed) && Time.time >= alignerRetryAt;
+        float alignerRetryAt;                    // after a frame the layer gave back with the gun fully up: no more tries until this time (the old solve and the old reload tilt run meanwhile)
+        /// <summary>How far the gun is down out of the sight line for the reload this frame (0..1; for the tests).</summary>
+        public float ReloadLowered => reloadNow.lowered;
+        /// <summary>Was the last first-person frame aimed by the pack's layer (false: the direct solve did it, or it is not first person)? For the tests.</summary>
+        public bool AlignerUsed { get; private set; }
+        /// <summary>The aiming layer, once it has been needed (for the tests and the pictures).</summary>
+        public SightsAimLayer AimLayer => aimLayer;
+        SightsAimLayer aimLayer;
+        bool alignerLogged, fallbackLogged;      // (one line in the console, once per gun, when the layer first aims and when it first gives a frame back)
+        float fpShareNow, reloadWeight;
+        ReloadMotionRules.Pose reloadPose;      // the reload's offset as the controller's progress gave it (kept while it eases out)
+        ReloadMotionRules.Pose reloadNow;       // ... scaled by how far this is first person and how far the motion is in: what the gun does this frame
 
         /// <summary>How far the camera is at this body's eyes: 0 in third person (and for every other body) up to 1 in first person (a blend of the zoom, so the hold does not pop), and the camera.</summary>
         float FirstPersonShare(out Transform cam)
@@ -296,23 +325,40 @@ namespace BuildingEscape
         public void Remove()
         {
             if (Grip) Destroy(Grip.gameObject);
+            if (aimLayer != null) { aimLayer.Dispose(); aimLayer = null; }
             HideForScope(false);
             LocalDotShare = 0f; LocalArmMode = 0; LocalScope = 0f;
             Destroy(this);
         }
 
+        /// <summary>
+        /// The reload motion of this frame: the offset of <see cref="ReloadMotionRules.Evaluate"/> at the reload's progress, in first person only and by how far the view is at the eyes. It comes in at once with the reload and, when the reload
+        /// is over or stopped, eases out in a sixth of a second (a stopped one: the gun is switched, the body is knocked down).
+        /// </summary>
+        void UpdateReload(float fpShare, bool viewed)
+        {
+            bool want = viewed && UseReloadMotion && AlignerAllowed && hasSight && ReloadProgress > 0f && ReloadProgress < 1f;
+            if (want) { reloadPose = ReloadMotionRules.Evaluate(ReloadProgress, ReloadSteps); reloadWeight = 1f; }
+            else reloadWeight = Mathf.MoveTowards(reloadWeight, 0f, Time.deltaTime * 6f);
+            reloadNow = ReloadMotionRules.Scale(reloadPose, reloadWeight * fpShare);
+            if (reloadWeight <= 0f) reloadPose = default(ReloadMotionRules.Pose);
+        }
+
         void LateUpdate()
         {
             if (!Grip || !hasArm) return;
+            AlignerUsed = false;
             raiseNow = Mathf.MoveTowards(raiseNow, Mathf.Clamp01(Raise), Time.deltaTime * 6f);
             kick = Mathf.MoveTowards(kick, 0f, Time.deltaTime * 9f);
             if (!sightSearched) FindSight();
             // first person with the gun up (not while it is being reloaded, which tilts it): the barrel points where the view does, so that the sight is on the line of sight
             float fpShare = FirstPersonShare(out var viewCamera);
+            fpShareNow = fpShare;
+            UpdateReload(fpShare, viewCamera != null);
             float ads = viewCamera && hasSight ? fpShare * Mathf.InverseLerp(0.92f, 1f, raiseNow) : 0f;
-            if (viewCamera) { LocalDotShare = sightIsDot ? ads : 0f; LocalArmMode = ShowPistolArm && !twoHand && fpShare > 0.5f ? 1 : 0; }
+            if (viewCamera) { LocalDotShare = sightIsDot ? ads * (1f - reloadNow.lowered) : 0f; LocalArmMode = ShowPistolArm && !twoHand && fpShare > 0.5f ? 1 : 0; }
             // the scope: only the sniper rifle, only at the eye with the rifle fully up; it eases in and out (a quarter of a second)
-            float scopeWant = viewCamera && Kind == RangedWeapon.Kind.Sniper && ads > 0.99f ? 1f : 0f;
+            float scopeWant = viewCamera && Kind == RangedWeapon.Kind.Sniper && ads > 0.99f && reloadNow.lowered < 0.05f ? 1f : 0f;          // (not while the rifle is down for its reload)
             scopeNow = Mathf.MoveTowards(scopeNow, scopeWant, Time.deltaTime * 4f);
             if (viewCamera) LocalScope = Mathf.SmoothStep(0f, 1f, scopeNow);
             else if (scopeNow > 0f) { scopeNow = 0f; LocalScope = 0f; }           // (the view left this body)
@@ -363,6 +409,8 @@ namespace BuildingEscape
             var up = Vector3.Cross(aim, right);
             var gunRot = Quaternion.LookRotation(aim, up);
             var carried = upper.position + aim * (0.9f * armLength);                                  // (the third-person hold: the arm straight out along the aim)
+            AlignerUsed = false;
+            if (hasSight && AlignedOneHand(cam, aim, right, up, gunRot, carried, b, fp)) return;
             var held = hasSight ? FirstPersonGrip(cam, aim, right, up, gunRot) : cam.position + aim * (FpForward * 1.2f) + right * (FpRight + 0.04f) - up * (FpDown - 0.02f);
             SolveArm(upper, fore, hand, Vector3.Lerp(carried, held, fp), -up * 0.8f + right * 0.6f, b);
             hand.rotation = Quaternion.Slerp(hand.rotation, gunRot * Quaternion.Inverse(Grip.localRotation), b);
@@ -386,7 +434,9 @@ namespace BuildingEscape
             // the right hand: in front of and below the shoulder and towards the middle of the chest, where FitTwoHand put it (so that the left hand reaches the foregrip)
             var pr = sR + f * (fitFwd * L) - up * (0.28f * L) - right * (half * (1f - fitLat));
             float fp = FirstPersonShare(out var viewCam);
-            if (fp > 0.001f) pr = Vector3.Lerp(pr, FirstPersonGrip(viewCam, f, right, up, gunRot), fp);          // (first person: the sight on the line of sight, in the middle of the screen)
+            AlignerUsed = false;
+            if (fp > 0.001f && hasSight && AlignedTwoHand(viewCam, f, right, up, gunRot, pr, toForegrip, b, fp)) return;          // (first person: the pack's layer puts the sight on the line of sight)
+            if (fp > 0.001f) pr = Vector3.Lerp(pr, FirstPersonGrip(viewCam, f, right, up, gunRot), fp);          // (the layer could not, or is off: the sight on the line of sight, in the middle of the screen, as before)
             var tl = pr + toForegrip;
             if (fp > 0.001f) tl += (-right * 0.075f + up * 0.085f) * fp;                               // (first person: the left hand grips the side of the handguard, so that its forearm is seen reaching in from the left)
             SolveArm(upper, fore, hand, pr, -up * 0.8f + right * 0.6f, b);
@@ -394,6 +444,84 @@ namespace BuildingEscape
             SolveArm(lUpper, lFore, lHand, tl, -up * 0.8f - right * 0.6f, b);
             lHand.rotation = Quaternion.Slerp(lHand.rotation, gunRot * Quaternion.Euler(0f, 0f, LeftRoll + FpLeftRoll * fp) * MirrorX(Quaternion.Inverse(Grip.localRotation)), b);
             LeftHandGap = (lHand.position - Foregrip.position).magnitude;
+        }
+
+        // ------------------------------------------------------------------ first person through the pack's layer
+
+        SightsAimLayer.Arm RightArm() => new SightsAimLayer.Arm { upper = upper, fore = fore, hand = hand };
+        SightsAimLayer.Arm LeftArm() => new SightsAimLayer.Arm { upper = lUpper, fore = lFore, hand = lHand };
+
+        /// <summary>The local rotations of the arm bones, to put the arms back as they were when the layer cannot do its work.</summary>
+        struct ArmsSaved
+        {
+            public Quaternion u, f, h, lu, lf, lh;
+            public bool two;
+        }
+
+        ArmsSaved SaveArms() => new ArmsSaved
+        {
+            u = upper.localRotation, f = fore.localRotation, h = hand.localRotation, two = twoHand && lUpper && lFore && lHand,
+            lu = twoHand && lUpper ? lUpper.localRotation : Quaternion.identity, lf = twoHand && lFore ? lFore.localRotation : Quaternion.identity, lh = twoHand && lHand ? lHand.localRotation : Quaternion.identity,
+        };
+
+        void RestoreArms(ArmsSaved a)
+        {
+            upper.localRotation = a.u; fore.localRotation = a.f; hand.localRotation = a.h;
+            if (a.two) { lUpper.localRotation = a.lu; lFore.localRotation = a.lf; lHand.localRotation = a.lh; }
+        }
+
+        /// <summary>
+        /// First person, a gun in both hands, aimed through the pack's layer: the hold as in third person (both hands on the gun, the gun level and along the aim, <paramref name="carried"/> the right hand's place), then the layer moves the gun and
+        /// both hands as one piece so that the sight is on the line of sight (and the reload motion on top of that), and solves the arms to the hands. False (the arms are back as they were): the layer is off or could not do it.
+        /// </summary>
+        bool AlignedTwoHand(Transform cam, Vector3 f, Vector3 right, Vector3 up, Quaternion gunRot, Vector3 carried, Vector3 toForegrip, float b, float fp)
+        {
+            if (!AlignerAllowed) return false;
+            var saved = SaveArms();
+            SolveArm(upper, fore, hand, carried, -up * 0.8f + right * 0.6f, b);
+            hand.rotation = Quaternion.Slerp(hand.rotation, gunRot * Quaternion.Inverse(Grip.localRotation), b);
+            SolveArm(lUpper, lFore, lHand, carried + toForegrip, -up * 0.8f - right * 0.6f, b);
+            lHand.rotation = Quaternion.Slerp(lHand.rotation, gunRot * Quaternion.Euler(0f, 0f, LeftRoll) * MirrorX(Quaternion.Inverse(Grip.localRotation)), b);
+            SightsAimLayer.Target(cam.position, f, right, up, gunRot, sightRelief, reloadNow, out var sightAt, out var rot);
+            if (aimLayer == null) aimLayer = new SightsAimLayer(transform);
+            bool ok = aimLayer.Align(Grip, sightLocal, sightAt, rot, RightArm(), -up * 0.8f + right * 0.6f, LeftArm(), -up * 0.8f - right * 0.6f, fp * b, FpLeftShift * fp, FpLeftRoll * fp);
+            if (!ok) { RestoreArms(saved); NoteFallback(fp * b); return false; }
+            LeftHandGap = (lHand.position - Foregrip.position).magnitude;
+            AlignerUsed = true;
+            NoteAligned(fp * b);
+            return true;
+        }
+
+        /// <summary>The same for a pistol in the right hand alone (<paramref name="carried"/>: the wrist's place in the third-person hold).</summary>
+        bool AlignedOneHand(Transform cam, Vector3 aim, Vector3 right, Vector3 up, Quaternion gunRot, Vector3 carried, float b, float fp)
+        {
+            if (!AlignerAllowed) return false;
+            var saved = SaveArms();
+            SolveArm(upper, fore, hand, carried, -up * 0.8f + right * 0.6f, b);
+            hand.rotation = Quaternion.Slerp(hand.rotation, gunRot * Quaternion.Inverse(Grip.localRotation), b);
+            SightsAimLayer.Target(cam.position, aim, right, up, gunRot, sightRelief, reloadNow, out var sightAt, out var rot);
+            if (aimLayer == null) aimLayer = new SightsAimLayer(transform);
+            bool ok = aimLayer.Align(Grip, sightLocal, sightAt, rot, RightArm(), -up * 0.8f + right * 0.6f, default(SightsAimLayer.Arm), Vector3.zero, fp * b);
+            if (!ok) { RestoreArms(saved); NoteFallback(fp * b); return false; }
+            AlignerUsed = true;
+            NoteAligned(fp * b);
+            return true;
+        }
+
+        void NoteAligned(float weight)
+        {
+            if (alignerLogged || weight < 0.9f) return;
+            alignerLogged = true;
+            Debug.Log($"[HeldGun] {Kind}: first person is aimed through the Kinemation pack's solver (SightsAimLayer); the sight is {aimLayer.Gap:0.000} m from the line of sight");
+        }
+
+        /// <summary>The layer gave a frame back. With the gun fully up that is a body the layer cannot aim (an arm too short to bring the sight within 0.35 m), so it rests for 2 s: the old solve and the old reload tilt run, and nothing flickers between the two.</summary>
+        void NoteFallback(float weight)
+        {
+            if (weight >= 0.9f) alignerRetryAt = Time.time + 2f;
+            if (fallbackLogged) return;
+            fallbackLogged = true;
+            Debug.LogWarning($"[HeldGun] {Kind}: the Kinemation layer could not aim a frame (sight {(aimLayer != null ? aimLayer.Gap : -1f):0.000} m from the line of sight, layer failed: {(aimLayer != null && aimLayer.Failed)}); the direct arm solve is used for it");
         }
 
         /// <summary>The mirror image of a rotation across the plane the gun's right and left sides are on: the left hand is the right one seen in a mirror.</summary>

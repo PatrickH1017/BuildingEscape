@@ -367,3 +367,297 @@ MonoBehaviour:
     prefab: {fileID: 1803711740447776, guid: 07959b3ef64efdd41b4b8022c923f37e, type: 3}
   - key: vending_red
     prefab: {fileID: 1956597881070382525, guid: 5fab3d9a08a16ed429bbc510962997d8, type: 3}
+  - key: book_row_1
+    prefab: {fileID: 1333485811181878, guid: 3e50ad8d5b8ed4143ad2f6882db1dcb3, type: 3}
+  - key: book_row_2
+    prefab: {fileID: 1678797560971030, guid: a75d54721660055458ad1b98221ba023, type: 3}
+  - key: book_row_3
+    prefab: {fileID: 1011409703358838, guid: 035611dae95ce32489d2e82edd88366a, type: 3}
+  - key: book_pile_1
+    prefab: {fileID: 1330891398512194, guid: 8f0587a2938cc0641ba7cba661d83bbe, type: 3}
+  - key: book_pile_2
+    prefab: {fileID: 1728305430736548, guid: c141e5639a58b864db32e1b33025ea6f, type: 3}
+  - key: book_pile_3
+    prefab: {fileID: 1795517287427714, guid: aa4af10453d0d8049890eaba28f16d19, type: 3}
+  - key: book_pile_4
+    prefab: {fileID: 1163775458659820, guid: 1dc961ff6ded6cc4d83068aa1a46e4b7, type: 3}
+  - key: book_pile_5
+    prefab: {fileID: 1202502761412762, guid: dbf21a3f3c338b84abe84f82b813eb20, type: 3}
+  - key: magazine_1
+    prefab: {fileID: 1991754674016686, guid: e4f17a6172a5cd040b4eaf33b02f3c43, type: 3}
+  - key: magazine_2
+    prefab: {fileID: 1766229464219394, guid: f5e290f6142a51a42a0a9b85f2c115a5, type: 3}
+  - key: folder_1
+    prefab: {fileID: 1182233371713034, guid: 11943340acd18a9468a8a8179391c1e0, type: 3}
+  - key: folder_2
+    prefab: {fileID: 1235865142284490, guid: 32501964f535b0842af3608d66dfdc88, type: 3}
+  - key: folder_3
+    prefab: {fileID: 1909868857415674, guid: 05ad0bcff39cf0b4ebd8a045ae9822fc, type: 3}
+  - key: folder_4
+    prefab: {fileID: 1342008332069366, guid: 4383491d1421a95419baa43e8695a1db, type: 3}
+  - key: file_holder
+    prefab: {fileID: 1542578416708930, guid: 1746842795ad90d4880ceb345f695800, type: 3}
+  - key: folder_tray_2
+    prefab: {fileID: 1153910993184782, guid: 1dc1496f535e91743aec70b91fbe3e43, type: 3}
+  - key: paper_1
+    prefab: {fileID: 1310284936701774, guid: 06c7ae51c4ef86f4996e686e33428fa5, type: 3}
+  - key: paper_2
+    prefab: {fileID: 1817287194659658, guid: 15cfd98a895e7524bba7588eae600966, type: 3}
+  - key: paper_3
+    prefab: {fileID: 1601707417151826, guid: cd5f20ec889347e4b8a66cfa9d16b05c, type: 3}
+  - key: paper_pile_2
+    prefab: {fileID: 1705094985212438, guid: 425701d948ecf3044ae2edd074e463d4, type: 3}
+  - key: paper_pile_3
+    prefab: {fileID: 1553563942031670, guid: d23919b5d832ca141b8fd634308b2ad9, type: 3}
+  - key: paper_tray_empty
+    prefab: {fileID: 1581257410970148, guid: 40132e0a6ee54b1479e6cdac30c97d51, type: 3}
+  - key: paper_tray_full
+    prefab: {fileID: 1574221945723482, guid: 2be7a3180c2433b4583ba468d26fde81, type: 3}
+  - key: sticky_1
+    prefab: {fileID: 1884610543091016, guid: f9b3fc72f5746f4439aba126c0dd66f9, type: 3}
+  - key: sticky_2
+    prefab: {fileID: 1079137975900118, guid: 54a21ef044a248948ab7e379d613f844, type: 3}
+  - key: sticky_3
+    prefab: {fileID: 1055937157062136, guid: 7f36a9cc51ae784498e0ac60d96c1564, type: 3}
+  - key: notepad_2
+    prefab: {fileID: 1516441840613170, guid: 9076ace9eabf87640aae475398d9f431, type: 3}
+  - key: clipboard
+    prefab: {fileID: 1971960948444136, guid: 85e3502d1a34f2d4ea0f9d7041a991d5, type: 3}
+  - key: calculator
+    prefab: {fileID: 1708030912986460, guid: 350c2278df0895f4bb6f90f92b314913, type: 3}
+  - key: cup_coffee_open
+    prefab: {fileID: 1054230002508948, guid: 93ed208b5f8bef04ebf2e77e85c8d4cd, type: 3}
+  - key: cup_red
+    prefab: {fileID: 1583950153498884, guid: ff97a3305dcafdd4c840d28431162b35, type: 3}
+  - key: cup_boss
+    prefab: {fileID: 1417604722825764, guid: 3ec74bf586541a64386d798159775c05, type: 3}
+  - key: cup_pens
+    prefab: {fileID: 1041082566024482, guid: abf3a67dc9e96b649bec2fde2c63c293, type: 3}
+  - key: cup_foam
+    prefab: {fileID: 1065530925250174, guid: 91e43a60a5017b44e950c8af76db419a, type: 3}
+  - key: coffee_tray
+    prefab: {fileID: 1717453355936620, guid: 12a152d065b61e94d8f19b014ec97c83, type: 3}
+  - key: lamp_a
+    prefab: {fileID: 1295170086156618, guid: cc314887cde201c4eb48ee752081fd20, type: 3}
+  - key: lamp_b
+    prefab: {fileID: 1102931170962938, guid: 71bfb77e65b80a34892758011ad14412, type: 3}
+  - key: lamp_c
+    prefab: {fileID: 1137698102855842, guid: cad81e23a410867458280fe801302cd9, type: 3}
+  - key: lamp_d
+    prefab: {fileID: 1698541332884174, guid: 9b7bf28e36b910140952bc93707c3dc9, type: 3}
+  - key: cradle
+    prefab: {fileID: 1228570482047808, guid: 9a2c40d136d14114694284b7c1db6ea1, type: 3}
+  - key: orbiter
+    prefab: {fileID: 1930690261102640, guid: 8f820cd500c9f8747aa7159da2b6f68c, type: 3}
+  - key: globe
+    prefab: {fileID: 1436506864884110, guid: 238b625e5b98041459bbb7bfe96cab9c, type: 3}
+  - key: photo_2
+    prefab: {fileID: 1617072400023792, guid: fa8c51e52cec69c4a9bc9bac6d144fef, type: 3}
+  - key: photo_3
+    prefab: {fileID: 1563894860032236, guid: 261a514f58fa4f8478b981ef52e5af17, type: 3}
+  - key: photo_4
+    prefab: {fileID: 1320792992240832, guid: c567c9415b12d4d429703380096bea5e, type: 3}
+  - key: photo_5
+    prefab: {fileID: 1076223104129784, guid: ec6aa834627ec9a4cad508a2ebf459b8, type: 3}
+  - key: figure_knight
+    prefab: {fileID: 1319567510992392, guid: 05e4a4c12a7c78a429c9264bdad89d25, type: 3}
+  - key: figure_viking
+    prefab: {fileID: 1342284211397710, guid: 83129566fb442e7419120e0320bbf973, type: 3}
+  - key: headphones
+    prefab: {fileID: 1412470801373040, guid: 9315fd72c8ce15641b8c247751523ca4, type: 3}
+  - key: headset
+    prefab: {fileID: 1711185718392890, guid: 146653f44b52c4e48b6320b9ade8a550, type: 3}
+  - key: typewriter
+    prefab: {fileID: 1690187084629814, guid: 48a6ddfee14000741b9ae76a1931d17f, type: 3}
+  - key: laptop_2
+    prefab: {fileID: 1323580696078196, guid: f717dc35c84939249b5e3aded826fe10, type: 3}
+  - key: laptop_folded
+    prefab: {fileID: 1807450294192198, guid: 1294ad00ece492c4fb695edfc1e909b2, type: 3}
+  - key: monitor_2
+    prefab: {fileID: 1965649748837206, guid: 4f1d56b69ce731149ab378a45371cfc5, type: 3}
+  - key: monitor_wide
+    prefab: {fileID: 1724336934616194, guid: 6ee6b07847311a94f9915d8bfa8a16e8, type: 3}
+  - key: monitor_dual
+    prefab: {fileID: 1438162071422102, guid: f421fab25f2e3d0459c6893e5162b1b5, type: 3}
+  - key: pc_setup
+    prefab: {fileID: 1048865767074944, guid: 33af453d4902e2442b719d9987401e21, type: 3}
+  - key: mousepad
+    prefab: {fileID: 1537596859648066, guid: 0522cd1f702a9324f9f83300920c5141, type: 3}
+  - key: keyboard_2
+    prefab: {fileID: 1556473055401370, guid: cb482d3585fba19459a60a7d1489669b, type: 3}
+  - key: phone_rotary
+    prefab: {fileID: 1483616249310162, guid: d9a15ca5f9fbc984f83a99d87dd20bf4, type: 3}
+  - key: phone_conf
+    prefab: {fileID: 1928955992654514, guid: fc683ae4b662fb64d9d4bce826dadd66, type: 3}
+  - key: fax_machine
+    prefab: {fileID: 1859576176456504, guid: 1c9a84a60b1106641b5df52716b03dfa, type: 3}
+  - key: printer_mini
+    prefab: {fileID: 1128799104581208, guid: f50252895fa709048b9264d3638595ce, type: 3}
+  - key: radio_1
+    prefab: {fileID: 1001467972372694, guid: c03580229dd1ac64c8eebe8250ae0120, type: 3}
+  - key: holepunch
+    prefab: {fileID: 1418239063963704, guid: 542c838a581ff744bbddf63ddc75bcb8, type: 3}
+  - key: guillotine
+    prefab: {fileID: 1598572374592524, guid: a5c37f0643b9eda4cab58da5afa266cb, type: 3}
+  - key: scissors
+    prefab: {fileID: 1753362350046654, guid: 8186e41a32284704298989d0cb0622b6, type: 3}
+  - key: can_soda
+    prefab: {fileID: 1360529770084390, guid: ad3312bde6cb4f04bb625819a6a83483, type: 3}
+  - key: water_bottle
+    prefab: {fileID: 1919963327376574, guid: 152006d9c200cc04db12e0d2b2b959d0, type: 3}
+  - key: neon_cactus
+    prefab: {fileID: 1896436829872692, guid: 0d19ff523e729184db224bc25b238172, type: 3}
+  - key: server_node_1
+    prefab: {fileID: 1297877622176408, guid: e6d451317e987404799cff86b71df93d, type: 3}
+  - key: server_node_2
+    prefab: {fileID: 1757689402052600, guid: 678aaf7c03d013c429843145a66a24b7, type: 3}
+  - key: server_node_3
+    prefab: {fileID: 1599998013852078, guid: 59e7f084ea381bd4da035b4fac4d5f3c, type: 3}
+  - key: modem
+    prefab: {fileID: 1766877394093962, guid: 47510522cabd5114283f82bc7f130fda, type: 3}
+  - key: net_cable
+    prefab: {fileID: 1788645937333000, guid: 98608d55fa369ca48b3dd0c3d504411f, type: 3}
+  - key: mints
+    prefab: {fileID: 1569146556830254, guid: 39a4fb050c11eb340b6bed585e2fa49c, type: 3}
+  - key: jellybeans
+    prefab: {fileID: 1248781097931892, guid: c15403bf3b947064288e82de626fd5a8, type: 3}
+  - key: plant_desk
+    prefab: {fileID: 1756291842135672, guid: 5879de80c73768e4db2376bc8f83006a, type: 3}
+  - key: fruit_bowl
+    prefab: {fileID: 1940992545781120, guid: 41910bb046e6cc340aeb452248a82522, type: 3}
+  - key: cake
+    prefab: {fileID: 1120874687463514, guid: 279aef1f65d6c5145afeb409c33a9ea6, type: 3}
+  - key: donut_choc
+    prefab: {fileID: 1431246480517686, guid: 8bb7a73330821634ab28f614c52fb701, type: 3}
+  - key: donut_pink
+    prefab: {fileID: 1609811229116000, guid: 1a65211643a086940ab6d5a13c566007, type: 3}
+  - key: dishes_1
+    prefab: {fileID: 1583191562040718, guid: 0482f7be438d2694fb9176c913b995e5, type: 3}
+  - key: dishes_3
+    prefab: {fileID: 1332970067231608, guid: adb69bcf7f8aad64893789f42f916ba5, type: 3}
+  - key: lunchbox
+    prefab: {fileID: 1225410217533858, guid: 6396bb03027ca0b45bbe53673984adc2, type: 3}
+  - key: lunchbox_2
+    prefab: {fileID: 1491010153477632, guid: 51fe9aa516e8ea249aef1fbac4aba1d1, type: 3}
+  - key: milk
+    prefab: {fileID: 1085404264524416, guid: 5f3cf3efe8ad1974c97783d8b5ccff9d, type: 3}
+  - key: sandwich_1
+    prefab: {fileID: 1348210696840410, guid: 1507ef0449cfd7240a2ed810bdd89e1e, type: 3}
+  - key: sandwich_2
+    prefab: {fileID: 1380634049736638, guid: 57614ad120ea3f54c8e6b6eae8e95ea2, type: 3}
+  - key: toaster_2
+    prefab: {fileID: 1603676935435122, guid: b6163fbbd0ac50b42970972b1b419406, type: 3}
+  - key: blender
+    prefab: {fileID: 1707807610190462, guid: 3a04d7ac33eeb7c43bf09f56e3dbcf95, type: 3}
+  - key: cup_kit_1
+    prefab: {fileID: 1122160250409328, guid: d435c62818d80594d9930f542d9efe6e, type: 3}
+  - key: cup_kit_2
+    prefab: {fileID: 1924360465079590, guid: c49b1e909e13e2a4ea09014dfd01b991, type: 3}
+  - key: food_container
+    prefab: {fileID: 1037869286323516, guid: a4e6dae0b4d5afb45861c9ad73ae1185, type: 3}
+  - key: chopping_board
+    prefab: {fileID: 1593116173489234, guid: 170de4ce81b3ec840ab132b9a099b518, type: 3}
+  - key: knife_holder
+    prefab: {fileID: 1225274965449874, guid: 6ddf38a7bf9b24e46befada4fabc1750, type: 3}
+  - key: pot
+    prefab: {fileID: 1844015762645066, guid: 671ca0356dd8ee1438475826af87692d, type: 3}
+  - key: napkins
+    prefab: {fileID: 1808852932539254, guid: 04c03cbd47dbd0c49813b5216203a68a, type: 3}
+  - key: cup_saucer
+    prefab: {fileID: 1900617761329298, guid: b2bf16661e330484ea247615e043f00f, type: 3}
+  - key: snack_1
+    prefab: {fileID: 1821032382088256, guid: 10f09f2d0502a34419f1f89cb3a8d82c, type: 3}
+  - key: snack_2
+    prefab: {fileID: 1475469422585618, guid: 10839a884277b9a4489465ab8fe96e52, type: 3}
+  - key: snack_3
+    prefab: {fileID: 1609440562125818, guid: 1b84e10a8c8ba3342b47cce169e80a07, type: 3}
+  - key: bin_tall
+    prefab: {fileID: 1327925162409870, guid: ab25458a76835ce4f8a8b5b80c8af591, type: 3}
+  - key: bin_rubbish
+    prefab: {fileID: 1922078477673230, guid: e90f3565c0687a74db2ed0504ebd6243, type: 3}
+  - key: bucket_1
+    prefab: {fileID: 1511920093618222, guid: a6380f2f84e7cd54a84a6c5387220842, type: 3}
+  - key: mop_1
+    prefab: {fileID: 1000194976357228, guid: 4162ab0a23882a143ab26cc53df1abef, type: 3}
+  - key: mop_2
+    prefab: {fileID: 1355705933256556, guid: 8a0a16a8c19392a4fa769d3b09c7b60c, type: 3}
+  - key: broom
+    prefab: {fileID: 1358973831719808, guid: 6fadedc0d720f9b409ba56a002c31e70, type: 3}
+  - key: wet_floor
+    prefab: {fileID: 1083170872810082, guid: 8dfd36ad0f32f3345a17d4096a1f7a35, type: 3}
+  - key: cord_pile
+    prefab: {fileID: 1064624800929854, guid: 18c506c5471b8364ba077e72f56a0e2e, type: 3}
+  - key: papers_floor_1
+    prefab: {fileID: 1573577704017308, guid: af6d078220e607a44919ca877982f33d, type: 3}
+  - key: papers_floor_2
+    prefab: {fileID: 1556610617813020, guid: 5a99bd6c3e5399d41b217b8cd3a6afbb, type: 3}
+  - key: rug_4
+    prefab: {fileID: 1282856233725178, guid: 60c0dc10e9811b44ca0c9ce0a47306a4, type: 3}
+  - key: plant_flowers_1
+    prefab: {fileID: 1659727057703516, guid: 049f6bef1f4924346881d36116da501f, type: 3}
+  - key: plant_flowers_2
+    prefab: {fileID: 1052583828917218, guid: c519fac24575d534da275f980c5ce870, type: 3}
+  - key: vacuum
+    prefab: {fileID: 1294956731115382, guid: f8691ddee9ddfc44a88e403fb3532930, type: 3}
+  - key: cart_2
+    prefab: {fileID: 1718072438747442, guid: 2e58cb4b8c8f88b449a324dd5c95f113, type: 3}
+  - key: fan_stand
+    prefab: {fileID: 1976399527775264, guid: 55897c3d9e58c8b488d3c75bb89b733e, type: 3}
+  - key: swiss_ball
+    prefab: {fileID: 1699237924251546, guid: a3109cddc6946644b9cd36643ac1a541, type: 3}
+  - key: ohp
+    prefab: {fileID: 1656895413240606, guid: c79948af8584ac1408f49fcdddd8a1b5, type: 3}
+  - key: whiteboard_easel
+    prefab: {fileID: 1267067819917244, guid: 7292fde8eb2bb7449adfe41d48581809, type: 3}
+  - key: beanbag_2
+    prefab: {fileID: 1627632346826770, guid: 4049acbc020051c449977e4a1cc6419f, type: 3}
+  - key: beanbag_3
+    prefab: {fileID: 1583404833605918, guid: 4f9e8a4062d7cfc478a2d7e611b68f90, type: 3}
+  - key: divider_fold
+    prefab: {fileID: 1271273403879616, guid: 30634ea8b2861324e9c8c37778bccca5, type: 3}
+  - key: divider_half
+    prefab: {fileID: 1381466202903604, guid: 5e8a166929e85ed46b6e9e83374d120f, type: 3}
+  - key: shelf_4
+    prefab: {fileID: 1412280565620340, guid: 91fb0d151b33a394492640229f6b248a, type: 3}
+  - key: drafting_table
+    prefab: {fileID: 1086867930000170, guid: f9dccd985176a8d44968919da0aa3455, type: 3}
+  - key: chair_4
+    prefab: {fileID: 1776605243872454, guid: ab77ddfb12a0d0b4483ddbb53202bcc2, type: 3}
+  - key: chair_6
+    prefab: {fileID: 1439453049388140, guid: d404b8efc4a32c14ea0f717b9cba33c4, type: 3}
+  - key: chair_10
+    prefab: {fileID: 1054716903177492, guid: 1dc978d4772bf9541b6c4c18fe69bf72, type: 3}
+  - key: shelf_wall_2
+    prefab: {fileID: 1487950319085102, guid: b8e689ee9ee9e90478815df22a7f5c62, type: 3}
+  - key: shelf_wall_3
+    prefab: {fileID: 1591007261159894, guid: 939a2d302b62fe94282d6c1dd1331d2a, type: 3}
+  - key: employee_board
+    prefab: {fileID: 1081595040094792, guid: eb7a2482bc65aba43b29a59515e0b600, type: 3}
+  - key: corkboard_2
+    prefab: {fileID: 1686671584904336, guid: 4d606341b4689ec4ab95488caed9ff12, type: 3}
+  - key: wall_dressing_3
+    prefab: {fileID: 1048064770055058, guid: 77bc8a918f6fe8545aed13276827f1ff, type: 3}
+  - key: wall_dressing_4
+    prefab: {fileID: 1566226053462154, guid: a6b722cc5ed68ad4998bcb0ed5f3c4d0, type: 3}
+  - key: air_vent
+    prefab: {fileID: 1269178882954416, guid: f544acb0570e71c4b8ed12908c59e74e, type: 3}
+  - key: card_scanner
+    prefab: {fileID: 1085926887367338, guid: de43877a2035f7d41a7fa2c5f0b540f7, type: 3}
+  - key: socket_1
+    prefab: {fileID: 1817045925996904, guid: 47535cc663c8dd3469fee978050be3f4, type: 3}
+  - key: switch_1
+    prefab: {fileID: 1780723085757900, guid: fdfb9caedb76de945869ccf8157e4122, type: 3}
+  - key: bunting_1
+    prefab: {fileID: 1426946272475010, guid: 1654128e2a475d54fabbe636705452ee, type: 3}
+  - key: bunting_2
+    prefab: {fileID: 1997356463167660, guid: 2715b48955c3e2948b948a3e68d5232d, type: 3}
+  - key: skin_wall_baseboard
+    prefab: {fileID: 1097924984486478, guid: 5a2b2aefafe7a2f4bb79271e2b6b2e62, type: 3}
+  - key: skin_wall_trim
+    prefab: {fileID: 1507151385514578, guid: 4b7e2afae84d5aa4b881c4348964870b, type: 3}
+  - key: skin_wall_blank
+    prefab: {fileID: 1532792802756676, guid: ac192b529e48339409526fbd8ef6361b, type: 3}
+  - key: skin_wall_brick
+    prefab: {fileID: 1217422800182712, guid: 94179664ac141d742b2bebeeb5e09184, type: 3}
+  - key: skin_ceiling_panel
+    prefab: {fileID: 1531558827373216, guid: 5a7c22259d0505c4b9a0f62b4f531e3d, type: 3}

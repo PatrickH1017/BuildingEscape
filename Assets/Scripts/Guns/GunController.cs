@@ -226,16 +226,27 @@ namespace BuildingEscape
             return imp.point;
         }
 
-        /// <summary>The arm: raised at the crosshair, or tilted up while the gun is being reloaded.</summary>
+        /// <summary>
+        /// The arm: raised at the crosshair, or tilted up while the gun is being reloaded. In first person with a sight on the gun (<see cref="HeldGun.FirstPersonReload"/>) the gun stays aimed and the reload is shown by the gun itself, which
+        /// moves out of the sight line and back with the reload's progress (<see cref="ReloadMotionRules"/>, the owner, 2026-10-23); the sounds' times set where its steps fall.
+        /// </summary>
         void PoseArm(GunMagazine mag, Vector3 aimPoint, bool bodyFree)
         {
             if (!held) return;
-            if (!bodyFree) { held.Raise = 0f; return; }
+            if (!bodyFree) { held.Raise = 0f; held.ReloadProgress = 0f; return; }
             var from = held.Grip.position;
             var dir = aimPoint - from;
             if (dir.sqrMagnitude < 0.25f) dir = transform.forward;
-            if (mag.Reloading)
+            if (mag.Reloading && held.FirstPersonReload)
             {
+                if (held.ReloadSteps == null) held.ReloadSteps = ReloadMotionRules.StepFractions(GunSounds.ReloadTimes(gun.Data.sounds));
+                held.ReloadProgress = mag.ReloadProgress(Time.time);
+                held.AimDirection = dir.normalized;
+                held.Raise = 1f;
+            }
+            else if (mag.Reloading)
+            {
+                held.ReloadProgress = 0f;
                 var flat = transform.forward; flat.y = 0f;
                 var right = Vector3.Cross(Vector3.up, flat.normalized);
                 held.AimDirection = Quaternion.AngleAxis(-58f, right) * flat.normalized;
@@ -243,6 +254,7 @@ namespace BuildingEscape
             }
             else
             {
+                held.ReloadProgress = 0f;
                 held.AimDirection = dir.normalized;
                 held.Raise = 1f;
             }

@@ -133,6 +133,7 @@ namespace BuildingEscape
             var root = new GameObject("AfterHours").transform;
             root.SetParent(current, false);
             BuildCeiling(root);
+            BuildCeilingTiles(root);              // floor 7: the pack's ceiling tiles under the flat ceiling (FloorGenerator.WallSkin.cs)
 
             bool boss = TowerRules.IsBoss(floor);
             var input = new AfterHours.Input

@@ -68,6 +68,7 @@ namespace BuildingEscape
             DestroyOutpostMaterials();
             DestroyValuableMaterials();
             DestroySurfaceMaterials();
+            DestroySkinMaterials();
             if (protoHolder) Kill(protoHolder.gameObject);
         }
 
@@ -206,8 +207,12 @@ namespace BuildingEscape
                 var half = interior.Find("OfficeWindows");
                 if (half) { half.gameObject.SetActive(false); Kill(half.gameObject); }
             }
-            try { BuildAccentWalls(interior, L); }
-            catch (System.Exception e) { Debug.LogWarning("[Floors] The accent walls could not be painted: " + e); }
+            // floor 7: the pack's wall pieces and ceiling tiles (FloorGenerator.WallSkin.cs; the accent walls are made of the same pieces); anywhere else, or if the skin cannot be built, the flat painted accent walls
+            if (!BuildWallSkin(interior, L))
+            {
+                try { BuildAccentWalls(interior, L); }
+                catch (System.Exception e) { Debug.LogWarning("[Floors] The accent walls could not be painted: " + e); }
+            }
 
             BuildRoomNumbers(interior);
             BuildDirectionSigns(interior);

@@ -115,6 +115,7 @@ namespace BuildingEscape
             PickRoles();                      // the executive suites and the server room (the safe goes into a suite first)
             PlaceSafe();
             MergeHideZones();
+            DressFloor();                     // the Floor 7 environmental art pass (OfficePlanner.Dressing.cs): additive, floor 7 only, and only when DressingOn
         }
 
         // ------------------------------------------------------------------ plan-frame helpers

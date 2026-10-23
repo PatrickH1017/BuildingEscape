@@ -1,0 +1,142 @@
+book_row_1|Props/Desk Props/SM_Prop_Book_Group_01
+book_row_2|Props/Desk Props/SM_Prop_Book_Group_02
+book_row_3|Props/Desk Props/SM_Prop_Book_Group_03
+book_pile_1|Props/Desk Props/SM_Prop_Book_Group_04
+book_pile_2|Props/Desk Props/SM_Prop_Book_Group_05
+book_pile_3|Props/Desk Props/SM_Prop_Book_Group_06
+book_pile_4|Props/Desk Props/SM_Prop_Book_Group_07
+book_pile_5|Props/Desk Props/SM_Prop_Book_Group_08
+magazine_1|Props/Desk Props/SM_Prop_Book_Magazine_01
+magazine_2|Props/Desk Props/SM_Prop_Book_Magazine_02
+folder_1|Props/Desk Props/SM_Prop_Folder_Manila_01
+folder_2|Props/Desk Props/SM_Prop_Folder_Manila_02
+folder_3|Props/Desk Props/SM_Prop_Folder_Manila_03
+folder_4|Props/Desk Props/SM_Prop_Folder_Manila_04
+file_holder|Props/Desk Props/SM_Prop_Folder_Holder_02
+folder_tray_2|Props/Desk Props/SM_Prop_FolderTray_04
+paper_1|Props/Desk Props/SM_Prop_Paper_01
+paper_2|Props/Desk Props/SM_Prop_Paper_02
+paper_3|Props/Desk Props/SM_Prop_Paper_03
+paper_pile_2|Props/Desk Props/SM_Prop_Paper_Pile_02
+paper_pile_3|Props/Desk Props/SM_Prop_Paper_Pile_03
+paper_tray_empty|Props/Desk Props/SM_Prop_PaperTray_01_Empty_01
+paper_tray_full|Props/Desk Props/SM_Prop_PaperTray_01_Full_01
+sticky_1|Props/Desk Props/SM_Prop_Note_01
+sticky_2|Props/Desk Props/SM_Prop_Note_02
+sticky_3|Props/Desk Props/SM_Prop_Note_03
+notepad_2|Props/Desk Props/SM_Prop_NotePad_02
+clipboard|Props/Desk Props/SM_Prop_Clipboard_01
+calculator|Props/Desk Props/SM_Prop_Calculator_01
+cup_coffee_open|Props/Desk Props/SM_Prop_Cup_Coffee_Disposable_Open_Full_01
+cup_red|Props/Desk Props/SM_Prop_Cup_Red_01
+cup_boss|Props/Desk Props/SM_Prop_Cup_Boss_01
+cup_pens|Props/Desk Props/SM_Prop_Cup_Pens_01
+cup_foam|Props/Desk Props/SM_Prop_Cup_Styrofoam_01
+coffee_tray|Props/Desk Props/SM_Prop_Coffee_Tray_01_Full
+lamp_a|Props/Desk Props/SM_Prop_Desklamp_01
+lamp_b|Props/Desk Props/SM_Prop_Desklamp_03
+lamp_c|Props/Desk Props/SM_Prop_Desklamp_04
+lamp_d|Props/Desk Props/SM_Prop_DeskLamp_06
+cradle|Props/Desk Props/SM_Prop_DeskToy_NewtownsCradle_01
+orbiter|Props/Desk Props/SM_Prop_DeskToy_Orbiter_01
+globe|Props/Desk Props/SM_Prop_Globe_01
+photo_2|Props/Desk Props/SM_Prop_Photo_02
+photo_3|Props/Desk Props/SM_Prop_Photo_03
+photo_4|Props/Desk Props/SM_Prop_Photo_04
+photo_5|Props/Desk Props/SM_Prop_Photo_05
+figure_knight|Props/Desk Props/SM_Prop_Figure_Knight_01
+figure_viking|Props/Desk Props/SM_Prop_Figure_Viking_01
+headphones|Props/Desk Props/SM_Prop_Headphones_01
+headset|Props/Desk Props/SM_Prop_Headset_01
+typewriter|Props/Desk Props/SM_Prop_Typewriter_01
+laptop_2|Props/Desk Props/SM_Prop_Laptop_02
+laptop_folded|Props/Desk Props/SM_Prop_Laptop_Folding_01
+monitor_2|Props/Desk Props/SM_Prop_Computer_Monitor_02
+monitor_wide|Props/Desk Props/SM_Prop_Computer_Monitor_05
+monitor_dual|Props/Desk Props/SM_Prop_Computer_Monitor_Double_01
+pc_setup|Props/Desk Props/SM_Prop_Computer_Setup_01
+mousepad|Props/Desk Props/SM_Prop_Computer_Mousepad_01
+keyboard_2|Props/Desk Props/SM_Prop_Computer_Keyboard_02
+phone_rotary|Props/Desk Props/SM_Prop_Phone_Rotary_01
+phone_conf|Props/Desk Props/SM_Prop_Phone_Conference_01
+fax_machine|Props/Desk Props/SM_Prop_FaxMachine_01
+printer_mini|Props/Desk Props/SM_Prop_Printer_Mini_01
+radio_1|Props/Desk Props/SM_Prop_Radio_01
+holepunch|Props/Desk Props/SM_Prop_HolePunch_01
+guillotine|Props/Desk Props/SM_Prop_Guillotine_02
+scissors|Props/Desk Props/SM_Prop_Scissors_01
+can_soda|Props/Desk Props/SM_Prop_Can_Soda_01
+water_bottle|Props/Desk Props/SM_Prop_Bottle_01
+neon_cactus|Props/Desk Props/SM_Prop_Neon_Cactus_01
+server_node_1|Props/Misc/SM_Prop_Server_Node_01
+server_node_2|Props/Misc/SM_Prop_Server_Node_02
+server_node_3|Props/Misc/SM_Prop_Server_Node_03
+modem|Props/Desk Props/SM_Prop_Modem_02
+net_cable|Props/Desk Props/SM_Prop_NetCable_02
+mints|Props/Desk Props/SM_Prop_Mints_01
+jellybeans|Props/Desk Props/SM_Prop_Jellybeans_01
+plant_desk|Props/Misc/SM_Prop_Plant_03
+fruit_bowl|Props/Kitchen Props/SM_Prop_FruitBowl_01
+cake|Props/Kitchen Props/SM_Prop_Cake_01
+donut_choc|Props/Kitchen Props/SM_Prop_Donut_Choc_01
+donut_pink|Props/Kitchen Props/SM_Prop_Donut_Pink_01
+dishes_1|Props/Kitchen Props/SM_Prop_Dishes_01
+dishes_3|Props/Kitchen Props/SM_Prop_Dishes_03
+lunchbox|Props/Kitchen Props/SM_Prop_Lunchbox_01
+lunchbox_2|Props/Kitchen Props/SM_Prop_Lunchbox_Plastic_01
+milk|Props/Kitchen Props/SM_Prop_Milk_Claimed_01
+sandwich_1|Props/Kitchen Props/SM_Prop_Sandwich_01
+sandwich_2|Props/Kitchen Props/SM_Prop_Sandwich_02
+toaster_2|Props/Kitchen Props/SM_Prop_Toaster_02
+blender|Props/Kitchen Props/SM_Prop_Blender_01
+cup_kit_1|Props/Kitchen Props/SM_Prop_Cup_01
+cup_kit_2|Props/Kitchen Props/SM_Prop_Cup_02
+food_container|Props/Kitchen Props/SM_Prop_Container_01
+chopping_board|Props/Kitchen Props/SM_Prop_ChoppingBoard_02
+knife_holder|Props/Kitchen Props/SM_Prop_Knife_Holder_01
+pot|Props/Kitchen Props/SM_Prop_Pot_01
+napkins|Props/Desk Props/SM_Prop_Napkins_01
+cup_saucer|Props/Kitchen Props/SM_Prop_Cup_Saucer_03
+snack_1|Props/Misc/SM_Prop_Snack_01
+snack_2|Props/Misc/SM_Prop_Snack_02
+snack_3|Props/Misc/SM_Prop_Snack_03
+bin_tall|Props/Misc/SM_Prop_Bin_03
+bin_rubbish|Props/Misc/SM_Prop_Bin_Rubbish_01
+bucket_1|Props/Misc/SM_Prop_Bucket_01
+mop_1|Props/Misc/SM_Prop_Mop_01
+mop_2|Props/Misc/SM_Prop_Mop_02
+broom|Props/Misc/SM_Prop_Broom_01
+wet_floor|Props/Misc/SM_Prop_Sign_Wetfloor_01
+cord_pile|Props/Desk Props/SM_Prop_Cord_Pile_01
+papers_floor_1|Props/Misc/SM_Prop_Papers_03
+papers_floor_2|Props/Misc/SM_Prop_Papers_02
+rug_4|Props/Misc/SM_Prop_Rug_04
+plant_flowers_1|Props/Misc/SM_Prop_Plant_Flowers_01
+plant_flowers_2|Props/Misc/SM_Prop_Plant_Flowers_02
+vacuum|Props/Misc/SM_Prop_Vacuum_01
+cart_2|Props/Misc/SM_Prop_Cart_02
+fan_stand|Props/Misc/SM_Prop_Fan_Pedistal_01
+swiss_ball|Props/Misc/SM_Prop_SwissBall_01
+ohp|Props/Misc/SM_Prop_OHP_01
+whiteboard_easel|Props/Misc/SM_Prop_Whiteboard_02
+beanbag_2|Props/Furniture/SM_Prop_Chair_BeanBag_03
+beanbag_3|Props/Furniture/SM_Prop_Chair_BeanBag_04
+divider_fold|Props/Furniture/SM_Prop_Divider_Folding_01
+divider_half|Props/Furniture/SM_Prop_Divider_Half_01
+shelf_4|Props/Furniture/SM_Prop_Shelf_04
+drafting_table|Props/Furniture/SM_Prop_Table_Drafting_01
+chair_4|Props/Furniture/SM_Prop_Chair_04
+chair_6|Props/Furniture/SM_Prop_Chair_06
+chair_10|Props/Furniture/SM_Prop_Chair_10
+shelf_wall_2|Props/Wall Props/SM_Prop_Shelf_Wall_02
+shelf_wall_3|Props/Wall Props/SM_Prop_Shelf_Wall_03
+employee_board|Props/Wall Props/SM_Prop_Employee_Wall_01
+corkboard_2|Props/Wall Props/SM_Prop_CorkBoard_02
+wall_dressing_3|Props/Wall Props/SM_Prop_WallDressing_03
+wall_dressing_4|Props/Wall Props/SM_Prop_WallDressing_04
+air_vent|Props/Wall Props/SM_Prop_AirVent_Wall_01
+card_scanner|Props/Wall Props/SM_Prop_Card_Scanner_01
+socket_1|Props/Wall Props/SM_Prop_Socket_Wall_01
+switch_1|Props/Wall Props/SM_Prop_Socket_Switch_01
+bunting_1|Props/Misc/SM_Prop_Bunting_01
+bunting_2|Props/Misc/SM_Prop_Bunting_02

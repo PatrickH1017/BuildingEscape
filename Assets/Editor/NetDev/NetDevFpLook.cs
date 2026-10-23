@@ -20,6 +20,58 @@ namespace BuildingEscape.EditorTools
             Log($"[FpLook] {(ok ? "PASS" : "FAIL")} {name} {detail}");
         }
 
+        /// <summary>
+        /// Aiming and reloading through the Kinemation pack (the owner, 2026-10-23: "make it so the fps shooting in game when you zoom in uses this asset pack for shooting aiming and reloading"): the sight is where the old solve put it
+        /// (so the picture of the aimed gun did not change), the pack's layer is what aims it, and a reload takes the gun down out of the sight line with the reload's progress and brings it back (pictures at four moments of it).
+        /// </summary>
+        IEnumerator FpLookAimAndReload(GunController gc, RangedWeapon.Kind kind, Vector3 vpMuzzleAimed)
+        {
+            var hg = gc ? gc.Held : null;
+            if (hg == null || gc.Gun == null) { FpLookCheck($"{kind}: reload - the gun is in the hand", false); yield break; }
+            var cam = Camera.main;
+            FpLookCheck($"{kind}: aimed through the pack's layer - the arms are solved by the Kinemation solver (HeldGun.UseSightsAligner {HeldGun.UseSightsAligner}), not the direct solve", HeldGun.UseSightsAligner && hg.AlignerUsed && hg.AimLayer != null && !hg.AimLayer.Failed, $"(aligner used {hg.AlignerUsed}, sight gap {(hg.AimLayer != null ? hg.AimLayer.Gap : -1f):0.0000} m)");
+            // the old solve put the muzzle here: the pack's layer must not move the picture of the aimed gun
+            HeldGun.UseSightsAligner = false;
+            yield return new WaitForSeconds(0.5f);
+            var vpOld = cam.WorldToViewportPoint(hg.Muzzle.position);
+            bool oldUsed = hg.AlignerUsed;
+            HeldGun.UseSightsAligner = true;
+            yield return new WaitForSeconds(0.5f);
+            var vpNew = cam.WorldToViewportPoint(hg.Muzzle.position);
+            FpLookCheck($"{kind}: the aimed gun is where it was with the direct solve - the muzzle is within 2% of the screen of the old place", !oldUsed && hg.AlignerUsed && Mathf.Abs(vpNew.x - vpOld.x) < 0.02f && Mathf.Abs(vpNew.y - vpOld.y) < 0.02f, $"(old {vpOld:F3}, now {vpNew:F3})");
+
+            // one round fired, so that there is something to reload (the basement never runs short: the test asks for real ammunition)
+            GunController.LimitedAmmoForTests = true;
+            yield return null; yield return null;
+            var mag = gc.Gun.Magazine;
+            mag.TryFire(Time.time);
+            bool started = mag.StartReload(Time.time);
+            FpLookCheck($"{kind}: a reload starts", started && mag.Reloading, $"(reload {mag.ReloadSeconds:0.0} s)");
+            float lowestDot = 1f, loweredAt = 0f, muzzleDrop = 0f; bool alignedAll = true, tiltedUp = false; int frames = 0; var vpLow = Vector3.zero;
+            foreach (var frac in new[] { 0.10f, 0.30f, 0.55f, 0.90f })
+            {
+                float wait = mag.ReloadStartedAt + frac * mag.ReloadSeconds - Time.time;
+                if (wait > 0f) yield return new WaitForSeconds(wait);
+                var vp = cam.WorldToViewportPoint(hg.Muzzle.position);
+                frames++;
+                alignedAll &= hg.AlignerUsed;
+                if (frac == 0.30f)
+                {
+                    loweredAt = hg.ReloadLowered; lowestDot = HeldGun.LocalDotShare; muzzleDrop = vpMuzzleAimed.y - vp.y; vpLow = vp;
+                    tiltedUp = hg.RaiseNow < 0.95f;
+                }
+                ShotCam(cam, "fplook_reload_" + kind + "_" + (int)(frac * 100));
+            }
+            FpLookCheck($"{kind}: in the middle of the reload the gun is down out of the sight line (lowered {loweredAt:0.00}) and the crosshair is back (dot share {lowestDot:0.00})", loweredAt > 0.95f && lowestDot < 0.1f, $"(muzzle moved {muzzleDrop:0.000} of the screen height)");
+            FpLookCheck($"{kind}: the reload is shown by the gun moving, not by tilting the arm up as in third person (the arm stays raised), and the pack's layer holds it at every moment", !tiltedUp && alignedAll && hg.FirstPersonReload, $"(raise {hg.RaiseNow:0.00}, {frames} moments)");
+            FpLookCheck($"{kind}: the gun is still in the picture while it is down - its muzzle is on the screen, lower than when aimed", vpLow.z > 0.3f && vpLow.x > 0.15f && vpLow.x < 0.9f && vpLow.y > 0.02f && vpLow.y < 0.62f && muzzleDrop > 0.01f, $"(muzzle at {vpLow:F2}, {muzzleDrop:0.000} lower than aimed)");
+            float rest = mag.ReloadEndsAt + 0.6f - Time.time;
+            if (rest > 0f) yield return new WaitForSeconds(rest);
+            var vpEnd = cam.WorldToViewportPoint(hg.Muzzle.position);
+            FpLookCheck($"{kind}: after the reload the gun is back on the sight line where it was (within 1.5% of the screen) and the dot is back", !mag.Reloading && hg.ReloadLowered < 0.01f && Mathf.Abs(vpEnd.x - vpMuzzleAimed.x) < 0.015f && Mathf.Abs(vpEnd.y - vpMuzzleAimed.y) < 0.015f && (kind != RangedWeapon.Kind.Smg || HeldGun.LocalDotShare > 0.9f), $"(muzzle {vpEnd:F3} from {vpMuzzleAimed:F3}, lowered {hg.ReloadLowered:0.00}, dot share {HeldGun.LocalDotShare:0.00})");
+            GunController.LimitedAmmoForTests = false;
+        }
+
         IEnumerator FpLookScenario()
         {
             var hm = HeistManager.Instance;
@@ -110,6 +162,8 @@ namespace BuildingEscape.EditorTools
                 if (kind == RangedWeapon.Kind.Pew)
                     FpLookCheck("Pew: no hands in the picture - the pistol is seen alone like every other gun, no arm is drawn (the owner, 2026-10-21)", !HeldGun.ShowPistolArm && HeldGun.LocalArmMode == 0 && !rig.ArmsShown && bodyBits.All(r => r.shadowCastingMode == UnityEngine.Rendering.ShadowCastingMode.ShadowsOnly), $"(arm mode {HeldGun.LocalArmMode}, arms shown {rig.ArmsShown}, {bodyBits.Count} parts)");
                 FpLookCheck($"{kind}: nothing of the body but its arms is drawn", rig.ArmsShown == (CameraFollow.ShowArms || (HeldGun.ShowPistolArm && kind == RangedWeapon.Kind.Pew)) && bodyBits.All(r => r.shadowCastingMode == UnityEngine.Rendering.ShadowCastingMode.ShadowsOnly || r.sharedMaterials.All(m => m && m.shader && m.shader.name == "BuildingEscape/FirstPersonArms")), $"({bodyBits.Count} parts)");
+                if (kind == RangedWeapon.Kind.Smg || kind == RangedWeapon.Kind.Pew)
+                    yield return FpLookAimAndReload(gcn, kind, vpMuzzle);
             }
             if (previous) { pack.Drop(previous); Destroy(previous.gameObject); previous = null; yield return new WaitForSeconds(0.3f); }
             var crowbar = MeleeWeapon.Create(MeleeWeapon.Kind.Crowbar, at, null).GetComponent<Pickup>();

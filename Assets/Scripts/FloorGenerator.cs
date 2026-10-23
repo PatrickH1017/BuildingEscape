@@ -132,6 +132,7 @@ namespace BuildingEscape
             };
 
             layout = null;
+            ResetWallSkin();                      // (the Floor 7 pack walls and ceiling: FloorGenerator.WallSkin.cs)
             dockWalls = hub;
             officeFloor = !hub && !boss;          // the outside walls of an office floor get windows (FloorGenerator.Surfaces.cs)
             outerSegs.Clear();
@@ -323,10 +324,18 @@ namespace BuildingEscape
                 }
         }
 
-        GameObject WallZ(float x, float z, float len) =>
-            Box("Wall", new Vector3(x, wallHeight / 2f, z), new Vector3(0.4f, wallHeight, len), wallMat);
-        GameObject WallX(float x, float z, float len) =>
-            Box("Wall", new Vector3(x, wallHeight / 2f, z), new Vector3(len, wallHeight, 0.4f), wallMat);
+        GameObject WallZ(float x, float z, float len)
+        {
+            var go = Box("Wall", new Vector3(x, wallHeight / 2f, z), new Vector3(0.4f, wallHeight, len), wallMat);
+            shellBoxes.Add(go);
+            return go;
+        }
+        GameObject WallX(float x, float z, float len)
+        {
+            var go = Box("Wall", new Vector3(x, wallHeight / 2f, z), new Vector3(len, wallHeight, 0.4f), wallMat);
+            shellBoxes.Add(go);
+            return go;
+        }
 
         /// <summary>
         /// The service elevator: a private walled room in the corner cell with one front door (east, or north if

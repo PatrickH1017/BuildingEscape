@@ -48,6 +48,8 @@ namespace BuildingEscape
         public Rc rc;
         public float h;
         public bool solid, mount, onTop, hide, loot;
+        /// <summary>Added by the Floor 7 dressing pass (OfficePlanner.Dressing.cs), not by a room theme: the pass is additive, so this tells its props from the original furnishing (tests, before / after pictures).</summary>
+        public bool dressing;
         /// <summary>Chosen by the floor builder: this one is spawned as an object to steal (the rest of the flagged ones stay plain props).</summary>
         public bool picked;
         public string room;

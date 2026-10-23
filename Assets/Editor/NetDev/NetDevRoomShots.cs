@@ -131,12 +131,11 @@ namespace BuildingEscape.EditorTools
                 var interior = gen.Current.Find("Interior");
                 if (interior)
                 {
-                    var culler = interior.GetComponent<PropCuller>();
-                    if (culler) culler.enabled = false;
+                    foreach (var culler in interior.GetComponentsInChildren<PropCuller>(true)) culler.enabled = false;          // (the furniture's, and the Floor 7 wall skin's)
                     foreach (var rr in interior.GetComponentsInChildren<Renderer>(true)) if (rr) rr.enabled = true;
                 }
                 foreach (Transform ch in gen.Current.GetComponentsInChildren<Transform>(true))
-                    if (ch && (ch.name == "Ceiling" || ch.name.StartsWith("CeilingLights") || ch.name.StartsWith("CeilingPanels"))) ch.gameObject.SetActive(false);
+                    if (ch && (ch.name == "Ceiling" || ch.name == "CeilingTiles" || ch.name.StartsWith("CeilingLights") || ch.name.StartsWith("CeilingPanels"))) ch.gameObject.SetActive(false);
                 yield return null;
                 var perCount = new Dictionary<string, int>();
                 foreach (var room in layout.rooms)
