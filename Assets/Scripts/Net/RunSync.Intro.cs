@@ -56,6 +56,7 @@ namespace BuildingEscape.Net
         void HostIntroHold(ulong who, bool holding)
         {
             if (introSkipped.Value || introStart.Value < 0.0) return;           // nothing to vote on
+            if (holding && NetSession.Instance != null && NetSession.Instance.IsSpectatorClient(who)) return;           // (a developer who watches has no vote)
             if (holding) introHolders.Add(who); else introHolders.Remove(who);
             HostIntroTally();
         }
@@ -64,7 +65,7 @@ namespace BuildingEscape.Net
         void HostIntroTally()
         {
             introHolders.RemoveWhere(id => !NetworkManager.ConnectedClients.ContainsKey(id));
-            int party = NetworkManager.ConnectedClientsIds.Count, holders = introHolders.Count;
+            int party = PlayerCount, holders = introHolders.Count;
             ushort tally = (ushort)((Mathf.Min(holders, 255) << 8) | Mathf.Min(party, 255));
             if (introTally.Value != tally) introTally.Value = tally;
             if (IntroRules.SkipPassed(holders, party)) introSkipped.Value = true;

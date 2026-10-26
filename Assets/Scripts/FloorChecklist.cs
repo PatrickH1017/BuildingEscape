@@ -3,8 +3,8 @@ using UnityEngine;
 
 namespace BuildingEscape
 {
-    /// <summary>What the scan and the journal's checklist tell apart. (The scan's glow went by kind - safes and valuables gold, unique items red, cash green - until 2026-10-21; it now goes by what a thing is worth, with weapons still red: see <see cref="LootScanRules.GlowOf"/>. The checklist still counts by kind.)</summary>
-    public enum ScanKind { Valuable = 0, Unique = 1, Safe = 2, Cash = 3 }
+    /// <summary>What the scan and the journal's checklist tell apart (the Outpost line, the owner, 2026-10-24, is the checklist's only: the scan never marks it). (The scan's glow went by kind - safes and valuables gold, unique items red, cash green - until 2026-10-21; it now goes by what a thing is worth, with weapons still red: see <see cref="LootScanRules.GlowOf"/>. The checklist still counts by kind.)</summary>
+    public enum ScanKind { Valuable = 0, Unique = 1, Safe = 2, Cash = 3, Outpost = 4 }
 
     /// <summary>
     /// The words and the colours of the checklist and the scan, and when a line of the checklist is done: without Unity types, so they are tested outside Unity. The owner, 2026-10-19: "On the journal should be a tab that has check boxes
@@ -13,12 +13,15 @@ namespace BuildingEscape
     /// </summary>
     public static class ChecklistRules
     {
-        public const int Count = 4;
+        public const int Count = 5;
         /// <summary>How long a floor has to be there before its checklist starts counting (the things of a new floor are made and placed in the first moments).</summary>
         public const float SettleSeconds = 1.5f;
 
         public static string Label(ScanKind k) =>
-            k == ScanKind.Valuable ? "All valuables collected" : k == ScanKind.Unique ? "All unique items collected" : k == ScanKind.Safe ? "All safes opened" : "All cash collected";
+            k == ScanKind.Valuable ? "All valuables collected" : k == ScanKind.Unique ? "All unique items collected" : k == ScanKind.Safe ? "All safes opened" : k == ScanKind.Outpost ? OutpostLabel : "All cash collected";
+
+        /// <summary>The line for the guards' outpost (the owner, 2026-10-24: "Add the Outpost to the journal checklist"): done once its lock is hacked open. The words are a placeholder: the owner writes them.</summary>
+        public const string OutpostLabel = "Outpost hacked";
 
         /// <summary>The colour of a KIND as red, green and blue (0 to 1; the scan no longer glows by kind, from 2026-10-21 it goes by worth: see <see cref="LootScanRules.GlowOf"/>, and only the unique items' red is still this one): safes and valuables gold, unique items (weapons) red, cash green (the owner, 2026-10-20: "safes and valuables should be gold when scanning, weapons should be red, and cash should be green").</summary>
         public static void Rgb(ScanKind k, out float r, out float g, out float b)
@@ -40,7 +43,14 @@ namespace BuildingEscape
     public sealed class ChecklistState
     {
         readonly bool[] done = new bool[ChecklistRules.Count];
-        readonly int[] first = { -1, -1, -1, -1 };
+        readonly int[] first = NoCounts();
+
+        static int[] NoCounts()
+        {
+            var a = new int[ChecklistRules.Count];
+            for (int i = 0; i < a.Length; i++) a[i] = -1;
+            return a;
+        }
         float startedAt = -1f;
 
         public void Reset()
@@ -113,6 +123,8 @@ namespace BuildingEscape
             }
             var gun = GunSafeProp.Active;
             if (gun && !gun.IsOpen) { into[(int)ScanKind.Safe]++; into[(int)ScanKind.Unique]++; }
+            var outpost = OutpostController.Active;
+            if (outpost && !outpost.Unlocked) into[(int)ScanKind.Outpost] = 1;                 // (the guards' outpost: its lock is not hacked yet; a floor without one has nothing to do here)
         }
     }
 

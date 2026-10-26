@@ -30,6 +30,13 @@ namespace BuildingEscape
             /// <summary>A piece of armour (the owner, 2026-10-19): found on the floors, sold once its tier was brought back to the docks (<see cref="RunUnlocks.HasArmour"/>).</summary>
             public bool isArmour;
             public ShieldTier armour;
+            /// <summary>Sold at the vending machines of the Loading Docks, not by the dealer (the owner, 2026-10-23: "Vending machines should be used to buy consumables"): <see cref="OnOffer"/> is false for it, <see cref="OnMachine"/> true.</summary>
+            public bool machine;
+            /// <summary>The walkie talkie (the owner, 2026-10-23): an item that is held out to use the radio (<see cref="WalkieTalkie"/>).</summary>
+            public bool isWalkie;
+            /// <summary>A consumable of the vending machines (the owner, 2026-10-25; <see cref="ConsumableRules"/>): <see cref="consumable"/> says which. Sold at the machines only (<see cref="machine"/>).</summary>
+            public bool isConsumable;
+            public ConsumableKind consumable;
         }
 
         /// <summary>What the vendor sells. Key 1 buys the first entry, key 2 the second, and so on.</summary>
@@ -37,25 +44,25 @@ namespace BuildingEscape
         {
             new Product
             {
-                name = "Coffee Mug", blurb = "throw it to stun a guard for 2.5s", price = 60,
+                name = "Coffee Mug", blurb = "throw it to stun a guard for 2.5s", price = 60, machine = true,
                 shape = PrimitiveType.Cylinder, size = new Vector3(0.18f, 0.12f, 0.18f), mass = 0.4f,
                 stunSeconds = 2.5f, noise = 14f, color = Color.white
             },
             new Product
             {
-                name = "Heavy Stapler", blurb = "stuns a guard for 6s", price = 250,
+                name = "Heavy Stapler", blurb = "stuns a guard for 6s", price = 250, machine = true,
                 shape = PrimitiveType.Cube, size = new Vector3(0.45f, 0.2f, 0.2f), mass = 1.2f,
                 stunSeconds = 6f, noise = 10f, color = new Color(0.45f, 0.5f, 0.6f)
             },
             new Product
             {
-                name = "Squeaky Toy", blurb = "throw it far away to lure guards over", price = 150,
+                name = "Squeaky Toy", blurb = "throw it far away to lure guards over", price = 150, machine = true,
                 shape = PrimitiveType.Sphere, size = new Vector3(0.3f, 0.3f, 0.3f), mass = 0.3f,
                 stunSeconds = 0f, noise = 35f, color = new Color(1f, 0.9f, 0.1f)
             },
             new Product
             {
-                name = "Fire Extinguisher", blurb = "stuns a guard for 10s", price = 600,
+                name = "Fire Extinguisher", blurb = "stuns a guard for 10s", price = 600, machine = true,
                 shape = PrimitiveType.Cylinder, size = new Vector3(0.25f, 0.4f, 0.25f), mass = 2f,
                 stunSeconds = 10f, noise = 20f, color = new Color(0.85f, 0.1f, 0.1f)
             },
@@ -76,27 +83,37 @@ namespace BuildingEscape
             },
             new Product
             {
-                name = "Pew Pistol", blurb = "gun: LMB fires, R reloads. 8 rounds a clip, up to 12 clips, 3 hits drop a guard. Try it on the dummy", price = PewPrice,
+                name = "Pew Pistol", blurb = "gun: LMB fires, R reloads. 8 rounds in the gun, the bullets you carry reload it, 3 hits drop a guard. Try it on the dummy", price = PewPrice,
                 isGun = true, gun = RangedWeapon.Kind.Pew
             },
             new Product
             {
-                name = "Pistol Clip", blurb = "8 more rounds for your pew: it reloads from the clips you carry", price = AmmoClipPrice,
+                name = "Pistol Bullets", blurb = "8 more bullets for your pew: it reloads from the bullets you carry", price = AmmoClipPrice,
                 isAmmo = true, rounds = 8
             },
             // the ammunition of the guns that are found, not sold (the owner, 2026-10-19: "The Vendor should sell ammo for the specific guns after finding them, ammo from the Vendor should be expensive")
-            new Product { name = "SMG Magazine", blurb = "24 more rounds for your SMG", price = RangedWeapon.Specs[(int)RangedWeapon.Kind.Smg].clipPrice, isAmmo = true, gun = RangedWeapon.Kind.Smg, rounds = RangedWeapon.Specs[(int)RangedWeapon.Kind.Smg].magazine },
-            new Product { name = "Rifle Magazine", blurb = "30 more rounds for your rifle", price = RangedWeapon.Specs[(int)RangedWeapon.Kind.Rifle].clipPrice, isAmmo = true, gun = RangedWeapon.Kind.Rifle, rounds = RangedWeapon.Specs[(int)RangedWeapon.Kind.Rifle].magazine },
+            new Product { name = "SMG Bullets", blurb = "24 more bullets for your SMG", price = RangedWeapon.Specs[(int)RangedWeapon.Kind.Smg].clipPrice, isAmmo = true, gun = RangedWeapon.Kind.Smg, rounds = RangedWeapon.Specs[(int)RangedWeapon.Kind.Smg].magazine },
+            new Product { name = "Rifle Bullets", blurb = "30 more bullets for your rifle", price = RangedWeapon.Specs[(int)RangedWeapon.Kind.Rifle].clipPrice, isAmmo = true, gun = RangedWeapon.Kind.Rifle, rounds = RangedWeapon.Specs[(int)RangedWeapon.Kind.Rifle].magazine },
             new Product { name = "Shotgun Shells", blurb = "6 more shells for your shotgun", price = RangedWeapon.Specs[(int)RangedWeapon.Kind.Shotgun].clipPrice, isAmmo = true, gun = RangedWeapon.Kind.Shotgun, rounds = RangedWeapon.Specs[(int)RangedWeapon.Kind.Shotgun].magazine },
             new Product { name = "Sniper Rounds", blurb = "5 more rounds for your sniper rifle", price = RangedWeapon.Specs[(int)RangedWeapon.Kind.Sniper].clipPrice, isAmmo = true, gun = RangedWeapon.Kind.Sniper, rounds = RangedWeapon.Specs[(int)RangedWeapon.Kind.Sniper].magazine },
             // the armour (the owner, 2026-10-19): found in the safes of floors 3 / 7 / 10, sold to the whole party once its finder is back in the docks; worn while it is in the pack
             new Product { name = "Light Armour", blurb = "armour: a guard's bullet knocks you down for 75% of the time", price = ArmourRules.Price(ShieldTier.Light), isArmour = true, armour = ShieldTier.Light },
             new Product { name = "Medium Armour", blurb = "armour: a guard's bullet knocks you down for 50% of the time", price = ArmourRules.Price(ShieldTier.Medium), isArmour = true, armour = ShieldTier.Medium },
             new Product { name = "Heavy Armour", blurb = "armour: a guard's bullet knocks you down for 30% of the time", price = ArmourRules.Price(ShieldTier.Heavy), isArmour = true, armour = ShieldTier.Heavy },
+            // the walkie talkie (the owner, 2026-10-23): always on offer, the last entry; the price and the weight are placeholders (WalkieRules), the blurb a plain description for the owner to reword
+            new Product { name = WalkieRules.Name, blurb = "radio: hold it out and talk to a teammate who holds one out too, at any distance", price = WalkieRules.Price, isWalkie = true },
+            // the consumables of the vending machines (the owner, 2026-10-25), after the walkie talkie so that every other place in this list stays where it was: the words and the numbers are ConsumableRules'
+            new Product { name = ConsumableRules.Of(ConsumableKind.SpeedBurst).name, blurb = ConsumableRules.Blurb(ConsumableKind.SpeedBurst), price = ConsumableRules.Of(ConsumableKind.SpeedBurst).price, machine = true, isConsumable = true, consumable = ConsumableKind.SpeedBurst },
+            new Product { name = ConsumableRules.Of(ConsumableKind.EnduranceLaster).name, blurb = ConsumableRules.Blurb(ConsumableKind.EnduranceLaster), price = ConsumableRules.Of(ConsumableKind.EnduranceLaster).price, machine = true, isConsumable = true, consumable = ConsumableKind.EnduranceLaster },
+            new Product { name = ConsumableRules.Of(ConsumableKind.SilentSteps).name, blurb = ConsumableRules.Blurb(ConsumableKind.SilentSteps), price = ConsumableRules.Of(ConsumableKind.SilentSteps).price, machine = true, isConsumable = true, consumable = ConsumableKind.SilentSteps },
+            new Product { name = ConsumableRules.Of(ConsumableKind.Invisible).name, blurb = ConsumableRules.Blurb(ConsumableKind.Invisible), price = ConsumableRules.Of(ConsumableKind.Invisible).price, machine = true, isConsumable = true, consumable = ConsumableKind.Invisible },
+            new Product { name = ConsumableRules.Of(ConsumableKind.AccuracyCola).name, blurb = ConsumableRules.Blurb(ConsumableKind.AccuracyCola), price = ConsumableRules.Of(ConsumableKind.AccuracyCola).price, machine = true, isConsumable = true, consumable = ConsumableKind.AccuracyCola },
         };
 
         /// <summary>The pew's place in <see cref="Catalog"/> and the clips of ammunition right after it, so the places of the others are what they were.</summary>
         public const int PewIndex = 7, AmmoIndex = 8;
+        /// <summary>The walkie talkie's place in <see cref="Catalog"/> (the last entry).</summary>
+        public static int WalkieIndex { get { for (int i = 0; i < Catalog.Length; i++) if (Catalog[i].isWalkie) return i; return -1; } }
         /// <summary>What the pew costs (the owner, 2026-10-18: "The pistol should not be free from the Vendor anymore") and what a clip of eight rounds costs.</summary>
         public const int PewPrice = 900, AmmoClipPrice = 120;
         /// <summary>The pew is for sale once this floor has been finished (the owner, 2026-10-16: "after completion of the 4th floor the vendor should now sell the pew pistol"; 2026-10-17: the third floor, "so that players can buy the pistol after completing the third floor"; it was free until 2026-10-18).</summary>
@@ -120,7 +137,7 @@ namespace BuildingEscape
             return first;
         }
 
-        /// <summary>Puts these rounds in the reserve of the gun of this kind in this pack (no more than three clips: <see cref="GunMagazine.Room"/>). The host announces a sale to every machine (<c>RunSync.AnnounceAmmo</c>), each of which calls this for the buyer. True when a gun took them.</summary>
+        /// <summary>Puts these bullets in the reserve of the gun of this kind in this pack (no limit). The host announces a sale to every machine (<c>RunSync.AnnounceAmmo</c>), each of which calls this for the buyer. True when a gun took them.</summary>
         public static bool GiveAmmo(Backpack pack, int rounds, RangedWeapon.Kind kind = RangedWeapon.Kind.Pew)
         {
             var gun = GunOf(pack, kind);
@@ -130,17 +147,37 @@ namespace BuildingEscape
         static int ResumeNow { get { var tm = TowerManager.Instance; return tm ? tm.ResumeLevel : 1; } }
 
         /// <summary>
-        /// Is entry <paramref name="index"/> of <see cref="Catalog"/> for sale now? The first seven always are; the pew once floor 3 is done (<see cref="PewForSale"/>); ammunition for a gun once the gun has been found and brought back to
+        /// Is entry <paramref name="index"/> of <see cref="Catalog"/> for sale now? The three melee weapons always are (the four consumables are sold at the vending machines, not here: <see cref="OnMachine"/>); the pew once floor 3 is done (<see cref="PewForSale"/>); ammunition for a gun once the gun has been found and brought back to
         /// the docks (<see cref="RunUnlocks"/>; the pew's also once the pew is for sale). The other guns are found, not sold (the owner, 2026-10-19).
         /// </summary>
         public static bool OnOffer(int index, int resume)
         {
             if (index < 0 || index >= Catalog.Length) return false;
             var p = Catalog[index];
+            if (p.machine) return false;                                          // (sold at the vending machines now)
             if (p.isGun) return p.gun == RangedWeapon.Kind.Pew && PewForSale(resume);
             if (p.isAmmo) return RunUnlocks.Has(p.gun) || (p.gun == RangedWeapon.Kind.Pew && PewForSale(resume));
             if (p.isArmour) return RunUnlocks.HasArmour(p.armour);                // (found and brought back to the docks)
             return true;
+        }
+
+        /// <summary>Is entry <paramref name="index"/> of <see cref="Catalog"/> sold at the vending machines of the docks (the owner, 2026-10-23: "Vending machines should be used to buy consumables")?</summary>
+        public static bool OnMachine(int index) => index >= 0 && index < Catalog.Length && Catalog[index].machine;
+
+        static int[] machineProducts;
+        /// <summary>The entries of <see cref="Catalog"/> the vending machines sell, in the order of the list.</summary>
+        public static int[] MachineProducts
+        {
+            get
+            {
+                if (machineProducts == null)
+                {
+                    var l = new List<int>();
+                    for (int i = 0; i < Catalog.Length; i++) if (Catalog[i].machine) l.Add(i);
+                    machineProducts = l.ToArray();
+                }
+                return machineProducts;
+            }
         }
 
         readonly List<int> offered = new List<int>();
@@ -318,7 +355,15 @@ namespace BuildingEscape
                     string price = p.price == 0 ? "FREE" : "$" + p.price;
                     string detail = p.isAmmo ? "+" + p.rounds + " rounds" : WeightUnits.Lbs(ItemWeight(p));
                     HudTheme.Text(new Rect(cr.x + 12f * S, cr.y + 34f * S, cr.width - 24f * S, 24f * S), price + "    " + detail, 17f, afford ? HudTheme.Cash : HudTheme.Lost, TextAnchor.MiddleLeft, false);
-                    MenuKit.Wrapped(new Rect(cr.x + 12f * S, cr.y + 62f * S, cr.width - 24f * S, cr.height - 66f * S), p.blurb, 14f * S, HudTheme.Muted);
+                    if (p.isWeapon || p.isGun)
+                    {
+                        // a weapon's card says what a hit does (the owner, 2026-10-23: "Damage: x" and "Stun Time: x"): from the weapon's own numbers
+                        float dmg = p.isGun ? WeaponCardRules.GunDamage(RangedWeapon.Specs[(int)p.gun].guardHits) : MeleeWeapon.Specs[(int)p.kind].guardDamage;
+                        float stunTime = p.isGun ? RangedWeapon.Specs[(int)p.gun].stun : MeleeWeapon.Specs[(int)p.kind].stun;
+                        HudTheme.Text(new Rect(cr.x + 12f * S, cr.y + 62f * S, cr.width - 24f * S, 22f * S), WeaponCardRules.DamageLine(dmg), 16f, HudTheme.Cream, TextAnchor.MiddleLeft, false);
+                        HudTheme.Text(new Rect(cr.x + 12f * S, cr.y + 84f * S, cr.width - 24f * S, 22f * S), WeaponCardRules.StunLine(stunTime), 16f, HudTheme.Cream, TextAnchor.MiddleLeft, false);
+                    }
+                    else MenuKit.Wrapped(new Rect(cr.x + 12f * S, cr.y + 62f * S, cr.width - 24f * S, cr.height - 66f * S), p.blurb, 14f * S, HudTheme.Muted);
                 }
                 if (hover && ev.type == EventType.MouseDown && ev.button == 0)
                 {
@@ -402,7 +447,7 @@ namespace BuildingEscape
             return "Done. Your friend walks out the back.";
         }
 
-        static float ItemWeight(Product p) => p.isArmour ? ArmourRules.Weight(p.armour) : p.isGun ? RangedWeapon.Specs[(int)p.gun].weight : p.isWeapon ? MeleeWeapon.Specs[(int)p.kind].weight : Mathf.Max(0.2f, p.mass);
+        static float ItemWeight(Product p) => p.isConsumable ? ConsumableRules.Of(p.consumable).weight : p.isWalkie ? WalkieRules.Weight : p.isArmour ? ArmourRules.Weight(p.armour) : p.isGun ? RangedWeapon.Specs[(int)p.gun].weight : p.isWeapon ? MeleeWeapon.Specs[(int)p.kind].weight : Mathf.Max(0.2f, p.mass);
 
         /// <summary>Sell everything in the zone. A client only asks; the host / offline sells and tells everyone.</summary>
         void Sell(HeistManager hm)
@@ -445,6 +490,9 @@ namespace BuildingEscape
             return hm.Cash > before ? $"Sold for ${hm.Cash - before}" : "Nothing to sell";
         }
 
+        /// <summary>The built-player autopilot buys without a click (a solo run has no RunSync to ask).</summary>
+        public void TestBuy(int index) => Buy(HeistManager.Instance, index);
+
         void Buy(HeistManager hm, int index)
         {
             if (Net.NetRole.IsRemoteClient) { Net.RunSync.Instance?.RequestBuy(index); return; }
@@ -464,6 +512,42 @@ namespace BuildingEscape
             return BuyFor(hm, buyer, index);
         }
 
+        /// <summary>
+        /// A purchase at a vending machine (offline and host): the cash is taken and the item goes into the buyer's pack, or lies in the machine's tray when the pack has no room (the same rules as the dealer's <see cref="BuyFor"/>,
+        /// but the item comes out of the machine at <paramref name="tray"/>, not onto the dealer's shelf). Returns the message for the buyer.
+        /// </summary>
+        public string BuyAtMachine(HeistManager hm, Backpack buyer, int index, Vector3 tray)
+        {
+            if (hm == null || buyer == null || !OnMachine(index)) return "The machine does not sell that";
+            var p = Catalog[index];
+            if (p.isConsumable && buyer.CountConsumable(p.consumable) >= ConsumableRules.Of(p.consumable).limit) return ConsumableRules.AtLimit(p.consumable);          // (the owner's "limit of n in inventory")
+            float wgt = ItemWeight(p);
+            if (buyer.Weight + wgt > buyer.capacity + 0.001f) return $"No room in your pack for the {p.name} ({WeightUnits.Lbs(wgt)})";
+            if (!hm.TrySpend(p.price)) return $"Not enough cash (it costs ${p.price})";
+            float yaw = Random.Range(0f, 360f);
+            var go = SpawnAt(p, tray, yaw);
+            if (!go) return $"Bought {p.name}";
+            var pk = go.GetComponent<Pickup>();
+            Net.RunSync.Instance?.BroadcastSpawnItem(pk.NetId, index, go.transform.position, yaw);
+            if (Net.NetRole.IsHost && buyer.TryGetComponent(out Net.NetPlayer np))
+            {
+                Net.RunSync.Instance.AnnounceStored(pk.NetId, np.Slot);              // straight into the buyer's pack, on every machine
+                return $"Bought {p.name} - it's in your pack";
+            }
+            return buyer.TryStore(pk) ? $"Bought {p.name} - it's in your pack" : $"Bought {p.name} - it's in the tray";
+        }
+
+        /// <summary>Host: a player pressed a button of a vending machine. He must be standing at it and be free (not pinned or busted).</summary>
+        public string HostBuyAtMachine(Net.NetPlayer who, VendingMachine machine, int index)
+        {
+            var hm = HeistManager.Instance;
+            var buyer = who ? who.GetComponent<Backpack>() : null;
+            if (hm == null || buyer == null || machine == null || !OnMachine(index)) return null;
+            if (who.TryGetComponent(out WobblyPlayer wp) && wp.InCustody) return null;
+            if (machine.DistanceFrom(who.transform.position) > machine.reach + 1.5f) return "Stand at the machine to buy";          // (the position the host has is a moment old: a little slack)
+            return BuyAtMachine(hm, buyer, index, machine.TrayPoint);
+        }
+
         /// <summary>The purchase rules (offline and host). Returns the message for the buyer.</summary>
         string BuyFor(HeistManager hm, Backpack buyer, int index)
         {
@@ -475,11 +559,10 @@ namespace BuildingEscape
                 var spec = RangedWeapon.Specs[(int)p.gun];
                 var gun = GunOf(buyer, p.gun);
                 if (gun == null) return p.gun == RangedWeapon.Kind.Pew ? "You have no pew to load - buy the pistol first" : $"You carry no {spec.name} to load";
-                if (gun.Magazine.Room < p.rounds) return Backpack.TooManyClipsFor(gun.Magazine);
-                if (!hm.TrySpend(p.price)) return $"Not enough cash (a clip costs ${p.price})";
+                if (!hm.TrySpend(p.price)) return $"Not enough cash ({p.rounds} bullets cost ${p.price})";
                 if (Net.NetRole.IsHost && buyer.TryGetComponent(out Net.NetPlayer ammoBuyer)) Net.RunSync.Instance.AnnounceAmmo(ammoBuyer.Slot, p.rounds, p.gun);      // (every machine adds the rounds to that player's gun)
                 else GiveAmmo(buyer, p.rounds, p.gun);
-                return p.gun == RangedWeapon.Kind.Pew ? $"Bought a clip: +{p.rounds} rounds for your pew" : $"Bought {spec.ammoName}: +{p.rounds} rounds for your {spec.name}";
+                return p.gun == RangedWeapon.Kind.Pew ? $"Bought bullets: +{p.rounds} rounds for your pew" : $"Bought {p.name}: +{p.rounds} rounds for your {spec.name}";
             }
             if (p.isGun)
             {
@@ -523,6 +606,8 @@ namespace BuildingEscape
 
         GameObject SpawnAt(Product p, Vector3 pos, float yaw)
         {
+            if (p.isConsumable) return ConsumableItem.Create(p.consumable, pos, transform.parent, yaw);
+            if (p.isWalkie) return WalkieTalkie.Create(pos, transform.parent, yaw);
             if (p.isArmour) return ArmourItem.Create(p.armour, pos, transform.parent, yaw);
             if (p.isGun) return RangedWeapon.Create(p.gun, pos, transform.parent, yaw);
             if (p.isWeapon) return MeleeWeapon.Create(p.kind, pos, transform.parent, yaw);

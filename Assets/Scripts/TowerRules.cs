@@ -36,10 +36,10 @@ namespace BuildingEscape
 
         /// <summary>
         /// The demo: the tower stops here for now. The owner, 2026-10-16: "after the 4th floor players cannot continue to the 5th floor
-        /// basically making this a demo up to the 4th floor (the full game will remove this limitation)". The service elevator goes no
-        /// higher than this floor and the panel keeps the floors above it dark. To remove the limit, set this to <see cref="BossFloor"/>.
+        /// basically making this a demo up to the 4th floor (the full game will remove this limitation)"; and 2026-10-23, for the new build: "When making the new build it should go until floor 6 instead of floor 4".
+        /// The service elevator goes no higher than this floor and the panel keeps the floors above it dark. To remove the limit, set this to <see cref="BossFloor"/>.
         /// </summary>
-        public const int DemoLastFloor = 4;
+        public const int DemoLastFloor = 6;
 
         /// <summary>Is <paramref name="level"/> past the end of the demo (the elevator takes nobody there)?</summary>
         public static bool Beyond(int level, int lastFloor = DemoLastFloor) => lastFloor < BossFloor && level > lastFloor;
@@ -65,7 +65,7 @@ namespace BuildingEscape
         /// Where the service elevator goes when it goes up from <paramref name="level"/>, or -1 if it cannot:
         /// not on the boss floor, not from the end of a group, and not before the floor's quota is met.
         /// From the docks it resumes at <paramref name="resume"/> (the next unfinished floor). Nowhere above the demo's last floor
-        /// (<see cref="DemoLastFloor"/>): from floor 4 there is no way up, and once it is finished the docks have no floor to go up to.
+        /// (<see cref="DemoLastFloor"/>): from the last floor there is no way up, and once it is finished the docks have no floor to go up to.
         /// </summary>
         public static int UpFrom(int level, bool floorComplete, int resume, int lastFloor = DemoLastFloor)
         {

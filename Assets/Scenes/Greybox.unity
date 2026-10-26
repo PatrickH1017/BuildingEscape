@@ -398,6 +398,8 @@ MonoBehaviour:
   totalFloors: 11
   startLevel: 0
   baseSeed: 20240
+  intelSeedOverride: 0
+  guardSeedOverride: 0
   quotaShare: 0.6
 --- !u!114 &761255727
 MonoBehaviour:
@@ -411,6 +413,14 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: cc456a3a95e265646880ebb0ea918898, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  afterHours: 1
+  nightAmbient: {r: 0.25, g: 0.27, b: 0.34, a: 1}
+  dockAmbient: {r: 0.34, g: 0.35, b: 0.4, a: 1}
+  moonIntensity: 0.2
+  moonColour: {r: 0.62, g: 0.72, b: 1, a: 1}
+  litScale: 1
+  lampBrightness: 1
+  maxActiveLights: 8
   targetMinutes: 7
   assumedMoveSpeed: 3.5
   cellSize: 18
@@ -433,11 +443,19 @@ MonoBehaviour:
   mugMat: {fileID: 2100000, guid: b949be4c3e64e1045a3dd6a79bfcf216, type: 2}
   guardMat: {fileID: 2100000, guid: aa0969f7dc6a8c0468deee848c95aa9b, type: 2}
   vendorMat: {fileID: 2100000, guid: 61ae427f03d8ab4469a49552d7a944b5, type: 2}
-  office: {fileID: 0}
+  office: {fileID: 11400000, guid: 686f8c6bfe73fd342b5747686ffe1f3f, type: 2}
   slidingDoors: 1
+  elevatorLook: 1
+  elevatorMirror: 1
+  mirrorQuality: 0.6
+  carLampBrightness: 1
   furnishRooms: 1
   smallProps: 1
   propDrawDistance: 60
+  outpostMirror: 1
+  roomNumbers: 1
+  directionSigns: 1
+  wallSkin: 1
 --- !u!4 &761255728
 Transform:
   m_ObjectHideFlags: 0
@@ -637,6 +655,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   target: {fileID: 1586906445}
+  spectate: {fileID: 0}
   headHeight: 1.35
   distance: 2.6
   shoulderOffset: 0.45
@@ -648,6 +667,8 @@ MonoBehaviour:
   altFreeLookKey: 118
   returnSpeed: 10
   followSmooth: 25
+  viewKey: 112
+  eyeHeight: 0.62
 --- !u!81 &1418626650
 AudioListener:
   m_ObjectHideFlags: 0
@@ -880,6 +901,7 @@ MonoBehaviour:
     serializedVersion: 2
     m_Bits: 4294967295
   carryForce: 40
+  carryDamping: 12
   throwForce: 9
   grabKey: 113
   throwKey: 323
@@ -921,6 +943,7 @@ MonoBehaviour:
   stumbleSeconds: 1.6
   jumpImpulse: 5.5
   usePartyCharacter: 1
+  maxTiltDegrees: 9
 --- !u!54 &1586906441
 Rigidbody:
   m_ObjectHideFlags: 0

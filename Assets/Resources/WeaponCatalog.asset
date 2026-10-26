@@ -84,3 +84,4 @@ MonoBehaviour:
   - {fileID: 3631628756969354018, guid: 2ed10eba2ed1381419d237171b886ac5, type: 3}
   - {fileID: 6792398102597723929, guid: f2bc4b30b343b5e4ca819bd2992102eb, type: 3}
   - {fileID: 4689380497675743781, guid: e0f289d0ad4ba3542b8737af5ad2623c, type: 3}
+  walkie: {fileID: 2839912817858006197, guid: 4c4970da133b78f48acb2f155c3e351f, type: 3}

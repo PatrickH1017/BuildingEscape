@@ -4,7 +4,7 @@ namespace BuildingEscape
 {
     /// <summary>
     /// The settings controls, drawn by the lobby's Settings page and by the Esc menu's Settings page (the owner, 2026-10-18: "There should be a Settings button on escape menu"): master and music volume, mouse sensitivity,
-    /// voice chat (the mode and the volume of the voices), fullscreen and a Keybinds button. One place, so the two pages cannot drift apart; what they change is saved the way it always was (PlayerPrefs, the
+    /// voice chat (the mode and the volume of the voices), the audio devices (the microphone from a list; the speakers through Windows' own page), fullscreen and a Keybinds button. One place, so the two pages cannot drift apart; what they change is saved the way it always was (PlayerPrefs, the
     /// <see cref="MusicDirector"/>, the voice chat's own settings).
     /// </summary>
     public static class SettingsPanel
@@ -42,6 +42,25 @@ namespace BuildingEscape
             f.Gap(4f);
             float vv = MenuKit.SliderRow(f, "VOICES", Mathf.RoundToInt(Net.VoiceChat.Volume * 100f) + "%", Net.VoiceChat.Volume, 0f, 1f, HudTheme.Warning);
             if (!Mathf.Approximately(vv, Net.VoiceChat.Volume)) Net.VoiceChat.Volume = vv;
+
+            // the audio devices (the owner, 2026-10-24: "Audio Options so players can choose the audio input/output devices they want to use in-game")
+            f.Gap(6f);
+            MenuKit.Header(f.Row(28f, 8f), "AUDIO DEVICES", HudTheme.Info);
+            MenuKit.Label(f.Row(24f, 4f), "MICROPHONE", 17f, HudTheme.Bright);
+            var mics = AudioDevices.Inputs;
+            if (mics.Length == 0) MenuKit.Notice(f.Row(36f, 8f), "NO MICROPHONE FOUND", HudTheme.Shade(HudTheme.Card, 0.3f), 14f);
+            else
+            {
+                int micNow = AudioDeviceRules.SelectedOption(AudioDevices.SavedMic, mics);
+                int micPick = MenuKit.Choice(f, AudioDevices.InputLabels, micNow, 1, HudTheme.Quota, 40f, 16f, 6f);
+                if (micPick != micNow) AudioDevices.SavedMic = AudioDeviceRules.NameForOption(micPick, mics);
+            }
+            if (AudioDevices.CanOpenSoundSettings)
+            {
+                f.Gap(4f);
+                MenuKit.Label(f.Row(24f, 4f), "SPEAKERS", 17f, HudTheme.Bright);
+                if (MenuKit.Button(f.Row(48f, 8f), "WINDOWS SOUND SETTINGS", HudTheme.Info, 20f)) AudioDevices.OpenSoundSettings();
+            }
 
             f.Gap(6f);
             bool fs = MenuKit.ToggleRow(f.Row(52f, 14f), "FULLSCREEN", Screen.fullScreen);

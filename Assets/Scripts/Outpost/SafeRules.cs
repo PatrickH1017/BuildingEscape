@@ -26,6 +26,8 @@ namespace BuildingEscape
         public const float CrowbarBreakChance = 0.35f;
         /// <summary>Share of the safes whose note gives the code (the rest only say where the safe is).</summary>
         public const int NoteGivesCodePercent = 62;
+        /// <summary>Every safe's code is on record in the computer's Safes tab (the owner, 2026-10-23: "All Safes should have a code in the Safes tab"). Set it to false for the old rule: a share of the records (<see cref="NoteGivesCodePercent"/>) left the code out and the safe had to be pried open.</summary>
+        public static bool EveryRecordGivesCode = true;
         /// <summary>The cash inside, as a share of the floor's quota.</summary>
         public const float CashShareOfQuota = 0.5f;
         /// <summary>From this floor on the safes hold weapons, not cash (the owner, 2026-10-18); floors 1 and 2 still hold cash.</summary>
@@ -90,7 +92,7 @@ namespace BuildingEscape
 
         /// <summary>Does the note about the safe on this floor give its code? (If not, it only says which room the safe is in.)</summary>
         public static bool NoteGivesCode(int runSeed, int floor) =>
-            Hash(runSeed, floor, SaltNoteCode) % 100U < (uint)NoteGivesCodePercent;
+            EveryRecordGivesCode || Hash(runSeed, floor, SaltNoteCode) % 100U < (uint)NoteGivesCodePercent;
 
         /// <summary>A number the planner uses to choose the safe's room among those that can take one.</summary>
         public static uint RoomRoll(int runSeed, int floor) => Hash(runSeed, floor, SaltRoom);
@@ -139,6 +141,7 @@ namespace BuildingEscape
         public static bool RecordGivesCode(int runSeed, int floor, int index)
         {
             if (index < 0 || index >= SafeCount(runSeed, floor)) return false;
+            if (EveryRecordGivesCode) return true;
             if (!IsWeaponFloor(floor)) return NoteGivesCode(runSeed, floor);
             if (index == 0) return true;
             return Hash(runSeed, floor, SaltIndexNote + index * 103) % 100U < (uint)NoteGivesCodePercent;

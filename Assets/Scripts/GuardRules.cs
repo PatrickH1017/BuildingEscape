@@ -50,6 +50,31 @@ namespace BuildingEscape
         /// <summary>Patrolling guards on a floor: <paramref name="baseGuards"/> + the floor, and from floor 3 on two more (floor 2: 5, floor 3: 8, floor 4: 9 with a base of 3).</summary>
         public static int PatrolGuards(int floor, int baseGuards) => baseGuards + floor + (floor >= BigFloor ? BigFloorBonus : 0);
 
+        /// <summary>The ceiling above every floor's cap (the owner, 2026-10-23: 24): since 2026-10-24 the floors have their own caps, <see cref="AlertRules.GuardCap"/> (6, or 8 with the Big Alarm, on floors 1 and 2; 13 from floor 3).</summary>
+        public const int MaxGuardsAlive = 24;
+
+        /// <summary>The most guards that PATROL a floor (the owner, 2026-10-23: the guards scale with the floor): the rule above rises by one a floor and is cut here (floor 13: 18), which leaves room under <see cref="MaxGuardsAlive"/> for the officers a backup call sends.</summary>
+        public const int PatrolCap = 18;
+
+        /// <summary>The patrolling guards on a floor: <see cref="PatrolGuards"/>, never above <see cref="PatrolCap"/>.</summary>
+        public static int PatrolCount(int floor, int baseGuards) => Math.Min(PatrolCap, PatrolGuards(floor, baseGuards));
+
+        // (a guard who is eliminated is replaced after 15 s until 2026-10-23, since 2026-10-24 after the times of AlertRules.RespawnSeconds)
+
+        /// <summary>Is a replacement wanted: are fewer guards alive than the cap (<see cref="MaxGuardsAlive"/>)?</summary>
+        public static bool ReplacementWanted(int alive, int cap = MaxGuardsAlive) => alive < cap;
+
+        // ---- bodies (the owner, 2026-10-23: "Guards can see other guards eliminated bodies and get alerted")
+
+        /// <summary>How often (seconds) a guard looks for the bodies of eliminated guards in his cone: a body does not move, so a few times a second is plenty.</summary>
+        public const float BodyScanSeconds = 0.2f;
+
+        /// <summary>How tall a body lying on the floor is (m): the lines of sight to it end between its feet and this height (<see cref="SeesBody"/>).</summary>
+        public const float BodyHeightLying = 0.5f;
+
+        /// <summary>Does the body raise the alarm: a guard sees it (in his cone, nothing in the way) and nobody raised it before? Each body raises the alarm once.</summary>
+        public static bool BodyAlarms(bool seen, bool alreadyRaised) => seen && !alreadyRaised;
+
 
         /// <summary>
         /// A guard who is down for good lies there this long, then sinks away in <see cref="CorpseSinkSeconds"/> and is gone (the owner, 2026-10-18: "Guards bodies should de-spawn").

@@ -24,15 +24,18 @@ namespace BuildingEscape.EditorTools
                 FdDress(4101, 8, 5, true);
                 FdDress(5, 8, 5, true);          // (the seed whose first version cut off a corner pocket by a fish tank)
                 FdDress(777, 6, 4, false);
+                FdDress(4101, 8, 5, true, 1);          // (the owner, 2026-10-23: floors 1 to 6 are dressed like floor 7 - the same audit on floors 1, 3 and 6)
+                FdDress(4101, 8, 5, false, 3);
+                FdDress(4101, 8, 5, true, 6);
 
-                // the other floors are untouched by the pass
+                // the floors without the new art are untouched by the pass
                 bool same = true;
-                foreach (int fl in new[] { 1, 3, 6, 8 })
+                foreach (int fl in new[] { 8, 9, 12 })
                 {
                     var x = FdMake(4101, fl, 8, 5, false); var y = FdMake(4101, fl, 8, 5, true);
                     same &= FdHash(FdSig(x, true)) == FdHash(FdSig(y, true)) && y.pieces.All(p => !p.dressing);
                 }
-                Check("floor dressing: floors 1, 3, 6 and 8 are exactly the same with the pass on or off", same);
+                Check("floor dressing: floors 8, 9 and 12 (no new art) are exactly the same with the pass on or off", same);
 
                 // the switch and the amount: off = nothing added; a lower budget = fewer things, never more
                 var off = FdMake(4101, 7, 8, 5, false); var full = FdMake(4101, 7, 8, 5, true);
@@ -40,7 +43,7 @@ namespace BuildingEscape.EditorTools
                 var half = FdMake(4101, 7, 8, 5, true);
                 Check("floor dressing: the pass adds things, and half the budget adds fewer", full.pieces.Count > off.pieces.Count + 200 && half.pieces.Count < full.pieces.Count && half.pieces.Count > off.pieces.Count,
                     off.pieces.Count + " -> " + half.pieces.Count + " (half) -> " + full.pieces.Count);
-                Check("floor dressing: the floor number it works on is 7", OfficePlanner.DressedFloor == 7);
+                Check("floor dressing: it works on floors 1 to 7 and no other", OfficePlanner.DressedFloor == 7 && Enumerable.Range(1, 7).All(FloorArtRules.AppliesTo) && !FloorArtRules.AppliesTo(8));
                 FloorDressAuditSelfTest();
             }
             finally { OfficePlanner.DressingOn = saved; OfficePlanner.DressBudget = savedBudget; }
@@ -261,12 +264,12 @@ namespace BuildingEscape.EditorTools
 
         // ------------------------------------------------------------------ one floor
 
-        static void FdDress(int seed, int cols, int rows, bool walk)
+        static void FdDress(int seed, int cols, int rows, bool walk, int floor = 7)
         {
-            string tag = "floor dressing (seed " + seed + ", " + cols + "x" + rows + "): ";
-            var b = FdMake(seed, 7, cols, rows, false);
-            var a = FdMake(seed, 7, cols, rows, true);
-            var a2 = FdMake(seed, 7, cols, rows, true);
+            string tag = "floor dressing (seed " + seed + ", " + cols + "x" + rows + (floor == 7 ? "" : ", floor " + floor) + "): ";
+            var b = FdMake(seed, floor, cols, rows, false);
+            var a = FdMake(seed, floor, cols, rows, true);
+            var a2 = FdMake(seed, floor, cols, rows, true);
             Check(tag + "planning is deterministic", FdHash(FdSig(a, true)) == FdHash(FdSig(a2, true)));
             Check(tag + "with the switch off nothing is flagged as dressing", b.pieces.All(p => !p.dressing));
             FdAudit(tag, b, a, seed, walk, null);

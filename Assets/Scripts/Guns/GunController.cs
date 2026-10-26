@@ -177,7 +177,7 @@ namespace BuildingEscape
                 // the other pellets of a shotgun shot: his aim with their own spread (the seed is the same on every machine), drawn where each would land here
                 var aim = end - muzzle;
                 if (aim.sqrMagnitude < 0.01f) break;
-                GunRules.Spread(GunRules.PelletSeed(seed, i), spec.spread, out float yaw, out float pitch);
+                GunRules.Spread(GunRules.PelletSeed(seed, i), spec.spread * PlayerBuffs.SpreadFactor(gameObject), out float yaw, out float pitch);
                 var d = Quaternion.LookRotation(aim.normalized) * Quaternion.Euler(-pitch, yaw, 0f) * Vector3.forward;
                 var imp = Ballistics.Trace(muzzle, d, spec.range, transform, false);
                 fx.Pellet(muzzle, imp.point, imp.hit);
@@ -323,7 +323,7 @@ namespace BuildingEscape
             bool hitSounded = false, foeSeen = false;
             for (int i = 0; i < spec.Pellets; i++)
             {
-                GunRules.Spread(GunRules.PelletSeed(seed, i), spec.spread, out float yaw, out float pitch);
+                GunRules.Spread(GunRules.PelletSeed(seed, i), spec.spread * PlayerBuffs.SpreadFactor(gameObject), out float yaw, out float pitch);
                 var d = Quaternion.LookRotation(dir) * Quaternion.Euler(-pitch, yaw, 0f) * Vector3.forward;
                 var imp = Ballistics.Trace(origin, d, spec.range, transform, false);
                 if (i == 0) { LastMuzzle = muzzle; LastDirection = d; LastImpact = imp; }
@@ -384,12 +384,12 @@ namespace BuildingEscape
             }
         }
 
-        /// <summary>No round in the gun and no spare clip: say where to get more (at most every few seconds).</summary>
+        /// <summary>No round in the gun and no bullets in the reserve: say where to get more (at most every few seconds).</summary>
         void OutOfAmmoNotice()
         {
             if (!pack || !pack.Viewed || Time.time < nextAmmoNotice) return;
             nextAmmoNotice = Time.time + 3f;
-            Backpack.NoticeToLocal("Out of ammo - the dealer in the Loading Docks sells " + (gun ? gun.Data.ammoPlural : "pistol clips"));
+            Backpack.NoticeToLocal("Out of ammo - the dealer in the Loading Docks sells " + (gun ? gun.Data.ammoPlural : "pistol bullets"));
         }
 
         // ------------------------------------------------------------------ the ammunition on screen
@@ -401,22 +401,12 @@ namespace BuildingEscape
             var mag = gun.Magazine;
             HudWidgets.AmmoPanel(new HudWidgets.AmmoModel
             {
-                name = gun.Data.name, rounds = mag.Rounds, capacity = mag.Capacity, reloading = mag.Reloading, unlimited = mag.Unlimited,
+                name = gun.Data.name, rounds = mag.Rounds, capacity = mag.Capacity, reserve = mag.InfiniteReserve ? -1 : mag.Reserve, reloading = mag.Reloading, unlimited = mag.Unlimited,
                 reloadProgress = mag.Reloading ? mag.ReloadProgress(Time.time) : 0f,
+                loads = mag.ReloadLoads, loaded = mag.LoadedSoFar(Time.time), counted = gun.kind == RangedWeapon.Kind.Shotgun,
             });
-            if (!mag.Unlimited && !mag.InfiniteReserve) DrawSpare(mag);
         }
 
-        /// <summary>The spare clips, on a small tag just above the ammunition panel: orange with one clip or less, red with none.</summary>
-        static void DrawSpare(GunMagazine mag)
-        {
-            float s = HudTheme.S, w = 196f * s, gap = 6f * s, h = 24f * s;
-            var r = new Rect(Screen.width - 14f * s - w, Screen.height - 14f * s - 68f * s - gap - h, w, h);          // (the panel is 68 high)
-            int clips = GunRules.SpareClips(mag.Reserve, mag.Capacity);
-            string text = mag.Reserve <= 0 ? "NO SPARE CLIPS" : "SPARE  " + mag.Reserve + "  (" + clips + (clips == 1 ? " clip)" : " clips)");
-            var fill = mag.Reserve <= 0 ? HudTheme.Danger : mag.Reserve <= mag.Capacity ? HudTheme.Warning : HudTheme.Info;
-            HudTheme.Glass(r, 0.34f, 0.7f, fill, HudTheme.Light(fill, 0.5f), 9f);          // (see-through like the panel under it: the owner, 2026-10-20 night)
-            HudTheme.Text(r, text, 13f, HudTheme.Bright, TextAnchor.MiddleCenter);
-        }
+
     }
 }

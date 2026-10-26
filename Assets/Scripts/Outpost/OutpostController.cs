@@ -164,12 +164,16 @@ namespace BuildingEscape
         }
 
         /// <summary>The line under the reticle when the crosshair is on the panel.</summary>
-        public string PanelPrompt => AlertOn ? "[E] Shut off the alarm and call off the backup" : "Alarm panel - all quiet";
+        public string PanelPrompt => BigAlarmOn ? "Alarm panel - the Big Alarm cannot be shut off" : AlertOn ? "[E] Shut off the alarm and call off the backup" : "Alarm panel - all quiet";
+
+        /// <summary>The Big Alarm is on (the owner, 2026-10-24: "Once the big alarm is activated there is no turning it off"): the panel can do nothing about it.</summary>
+        static bool BigAlarmOn => HeistManager.Instance != null && HeistManager.Instance.BigAlarmActive;
 
         /// <summary>The local player pressed E on the panel's button.</summary>
         public void UsePanel(WobblyPlayer who)
         {
             if (!who) return;
+            if (BigAlarmOn) { Backpack.NoticeToLocal("The Big Alarm cannot be shut off"); return; }
             if (!AlertOn) { Backpack.NoticeToLocal("Nothing to switch off - the alarm is quiet"); return; }
             if (Net.NetRole.Synced) Net.RunSync.Instance.RequestStandDown();
             else if (HostStandDown()) PlayStandDown();
@@ -186,7 +190,7 @@ namespace BuildingEscape
         /// </summary>
         public bool HostStandDown()
         {
-            if (!Net.NetRole.Simulates) return false;
+            if (!Net.NetRole.Simulates || BigAlarmOn) return false;
             bool hadAlarm = AlarmOn;
             var hm = HeistManager.Instance;
             bool hadBackup = hm != null && hm.StandDown();

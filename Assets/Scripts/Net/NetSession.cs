@@ -56,6 +56,22 @@ namespace BuildingEscape.Net
         /// <summary>The Steam transport (traffic counters, connection limit); for diagnostics and the QA tests.</summary>
         public SteamNetworkTransport SteamTransport => steamTransport;
         public event Action RosterChanged;
+        /// <summary>This machine is a developer who watches somebody else's match (the owner, 2026-10-23): it took no seat in the Steam lobby, has no player and is invisible to the party. See <see cref="DevAccessRules"/>.</summary>
+        public bool IsSpectator { get; private set; }
+        /// <summary>Host: is this connection a developer who watches (and no player)?</summary>
+        public bool IsSpectatorClient(ulong clientId) => spectatorIds.Contains(clientId);
+        /// <summary>Host: how many developers watch now.</summary>
+        public int SpectatorCount
+        {
+            get
+            {
+                int n = 0;
+                if (nm != null && nm.IsListening && nm.IsServer) foreach (var id in nm.ConnectedClientsIds) if (spectatorIds.Contains(id)) n++;
+                return n;
+            }
+        }
+        /// <summary>Host: the players connected - everybody but the developers who watch. The party size, the player limit, the party list, the intro's vote and the spawns count these.</summary>
+        public int PlayersConnected => nm != null && nm.IsListening && nm.IsServer ? DevAccessRules.PlayersAmong(nm.ConnectedClientsIds.Count, SpectatorCount) : 0;
 
         NetworkManager nm;
         UnityTransport localTransport;
@@ -66,6 +82,8 @@ namespace BuildingEscape.Net
         float connectDeadline;
         int approving;
         bool leaving;
+        bool spectateNext;                                    // (the next lobby search is a developer's: SpectateByCode)
+        readonly HashSet<ulong> spectatorIds = new();         // host: the connections let in as developers who watch (DevAccessRules); nobody but the host knows them
 
         // Local test mode has no Steam lobby: the host tells clients who is connected (Steam mode reads the lobby).
         const string RosterMessage = "be.roster";
@@ -87,7 +105,7 @@ namespace BuildingEscape.Net
             steamTransport = GetComponent<SteamNetworkTransport>();
             steam = GetComponent<SteamService>();
             nm.ConnectionApprovalCallback = OnApproval;
-            if (steamTransport != null) steamTransport.MaxConnections = NetConst.MaxPlayers;   // the other players (MaxPlayers - 1) and one more being checked
+            if (steamTransport != null) steamTransport.MaxConnections = NetConst.MaxPlayers + (DevAccess.Compiled ? DevAccessRules.MaxSpectators : 0);   // the other players (MaxPlayers - 1) and one more being checked, and the developers who watch (only a build with the dev tools lets them in)
             nm.OnClientConnectedCallback += OnClientConnected;
             nm.OnClientDisconnectCallback += OnClientDisconnected;
         }
@@ -180,10 +198,14 @@ namespace BuildingEscape.Net
             {
                 if (list.Count == 0 && attemptsLeft > 1) { StartCoroutine(RetrySearch(code, attemptsLeft - 1)); return; }
                 State = NetSessionState.Offline;
+                bool asSpectator = spectateNext; spectateNext = false;
                 if (list.Count == 0) { Status = "No open lobby with code " + code + "."; return; }
                 if (!list[0].VersionOk) { Status = JoinPolicy.Message(JoinVerdict.WrongVersion); return; }
+#if ETR_DEV_TOOLS || UNITY_EDITOR
+                if (asSpectator) { ConnectSpectator(list[0]); return; }
+#endif
                 JoinSteam(list[0].Id);
-            });
+            }, spectateNext);
         }
 
         IEnumerator RetrySearch(string code, int attemptsLeft)
@@ -267,7 +289,7 @@ namespace BuildingEscape.Net
             get
             {
                 if (!IsHost || State != NetSessionState.InLobby) return false;
-                if (nm.ConnectedClientsIds.Count != roster.Count) return false; // someone is still connecting
+                if (PlayersConnected != roster.Count) return false; // someone is still connecting (a developer who watches is no player)
                 if (!UsingSteam) return true;
                 foreach (var r in roster) if (!r.IsHost && !r.Ready) return false;
                 return true;
@@ -295,9 +317,11 @@ namespace BuildingEscape.Net
 
             // Everybody starts in the middle of the first elevator car, held still until the floor is built (a player spawned at the
             // origin stood outside the map and fell).
-            int slot = 0, count = completed.Count;
+            var players = new List<ulong>(completed.Count);
+            foreach (var id in completed) if (!spectatorIds.Contains(id)) players.Add(id);          // (a developer who watches gets no body and no slot)
+            int slot = 0, count = players.Count;
             var tower = TowerManager.Instance;
-            foreach (var id in completed)
+            foreach (var id in players)
             {
                 var at = tower != null ? tower.PreFloorSpawn(slot, count) : Vector3.zero;
                 var go = Instantiate(playerPrefab, at, Quaternion.identity);
@@ -306,7 +330,7 @@ namespace BuildingEscape.Net
             }
             var sync = Instantiate(runSyncPrefab);
             sync.GetComponent<NetworkObject>().Spawn(true);
-            sync.GetComponent<RunSync>().Begin(PendingSeed, completed.Count);
+            sync.GetComponent<RunSync>().Begin(PendingSeed, players.Count);
             State = NetSessionState.InRun;
             Status = "";
         }
@@ -350,7 +374,8 @@ namespace BuildingEscape.Net
             lobby?.ClearPresence();
             lobby?.Leave();
             roster.Clear();
-            IsHost = UsingSteam = LocalReady = false;
+            IsHost = UsingSteam = LocalReady = IsSpectator = false;
+            spectatorIds.Clear();
             State = NetSessionState.Offline;
             connectDeadline = 0;
             leaving = false;
@@ -431,6 +456,7 @@ namespace BuildingEscape.Net
         {
             if (!IsHost || UsingSteam || !nm.IsListening || nm.CustomMessagingManager == null) return;
             var ids = new List<ulong>(nm.ConnectedClientsIds);
+            ids.RemoveAll(spectatorIds.Contains);                 // (a developer who watches is in nobody's list)
             using var w = new FastBufferWriter(2 + ids.Count * 8, Unity.Collections.Allocator.Temp);
             w.WriteValueSafe((byte)ids.Count);
             foreach (var id in ids) w.WriteValueSafe(id);
@@ -449,6 +475,7 @@ namespace BuildingEscape.Net
 
         void OnClientDisconnected(ulong id)
         {
+            spectatorIds.Remove(id);
             if (!IsHost && id == nm.LocalClientId)
             {
                 // A reason we set ourselves (full, wrong version...) is shown as is; a plain transport
@@ -484,21 +511,29 @@ namespace BuildingEscape.Net
                     if (m.IsLocal) LocalReady = m.Ready;
                 }
             }
-            else if (nm.IsListening)
+            else if (nm.IsListening && !IsSpectator)
             {
                 int n = 1;
                 IEnumerable<ulong> ids = IsHost || localRosterIds.Count == 0 ? nm.ConnectedClientsIds : localRosterIds;
                 foreach (var id in ids)
+                {
+                    if (IsHost && spectatorIds.Contains(id)) continue;          // (a developer who watches is no player and no name in the list)
                     roster.Add(new RosterEntry { Name = "Player " + n++, Ready = true, IsHost = id == NetworkManager.ServerClientId, IsLocal = id == nm.LocalClientId, Look = "" });
+                }
             }
             RosterChanged?.Invoke();
         }
 
         // ------------------------------------------------------------------ join approval (host)
 
-        static byte[] Payload() =>
-            Encoding.UTF8.GetBytes(NetConst.BuildVersion + "|" + (SteamService.Instance != null && SteamService.Instance.Ready
-                ? SteamService.Instance.LocalId.m_SteamID : 0UL));
+        static byte[] Payload(bool spectator = false)
+        {
+            ulong id = SteamService.Instance != null && SteamService.Instance.Ready ? SteamService.Instance.LocalId.m_SteamID : 0UL;
+#if UNITY_EDITOR
+            if (spectator && QaAccount != 0UL) id = QaAccount;
+#endif
+            return Encoding.UTF8.GetBytes(DevAccessRules.Payload(NetConst.BuildVersion, id, spectator));
+        }
 
         void OnApproval(NetworkManager.ConnectionApprovalRequest req, NetworkManager.ConnectionApprovalResponse res)
         {
@@ -512,9 +547,13 @@ namespace BuildingEscape.Net
         {
             approving++;
             string text = payload == null ? "" : Encoding.UTF8.GetString(payload);
-            int bar = text.LastIndexOf('|');
-            string version = bar < 0 ? text : text.Substring(0, bar);
-            ulong claimed = bar >= 0 && ulong.TryParse(text.Substring(bar + 1), out var c) ? c : 0;
+            DevAccessRules.ParsePayload(text, out string version, out ulong claimed, out bool spectator);
+            if (spectator)
+            {
+                ApproveSpectator(clientId, version, claimed, res);          // (a developer who asks to watch: no lobby seat to check, the account list decides)
+                approving--;
+                yield break;
+            }
 
             bool member = !UsingSteam;
             if (UsingSteam)
@@ -529,12 +568,90 @@ namespace BuildingEscape.Net
                 }
             }
 
-            int others = nm.ConnectedClientsIds.Count + (approving - 1); // connected + other joins still being checked
+            int others = PlayersConnected + (approving - 1); // players connected + other joins still being checked (a developer who watches takes no seat)
             var verdict = JoinPolicy.Evaluate(State >= NetSessionState.StartingRun, others, version, NetConst.BuildVersion, member);
             res.Approved = verdict == JoinVerdict.Allow;
             res.Reason = JoinPolicy.Message(verdict);
             res.Pending = false;
             approving--;
         }
+
+        // ------------------------------------------------------------------ a developer who watches (DevAccessRules)
+
+        /// <summary>
+        /// Host: a connection that asks to watch the match as a developer (the owner, 2026-10-23). Steam says which account it is (the Editor's local test mode takes the claim), the list says whether that account is a developer's, and the rules say whether this build, the run, the room and the version
+        /// allow it (<see cref="DevAccessRules.Judge"/>). A developer who is let in is remembered here and nowhere else: he has no player, no seat in the party list and no message goes to anybody about him.
+        /// </summary>
+        void ApproveSpectator(ulong clientId, string version, ulong claimed, NetworkManager.ConnectionApprovalResponse res)
+        {
+            var verdict = DevAccessRules.Judge(DevAccess.Compiled, State >= NetSessionState.StartingRun, SpectatorCount, version == NetConst.BuildVersion,
+                ProvesAccount(clientId, claimed) && DevAccounts.IsDeveloper(claimed));
+            if (verdict == SpectateVerdict.Allow) spectatorIds.Add(clientId);
+            res.Approved = verdict == SpectateVerdict.Allow;
+            res.Reason = DevAccessRules.Message(verdict);
+            res.Pending = false;
+        }
+
+        /// <summary>Host: is the connection really the account it says? On Steam the transport knows who connected; the Editor's local test mode has no Steam, so there a test's claim is taken (no build has that line).</summary>
+        bool ProvesAccount(ulong clientId, ulong claimed)
+        {
+            if (claimed == 0UL) return false;
+            if (UsingSteam) return steamTransport != null && steamTransport.TryGetRemoteSteamId(clientId, out var id) && id.m_SteamID == claimed;
+#if UNITY_EDITOR
+            return true;
+#else
+            return false;
+#endif
+        }
+
+#if ETR_DEV_TOOLS || UNITY_EDITOR
+        /// <summary>
+        /// A developer joins the party with this lobby code as an invisible spectator (the owner, 2026-10-23; the terminal's <c>spectate CODE</c>). He does NOT join the Steam lobby - so he takes no seat in it and the party's list never shows him - but connects straight to the host, whose Steam ID the
+        /// lobby names (<see cref="NetConst.KeyHost"/>). The host lets him in only if Steam says he is on the developer list, the run has not started and this is a build with the dev tools. Returns "" when the search was started, else the reason it was not.
+        /// </summary>
+        public string SpectateByCode(string code)
+        {
+            if (!DevAccess.Compiled) return DevAccessRules.Message(SpectateVerdict.NotInThisBuild);
+            if (!CanBegin()) return Status;
+            if (!EnsureSteam()) return Status;
+            code = (code ?? "").Trim().ToUpperInvariant();
+            if (code.Length != NetConst.CodeLength) return $"Codes are {NetConst.CodeLength} characters.";
+            if (!DevAccounts.IsDeveloper(steam.LocalId.m_SteamID)) return DevAccessRules.Message(SpectateVerdict.NotADeveloper);
+            Begin("Looking for lobby " + code + "...");
+            spectateNext = true;
+            SearchByCode(code, 3);
+            return "";
+        }
+
+        void ConnectSpectator(LobbyListing l)
+        {
+            if (!CanBegin()) return;
+            if (l.Host == 0UL) { Status = "That lobby does not name its host (an older build)."; return; }
+            Begin("Connecting to the host...");
+            hostAtJoin = new CSteamID(l.Host);
+            steamTransport.PrepareClient(l.Host);
+            IsSpectator = true;                                            // (before the connection: the payload says so)
+            if (!StartNetcode(false, steamTransport, Payload(true))) { IsSpectator = false; Leave("Could not start the connection."); return; }
+            UsingSteam = true; IsHost = false;
+            Status = "Connecting to host...";
+        }
+#endif
+
+#if UNITY_EDITOR
+        /// <summary>QA only (the Editor): the Steam account the next spectator connection over the local transport claims - the local transport has no Steam to say who connects, so a test names one.</summary>
+        public static ulong QaAccount;
+
+        /// <summary>QA only (the Editor): connects to a local host as a developer who watches, claiming <paramref name="account"/> (the host takes the claim in the Editor only).</summary>
+        public void QaJoinLocalSpectator(string ip, ulong account)
+        {
+            if (!CanBegin()) return;
+            QaAccount = account;
+            Begin("Connecting to " + ip + "...");
+            localTransport.SetConnectionData(string.IsNullOrWhiteSpace(ip) ? "127.0.0.1" : ip.Trim(), localPort);
+            IsSpectator = true;
+            if (!StartNetcode(false, localTransport, Payload(true))) { IsSpectator = false; Leave("Could not start the connection."); return; }
+            UsingSteam = false; IsHost = false;
+        }
+#endif
     }
 }

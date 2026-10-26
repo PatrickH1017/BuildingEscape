@@ -41,8 +41,9 @@ namespace BuildingEscape
         public float guardInvestigateSpeed = 2.2f;
         public float guardChaseSpeed = 3.6f;
         public int baseGuards = 3;
+        [Tooltip("Not used since 2026-10-23: the most patrolling guards is GuardRules.PatrolCap and it rises with the floor.")]
         public int maxGuards = 12;
-        [Tooltip("Most guards alive on a floor at once, counting backup that gets called in.")]
+        [Tooltip("Not used since 2026-10-23: the most guards alive at once, backup included, is GuardRules.MaxGuardsAlive (24).")]
         public int maxGuardsAlive = 24;
 
         [Header("Materials")]
@@ -197,7 +198,9 @@ namespace BuildingEscape
                 OutpostStep("the guard on duty in the outpost", floor, () => onDuty = PlaceOutpostGuard(floor));      // (after the others, never uses `rng`)
                 if (onDuty) info.guards++;
                 OutpostStep("the outpost's things and the safe's cash", floor, () => FillOutpost(floor));   // (what the guards keep in their outpost, and the cash in the floor's safe: never uses `rng`)
-                OutpostStep("the hallway loudspeakers", floor, () => BuildSpeakers(floor));        // (the owner, 2026-10-18: speakers in the hallways, never uses `rng` either)
+                OutpostStep("floor 1's crowbar", floor, () => FillFloorOneCrowbar(floor));              // (the owner, 2026-10-23: one random crowbar on floor 1, outside the outpost; the run seed's numbers only)
+                OutpostStep("the hallway loudspeakers", floor, () => BuildSpeakers(floor));
+                OutpostStep("the alarm beacons", floor, () => BuildBeacons(floor));          // (the owner, 2026-10-24: red lights that spin in the corners near the ceiling when the Big Alarm goes on; FloorGenerator.Beacons.cs)        // (the owner, 2026-10-18: speakers in the hallways, never uses `rng` either)
 
             }
             guestDoor?.Snap(false); // the NavMesh was baked with the doors open; now the car is shut
@@ -828,7 +831,7 @@ namespace BuildingEscape
 
         int PlaceGuards(System.Random rng, int floor, int[,] dist, Vector2Int elevCell)
         {
-            int count = Mathf.Min(maxGuards, GuardRules.PatrolGuards(floor, baseGuards));
+            int count = GuardRules.PatrolCount(floor, baseGuards);          // (rises with the floor to GuardRules.PatrolCap: the owner, 2026-10-23)
             int placed = 0;
             var plan = ArmedGuards.PlanFor(floor, count, new System.Random(unchecked(planSeed * 7919 + floor * 31 + 5)));      // (who carries what: its own random numbers, so the maze and the loot stay what they were)
             var spots = GuardSpots();
@@ -1039,6 +1042,42 @@ namespace BuildingEscape
             }
             foreach (var kv in perDoor) CloseEntryLater(kv.Key, 7f);
             return made;
+        }
+
+        int replacementCount;
+
+        /// <summary>
+        /// A guard was eliminated 15 seconds ago (<see cref="GuardRules.ReplacementSeconds"/>; the owner, 2026-10-23: "If a guard is eliminated after 15 seconds a new guard should come from a stairwell"): one new guard comes out of one of the stairwell doors -
+        /// the one farthest from the players (<see cref="OrderEntries"/>), never the guards' elevator and never the outpost - and goes about like the other guards: a normal guard, not a backup officer (he does not spot faster). Host / offline; the clients
+        /// show him as they show backup. True when he was made.
+        /// </summary>
+        public bool SpawnReplacement()
+        {
+            if (!current) return false;
+            var doors = GuardEntries().FindAll(e => e.index >= 1);          // (index 0 is the guards' elevator)
+            if (doors.Count == 0) return false;
+            var door = OrderEntries(doors)[0];
+            SetEntryDoor(door.index, true);
+            var p = door.centre + door.side * 0.8f;
+            if (NavMesh.SamplePosition(p, out var hit, 3f, NavMesh.AllAreas)) p = hit.position;
+            int look = Random.Range(0, 100);
+            var ai = SpawnGuard($"Replacement_{replacementCount++}", new List<Vector3> { p }, look, ArmedGuards.RollFor(FloorNow));
+            ai.roam = RandomWalkable;                                         // (he wanders the floor)
+            Net.RunSync.Instance?.BroadcastSpawnGuard(ai.NetId, p, look, p);
+            CloseEntryLater(door.index, 7f);
+            return true;
+        }
+
+        /// <summary>Tests: is this point at one of the stairwell doors (within <paramref name="within"/> m, on the floor plan)?</summary>
+        public bool NearStairDoor(Vector3 p, float within)
+        {
+            foreach (var e in GuardEntries())
+            {
+                if (e.index < 1) continue;
+                var d = p - e.centre; d.y = 0f;
+                if (d.magnitude <= within) return true;
+            }
+            return false;
         }
 
         /// <summary>The old behaviour (no guest elevator on this floor): spawn out of sight somewhere on the floor.</summary>

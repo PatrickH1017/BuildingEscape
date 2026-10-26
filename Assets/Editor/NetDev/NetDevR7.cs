@@ -96,6 +96,51 @@ namespace BuildingEscape.EditorTools
             Quit(0);
         }
 
+        /// <summary>For the report: where the guard is in the camera's picture and the first solid thing without a rigidbody on the camera's line to his feet, middle and head (what GuardVision.CanBeSeen looks at).</summary>
+        static string R7WhatBlocks(Camera cam, GuardAI g)
+        {
+            if (!cam || !g) return "(no camera or guard)";
+            var vp = cam.WorldToViewportPoint(g.transform.position + Vector3.up * 0.9f);
+            var from = cam.transform.position;
+            var sb = new System.Text.StringBuilder($"(on the screen at {vp.x:0.00}, {vp.y:0.00}, {vp.z:0.0} m deep; camera {from.x:0.0}, {from.y:0.0}, {from.z:0.0}; guard {g.transform.position.x:0.0}, {g.transform.position.z:0.0}; ");
+            foreach (var h in new[] { 0.15f, 0.9f, 1.7f })
+            {
+                var to = g.transform.position + Vector3.up * h; var d = to - from;
+                string first = "free";
+                foreach (var hit in Physics.RaycastAll(from, d.normalized, d.magnitude, ~0, QueryTriggerInteraction.Ignore).OrderBy(x => x.distance))
+                {
+                    if (hit.collider.attachedRigidbody != null || hit.collider.transform.IsChildOf(g.transform)) continue;
+                    string path = hit.collider.name; var t = hit.collider.transform.parent; for (int k = 0; k < 3 && t != null; k++, t = t.parent) path = t.name + "/" + path;
+                    first = $"{path} at {hit.distance:0.0} m";
+                    break;
+                }
+                sb.Append($"line to {h:0.0} m: {first}; ");
+            }
+            return sb.Append(')').ToString();
+        }
+
+        /// <summary>
+        /// Would the game's camera, held where <see cref="AimCamera"/> puts it for a player standing at <paramref name="spot"/> (the pivot 1.1 m above it) looking at the guard, see him? The camera hangs 2.6 m behind the player; his feet, middle or head must be on a free
+        /// line from it (nothing solid without a rigidbody and not his own: the rule of GuardVision).
+        /// </summary>
+        static bool R7CameraSees(GuardAI g, Vector3 spot)
+        {
+            var pivot = spot + Vector3.up * 1.1f;
+            var flat = g.transform.position - pivot; flat.y = 0f;
+            if (flat.sqrMagnitude < 0.01f) return false;
+            flat.Normalize();
+            var camAt = pivot - flat * 2.6f + Vector3.Cross(Vector3.up, flat) * 0.45f + Vector3.up * 1.35f;
+            foreach (var h in new[] { 0.15f, 0.9f, 1.7f })
+            {
+                var to = g.transform.position + Vector3.up * h; var d = to - camAt;
+                bool free = true;
+                foreach (var hit in Physics.RaycastAll(camAt, d.normalized, d.magnitude, ~0, QueryTriggerInteraction.Ignore))
+                    if (hit.collider.attachedRigidbody == null && !hit.collider.transform.IsChildOf(g.transform)) { free = false; break; }
+                if (free) return true;
+            }
+            return false;
+        }
+
         IEnumerator R7Scenario()
         {
             var hm = HeistManager.Instance; var tm = TowerManager.Instance;
@@ -214,7 +259,7 @@ namespace BuildingEscape.EditorTools
                 foreach (var g in GuardAI.All)
                 {
                     if (!g || g.Dead || g.IsPuppet) continue;
-                    if (OpenSpot(g.transform.position, 6f, out spot, false)) { target = g; break; }
+                    if (OpenSpot(g.transform.position, 6f, out spot, false) && R7CameraSees(g, spot)) { target = g; break; }          // (the camera hangs 2.6 m behind the player: it must see him from where it is)
                 }
                 R7Check("found a guard with a clear 6 m line to stand at", target != null);
                 if (target != null)
@@ -233,7 +278,7 @@ namespace BuildingEscape.EditorTools
                     AimCamera(cam, player, at);
                     yield return new WaitForSeconds(0.9f);
                     AimCamera(cam, player, at);
-                    R7Check("in plain view of the camera the cone and the beam are shown", vis != null && vis.Shown > 0.95f, vis != null ? $"(shown {vis.Shown:0.00})" : "");
+                    R7Check("in plain view of the camera the cone and the beam are shown", vis != null && vis.Shown > 0.95f, vis != null ? $"(shown {vis.Shown:0.00}) {(vis.Shown > 0.95f ? "" : R7WhatBlocks(cam, target))}" : "");
 
                     var mid = (target.transform.position + cam.transform.position) * 0.5f;
                     var wall = GameObject.CreatePrimitive(PrimitiveType.Cube);
@@ -249,7 +294,7 @@ namespace BuildingEscape.EditorTools
                     Object.Destroy(wall);
                     yield return new WaitForFixedUpdate(); yield return new WaitForFixedUpdate();
                     yield return new WaitForSeconds(0.9f);
-                    R7Check("the wall gone, he is seen again and the cone comes back", vis != null && vis.Shown > 0.95f, vis != null ? $"(shown {vis.Shown:0.00})" : "");
+                    R7Check("the wall gone, he is seen again and the cone comes back", vis != null && vis.Shown > 0.95f, vis != null ? $"(shown {vis.Shown:0.00}) {(vis.Shown > 0.95f ? "" : R7WhatBlocks(cam, target))}" : "");
                     cam.transform.rotation = Quaternion.LookRotation(-(at - cam.transform.position).normalized, Vector3.up);          // (turned the other way: he is behind the camera)
                     yield return new WaitForSeconds(0.9f);
                     R7Check("with the camera turned away from him (he is behind it) the cone is not shown either", vis != null && vis.Shown < 0.05f, vis != null ? $"(shown {vis.Shown:0.00})" : "");
@@ -388,7 +433,8 @@ namespace BuildingEscape.EditorTools
             {
                 var spk = FindObjectsByType<LoudSpeaker>(FindObjectsSortMode.None);
                 R7Check("the corridors have loudspeakers, as many as the plan says, all on, nobody speaking", spk.Length >= 6 && spk.Length == PaState.Speakers.Count && PaState.Mask == PaRules.MaskOf(spk.Length) && !PaState.Live, $"({spk.Length} speakers)");
-                R7Check("they hang under the ceiling", spk.All(x => Mathf.Abs(x.transform.position.y - PaRules.Height) < 0.01f));
+                float discY = FindFirstObjectByType<FloorGenerator>().CeilingUnderside - PaRules.CeilingGap - PaRules.DiscHeight * 0.5f;
+                R7Check("they are round discs flat against the ceiling (the owner, 2026-10-24: attached to the ceiling)", spk.All(x => Mathf.Abs(x.transform.position.y - discY) < 0.01f), $"(disc middle at {discY:0.000})");
                 var ctlp = OutpostController.Active;
                 var guardsP = GuardAI.All.Where(g => g && !g.Dead && !g.IsPuppet && g.name != "Guard_Outpost").ToList();
                 R7Check("floor 2 has the officers and the outpost to try it on", ctlp != null && guardsP.Count >= 2 && PaState.Speakers.Count > 0);

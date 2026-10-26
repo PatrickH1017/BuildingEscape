@@ -33,12 +33,39 @@ namespace BuildingEscape.Net
         static float volumeCache = -1f;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
-        static void ResetStatics() { modeCache = -1; volumeCache = -1f; Instance = null; RadioOf = null; }
+        static void ResetStatics() { modeCache = -1; volumeCache = -1f; Instance = null; RadioOf = null; QaNoRealMic = false; }
 
         /// <summary>Walkie-talkies (bought at the vendor; not built yet): set by whatever knows which client carries one. Two players who both do hear each other at
         /// any distance (<see cref="VoiceRules.RouteFor"/>, which the host also uses to decide who is sent a voice); until then nobody does.</summary>
         public static System.Func<ulong, bool> RadioOf;
         static bool HasRadio(ulong clientId) => RadioOf != null && RadioOf(clientId);
+        /// <summary>This machine is a developer who watches the match (the owner, 2026-10-23: nobody hears him): his microphone is never opened and no voice is played for him.</summary>
+        static bool Watching => NetSession.Instance != null && NetSession.Instance.IsSpectator;
+        /// <summary>Host: is this connection a developer who watches? His voice is never relayed and none is sent to him.</summary>
+        static bool IsWatcher(ulong clientId) => NetSession.Instance != null && NetSession.Instance.IsSpectatorClient(clientId);
+
+        /// <summary>
+        /// The one player of a solo run (no Netcode session; the owner, 2026-10-23: "Solo mode should have VOIP for guards to hear you"): there is nobody to talk to, but the guards hear the microphone. Null in the menus (no floor) and in a session.
+        /// </summary>
+        static WobblyPlayer SoloPlayer()
+        {
+            if (HeistManager.Instance == null) return null;
+            var all = WobblyPlayerRegistry.All;
+            for (int i = 0; i < all.Count; i++) if (all[i]) return all[i];
+            return null;
+        }
+
+        /// <summary>The voice noise of the solo player (only the player prefab of a session carries one, so the first time it is added).</summary>
+        static VoiceNoise SoloVoiceNoise()
+        {
+            var p = SoloPlayer();
+            if (!p) return null;
+            return p.TryGetComponent(out VoiceNoise vn) ? vn : p.gameObject.AddComponent<VoiceNoise>();
+        }
+
+        /// <summary>QA: a solo run opens no real microphone (the editor tests run offline on the machine of a person who is working: they must not switch his microphone on). A test input (<see cref="UseTestInput"/>) is still used.</summary>
+        public static bool QaNoRealMic;
+        bool testInput;
 
         public static Mode CurrentMode
         {
@@ -75,6 +102,7 @@ namespace BuildingEscape.Net
         public int PacketsSent, PacketsReceived, PacketsRelayed, PacketsHeldBack;     // (held back: a voice the host did not send on because the listener is out of earshot)
 
         IVoiceInput input;
+        string inputFor = "";          // (the microphone the open input was made for: "" is the default; see PickInput)
         bool inputActive;
         readonly byte[] packet = new byte[MaxPacket];     // outgoing: what the microphone produced
         readonly byte[] received = new byte[MaxPacket];   // incoming: one packet at a time (reused, so a talker makes no garbage)
@@ -115,6 +143,7 @@ namespace BuildingEscape.Net
         {
             input?.Dispose();
             input = testInput;
+            this.testInput = testInput != null;
             inputActive = false;
         }
 #endif
@@ -123,9 +152,19 @@ namespace BuildingEscape.Net
 
         IVoiceInput PickInput()
         {
+            inputFor = AudioDevices.ChosenMic;
             var steam = SteamService.Instance;
-            if (steam != null && steam.Ready) return new SteamVoiceInput();
-            return new MicrophoneVoiceInput();
+            return MakeInput(inputFor, steam != null && steam.Ready);
+        }
+
+        /// <summary>
+        /// The input for the microphone the player picked in the settings (the owner, 2026-10-24: "Please add Audio Options so players can choose the audio input/output devices"); <paramref name="chosen"/> is "" when none was picked.
+        /// A pick is opened by Unity itself (Steam's voice recording takes only the device Windows uses by default and cannot be pointed at another); with no pick it is Steam's voice while Steam is up, else the first microphone.
+        /// </summary>
+        public static IVoiceInput MakeInput(string chosen, bool steamReady)
+        {
+            if (AudioDeviceRules.SteamVoice(chosen, steamReady)) return new SteamVoiceInput();
+            return new MicrophoneVoiceInput(chosen);
         }
 
         void Update()
@@ -139,12 +178,15 @@ namespace BuildingEscape.Net
 
             var mode = CurrentMode;
             bool paOn = online && PaState.Live && NetPlayer.Local != null && NetPlayer.Local.IsSpawned && PaState.LiveBy == NetPlayer.Local.Slot;      // (V held at the outpost's computer: the microphone is live whatever the voice mode)
-            bool wantMic = online && !Muted && mode != Mode.Off && (mode == Mode.OpenMic || (Input.GetKey(talkKey) && !OutpostUi.Open) || paOn);
+            bool solo = !online && SoloPlayer() != null;                                                   // (a solo run: nobody to talk to, the guards still hear the microphone)
+            bool soloMicOk = !solo || testInput || (!Application.isBatchMode && !QaNoRealMic);
+            bool wantMic = (online || solo) && soloMicOk && !Muted && !Watching && mode != Mode.Off && (mode == Mode.OpenMic || (Input.GetKey(talkKey) && !OutpostUi.Open) || paOn);
+            if (input != null && !testInput && inputFor != AudioDevices.ChosenMic) { input.Dispose(); input = null; inputActive = false; }          // (another microphone was picked in the settings: the next one opens that)
             if (wantMic && input == null) input = PickInput();
             if (input != null && wantMic != inputActive) { input.SetActive(wantMic); inputActive = wantMic; }
             if (!wantMic) { Speaking = false; MicLevel = Mathf.MoveTowards(MicLevel, 0f, Time.deltaTime * 4f); }
 
-            bool gotPacket = online && wantMic && PumpInput(nm);
+            bool gotPacket = (online || solo) && wantMic && input != null && PumpInput(nm, online);
             if (!gotPacket)
             {
                 // No audio this frame (silence, or Steam sends nothing between words): the level must still fall,
@@ -157,7 +199,7 @@ namespace BuildingEscape.Net
         }
 
         /// <summary>Reads and sends what the microphone has. Returns true if it handled any packet this frame.</summary>
-        bool PumpInput(NetworkManager nm)
+        bool PumpInput(NetworkManager nm, bool send)
         {
             bool any = false;
             int guard = 8; // a few packets per frame at most
@@ -181,7 +223,7 @@ namespace BuildingEscape.Net
                 Speaking = Time.unscaledTime - lastLoud < SendHangover;
                 FeedGuards();
                 if (!Speaking) continue;   // silence is not worth the bandwidth
-                SendPacket(nm, input.Codec, length);
+                if (send) SendPacket(nm, input.Codec, length);               // (a solo run sends nothing: only the guards hear it)
             }
             return any;
         }
@@ -190,7 +232,8 @@ namespace BuildingEscape.Net
         void FeedGuards()
         {
             var me = NetPlayer.Local;
-            var vn = me ? me.GetComponent<VoiceNoise>() : null;
+            if (Watching) { HearingRadius = 0f; return; }           // (a developer who watches makes no noise: he has no body and no microphone)
+            var vn = me ? me.GetComponent<VoiceNoise>() : SoloVoiceNoise();
             float level = Speaking ? VoiceNoise.LevelFromRms(MicLevel, gate) : 0f;
             if (vn) vn.SetLevel(level);
             HearingRadius = vn && level > 0f ? vn.RadiusFor(level) : 0f;
@@ -225,6 +268,7 @@ namespace BuildingEscape.Net
         {
             var nm = NetworkManager.Singleton;
             if (nm == null) return;
+            if (nm.IsServer && IsWatcher(sender)) return;           // (a developer who watches is never heard)
             r.ReadValueSafe(out ulong claimed);
             r.ReadValueSafe(out byte codec);
             r.ReadValueSafe(out ushort seqNo);
@@ -263,7 +307,7 @@ namespace BuildingEscape.Net
             bool fromRadio = HasRadio(speaker);
             foreach (var id in nm.ConnectedClientsIds)
             {
-                if (id == speaker || id == self) continue;
+                if (id == speaker || id == self || IsWatcher(id)) continue;           // (nor does a developer who watches hear anybody)
                 if (inRun)
                 {
                     var to = PlayerOf(id);
@@ -279,6 +323,7 @@ namespace BuildingEscape.Net
 
         void Play(ulong speaker, byte codec, byte[] data, int length)
         {
+            if (Watching) return;
             var decoder = VoiceCodecs.DecoderFor(codec);
             if (decoder == null) return;
             if (codec == VoiceCodecs.Steam && (SteamService.Instance == null || !SteamService.Instance.Ready)) return;
@@ -387,17 +432,29 @@ namespace BuildingEscape.Net
 
 
 
-        void OnGUI()
+        /// <summary>
+        /// The words of the mic pill under the player badge ("mic open (M mutes)", "MIC: talking - guards hear you up to 12 m", "MIC MUTED (M)", "hold T to talk", "voice off"); "" when there is none (the menus, a developer who watches). A solo run has it too (the owner, 2026-10-24: "I also still
+        /// don't see mic talking up top and click m to mute in solo play"): the guards hear the microphone there.
+        /// </summary>
+        public string HudLine(out bool off)
         {
-            if (Event.current.type != EventType.Repaint) return;
+            off = false;
             var nm = NetworkManager.Singleton;
-            if (nm == null || !nm.IsListening) return;
+            bool online = nm != null && nm.IsListening;
+            if (Watching || !(online || SoloPlayer() != null)) return "";
             var mode = CurrentMode;
-            string state = mode == Mode.Off ? "voice off"
+            off = Muted || mode == Mode.Off;
+            return mode == Mode.Off ? "voice off"
                 : Muted ? $"MIC MUTED ({muteKey})"
                 : mode == Mode.PushToTalk ? $"hold {talkKey} to talk"
                 : Speaking ? $"MIC: talking - guards hear you up to {HearingRadius:0} m" : $"mic open ({muteKey} mutes)";
-            bool off = Muted || mode == Mode.Off;
+        }
+
+        void OnGUI()
+        {
+            if (Event.current.type != EventType.Repaint) return;
+            string state = HudLine(out bool off);
+            if (state.Length == 0) return;
             float y = HudTheme.Px(HudWidgets.TopRightBelowBadge);          // (under the player badge)
             HudWidgets.VoicePill(ref y, state, off ? HudTheme.Warning : (Speaking ? HudTheme.Good : HudTheme.Muted), true, off);
             foreach (var kv in voices)

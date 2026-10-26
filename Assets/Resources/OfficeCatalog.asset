@@ -273,6 +273,20 @@ MonoBehaviour:
     prefab: {fileID: 1267816868441300, guid: 2c361a78502f5ac468f101b1c1ebb46f, type: 3}
   - key: barrel
     prefab: {fileID: 1118391213089184, guid: 8089c8951d9c6b44f89ee4403039bf5e, type: 3}
+  - key: hesco_a
+    prefab: {fileID: 1481980865230784, guid: 2252526341f17ff40b51a7eac1c47b29, type: 3}
+  - key: hesco_b
+    prefab: {fileID: 1064636663272974, guid: d936f0bc100a8c84e91239b4eec3ce62, type: 3}
+  - key: hesco_c
+    prefab: {fileID: 1807119287664026, guid: e3fb5d6f4f1c46f4c88b9337e735ef46, type: 3}
+  - key: hesco_wall
+    prefab: {fileID: 1960974981817646, guid: e6826632b4992aa4d93bff220fa71a99, type: 3}
+  - key: cinder_wall
+    prefab: {fileID: 1431215749144654, guid: a60aed3109aac2e4e8b4fbd8e35506ec, type: 3}
+  - key: tank_trap
+    prefab: {fileID: 1547188293137430, guid: c88bebc9f42262a4595175158008899e, type: 3}
+  - key: wire_spool
+    prefab: {fileID: 1348218892555504, guid: 19ff11b6eadf1ee42a0d028442d699e4, type: 3}
   - key: extinguisher
     prefab: {fileID: 1460474285358662, guid: 7e3a842bda3e7424e9fede8bc029c9fa, type: 3}
   - key: fire_alarm
@@ -661,3 +675,11 @@ MonoBehaviour:
     prefab: {fileID: 1217422800182712, guid: 94179664ac141d742b2bebeeb5e09184, type: 3}
   - key: skin_ceiling_panel
     prefab: {fileID: 1531558827373216, guid: 5a7c22259d0505c4b9a0f62b4f531e3d, type: 3}
+  - key: skin_door_white
+    prefab: {fileID: 1768947436039628, guid: 1d46b704e2c5bc94b94f4b8528cc395b, type: 3}
+  - key: skin_door_wood
+    prefab: {fileID: 1318804890122630, guid: 396d1000772b6b34ab1ab759d21ec6c9, type: 3}
+  - key: skin_door_glass_l
+    prefab: {fileID: 1671228742992768, guid: 4632b902994c43d45911927023e78aaa, type: 3}
+  - key: skin_door_glass_r
+    prefab: {fileID: 1454460071966642, guid: 48cf5f2072453f64b954597ac572a03d, type: 3}

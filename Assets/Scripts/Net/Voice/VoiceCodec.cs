@@ -97,14 +97,26 @@ namespace BuildingEscape.Net
         string device;
         AudioClip clip;
         int readPos;
+        readonly string wanted;
+
+        /// <param name="deviceName">The microphone to open (the player's pick in the settings, the owner, 2026-10-24); "" opens the first one Windows lists, its default.</param>
+        public MicrophoneVoiceInput(string deviceName = "") { wanted = deviceName ?? ""; }
+
+        /// <summary>The microphone this input was asked to open ("": the default).</summary>
+        public string DeviceName => wanted;
 
         public void SetActive(bool on)
         {
             if (on && clip == null)
             {
                 if (Microphone.devices.Length == 0) return;
-                device = Microphone.devices[0];
+                device = wanted.Length > 0 ? wanted : Microphone.devices[0];
                 clip = Microphone.Start(device, true, 1, Rate);
+                if (clip == null && wanted.Length > 0)            // (the pick will not open - in use, or gone: the default instead)
+                {
+                    device = Microphone.devices[0];
+                    clip = Microphone.Start(device, true, 1, Rate);
+                }
                 readPos = 0;
             }
             else if (!on && clip != null)

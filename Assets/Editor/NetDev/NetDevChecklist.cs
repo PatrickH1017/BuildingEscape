@@ -54,9 +54,9 @@ namespace BuildingEscape.EditorTools
             int First(ScanKind k) => FloorChecklistTracker.FirstCount(k);
             bool Done(ScanKind k) => FloorChecklistTracker.IsDone(k);
             ChecklistCheck("floor 1: the count has begun and the floor has things of every kind (valuables, unique items - the melee weapons -, one safe and the cash in it)",
-                First(ScanKind.Valuable) > 0 && First(ScanKind.Unique) > 0 && First(ScanKind.Safe) == 1 && First(ScanKind.Cash) > 0,
+                First(ScanKind.Valuable) > 0 && First(ScanKind.Unique) > 0 && First(ScanKind.Safe) == 1 && First(ScanKind.Cash) > 0 && First(ScanKind.Outpost) == 1,
                 $"(valuables {First(ScanKind.Valuable)}, unique {First(ScanKind.Unique)}, safes {First(ScanKind.Safe)}, cash {First(ScanKind.Cash)})");
-            ChecklistCheck("floor 1: nothing is done yet", !Done(ScanKind.Valuable) && !Done(ScanKind.Unique) && !Done(ScanKind.Safe) && !Done(ScanKind.Cash));
+            ChecklistCheck("floor 1: nothing is done yet (the outpost's lock is shut)", !Done(ScanKind.Valuable) && !Done(ScanKind.Unique) && !Done(ScanKind.Safe) && !Done(ScanKind.Cash) && !Done(ScanKind.Outpost));
             yield return JournalShot("none");
 
             // ---- the scan: unique items (the weapons on the outpost's desk) are red-kind, a shut safe is gold-kind
@@ -128,7 +128,10 @@ namespace BuildingEscape.EditorTools
                 foreach (var p in FindObjectsByType<Pickup>(FindObjectsSortMode.None).Where(p => FloorChecklist.Classify(p) == (int)ScanKind.Valuable).ToList()) p.gameObject.SetActive(false);          // (the watch that was inside the safe, if there was one)
                 yield return new WaitForSeconds(1.2f);
             }
-            ChecklistCheck("all four lines are done", Done(ScanKind.Valuable) && Done(ScanKind.Unique) && Done(ScanKind.Safe) && Done(ScanKind.Cash));
+            var outpost = OutpostController.Active;
+            ChecklistCheck("the first four lines are done and the outpost's, whose lock is still shut, is not (the owner, 2026-10-24)", outpost != null && !outpost.Unlocked && !Done(ScanKind.Outpost) && Done(ScanKind.Valuable) && Done(ScanKind.Unique) && Done(ScanKind.Safe) && Done(ScanKind.Cash));
+            if (outpost != null) { outpost.NetApply((byte)(outpost.Bits | 1)); yield return new WaitForSeconds(1.2f); }          // (the lock is hacked open)
+            ChecklistCheck("the outpost's lock is hacked open: its line is done, and all five lines are done", outpost != null && outpost.Unlocked && Done(ScanKind.Outpost) && Done(ScanKind.Valuable) && Done(ScanKind.Unique) && Done(ScanKind.Safe) && Done(ScanKind.Cash));
             yield return JournalShot("all");
 
             // ---- a new floor starts a new list
@@ -137,6 +140,7 @@ namespace BuildingEscape.EditorTools
             yield return WaitFor(() => !tm.Loading && hm.Floor == 2, 90, "floor 2");
             yield return new WaitForSeconds(3.2f);
             ChecklistCheck("floor 2: a new list - the safe is shut and its line is not done", !Done(ScanKind.Safe) && FloorChecklistTracker.FirstCount(ScanKind.Safe) == 1);
+            ChecklistCheck("floor 2: the outpost's line starts again too (its lock is shut)", !Done(ScanKind.Outpost) && FloorChecklistTracker.FirstCount(ScanKind.Outpost) == 1);
 
             Log($"[Checklist] DONE fails={checklistFails}");
             Quit(checklistFails == 0 ? 0 : 1);

@@ -7,8 +7,8 @@ namespace BuildingEscape
     /// The loot scanner. The owner, 2026-10-17: "Players should be able to hold a button to scan rooms for loot" and "Scanning should only work within the room and show
     /// items in that room". Hold <see cref="ScanKey"/> (Z) and a pulse leaves the player and races over the floor of the room they are standing in (the wave follows the walls and
     /// stops at them); it marks every valuable lying in THAT room - not the rooms next to it, however near: a player has to go in to scan a room. A mark is a diamond and a
-    /// label (what, how much, how far) hung where the thing lies - seen through desks and cabinets, the point of a scan - and fades after a few seconds; the top of the screen says
-    /// which room it is and what is in it ("nothing to steal here" is worth knowing, too). Another pulse leaves every couple of seconds while the key is held. It is purely local: every
+    /// label (what, how much, how far) hung where the thing lies - seen through desks and cabinets, the point of a scan - and fades after a few seconds. The scan's only pop-up says
+    /// "Item Marked" (the owner, 2026-10-24: a scan that finds nothing, and a press of the key during the cooldown, show nothing - the cooldown gets an error sound). Another pulse leaves every couple of seconds while the key is held. It is purely local: every
     /// machine has the same loot in the same places, so nothing is sent. Nothing is scanned at the docks, in the elevator car, with a screen open, while pinned or busted, or during the
     /// run-start cinematic. The rules are in <see cref="LootScanRules"/>.
     /// </summary>
@@ -19,6 +19,12 @@ namespace BuildingEscape
         public static LootScanner Instance { get; private set; }
         /// <summary>Tests: the scan key is held.</summary>
         public static bool TestHold;
+        /// <summary>Tests: the scan key is held like the real key (the scan goes off at once, then every <see cref="LootScanRules.PulseGap"/> while it stays down).</summary>
+        public static bool TestKeyDown;
+        /// <summary>How far the cooldown has got, 0 to 1: 1 when the next scan can leave at once (<see cref="LootScanRules.ReadyFraction"/>).</summary>
+        public static float ScanReady { get; private set; } = 1f;
+        /// <summary>How many times the error sound has played: a press of the scan key while the cooldown holds the scan back (for tests).</summary>
+        public static int ErrorBeeps { get; private set; }
         /// <summary>The key is held and a scan is possible.</summary>
         public static bool Scanning { get; private set; }
 
@@ -39,7 +45,9 @@ namespace BuildingEscape
         readonly List<Component> gone = new List<Component>();
         Vector3 origin;
         float pulseAge = -1f, sinceLast = -1f, reach, nextRoomCheck;
-        bool pulsing, inCar, scannedRoom;
+        float sinceUse = -1f;                       // the cooldown's own clock: seconds since the last scan left (-1: none), whatever room the player is in
+        bool pulsing, inCar, scannedRoom, testKeyWas;
+        float lastMarkAt = -100f;                   // (Time.time of the last mark: the pop-up counts from it)
         RoomSpot room = new RoomSpot { index = -1 };
         int roomCount;
         long roomWorth;
@@ -55,6 +63,8 @@ namespace BuildingEscape
 
         /// <summary>The valuables marked now (for tests and the HUD).</summary>
         public int MarkCount => marks.Count;
+        /// <summary>The words of the pop-up on screen now ("Item Marked" for a couple of seconds after a scan marked something, otherwise "": for the HUD and the tests).</summary>
+        public string PopupText => marks.Count > 0 && LootScanRules.MarkedPopupAlpha(Time.time - lastMarkAt) > 0f ? LootScanRules.MarkedText : "";
         /// <summary>How many pulses have left in this session.</summary>
         public int Pulses { get; private set; }
         /// <summary>The room the player is in (index -1: none, or the elevator car).</summary>
@@ -81,7 +91,7 @@ namespace BuildingEscape
         }
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
-        static void ResetStatics() { Instance = null; TestHold = false; Scanning = false; }
+        static void ResetStatics() { Instance = null; TestHold = false; TestKeyDown = false; Scanning = false; ScanReady = 1f; ErrorBeeps = 0; }
 
         void Awake() { Instance = this; }
         void OnDestroy()
@@ -110,18 +120,34 @@ namespace BuildingEscape
             var me = LocalPlayer();
             bool inCustody = me && me.TryGetComponent(out WobblyPlayer wp) && wp.InCustody;
             bool can = hm != null && me != null && LootScanRules.CanScan(hm.Floor, ScreenOpen, inCustody, IntroCinematic.Playing);
-            bool holding = can && (Input.GetKey(ScanKey) || TestHold);
+            float dt = Time.unscaledDeltaTime;
+            // the scan goes off AT ONCE when the key goes down and then at most every LootScanRules.PulseGap (the owner, 2026-10-23: "Scanning is supposed to have a 2 second cooldown between each use not a charge up"); letting go and pressing again does not skip the cooldown
+            bool holding = can && (Input.GetKey(ScanKey) || TestKeyDown || TestHold);
             Scanning = holding;
 
-            if (can && (Time.time >= nextRoomCheck || holding && sinceLast < 0f)) { nextRoomCheck = Time.time + 0.15f; RefreshRoom(me); }
-            if (hm == null || hm.Floor < 1) { room = new RoomSpot { index = -1 }; ClearMarks(); StopPulse(); }
+            // the cooldown runs on its own clock (the owner, 2026-10-24: "If I hold scan while moving the loading bar for cooldown is not accurate to when the scan reactivates"): crossing into another room used to reset it, so a scan left at once
+            if (sinceUse >= 0f) sinceUse += dt;
+            bool ready = LootScanRules.NextPulse(holding, sinceUse);
+            // a press of the scan key that the cooldown holds back: no pop-up, an error sound (the owner, 2026-10-24)
+            bool pressed = can && (Input.GetKeyDown(ScanKey) || (TestKeyDown && !testKeyWas));
+            testKeyWas = TestKeyDown;
+            if (me && LootScanRules.RefusedPress(pressed, ready)) RefusePress(me);
+            if (can && (Time.time >= nextRoomCheck || ready)) { nextRoomCheck = Time.time + 0.15f; RefreshRoom(me); }
+            if (hm == null || hm.Floor < 1) { room = new RoomSpot { index = -1 }; ClearMarks(); StopPulse(); sinceUse = -1f; }
 
-            float dt = Time.unscaledDeltaTime;
             if (sinceLast >= 0f) sinceLast += dt;
-            if (LootScanRules.NextPulse(holding, sinceLast)) StartPulse(me);
+            if (ready) StartPulse(me);
+            ScanReady = LootScanRules.ReadyFraction(sinceUse);
             if (pulsing) AdvancePulse(dt);
             UpdateRing();
             Prune();
+        }
+
+        /// <summary>The error noise of a scan the cooldown refuses: our wrong-code blips (<see cref="SoundId.SafeWrong"/>), flat in the player's ears.</summary>
+        void RefusePress(Transform me)
+        {
+            ErrorBeeps++;
+            GameAudio.PlaySound(SoundId.SafeWrong, me.position, 0.7f, 1f, false);
         }
 
         /// <summary>Which room is the player in (the elevator car is none: it lies inside its lobby, but it is a room of its own to the player)? Another room: the old marks go.</summary>
@@ -142,7 +168,7 @@ namespace BuildingEscape
 
         void StartPulse(Transform me)
         {
-            sinceLast = 0f;
+            sinceLast = 0f; sinceUse = 0f;
             roomCount = 0; roomWorth = 0; roomOther = 0;
             pulsing = false; candidates.Clear();
             if (!room.Valid || !gen) return;                           // (nothing to scan: the elevator car, a doorway between nothing)
@@ -222,6 +248,7 @@ namespace BuildingEscape
                 marks[c] = m;
             }
             m.hitAt = Time.time;
+            lastMarkAt = Time.time;
             if (m.pickup) m.value = m.pickup.Value;
             m.glow = LootScanRules.GlowOf(m.kind == ScanKind.Unique, m.kind == ScanKind.Safe, m.value, TierQuota());          // (by what it is worth now; a safe is gold, a weapon red)
         }
@@ -390,7 +417,7 @@ namespace BuildingEscape
             return glowTex;
         }
 
-        /// <summary>What the top of the screen says (also for tests): which room, and what is in it.</summary>
+        /// <summary>What the last scan read of the room: which room, and what is in it. Not drawn any more (the owner, 2026-10-24: the scan's only pop-up says "Item Marked"); the tests read it.</summary>
         public string StatusLine
         {
             get
@@ -411,11 +438,11 @@ namespace BuildingEscape
             var cam = Camera.main;
             if (!cam) return;
             bool any = marks.Count > 0;
-            if (!any && !Scanning) return;
+            if (!any) return;
             if (HeistManager.Instance == null || HeistManager.Instance.Floor < 1) return;
 
             float s = HudTheme.S;
-            int offScreen = 0, shown = 0;
+            int shown = 0;
             var edges = new List<(Vector2 at, Color colour, float dist)>();
             var order = new List<Find>(marks.Values);
             order.Sort((a, b) => (b.target.transform.position - cam.transform.position).sqrMagnitude.CompareTo((a.target.transform.position - cam.transform.position).sqrMagnitude));
@@ -429,7 +456,6 @@ namespace BuildingEscape
                 var sp = cam.WorldToScreenPoint(world);
                 if (sp.z <= 0.1f || sp.x < -20f || sp.x > Screen.width + 20f || sp.y < -20f || sp.y > Screen.height + 20f)
                 {
-                    offScreen++;
                     if (edges.Count < 14)
                     {
                         // an arrow-head on the edge of the screen that points the way to it (behind the camera: the opposite way, so it points round the side)
@@ -498,23 +524,16 @@ namespace BuildingEscape
                 HudTheme.Text(new Rect(e.at.x - 30f * s, e.at.y + d * 0.5f + 3f * s, 60f * s, 16f * s), $"{e.dist:0} m", 11f, new Color(1f, 1f, 1f, e.colour.a * 0.9f), TextAnchor.MiddleCenter);
             }
 
-            // the readout at the top: which room and what is in it; and what lies behind you
-            if (Scanning || any)
+            // the scan's one pop-up (the owner, 2026-10-24: "Scanning should only have a pop-up when it says 'Item Marked'"): nothing for a scan that finds nothing, nothing for a press during the cooldown (that gets an error sound)
+            float popup = LootScanRules.MarkedPopupAlpha(Time.time - lastMarkAt);
+            if (popup > 0f)
             {
-                string line = Scanning ? StatusLine : $"{marks.Count} thing{(marks.Count == 1 ? "" : "s")} marked";
+                string line = LootScanRules.MarkedText;
                 float w = HudTheme.Width(line, 17f) + 44f * s;
                 var r = new Rect((Screen.width - w) * 0.5f, 86f * s, w, 34f * s);
-                bool nothing = Scanning && (inCar || !room.Valid || (scannedRoom && roomCount + roomOther == 0));
-                HudTheme.Pill(r, nothing ? new Color(0.35f, 0.30f, 0.50f, 0.95f) : new Color(0.10f, 0.45f, 0.62f, 0.95f), 2.5f, 2.5f);
-                HudTheme.Text(r, line, 17f, HudTheme.Bright, TextAnchor.MiddleCenter, false);
-                if (offScreen > 0)
-                {
-                    string more = $"+{offScreen} more out of view";
-                    float mw = HudTheme.Width(more, 14f) + 30f * s;
-                    var rr = new Rect((Screen.width - mw) * 0.5f, r.yMax + 6f * s, mw, 26f * s);
-                    HudTheme.Pill(rr, new Color(0.12f, 0.10f, 0.30f, 0.9f), 2f, 2f);
-                    HudTheme.Text(rr, more, 14f, HudTheme.Cream, TextAnchor.MiddleCenter, false);
-                }
+                var bright = HudTheme.Bright; bright.a *= popup;
+                HudTheme.Pill(r, new Color(0.10f, 0.45f, 0.62f, 0.95f * popup), 2.5f, 2.5f);
+                HudTheme.Text(r, line, 17f, bright, TextAnchor.MiddleCenter, false);
             }
         }
     }

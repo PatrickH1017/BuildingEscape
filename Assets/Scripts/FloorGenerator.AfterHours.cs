@@ -39,6 +39,10 @@ namespace BuildingEscape
         const float CeilingThickness = 0.3f, CeilingSink = 0.01f, LampDrop = 0.15f, LampAngle = 125f;
 
         Material ceilingMat, panelFrameMat, panelOffMat, panelWarmMat, panelCoolMat, nightSky;
+
+        /// <summary>The light panels of the floor on show (the loudspeakers keep off them; for the tests); null where there are none.</summary>
+        AfterHours.Plan panelPlan;
+        public AfterHours.Plan PanelPlan => panelPlan;
         Light moon;
 
         void DestroyNightMaterials()
@@ -127,6 +131,7 @@ namespace BuildingEscape
         /// <summary>The ceiling, the light panels and the real lights of the floor that was just built.</summary>
         void BuildAfterHours(int floor, int seed, Vector2Int elevCell, Vector2Int guestCell, bool hub)
         {
+            panelPlan = null;
             if (!afterHours || !Application.isPlaying) return;   // (the editor tools that build floors do not need them)
             ApplyNightLook(hub);
 
@@ -178,6 +183,7 @@ namespace BuildingEscape
             }
 
             var plan = AfterHours.Build(input);
+            panelPlan = plan;
             BuildPanels(plan, root);
             BuildLamps(plan, root);
         }

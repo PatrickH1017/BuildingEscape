@@ -132,6 +132,9 @@ namespace BuildingEscape
             Apply(lobbySource, lobbyClip, lobbyLevel * LobbyGain);
         }
 
+        /// <summary>Is the intense loop wanted: on a live floor that is not being left, while backup was called or is on, and while the Big Alarm is on (the owner, 2026-10-24: "just make sure it plays while guards are alerted and while the big alarm is going off").</summary>
+        public static bool IntenseWanted(bool floorLive, bool sealing, bool backupCalled, bool backupActive, bool bigAlarm) => floorLive && !sealing && (backupCalled || backupActive || bigAlarm);
+
         /// <summary>What should be playing: decided from shared run state plus where the local player is.</summary>
         Mood Choose(HeistManager hm, TowerManager tm)
         {
@@ -147,7 +150,7 @@ namespace BuildingEscape
             bool sealing = ElevatorExtraction.Sealing;
             bool floorLive = (phase == HeistPhase.Heist || phase == HeistPhase.FloorComplete) && !loading && hm.Floor >= 1;
             // backup was called on this floor and the floor is not over yet
-            if (floorLive && !sealing && (hm.BackupCalled || hm.BackupActive)) return Mood.Intense;
+            if (IntenseWanted(floorLive, sealing, hm.BackupCalled, hm.BackupActive, hm.BigAlarmActive)) return Mood.Intense;          // (the owner, 2026-10-24: while the guards are alerted and while the Big Alarm goes off)
 
             bool riding = loading || sealing;
             if (inCar || (riding && Time.unscaledTime - lastInCar < RideGrace)) return Mood.Elevator;

@@ -4,7 +4,7 @@ using UnityEngine;
 namespace BuildingEscape
 {
     /// <summary>
-    /// The loudspeakers in the hallways of an office floor (the owner, 2026-10-18; <see cref="PaRules"/>): a small grey box with a grille under the ceiling every 13 m of corridor, planned from the layout
+    /// The loudspeakers in the hallways of an office floor (the owner, 2026-10-18; <see cref="PaRules"/>): a round disc with a grille flat against the ceiling (since 2026-10-24: not on a light) every 13 m of corridor, planned from the layout
     /// alone (so every machine hangs the same ones). The player at the outpost's computer sees them on the Nav map and switches them on and off there.
     /// </summary>
     public partial class FloorGenerator
@@ -39,13 +39,18 @@ namespace BuildingEscape
             var body = OMat("keycap"); var dark = OMat("dark");
             var root = new GameObject("LoudSpeakers").transform;
             root.SetParent(current, false);
+            var panels = new List<Rc>();
+            if (panelPlan != null) foreach (var p in panelPlan.panels) panels.Add(AfterHours.FrameRect(p));
+            float top = CeilingUnderside - PaRules.CeilingGap;          // (the top of the disc: flat against the ceiling, the owner, 2026-10-24: "attached to the ceiling")
+            Rc HallOf(Vector2 p) { foreach (var c in corridors) if (c.Contains(p.x, p.y)) return c; return new Rc(p.x - 1f, p.y - 1f, p.x + 1f, p.y + 1f); }
             for (int i = 0; i < plan.Count; i++)
             {
+                var at = PaRules.MountSpot(plan[i], HallOf(plan[i]), panels);          // (the PA keeps the planned place; the model hangs where no light panel is)
                 var go = new GameObject("LoudSpeaker_" + i);
                 go.transform.SetParent(root, false);
-                go.transform.position = new Vector3(plan[i].x, PaRules.Height, plan[i].y);
-                Part(go.transform, "Box", Vector3.zero, new Vector3(0.34f, 0.15f, 0.22f), body);
-                Part(go.transform, "Grille", new Vector3(0f, -0.01f, 0.112f), new Vector3(0.28f, 0.11f, 0.014f), dark);
+                go.transform.position = new Vector3(at.x, top - PaRules.DiscHeight * 0.5f, at.y);
+                Part(go.transform, "Disc", Vector3.zero, new Vector3(PaRules.DiscDiameter, PaRules.DiscHeight * 0.5f, PaRules.DiscDiameter), body, PrimitiveType.Cylinder);
+                Part(go.transform, "Grille", new Vector3(0f, -(PaRules.DiscHeight * 0.5f + PaRules.GrilleHeight * 0.5f), 0f), new Vector3(PaRules.GrilleDiameter, PaRules.GrilleHeight * 0.5f, PaRules.GrilleDiameter), dark, PrimitiveType.Cylinder);
                 go.AddComponent<LoudSpeaker>().Index = i;
             }
         }

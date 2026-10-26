@@ -279,7 +279,13 @@ namespace BuildingEscape.EditorTools
                 Teleport(CounterSpot(role == "c1" ? -1.0f : 1.0f)); // in the trailer in front of the counter, apart: overlapping capsules fling each other out
                 yield return Settle(1.5f);
                 var pack = MyPack;
-                if (role == "c1") { RunSync.Instance.RequestBuy(0); yield return WaitFor(() => pack.Items.Count >= 1, 30, "mug bought"); }
+                if (role == "c1")
+                {
+                    Teleport(MachineSpot(0)); yield return Settle(1.0f);                  // (the coffee mug is a vending machine's now: the owner, 2026-10-23)
+                    RunSync.Instance.RequestMachineBuy(0, 0);
+                    yield return WaitFor(() => pack.Items.Count >= 1, 30, "mug bought");
+                    Teleport(CounterSpot(-1.0f)); yield return Settle(1.0f);
+                }
                 if (role == "c2" && MeleeWeapon.Available)
                 {
                     RunSync.Instance.RequestBuy(4);
@@ -564,10 +570,10 @@ namespace BuildingEscape.EditorTools
             if (role == "c2")
             {
                 // buy something so there is a pack to lose, then drop out
-                Teleport(CounterSpot(1.0f));
+                Teleport(MachineSpot(0));
                 yield return Settle(1.5f);
                 int packBefore = MyPack.Items.Count;
-                RunSync.Instance.RequestBuy(0);
+                RunSync.Instance.RequestMachineBuy(0, 0);
                 yield return WaitFor(() => MyPack.Items.Count == packBefore + 1, 30, "bought something to leave behind");
                 var leftBehind = MyPack.Items[MyPack.Items.Count - 1];
                 QaSignal("c2_item", leftBehind.NetId.ToString());

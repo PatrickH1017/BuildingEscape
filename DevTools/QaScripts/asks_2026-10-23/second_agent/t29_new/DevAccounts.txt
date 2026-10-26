@@ -1,0 +1,3 @@
+# The Steam accounts of the developers: one Steam ID (the long number) per line; a # starts a comment.
+# A developer on this list can join a match as an invisible spectator (the terminal: CTRL + F1, the code, then  spectate CODE ).
+# The terminal command  steamid  prints your own number. Only the Editor and the friends' builds read this file; a release build ignores it.

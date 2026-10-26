@@ -7,7 +7,7 @@ using UnityEngine.AI;
 namespace BuildingEscape.EditorTools
 {
     /// <summary>
-    /// Q/A of the demo's game loop (floors 1 to 4) beyond the rules: for several run seeds every floor is built the way the game builds it and
+    /// Q/A of the demo's game loop (floors 1 to 6) beyond the rules: for several run seeds every floor is built the way the game builds it and
     /// looked at the way a player would: is there loot enough for the quota (all of it, and what ONE player can carry alone), can every piece be
     /// walked to, are the guards on the floor and armed as they should be (none on floors 1-3, all from floor 4), is the pistol in floor 4's
     /// outpost, are the guards' elevator and the two stairwells there, does the player start sound. Then, on the offline run's own seed, floors 1
@@ -65,7 +65,7 @@ namespace BuildingEscape.EditorTools
             foreach (int seed in seeds)
             {
                 tm.baseSeed = seed;
-                for (int floor = 1; floor <= 4; floor++)
+                for (int floor = 1; floor <= TowerRules.DemoLastFloor; floor++)
                 {
                     tm.GoToLevel(floor);
                     yield return new WaitUntil(() => tm.Loading || hm.Floor == floor);
@@ -134,7 +134,7 @@ namespace BuildingEscape.EditorTools
             // ---- part 2: the real loop on the offline run's own seed: bank loot in the car until the quota is met, then go down
             tm.baseSeed = ownSeed;
             hm.godMode = true;
-            for (int floor = 1; floor <= 4; floor++)
+            for (int floor = 1; floor <= TowerRules.DemoLastFloor; floor++)
             {
                 tm.RideTo(floor);
                 yield return new WaitUntil(() => tm.Loading || hm.Floor == floor);
@@ -193,7 +193,7 @@ namespace BuildingEscape.EditorTools
                 yield return Ride(hm, tm, 0);
                 LqCheck($"{tag}: at the docks the surplus became cash and the next floor is waiting", hm.Floor == 0 && hm.Cash >= cash0 + surplus && tm.ResumeLevel == floor + 1, $"(cash {cash0} -> {hm.Cash}, surplus {surplus}, resume {tm.ResumeLevel})");
             }
-            LqCheck("after floor 4 the demo is over and the vendor has the pew", TowerRules.DemoOver(tm.ResumeLevel) && Vendor.PewForSale(tm.ResumeLevel));
+            LqCheck("after the demo's last floor (6) the demo is over and the vendor has the pew", TowerRules.DemoOver(tm.ResumeLevel) && Vendor.PewForSale(tm.ResumeLevel));
 
             Log($"[LootQa] DONE fails={lqFails}");
             Quit(lqFails == 0 ? 0 : 1);

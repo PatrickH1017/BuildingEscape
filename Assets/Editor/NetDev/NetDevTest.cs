@@ -68,6 +68,28 @@ namespace BuildingEscape.EditorTools
             MeleeHealthTest();
             FloorDressTest();
             WallSkinTest();
+            DoorSkinTest();
+            Asks1023Test();
+            Asks1023BTest();
+            Asks1023CTest();
+            Asks1023DTest();
+            Asks1023FTest();
+            Asks1023GTest();
+            Asks1023HTest();
+            Asks1023ITest();
+            Asks1023JTest();
+            Asks1023VTest();
+            Asks1023WTest();
+            PvpBattlefieldTest();
+            PlaytestFixesTest();
+            ViewClearTest();
+            AudioDevicesTest();
+            MenuLayoutTest();
+            AlertRulesTest();
+            AlarmRulesTest();
+            DockPosterRulesTest();
+            ConsumablesRulesTest();
+            Asks1023ETest();
             SightsAimTest();
             string v = NetConst.BuildVersion;
             Check("allow", JoinPolicy.Evaluate(false, 1, v, v, true) == JoinVerdict.Allow);
@@ -774,7 +796,6 @@ namespace BuildingEscape.EditorTools
             Check("gun: a reload of a part-used gun takes only the three missing rounds from the spare clips", part.StartReload(2.1f) && part.Tick(2.1f + pew.reloadSeconds + 0.01f) == GunMagazine.Event.ReloadFinished && part.Rounds == cap && part.Reserve == 2 * cap - 3);
             var endless = new GunMagazine(10, 2.2f, 0.3f);
             Check("gun: a magazine made without a reserve (an officer's) has an endless one, which no clip adds to", endless.InfiniteReserve && endless.AddReserve(5) == 0 && GuardGun.MagazineSize == 10);
-            Check("gun: the spare clips on the screen count a part of a clip as one", GunRules.SpareClips(0, cap) == 0 && GunRules.SpareClips(1, cap) == 1 && GunRules.SpareClips(cap, cap) == 1 && GunRules.SpareClips(cap + 1, cap) == 2 && GunRules.SpareClips(2 * cap, cap) == 2);
 
             // numbers: the pew is stronger than every melee weapon in every way that matters
             bool strongest = true;

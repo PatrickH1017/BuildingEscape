@@ -131,7 +131,7 @@ namespace BuildingEscape.EditorTools
                         }
                         needs &= SafeRules.AnySafeNeedsCrowbar(rs, f) == anyMissing;
                     }
-                Check("safes: the computer's record has the first safe's code on a weapon floor every time and the others' about 62 % of the time (a cash floor's as the note had it), and a safe that is not there has none", rec && needs && others > 500 && given * 100 >= others * 50 && given * 100 <= others * 75, $"({given} of {others})");
+                Check("safes: the computer's record has the code of every safe (the owner, 2026-10-23: all of them), and a safe that is not there has none", rec && needs && others > 500 && given == others, $"({given} of {others})");
 
                 bool contents = true;
                 for (int sd = 0; sd < 60; sd++)

@@ -46,6 +46,24 @@ namespace BuildingEscape
         public int BackupIn => Net.NetRole.Simulates ? backupClock.ShownSeconds : netBackupIn;
         /// <summary>Where the last backup call came from (the next officers are sent towards the team).</summary>
         Vector3 lastBackupPos;
+
+        // ---- marked players and the Big Alarm (the owner, 2026-10-24): a sighting marks THAT player and nobody else; the alert goes off when every marked player is pinned (unless the Big Alarm is on); the Big Alarm stays on until the floor ends
+        readonly AlertState alertState = new AlertState();
+        bool netBigAlarm;
+        /// <summary>Tests: count the party as this many players (0: count the players there are).</summary>
+        public static int TestPartySize;
+
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        static void ResetAlertStatics() { TestPartySize = 0; }
+
+        /// <summary>The Big Alarm is on on this floor: enough of the party was marked (<see cref="AlertRules.BigAlarmReached"/>). It never goes off before the floor ends.</summary>
+        public bool BigAlarmActive => Net.NetRole.Simulates ? alertState.BigAlarm : netBigAlarm;
+        /// <summary>How many players are marked now (host / offline).</summary>
+        public int MarkedCount => alertState.MarkedCount;
+        /// <summary>Is this player marked (host / offline)? A guard that spots a player marks him and nobody else.</summary>
+        public bool IsMarked(WobblyPlayer p) => p && alertState.IsMarked(p.GetInstanceID());
+        /// <summary>The most guards alive at once on this floor now: 6 on floors 1 and 2, 8 with the Big Alarm; 13 from floor 3 (<see cref="AlertRules.GuardCap"/>).</summary>
+        public int GuardCap => AlertRules.GuardCap(Floor, BigAlarmActive);
         /// <summary>Until this time the officers' radios are jammed (the alarm panel in a guard outpost was just used): they call no backup.</summary>
         float radiosJammedUntil;
         /// <summary>True while the radios are jammed after the alarm panel was used.</summary>
@@ -66,13 +84,19 @@ namespace BuildingEscape
         }
         void OnDestroy() { if (Instance == this) Instance = null; }
 
+        /// <summary>How many floors the party has entered (the docks do not count): "once a round" (the owner, 2026-10-25: the invisible consumable) is once for each.</summary>
+        public int Round { get; private set; }
+
         public void StartFloor(int floor, int totalFloors, int quota)
         {
             Floor = floor; TotalFloors = totalFloors; Quota = quota;
+            if (floor > 0) Round++;
             Banked = Lost = Caught = 0;
             BackupCalled = false;
             backupClock.Reset();
             radiosJammedUntil = 0f;
+            alertState.Reset(); netBigAlarm = false;           // (a new floor: nobody is marked, no Big Alarm)
+            replacementsDue.Clear(); ReplacementsMade = 0;     // (a new floor: nobody is waiting to be replaced)
             if (Net.NetRole.Simulates) ClearPins();   // a new floor: nobody is held down any more (busted players stay busted)
             if (floor > 0) SurplusPaid = 0;
             TimeLeft = timeLimitSeconds;
@@ -117,6 +141,8 @@ namespace BuildingEscape
             {
                 TickCustody(Time.deltaTime);
                 TickBackup(Time.deltaTime);
+                TickReplacements();
+                TickAlert();
                 CheckTeamDown();   // also when a free player leaves the game: the ones left may all be pinned or busted
             }
             if (Phase != HeistPhase.Heist) return;
@@ -127,9 +153,9 @@ namespace BuildingEscape
 
         /// <summary>Client: take the host's run state (the countdown keeps running locally between updates).</summary>
         internal void ApplyNet(HeistPhase phase, int floor, int totalFloors, int quota, int banked, int lost, int caught,
-                               int runTotal, int cash, int surplusPaid, int timeLeft, bool backupCalled, int backupIn = -1)
+                               int runTotal, int cash, int surplusPaid, int timeLeft, bool backupCalled, int backupIn = -1, bool bigAlarm = false)
         {
-            netBackupIn = backupIn;
+            netBackupIn = backupIn; netBigAlarm = bigAlarm;
             Floor = floor; TotalFloors = totalFloors; Quota = quota; Lost = lost; Caught = caught; RunTotal = runTotal;
             SurplusPaid = surplusPaid; BackupCalled = backupCalled;
             if (banked != Banked) { Banked = banked; OnBankedChanged?.Invoke(Banked); }
@@ -326,7 +352,7 @@ namespace BuildingEscape
         /// A guard finished radioing. The first call on a floor sends two officers and starts the clock: from then on
         /// ANOTHER officer is called every <see cref="CustodyRules.BackupIntervalSeconds"/> until the floor ends.
         /// </summary>
-        public void CallBackup(GuardAI by)
+        public void CallBackup(GuardAI by, WobblyPlayer spotted = null)
         {
             if (Phase != HeistPhase.Heist) return;
             if (by && Net.NetRole.Simulates && RadiosJammed)
@@ -336,9 +362,10 @@ namespace BuildingEscape
                 return;
             }
             lastBackupPos = by ? by.transform.position : Vector3.zero;
+            bool bigNow = MarkSpotted(spotted, false);                                  // (the player the guard spotted is marked, nobody else; an alarm or a body marks nobody)
             BackupCalled = true;
             backupClock.Start(CustodyRules.BackupInterval(Floor));
-            SendOfficers(2, lastBackupPos, "BACKUP CALLED");
+            SendOfficers(2, lastBackupPos, bigNow ? "BIG ALARM" : "BACKUP CALLED");
         }
 
         /// <summary>
@@ -365,13 +392,51 @@ namespace BuildingEscape
         public bool StandDown()
         {
             if (Phase != HeistPhase.Heist || !Net.NetRole.Simulates) return false;
+            if (alertState.BigAlarm) return false;                                       // (the Big Alarm is never shut off: the owner, 2026-10-24)
             bool wasOn = backupClock.Active || BackupCalled;
             if (!wasOn) return false;
             backupClock.Reset();
             BackupCalled = false;
+            alertState.ClearMarks();
             radiosJammedUntil = Time.time + CustodyRules.StandDownJamSeconds;
             Announce("ALL QUIET - the alarm is off and no more officers are coming");
             return true;
+        }
+
+        /// <summary>The party: how many players are in the run (<see cref="TestPartySize"/> when a test sets it).</summary>
+        int PartySize()
+        {
+            if (TestPartySize > 0) return TestPartySize;
+            int n = 0;
+            foreach (var p in WobblyPlayerRegistry.All) if (p) n++;
+            return n;
+        }
+
+        /// <summary>
+        /// A guard spotted <paramref name="p"/> (host / offline; the owner, 2026-10-24: "when a player gets spotted it should only mark that player not all players, if another player is spotted they should now be marked as well"): that player is marked and nobody else.
+        /// When enough of the party is marked (<see cref="AlertRules.BigAlarmReached"/>: half of it, both players of a duo) the Big Alarm goes on and stays on. True when this mark turned it on; <paramref name="announce"/> puts the banner up for it.
+        /// </summary>
+        public bool MarkSpotted(WobblyPlayer p, bool announce = true)
+        {
+            if (!p || !Net.NetRole.Simulates || Phase != HeistPhase.Heist) return false;
+            bool big = alertState.Mark(p.GetInstanceID(), PartySize());
+            if (big && announce) Announce("BIG ALARM");
+            return big;
+        }
+
+        /// <summary>Host / offline, every frame: the alert goes off when every marked player is in custody (pinned or busted) and the Big Alarm is not on (the owner, 2026-10-24: "the security alert should turn off and the respawn rate of backup guards should go back to 45 seconds").</summary>
+        void TickAlert()
+        {
+            if (alertState.MarkedCount == 0 || alertState.BigAlarm) return;
+            int free = 0;
+            foreach (var p in WobblyPlayerRegistry.All)
+                if (p && alertState.IsMarked(p.GetInstanceID()) && p.Custody == CustodyState.Free) free++;
+            if (!alertState.ShouldEnd(free)) return;
+            alertState.ClearMarks();
+            if (!(backupClock.Active || BackupCalled)) return;
+            backupClock.Reset();
+            BackupCalled = false;
+            Announce("ALL QUIET - the alarm is off and no more officers are coming");
         }
 
         void TickBackup(float dt)
@@ -379,15 +444,51 @@ namespace BuildingEscape
             if (!backupClock.Tick(dt)) return;
             // the next officer heads for the team: where a free player is, else where the last call came from
             var target = lastBackupPos;
-            foreach (var p in WobblyPlayerRegistry.All)
-                if (p && p.Custody == CustodyState.Free) { target = p.transform.position; break; }
+            bool found = false;
+            foreach (var p in WobblyPlayerRegistry.All)                                  // (the officers go for a MARKED player who is free, the owner, 2026-10-24)
+                if (p && p.Custody == CustodyState.Free && IsMarked(p)) { target = p.transform.position; found = true; break; }
+            if (!found && alertState.MarkedCount == 0)                                   // (an alarm with nobody marked: the team, as before)
+                foreach (var p in WobblyPlayerRegistry.All)
+                    if (p && p.Custody == CustodyState.Free) { target = p.transform.position; break; }
             SendOfficers(1, target, "ANOTHER OFFICER CALLED");
+        }
+
+        // ---- replacement guards (the owner, 2026-10-23: "If a guard is eliminated after 15 seconds a new guard should come from a stairwell")
+        readonly System.Collections.Generic.List<float> replacementsDue = new();
+        /// <summary>Tests: how many replacement guards came out of a stairwell on this floor, and how many are still waiting.</summary>
+        public int ReplacementsMade { get; private set; }
+        public int ReplacementsWaiting => replacementsDue.Count;
+        /// <summary>Tests: the guards waiting for their replacement have been waiting <paramref name="seconds"/> longer.</summary>
+        public void AgeReplacements(float seconds) { for (int i = 0; i < replacementsDue.Count; i++) replacementsDue[i] -= seconds; }
+
+        /// <summary>A guard went down for good (host / offline): a new guard comes out of a stairwell after <see cref="AlertRules.RespawnSeconds"/> (the owner, 2026-10-24: 45 s while it is quiet, 20 s while the backup is on, on floors 1 and 2). Only while the floor is a live heist; the boss is never replaced.</summary>
+        public void GuardEliminated(GuardAI g)
+        {
+            if (!Net.NetRole.Simulates || Phase != HeistPhase.Heist || !g || g.IsBoss || g.IsPuppet) return;
+            replacementsDue.Add(Time.time);                      // (when he went down: the wait is judged when it is over, by the alert as it is then)
+        }
+
+        /// <summary>The replacements that are due come out of a stairwell, as long as fewer guards are alive than the floor's cap (<see cref="GuardCap"/>); a replacement that finds the floor full is not made.</summary>
+        void TickReplacements()
+        {
+            if (replacementsDue.Count == 0) return;
+            FloorGenerator gen = null;
+            for (int i = replacementsDue.Count - 1; i >= 0; i--)
+            {
+                if (!AlertRules.RespawnDue(Time.time - replacementsDue[i], Floor, BackupActive)) continue;        // (45 s while it is quiet, 20 s while the backup is on: AlertRules.RespawnSeconds)
+                replacementsDue.RemoveAt(i);
+                int alive = 0;
+                foreach (var g in GuardAI.All) if (g && !g.Dead) alive++;
+                if (!GuardRules.ReplacementWanted(alive, GuardCap)) continue;
+                if (!gen) gen = FindFirstObjectByType<FloorGenerator>();
+                if (gen && gen.SpawnReplacement()) ReplacementsMade++;
+            }
         }
 
         void SendOfficers(int wanted, Vector3 target, string headline)
         {
             var gen = FindFirstObjectByType<FloorGenerator>();
-            int max = gen ? gen.maxGuardsAlive : 24;
+            int max = GuardCap;                                  // (the floor's cap, the owner, 2026-10-24: 6, 8 with the Big Alarm; 13 from floor 3)
             int alive = 0;
             foreach (var g in GuardAI.All) if (g && !g.Dead) alive++;
             int n = Mathf.Max(0, Mathf.Min(wanted, max - alive));

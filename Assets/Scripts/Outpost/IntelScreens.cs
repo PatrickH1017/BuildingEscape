@@ -18,6 +18,14 @@ namespace BuildingEscape
         int journalTab;                 // (0 the safe notes, 1 the checklist: the owner, 2026-10-19)
         /// <summary>Which tab of the journal is up (for tests).</summary>
         public int JournalTab { get => journalTab; set => journalTab = value; }
+
+        /// <summary>Opens the journal on its checklist (the owner, 2026-10-24: "the Checklist tab should be first ... when clicking J it should open directly to the checklist").</summary>
+        public void OpenJournal()
+        {
+            openedFrame = Time.frameCount;
+            journalTab = 1;
+            OutpostUi.Show(OutpostUi.Kind.Journal);
+        }
         readonly System.Collections.Generic.List<SafeIntel.Entry> journalShown = new System.Collections.Generic.List<SafeIntel.Entry>();      // the records of the safes of the floor the player is on
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
@@ -56,9 +64,7 @@ namespace BuildingEscape
                 var me = LocalPlayer();
                 if (me && !me.InCustody && !me.IsHidden)
                 {
-                    openedFrame = Time.frameCount;
-                    journalTab = 0;
-                    OutpostUi.Show(OutpostUi.Kind.Journal);
+                    OpenJournal();
                 }
             }
         }
@@ -87,6 +93,18 @@ namespace BuildingEscape
         {
             var current = OutpostUi.Current;
             if (current == OutpostUi.Kind.Journal) DrawJournal();
+            else DrawJournalHint(current);
+        }
+
+        /// <summary>"Press J for journal" at the bottom left (the owner, 2026-10-24), with "Press Tab for inventory" above it, while a floor is being played and no screen is up.</summary>
+        void DrawJournalHint(OutpostUi.Kind current)
+        {
+            if (Event.current.type != EventType.Repaint || current != OutpostUi.Kind.None || OtherScreenUp) return;
+            var hm = HeistManager.Instance;
+            if (hm == null || hm.Floor < 1 || IntroCinematic.Playing) return;
+            float s = HudTheme.S;
+            HudTheme.Text(new Rect(18f * s, Screen.height - 72f * s, 360f * s, 30f * s), "Press Tab for inventory", 16f, HudTheme.Muted, TextAnchor.MiddleLeft);
+            HudTheme.Text(new Rect(18f * s, Screen.height - 46f * s, 360f * s, 30f * s), "Press J for journal", 16f, HudTheme.Muted, TextAnchor.MiddleLeft);
         }
 
         void DrawJournal()
@@ -129,8 +147,8 @@ namespace BuildingEscape
                 }
             }
             // the two tabs (a button answers in every kind of event, so they sit outside the paint)
-            if (MenuKit.Button(new Rect(r.x + 28f * s, r.y + 74f * s, 190f * s, 36f * s), "SAFE NOTES", checklist ? HudTheme.Dim : HudTheme.Info, 16f)) journalTab = 0;
-            if (MenuKit.Button(new Rect(r.x + 226f * s, r.y + 74f * s, 190f * s, 36f * s), "CHECKLIST", checklist ? HudTheme.Info : HudTheme.Dim, 16f)) journalTab = 1;
+            if (MenuKit.Button(new Rect(r.x + 226f * s, r.y + 74f * s, 190f * s, 36f * s), "SAFE NOTES", checklist ? HudTheme.Dim : HudTheme.Info, 16f)) journalTab = 0;
+            if (MenuKit.Button(new Rect(r.x + 28f * s, r.y + 74f * s, 190f * s, 36f * s), "CHECKLIST", checklist ? HudTheme.Info : HudTheme.Dim, 16f)) journalTab = 1;
             if (MenuKit.Button(new Rect(r.xMax - 226f * s, r.yMax - 62f * s, 200f * s, 44f * s), "CLOSE  (J / ESC)", HudTheme.Info, 17f)) OutpostUi.Hide(OutpostUi.Kind.Journal);
         }
 

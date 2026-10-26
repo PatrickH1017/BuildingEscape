@@ -107,6 +107,7 @@ namespace BuildingEscape
 
         void Plant(RoomCtx r, char side, float along)
         {
+            if (!r.HasWall(side)) return;                                       // (a plant stands against a wall, never in the open: the owner's playtest, 2026-10-23)
             r.Wall(side, PlantKey(Chance(0.45)), along);
         }
 
@@ -261,11 +262,7 @@ namespace BuildingEscape
 
         void ThHub(RoomCtx r)
         {
-            // the junction stays open; just a plant in each corner of the square (against the partition corners)
-            float h = r.w / 2 - 0.25f;
-            foreach (var sx in new[] { -1f, 1f })
-                foreach (var sz in new[] { -1f, 1f })
-                    if (Chance(0.55)) r.Put(PlantKey(Chance(0.5)), sx * (h - 0.1f), sz * (h - 0.1f), 0f);
+            // the junction stays open and bare: it had a plant in each corner of its square, which stood in the middle of the crossing, 3 m from any wall (the owner's playtest, 2026-10-23: "Plants also should not spawn in the middle of rooms (along the walls are good)")
         }
 
         void ThHall(RoomCtx r)
@@ -729,7 +726,7 @@ namespace BuildingEscape
             r.Put("lounge_chair", -armX, zt, 90f);                 // the armchairs face each other across the table
             r.Put("lounge_chair", armX, zt, 270f);
             if (table != null) { r.Top(table, "cup", 0.3f, 0f); if (Chance(0.5)) r.Top(table, "papers", -0.3f, 0f, 20f); }
-            r.Put("plant_tall", armX + 0.3f, zs - 0.2f, 0f);
+            // (a plant_tall stood here beside the armchair, in the middle of the room: the owner, 2026-10-23, "Plants also should not spawn in the middle of rooms"; the lounge has its plants against the south wall)
             r.Put("fatboy", hx - 1.1f, -hz + 1.9f, 0f);
             if (r.HasWall('W'))
             {

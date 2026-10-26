@@ -37,7 +37,7 @@ namespace BuildingEscape.EditorTools
                 GuardLoadouts.Eliminates(shotgunK) && GuardLoadouts.Eliminates(sniperK) && !GuardLoadouts.Eliminates(pewK) && !GuardLoadouts.Eliminates(smgK) && !GuardLoadouts.Eliminates(rifleK));
 
             // ---- who carries what on which floor (the patrolling guards of a floor: 3 + floor, and two more from floor 3, twelve at most)
-            void Counts(int floor, out int p, out int s, out int sh, out int r, out int sn) => GuardLoadouts.Counts(floor, Mathf.Min(12, GuardRules.PatrolGuards(floor, 3)), out p, out s, out sh, out r, out sn);
+            void Counts(int floor, out int p, out int s, out int sh, out int r, out int sn) => GuardLoadouts.Counts(floor, GuardRules.PatrolCount(floor, 3), out p, out s, out sh, out r, out sn);
             bool none12 = true;
             for (int f = 1; f <= 2; f++) { Counts(f, out int p, out int s, out int sh, out int r, out int sn); none12 &= p + s + sh + r + sn == 0; }
             Counts(3, out int p3, out int s3, out int sh3, out int r3, out int sn3);
@@ -58,12 +58,13 @@ namespace BuildingEscape.EditorTools
             Check("floors: the armed share never falls from one floor to the next and is never more than two thirds", shareOk && GuardLoadouts.ArmedShare(2) == 0f && GuardLoadouts.ArmedShare(3) > 0f);
 
             // ---- the plan of a floor
+            GuardLoadouts.Counts(10, 12, out _, out _, out _, out int r10of12, out _);                    // (the rifles of a floor of exactly twelve guards: floor 10 has 15 patrolling since 2026-10-23)
             var plan = GuardLoadouts.Plan(10, 12, new System.Random(7));
             var again = GuardLoadouts.Plan(10, 12, new System.Random(7));
             bool same = plan.Length == again.Length; for (int i = 0; same && i < plan.Length; i++) same &= plan[i] == again[i];
             Check("plan: floor 10 with 12 guards: 12 loadouts, two snipers with no shield, two shotguns with a heavy one, rifles with a medium one, the rest unarmed and unshielded",
                 plan.Length == 12 && plan.Count(l => l.Armed && l.Kind == sniperK && l.Shield == ShieldTier.None) == 2 && plan.Count(l => l.Armed && l.Kind == shotgunK && l.Shield == ShieldTier.Heavy) == 2
-                && plan.Count(l => l.Armed && l.Kind == rifleK && l.Shield == ShieldTier.Medium) == r10 && plan.Count(l => !l.Armed && l.Shield == ShieldTier.None) == 12 - 2 - 2 - r10,
+                && plan.Count(l => l.Armed && l.Kind == rifleK && l.Shield == ShieldTier.Medium) == r10of12 && plan.Count(l => !l.Armed && l.Shield == ShieldTier.None) == 12 - 2 - 2 - r10of12,
                 $"({string.Join(", ", plan.Select(l => l.ToString()))})");
             Check("plan: the same rng gives the same floor", same);
             var pl1 = GuardLoadouts.Plan(2, 7, new System.Random(3));
@@ -101,7 +102,6 @@ namespace BuildingEscape.EditorTools
             bool sane = true;
             foreach (var t in new[] { tPew, tSmg, tRifle, tShotgun, tSniper }) sane &= t.engageMin > 0f && t.engageMin < t.engageMax && t.magazine > 0 && t.reloadSeconds > 1f && t.aimSeconds > 0.2f && t.fireInterval > 0.05f && t.stumbleSeconds > 0.5f;
             Check("tuning: every gun has a real range, magazine, aim, rate, reload and stumble", sane);
-            Check("drops: a guard drops one magazine of his gun's ammunition", GuardLoadouts.DropRounds(pewK) == S[(int)pewK].magazine && GuardLoadouts.DropRounds(smgK) == 24 && GuardLoadouts.DropRounds(rifleK) == 30 && GuardLoadouts.DropRounds(shotgunK) == 6 && GuardLoadouts.DropRounds(sniperK) == 5);
             Check("armed: the guards of the game are armed from floor 3 (it was 4)", ArmedGuards.DefaultFirstArmedFloor == 3 && GuardLoadouts.FirstArmedFloor == 3 && OutpostLoot.PewFloor == 3);
             Check("guard starts: the route seed is the same for the same run and floor, differs from floor to floor and from run to run, and an online run's guard seed follows the host's seed and is never 0",
                 GuardRules.RouteSeed(1234, 3) == GuardRules.RouteSeed(1234, 3) && GuardRules.RouteSeed(1234, 3) != GuardRules.RouteSeed(1234, 4) && GuardRules.RouteSeed(1234, 3) != GuardRules.RouteSeed(1235, 3)

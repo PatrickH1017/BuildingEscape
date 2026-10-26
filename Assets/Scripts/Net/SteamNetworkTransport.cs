@@ -382,6 +382,21 @@ namespace BuildingEscape.Net
             clientConnection = HSteamNetConnection.Invalid;
         }
 
+        /// <summary>The numbers of a connection as Steam counts them (the developer spectator's network panel).</summary>
+        public struct LinkStats { public int pingMs; public float quality, inBytes, outBytes; }
+
+        /// <summary>The round trip (ms), the share of packets that arrived (0..1) and the bytes per second in and out of the connection to this client (on a client: to the host); false when there is no such connection.</summary>
+        public bool TryGetLinkStats(ulong clientId, out LinkStats stats)
+        {
+            stats = default;
+            if (!TryGetConnection(clientId, out var conn)) return false;
+            var status = new SteamNetConnectionRealTimeStatus_t();
+            var lane = new SteamNetConnectionRealTimeLaneStatus_t();
+            if (SteamNetworkingSockets.GetConnectionRealTimeStatus(conn, ref status, 0, ref lane) != EResult.k_EResultOK) return false;
+            stats = new LinkStats { pingMs = Mathf.Max(0, status.m_nPing), quality = status.m_flConnectionQualityLocal, inBytes = status.m_flInBytesPerSec, outBytes = status.m_flOutBytesPerSec };
+            return true;
+        }
+
         public override ulong GetCurrentRtt(ulong clientId)
         {
             if (!TryGetConnection(clientId, out var conn)) return 0;

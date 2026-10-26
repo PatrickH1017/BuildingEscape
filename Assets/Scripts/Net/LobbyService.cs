@@ -19,6 +19,8 @@ namespace BuildingEscape.Net
     {
         public CSteamID Id;
         public string Name, Version, Code;
+        /// <summary>The Steam ID of the lobby's owner (the host); 0 for a lobby that does not name it (an older build).</summary>
+        public ulong Host;
         public int Members, Max;
         public bool VersionOk;
     }
@@ -84,6 +86,7 @@ namespace BuildingEscape.Net
                 SteamMatchmaking.SetLobbyData(Current, NetConst.KeyName, name);
                 SteamMatchmaking.SetLobbyData(Current, NetConst.KeyListed, vis == LobbyVisibility.Public ? "1" : "0");
                 SteamMatchmaking.SetLobbyData(Current, NetConst.KeyState, NetConst.StateOpen);
+                SteamMatchmaking.SetLobbyData(Current, NetConst.KeyHost, SteamUser.GetSteamID().m_SteamID.ToString());          // (a developer who watches connects to the host without joining the lobby)
                 SteamMatchmaking.SetLobbyMemberData(Current, NetConst.MemberReady, "0");
                 done(true, null);
             });
@@ -120,10 +123,10 @@ namespace BuildingEscape.Net
         // ------------------------------------------------------------------ search
 
         /// <summary>Lists open lobbies. With a code, returns only the lobby with that code (listed or not).</summary>
-        public void Search(string code, Action<List<LobbyListing>> done)
+        public void Search(string code, Action<List<LobbyListing>> done, bool includeFull = false)
         {
             SteamMatchmaking.AddRequestLobbyListDistanceFilter(ELobbyDistanceFilter.k_ELobbyDistanceFilterWorldwide);
-            SteamMatchmaking.AddRequestLobbyListFilterSlotsAvailable(1);
+            if (!includeFull) SteamMatchmaking.AddRequestLobbyListFilterSlotsAvailable(1);          // (a developer who watches takes no seat: he also finds a lobby that is full)
             SteamMatchmaking.AddRequestLobbyListResultCountFilter(50);
             SteamMatchmaking.AddRequestLobbyListStringFilter(NetConst.KeyGame, NetConst.GameTag, ELobbyComparison.k_ELobbyComparisonEqual);
             SteamMatchmaking.AddRequestLobbyListStringFilter(NetConst.KeyState, NetConst.StateOpen, ELobbyComparison.k_ELobbyComparisonEqual);
@@ -149,6 +152,7 @@ namespace BuildingEscape.Net
                             VersionOk = ver == NetConst.BuildVersion,
                             Members = SteamMatchmaking.GetNumLobbyMembers(id),
                             Max = SteamMatchmaking.GetLobbyMemberLimit(id),
+                            Host = ulong.TryParse(SteamMatchmaking.GetLobbyData(id, NetConst.KeyHost), out var hostId) ? hostId : 0UL,
                         });
                     }
                 done(list);

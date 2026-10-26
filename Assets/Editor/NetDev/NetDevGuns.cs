@@ -123,9 +123,8 @@ namespace BuildingEscape.EditorTools
                 GunCheck($"{tag} the muzzle is out in front of the hand along the barrel, and the left hand's place is on the gun between the two", gripToMuzzle > 0.25f * spec.length * held.BodyScale
                     && Vector3.Dot(held.Foregrip.position - held.Grip.position, held.Grip.forward) > 0.05f && Vector3.Dot(held.Foregrip.position - held.Grip.position, held.Grip.forward) < gripToMuzzle,
                     $"(grip to muzzle {gripToMuzzle:0.000} m, body scale {held.BodyScale:0.00}, {held.FitInfo()})");
-                GunCheck($"{tag} the magazine holds {spec.magazine} and the gun comes with {spec.spareClips} spare clips, and room for the rest of its limit ({(spec.maxClips > 0 ? spec.maxClips : GunRules.MaxClips)} clips)",
-                    gun.Magazine.Capacity == spec.magazine && gun.Magazine.Rounds == spec.magazine && gun.Magazine.Reserve == spec.spareClips * spec.magazine
-                    && gun.Magazine.Room == ((spec.maxClips > 0 ? spec.maxClips : GunRules.MaxClips) - 1 - spec.spareClips) * spec.magazine);
+                GunCheck($"{tag} the magazine holds {spec.magazine} and the gun comes with {spec.spareClips} magazines' worth of bullets in the reserve (and takes as many more as it is given)",
+                    gun.Magazine.Capacity == spec.magazine && gun.Magazine.Rounds == spec.magazine && gun.Magazine.Reserve == spec.spareClips * spec.magazine);
 
                 // ---- on the dummy
                 if (dummy == null) continue;
@@ -199,7 +198,7 @@ namespace BuildingEscape.EditorTools
             yield return new WaitForSeconds(1.3f);
             GunCheck("unlock: a rifle carried in the docks is unlocked for the party within a second, and nothing else is", RunUnlocks.Has(RangedWeapon.Kind.Rifle) && !RunUnlocks.Has(RangedWeapon.Kind.Smg) && !RunUnlocks.Has(RangedWeapon.Kind.Sniper) && !RunUnlocks.Has(RangedWeapon.Kind.Shotgun), $"(mask {RunUnlocks.Mask})");
             var rifle = rifleObj.GetComponent<RangedWeapon>();
-            GunCheck("unlock: a rifle made by the dealer's own rules (the pack's spare clips), carried in the pack, is a rifle with two spare clips", rifle.Magazine.Reserve == 2 * S[(int)RangedWeapon.Kind.Rifle].magazine && rifle.Magazine.Room == 0);
+            GunCheck("unlock: a rifle made by the dealer's own rules (the pack's spare clips), carried in the pack, is a rifle with two spare clips", rifle.Magazine.Reserve == 2 * S[(int)RangedWeapon.Kind.Rifle].magazine);
 
             // ================= 4. the dealer: ammunition for the gun that was found, three clips at most
             var vendor = Vendor.Current;
@@ -212,7 +211,7 @@ namespace BuildingEscape.EditorTools
             {
                 int cash0 = hm.Cash;
                 string said = Buy(rifleAmmo);
-                GunCheck("dealer: a rifle with its two spare clips already has all three clips: the dealer will not sell a fourth, and takes no money", said.Contains("three clips") && hm.Cash == cash0 && rifle.Magazine.Reserve == 60, $"(\"{said}\")");
+                GunCheck("dealer: there is no limit on the bullets carried: a rifle with its two spare magazines' worth still takes a third, for the list's price", hm.Cash == cash0 - S[(int)RangedWeapon.Kind.Rifle].clipPrice && rifle.Magazine.Reserve == 90, $"(\"{said}\", reserve {rifle.Magazine.Reserve})");
                 rifle.Magazine.SetReserve(0);
                 cash0 = hm.Cash;
                 said = Buy(rifleAmmo);
@@ -220,7 +219,7 @@ namespace BuildingEscape.EditorTools
                 Buy(rifleAmmo);
                 cash0 = hm.Cash;
                 said = Buy(rifleAmmo);
-                GunCheck("dealer: two magazines fill the reserve to three clips in all, a third is refused", rifle.Magazine.Reserve == 60 && rifle.Magazine.Room == 0 && said.Contains("three clips") && hm.Cash == cash0);
+                GunCheck("dealer: a third and a fourth magazine are sold as well (90 bullets in the reserve), each for the list's price", rifle.Magazine.Reserve == 90 && hm.Cash == cash0 - S[(int)RangedWeapon.Kind.Rifle].clipPrice, $"(\"{said}\", reserve {rifle.Magazine.Reserve})");
                 cash0 = hm.Cash;
                 said = Buy(smgAmmo);
                 GunCheck("dealer: ammunition for a gun that has not been found is not for sale", said.Contains("nothing like that") && hm.Cash == cash0, $"(\"{said}\")");
@@ -228,7 +227,7 @@ namespace BuildingEscape.EditorTools
                 said = Buy(shotgunAmmo);
                 GunCheck("dealer: a gun that was found but is not in the pack: you carry none to load, and nothing is paid", said.Contains("no Shotgun") && hm.Cash == cash0, $"(\"{said}\")");
                 var offeredNow = new List<int>(); for (int i = 0; i < Vendor.Catalog.Length; i++) if (Vendor.OnOffer(i, 1)) offeredNow.Add(i);
-                GunCheck("dealer: the shop shows the first seven, and the ammunition of the rifle and the shotgun that were found - nothing else", offeredNow.Count == 9 && offeredNow.Contains(rifleAmmo) && offeredNow.Contains(shotgunAmmo) && !offeredNow.Contains(smgAmmo) && !offeredNow.Contains(Vendor.PewIndex));
+                GunCheck("dealer: the shop shows the three melee weapons, the walkie talkie, and the ammunition of the rifle and the shotgun that were found - nothing else", offeredNow.Count == 6 && offeredNow.Contains(Vendor.WalkieIndex) && offeredNow.Contains(rifleAmmo) && offeredNow.Contains(shotgunAmmo) && !offeredNow.Contains(smgAmmo) && !offeredNow.Contains(Vendor.PewIndex));
             }
 
             // ================= 5. a spare clip fits its own gun, never beyond three clips
@@ -244,7 +243,7 @@ namespace BuildingEscape.EditorTools
             GunCheck("clip: an SMG magazine is not taken by somebody who carries no SMG: it stays where it lies", clipGo != null && clipGo.activeSelf);
             pack.TryStore(smgObj.GetComponent<Pickup>());
             var smg = smgObj.GetComponent<RangedWeapon>();
-            GunCheck("clip: a gun that was found holds its one clip and no spare (the owner: \"Guns found should have one clip in them\")", smg.Magazine.Rounds == 24 && smg.Magazine.Reserve == 0 && smg.Magazine.Room == 48);
+            GunCheck("clip: a gun that was found holds its one clip and no spare (the owner: \"Guns found should have one clip in them\")", smg.Magazine.Rounds == 24 && smg.Magazine.Reserve == 0);
             pack.TryStore(clipPk);
             yield return null;
             GunCheck("clip: with an SMG in the pack the magazine is taken: its 24 rounds go into the reserve and the magazine is gone", clipGo == null && smg.Magazine.Reserve == 24, $"(reserve {smg.Magazine.Reserve})");

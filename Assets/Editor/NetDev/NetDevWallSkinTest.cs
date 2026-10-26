@@ -17,7 +17,7 @@ namespace BuildingEscape.EditorTools
     {
         public static void WallSkinTest()
         {
-            Check("wall skin: it works on floor 7 and no other floor", WallSkinRules.AppliesTo(7) && WallSkinRules.SkinnedFloor == 7 && Enumerable.Range(1, 12).Where(f => f != 7).All(f => !WallSkinRules.AppliesTo(f)));
+            Check("wall skin: it works on floors 1 to 7 (the owner, 2026-10-23) and on no other floor", Enumerable.Range(1, 7).All(f => WallSkinRules.AppliesTo(f)) && WallSkinRules.SkinnedFloor == 7 && Enumerable.Range(8, 6).All(f => !WallSkinRules.AppliesTo(f)) && !WallSkinRules.AppliesTo(0));
             foreach (var key in new[] { "skin_wall_baseboard", "skin_wall_trim", "skin_wall_blank", "skin_wall_brick", "skin_ceiling_panel" })
             {
                 PropDef d;

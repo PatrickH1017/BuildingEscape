@@ -207,8 +207,5 @@ namespace BuildingEscape
                     return new GuardGunTuning { engageMin = 3f, engageMax = 22f, aimSeconds = 0.5f, fireInterval = 0.85f, burstPause = 0f, reloadSeconds = 2.2f, burst = 1, magazine = 10, baseSpread = 2.5f, spreadPerMetre = 0.28f, stumbleSeconds = 1.8f, knockback = 7f };
             }
         }
-
-        /// <summary>Rounds an officer's gun drops when he goes down for good (the owner, 2026-10-19: "guards should drop a fair amount of bullets per guard"): one magazine of his gun's ammunition.</summary>
-        public static int DropRounds(RangedWeapon.Kind kind) => RangedWeapon.Specs[(int)kind].magazine;
     }
 }

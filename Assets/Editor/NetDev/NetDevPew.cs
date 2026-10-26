@@ -519,7 +519,7 @@ namespace BuildingEscape.EditorTools
             int taken = ArmedGuards.DisarmAll();
             ArmedGuards.Everywhere = false;
             yield return new WaitForSeconds(0.5f);
-            PewCheck("test menu: disarm takes the pew from every guard", taken == armTargets.Count && armTargets.All(g => g && !g.Armed && g.GetComponent<GuardGun>() == null), $"({taken})");
+            PewCheck("test menu: disarm takes the pew from every guard", taken >= armTargets.Count && armTargets.All(g => g && !g.Armed && g.GetComponent<GuardGun>() == null), $"({taken})");          // (>=: a guard that was eliminated earlier has been replaced by one out of a stairwell 15 s later - T13 - and he carries a pew too while "every guard carries a pew" is on)
             PewCheck("the pew model is gone from their hands and the flashlight is back", armTargets.All(g => g.GetComponentsInChildren<Transform>(true).All(t => t.name != "Pew_Held")));
 
             // ================= 7. the floor rule (future: "armed from floor N")
@@ -532,6 +532,7 @@ namespace BuildingEscape.EditorTools
             var g2 = GuardAI.All.Where(g => g && !g.Dead && !g.IsPuppet).ToList();
             PewCheck("armed from floor 2: every guard on floor 2 carries a pew", g2.Count > 0 && g2.All(g => g.Armed), $"({g2.Count(g => g.Armed)} of {g2.Count})");
             int before2 = g2.Count;
+            hm.MarkSpotted(WobblyPlayerRegistry.All[0]);                       // (the Big Alarm - the only player is the whole party: floor 2's six guards fill its cap of 6, the Big Alarm lifts it to 8 so that the call can send officers)
             hm.CallBackup(null);
             yield return new WaitForSeconds(4f);
             var g2b = GuardAI.All.Where(g => g && !g.Dead && !g.IsPuppet).ToList();

@@ -13,8 +13,9 @@ namespace BuildingEscape
         /// <summary>The check box "Show guards' vision cones" is remembered between Play sessions (the editor only: the menu exists only with Test Mode on).</summary>
         public const string ConesPrefKey = "OvertimeEscape.TestMode.ShowGuardCones";
 
-        /// <summary>True while the panel is open (the camera frees the cursor).</summary>
-        public static bool PanelOpen { get; private set; }
+        /// <summary>True while the panel is open (the camera frees the cursor), the developer terminal is up (<see cref="DevTerminal"/>), the spectator's dev menu is (<see cref="DevSpectator"/>) or a vending machine's screen is (<see cref="VendingScreen"/>): all are screens over the game, and everything that asks whether a screen is up asks this.</summary>
+        public static bool PanelOpen => panelOpen || DevTerminal.Open || DevSpectator.MenuOpen || VendingScreen.Open;
+        static bool panelOpen;
 
         bool open;
         Vector2 scroll;
@@ -34,12 +35,52 @@ namespace BuildingEscape
             Debug.Log("Test Mode is ON - press F1 for the cheat panel. (Employees Take Revenge > Test Mode turns it off.)");
         }
 
-        void OnDestroy() { PanelOpen = false; }
+#if ETR_DEV_TOOLS || UNITY_EDITOR
+        /// <summary>The dev menu is made once the terminal unlocks it (in a build; in the Editor Test Mode's own switch makes it as before): called by <see cref="DevTerminal"/>.</summary>
+        public static void EnsureExists()
+        {
+            if (!DevAccess.Compiled || FindFirstObjectByType<TestMode>()) return;
+            GuardVision.ShowCones = PlayerPrefs.GetInt(ConesPrefKey, 0) == 1;
+            var go = new GameObject("TestMode");
+            DontDestroyOnLoad(go);
+            go.AddComponent<TestMode>();
+        }
+
+        /// <summary>Opens the dev menu (the Esc menu's DEV MENU button, the owner, 2026-10-24); not in a network session (the cheats create things the sync does not know about).</summary>
+        public static void OpenMenu()
+        {
+            if (!DevAccess.Unlocked || Net.NetSession.Online) return;
+            EnsureExists();
+            var t = FindFirstObjectByType<TestMode>();
+            if (t) { t.open = true; panelOpen = true; }
+        }
+
+        /// <summary>The Esc menu's DEV MENU button (the owner, 2026-10-24): opens the dev menu, or closes it when it is open already, like F1 does.</summary>
+        public static void ToggleMenu()
+        {
+            if (!DevAccess.Unlocked || Net.NetSession.Online) return;
+            if (MenuOpen) CloseMenu(); else OpenMenu();
+        }
+
+        /// <summary>The dev menu is up (for the tests and the Esc menu).</summary>
+        public static bool MenuOpen { get { var t = FindFirstObjectByType<TestMode>(); return t != null && t.open; } }
+
+        /// <summary>Closes the dev menu (the terminal's "lock").</summary>
+        public static void CloseMenu()
+        {
+            var t = FindFirstObjectByType<TestMode>();
+            if (t) { t.open = false; panelOpen = false; }
+        }
+#endif
+
+        void OnDestroy() { panelOpen = false; }
 
         void Update()
         {
-            if (Net.NetSession.Online) { open = false; PanelOpen = false; return; } // cheats create things the sync does not know about
-            if (Input.GetKeyDown(KeyCode.F1)) { open = !open; PanelOpen = open; }
+            if (Net.NetSession.Online) { open = false; panelOpen = false; return; } // cheats create things the sync does not know about
+            bool ctrl = Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl);        // (CTRL + F1 is the terminal's)
+            if (DevTerminalRules.MenuKeyOpens(Input.GetKeyDown(KeyCode.F1), ctrl, DevAccess.Unlocked, DevTerminal.Open)) { open = !open; panelOpen = open; }      // (the owner, 2026-10-23: F1 opens the dev menu only once the code was typed in the terminal)
+            if (open && !DevAccess.Unlocked) { open = false; panelOpen = false; }                          // (locked again: the menu goes)
             TickSafeTrip();
         }
 
@@ -102,7 +143,7 @@ namespace BuildingEscape
 
         void OnGUI()
         {
-            if (Net.NetSession.Online) return;
+            if (Net.NetSession.Online || !DevAccess.Unlocked) return;                       // (locked: no menu and no "TEST MODE F1" tag)
             if (!open)
             {
                 if (Event.current.type == EventType.Repaint) HudWidgets.TestTag();
@@ -119,6 +160,12 @@ namespace BuildingEscape
             GUILayout.BeginArea(new Rect(r.x + 10, r.y + 26, w - 20, r.height - 34));
             scroll = GUILayout.BeginScrollView(scroll, false, false, GUIStyle.none, GUI.skin.verticalScrollbar);          // (no sideways scrollbar: up and down only)
 
+            if (EscapeMenu.ShowsLeaveRun(false, UnityEngine.SceneManagement.SceneManager.GetActiveScene().name == Net.NetConst.MenuScene) && GUILayout.Button("Leave run"))          // (the owner, 2026-10-24: the dev menu has a leave-run button too)
+            {
+                open = false; panelOpen = false;
+                EscapeMenu.LeaveRun();
+                GUIUtility.ExitGUI();
+            }
             GUILayout.Label($"Cash: ${(hm ? hm.Cash : 0)}");
             GUILayout.BeginHorizontal();
             if (GUILayout.Button("+$100") && hm) hm.AddCash(100);
@@ -460,13 +507,13 @@ namespace BuildingEscape
             {
                 var m = gun.Magazine;
                 GUILayout.Label(m.Reloading ? gun.Data.name + ": reloading ..." : $"{gun.Data.name}: {m.Rounds} / {m.Capacity} rounds, {(m.InfiniteReserve ? "endless" : m.Reserve.ToString())} spare (LMB fires, R reloads)");
-                if (GUILayout.Button("Refill the magazine and the spare clips"))
+                if (GUILayout.Button("Refill the magazine and the bullets"))
                 {
                     m.Fill();
                     if (!m.InfiniteReserve) m.SetReserve(Mathf.Max(m.Reserve, RangedWeapon.Specs[(int)gun.kind].spareClips * m.Capacity));
                 }
             }
-            else GUILayout.Label("Equip the Pew (inventory) to shoot: 8 rounds a clip, two spare clips, then it only clicks");
+            else GUILayout.Label("Equip the Pew (inventory) to shoot: 8 rounds in the gun and 16 bullets to reload with, then it only clicks");
 
             bool every = GUILayout.Toggle(ArmedGuards.Everywhere, "Every guard carries a pew (now and on new floors)");
             if (every != ArmedGuards.Everywhere)

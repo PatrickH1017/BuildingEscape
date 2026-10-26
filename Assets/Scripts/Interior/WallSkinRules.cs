@@ -66,9 +66,9 @@ namespace BuildingEscape
     /// </summary>
     public static class WallSkinRules
     {
-        /// <summary>The one floor this is tried on.</summary>
-        public const int SkinnedFloor = 7;
-        public static bool AppliesTo(int floor) => floor == SkinnedFloor;
+        /// <summary>The last floor of the new art: floor 7 was the test floor and floors 1 to 6 follow since the owner's go (2026-10-23); <see cref="FloorArtRules"/> is the one rule.</summary>
+        public const int SkinnedFloor = FloorArtRules.LastFloor;
+        public static bool AppliesTo(int floor) => FloorArtRules.AppliesTo(floor);
 
         /// <summary>The pack's wall piece: 2.5 m long, 2.997 m high (the module the planner stretches), and the base colour of its beige (so a paint colour can be turned into a tint).</summary>
         public const float ModuleLength = 2.5f, ModuleHeight = 2.997f;

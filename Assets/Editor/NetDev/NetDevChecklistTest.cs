@@ -7,10 +7,10 @@ namespace BuildingEscape.EditorTools
         /// </summary>
         static void ChecklistTest()
         {
-            Check("checklist: the four lines are 'All valuables collected', 'All unique items collected', 'All safes opened' and 'All cash collected', in that order",
-                ChecklistRules.Count == 4 && ChecklistRules.Label(ScanKind.Valuable) == "All valuables collected" && ChecklistRules.Label(ScanKind.Unique) == "All unique items collected"
+            Check("checklist: the five lines are 'All valuables collected', 'All unique items collected', 'All safes opened', 'All cash collected' and 'Outpost hacked', in that order",
+                ChecklistRules.Count == 5 && ChecklistRules.Label(ScanKind.Valuable) == "All valuables collected" && ChecklistRules.Label(ScanKind.Unique) == "All unique items collected"
                 && ChecklistRules.Label(ScanKind.Safe) == "All safes opened" && ChecklistRules.Label(ScanKind.Cash) == "All cash collected"
-                && (int)ScanKind.Valuable == 0 && (int)ScanKind.Unique == 1 && (int)ScanKind.Safe == 2 && (int)ScanKind.Cash == 3);
+                && (int)ScanKind.Valuable == 0 && (int)ScanKind.Unique == 1 && (int)ScanKind.Safe == 2 && (int)ScanKind.Cash == 3 && (int)ScanKind.Outpost == 4 && ChecklistRules.Label(ScanKind.Outpost) == "Outpost hacked");
 
             ChecklistRules.Rgb(ScanKind.Safe, out float sr, out float sg, out float sb);
             ChecklistRules.Rgb(ScanKind.Unique, out float ur, out float ug, out float ub);
@@ -36,21 +36,21 @@ namespace BuildingEscape.EditorTools
 
             // ---- when a line is done
             var st = new ChecklistState();
-            const ScanKind val = ScanKind.Valuable, uni = ScanKind.Unique, safe = ScanKind.Safe, cash = ScanKind.Cash;
-            st.Update(new[] { 5, 2, 1, 3 }, 10f);                                                     // (the first count of a floor: it has only just been built)
-            bool early = !st.Done(val) && !st.Done(uni) && !st.Done(safe) && !st.Done(cash) && st.First(val) == -1;
-            st.Update(new[] { 5, 2, 1, 3 }, 10f + ChecklistRules.SettleSeconds + 0.1f);               // (after the settle time: the count begins)
-            bool began = st.First(val) == 5 && st.First(uni) == 2 && st.First(safe) == 1 && st.First(cash) == 3 && !st.Done(val) && !st.Done(uni) && !st.Done(safe) && !st.Done(cash);
-            st.Update(new[] { 0, 2, 1, 3 }, 14f);                                                      // (every valuable is taken)
-            bool oneDone = st.Done(val) && !st.Done(uni) && !st.Done(safe) && !st.Done(cash);
-            st.Update(new[] { 0, 0, 0, 3 }, 15f);                                                      // (the unique items and the safes too)
-            bool threeDone = st.Done(val) && st.Done(uni) && st.Done(safe) && !st.Done(cash);
-            st.Update(new[] { 4, 0, 0, 0 }, 16f);                                                      // (the cash is taken, and somebody puts valuables down again: the tick stays)
-            bool latched = st.Done(val) && st.Done(uni) && st.Done(safe) && st.Done(cash);
+            const ScanKind val = ScanKind.Valuable, uni = ScanKind.Unique, safe = ScanKind.Safe, cash = ScanKind.Cash, post = ScanKind.Outpost;
+            st.Update(new[] { 5, 2, 1, 3, 1 }, 10f);                                                     // (the first count of a floor: it has only just been built)
+            bool early = !st.Done(val) && !st.Done(uni) && !st.Done(safe) && !st.Done(cash) && !st.Done(post) && st.First(val) == -1;
+            st.Update(new[] { 5, 2, 1, 3, 1 }, 10f + ChecklistRules.SettleSeconds + 0.1f);               // (after the settle time: the count begins)
+            bool began = st.First(val) == 5 && st.First(uni) == 2 && st.First(safe) == 1 && st.First(cash) == 3 && st.First(post) == 1 && !st.Done(val) && !st.Done(uni) && !st.Done(safe) && !st.Done(cash) && !st.Done(post);
+            st.Update(new[] { 0, 2, 1, 3, 1 }, 14f);                                                      // (every valuable is taken)
+            bool oneDone = st.Done(val) && !st.Done(uni) && !st.Done(safe) && !st.Done(cash) && !st.Done(post);
+            st.Update(new[] { 0, 0, 0, 3, 1 }, 15f);                                                      // (the unique items and the safes too)
+            bool threeDone = st.Done(val) && st.Done(uni) && st.Done(safe) && !st.Done(cash) && !st.Done(post);
+            st.Update(new[] { 4, 0, 0, 0, 0 }, 16f);                                                      // (the cash is taken, and somebody puts valuables down again: the tick stays)
+            bool latched = st.Done(val) && st.Done(uni) && st.Done(safe) && st.Done(cash) && st.Done(post);
             st.Reset();
-            bool reset = !st.Done(val) && !st.Done(uni) && !st.Done(safe) && !st.Done(cash) && st.First(val) == -1;
-            st.Update(new[] { 3, 0, 2, 0 }, 20f); st.Update(new[] { 3, 0, 2, 0 }, 22f);                // (a floor that never had a unique item or any cash: those lines are done at once)
-            bool vacuous = st.Done(uni) && st.Done(cash) && !st.Done(val) && !st.Done(safe);
+            bool reset = !st.Done(val) && !st.Done(uni) && !st.Done(safe) && !st.Done(cash) && !st.Done(post) && st.First(val) == -1 && st.First(post) == -1;
+            st.Update(new[] { 3, 0, 2, 0, 0 }, 20f); st.Update(new[] { 3, 0, 2, 0, 0 }, 22f);                // (a floor that never had a unique item or any cash: those lines are done at once)
+            bool vacuous = st.Done(uni) && st.Done(cash) && st.Done(post) && !st.Done(val) && !st.Done(safe);
             Check("checklist: counting waits for the floor to settle, a line is done when none of its kind is left, the tick stays, a new floor starts again, and a kind the floor never had is done at once",
                 early && began && oneDone && threeDone && latched && reset && vacuous, $"(early {early}, began {began}, one {oneDone}, three {threeDone}, stays {latched}, reset {reset}, nothing there {vacuous})");
         }

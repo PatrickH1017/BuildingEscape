@@ -21,8 +21,8 @@ namespace BuildingEscape
     /// </summary>
     public sealed partial class OfficePlanner
     {
-        /// <summary>The one floor that is dressed (the test floor).</summary>
-        public const int DressedFloor = 7;
+        /// <summary>The last floor that is dressed: floor 7 was the test floor and floors 1 to 6 follow since the owner's go (2026-10-23); <see cref="FloorArtRules"/> is the one rule.</summary>
+        public const int DressedFloor = FloorArtRules.LastFloor;
         /// <summary>For tests and the before pictures: false builds floor 7 as it was before the pass.</summary>
         public static bool DressingOn = true;
         /// <summary>How full the rooms get: 1 is the standard, 0.5 half as many pieces, 1.5 half as many again (the one knob for the amount of dressing; every room has a budget scaled by it).</summary>
@@ -34,7 +34,7 @@ namespace BuildingEscape
 
         void DressFloor()
         {
-            if (!DressingOn || inp.floor != DressedFloor) return;
+            if (!DressingOn || !FloorArtRules.AppliesTo(inp.floor)) return;
             new Dresser(this).Run();
         }
 
@@ -87,7 +87,7 @@ namespace BuildingEscape
         static readonly string[] PoolKitchenShelf = { "cup_kit_1", "cup_kit_2", "dishes_3", "pot", "food_container", "lunchbox", "plant_desk", "cup_saucer", "mints" };
         static readonly string[] PoolLounge = { "magazine_1", "magazine_2", "cup_red", "cup_coffee_open", "book_pile_1", "book_pile_5", "can_soda", "coffee_tray", "snack_1" };
         static readonly string[] PoolReception = { "plant_desk", "phone_rotary", "coffee_tray", "fruit_bowl", "photo_3", "cup_boss", "notepad_2", "cup_coffee_open", "mints", "jellybeans", "name_plate" };
-        static readonly string[] PoolPins = { "certificate", "calendar", "child_art", "painting_small", "clock" };
+        static readonly string[] PoolPins = { "certificate", "calendar", "child_art", "painting_small" };          // (no clock: the owner, 2026-10-24, "a clock is placed on the side of a desk, this should not be the case as it is not really the norm")
         static readonly string[] PoolWallBig = { "painting", "painting", "poster_1", "poster_3", "poster_stocks", "wall_dressing", "wall_dressing_3", "wall_dressing_4", "wall_dressing2", "corkboard_2" };
         static readonly string[] PoolWallSmall = { "certificate", "calendar", "child_art", "painting_small", "clock" };
         static readonly string[] PoolWallTrain = { "poster_1", "poster_3", "poster_stocks", "wall_dressing_3", "wall_dressing_4", "corkboard_2", "employee_board", "painting_small" };

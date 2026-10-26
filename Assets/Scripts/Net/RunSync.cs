@@ -22,6 +22,8 @@ namespace BuildingEscape.Net
         public bool Started => started.Value;
         /// <summary>How many players the host says are in the run (the connected clients).</summary>
         public int ExpectedPlayers => expected.Value;
+        /// <summary>Host: the players connected - everybody but the developers who watch (<see cref="NetSession.PlayersConnected"/>).</summary>
+        int PlayerCount => NetSession.Instance != null ? NetSession.Instance.PlayersConnected : NetworkManager.ConnectedClientsIds.Count;
         /// <summary>Started, and every player object has arrived on this machine.</summary>
         public bool EveryoneHere => started.Value && NetPlayer.All.Count >= expected.Value;
 
@@ -29,12 +31,14 @@ namespace BuildingEscape.Net
         {
             Instance = this;
             SpawnSnapshots();
+            SpawnDevView();                      // (a developer who watches listens for the host's debug record: RunSync.DevView.cs)
             IntroCinematic.Arm(transform);       // (the run-start cinematic: DEVELOPER_NOTES 2.19)
         }
 
         public override void OnNetworkDespawn()
         {
             DespawnSnapshots();
+            DespawnDevView();
             if (Instance == this) Instance = null;
         }
 
@@ -52,9 +56,11 @@ namespace BuildingEscape.Net
             if (IsServer)
             {
                 // somebody who drops out while the others are still arriving must not leave them waiting for a player who is gone
-                if (started.Value && expected.Value != NetworkManager.ConnectedClientsIds.Count) expected.Value = NetworkManager.ConnectedClientsIds.Count;
+                int players = PlayerCount;
+                if (started.Value && expected.Value != players) expected.Value = players;
                 HostPublishState();
                 HostSendSnapshots();
+                HostSendDevView();               // (only while a developer watches)
                 IntroServerTick();
                 HostPvpBoardTick();
             }

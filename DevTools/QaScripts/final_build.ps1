@@ -1,7 +1,7 @@
 # The final build of the night: sync the real project into the pristine build copy C:\bqfinal, build the Windows player, make the send copy
 # (no DoNotShip folder, a README for the friends) and a zip. Summary: C:\bqs\final_summary.txt.
 # Usage: .\final_build.ps1 [-Raw Final9_2026-10-17] [-Send Playtest_2026-10-17_final]
-param([string]$Raw = 'Final9_2026-10-17', [string]$Send = 'Playtest_2026-10-17_final', [string]$Backend = 'mono')
+param([string]$Raw = 'Final9_2026-10-17', [string]$Send = 'Playtest_2026-10-17_final', [string]$Backend = 'mono', [string]$Readme = 'C:\bqs\README_SEND.txt')          # (-Readme: the friends' README, 2026-10-23)
 $real = 'C:\Users\phick\OneDrive\Desktop\BuildingEscape'
 $proj = 'C:\bqfinal'
 $unity = 'C:\Program Files\Unity\Hub\Editor\6000.0.45f1\Editor\Unity.exe'
@@ -30,7 +30,7 @@ if (-not (Test-Path "$rawDir\EmployeesTakeRevenge.exe")) { Out-Sum 'STOPPED: no 
 
 # 3: the send copy: without the Burst debug folder, with a README
 robocopy $rawDir $sendDir /MIR /MT:16 /XD '*DoNotShip' '*ButDontShipItWithYourGame' /NFL /NDL /NJH /NJS /NP | Out-Null
-Copy-Item 'C:\bqs\README_SEND.txt' "$sendDir\README.txt" -Force          # (the friends' README says nothing about floors, guns or armour the demo does not have; README_PLAYTEST.txt is our own list of changes)
+Copy-Item $Readme "$sendDir\README.txt" -Force          # (the friends' README says nothing about floors, guns or armour the demo does not have; README_PLAYTEST.txt is our own list of changes)
 $bad = @(Get-ChildItem $sendDir -Recurse -Directory -Filter '*DoNotShip*')
 $mb = [int]((Get-ChildItem $sendDir -Recurse -File | Measure-Object Length -Sum).Sum / 1MB)
 Out-Sum "=== send copy: $sendDir = $mb MB; do-not-ship folders in it: $($bad.Count); exe $(Test-Path "$sendDir\EmployeesTakeRevenge.exe"); README $(Test-Path "$sendDir\README.txt")"
@@ -51,7 +51,7 @@ foreach ($f in Get-ChildItem $sendDir -Recurse -File -Force) {
   }
 }
 $readme = Get-Content "$sendDir\README.txt" -Raw
-foreach ($w in 'sniper', 'shotgun', 'rifle', 'sub machine', 'SMG', 'Medium Armour', 'Heavy Armour', 'rocket', 'Deagle', 'full game', 'Synty', 'floor 5', 'floor 6', 'floor 7', 'floor 8', 'floor 9', 'floors 5', 'floor 10', 'floor 11', 'floor 12', 'floor 13', 'DEVELOPER') { if ($readme -match [regex]::Escape($w)) { $unsafe.Add("README mentions '$w'") } }
+foreach ($w in 'sniper', 'shotgun', 'rifle', 'sub machine', 'SMG', 'Medium Armour', 'Heavy Armour', 'rocket', 'Deagle', 'full game', 'Synty', 'floor 7', 'floor 8', 'floor 9', 'floor 10', 'floor 11', 'floor 12', 'floor 13', 'DEVELOPER') { if ($readme -match [regex]::Escape($w)) { $unsafe.Add("README mentions '$w'") } }
 Out-Sum "=== safety scan of the send copy: $($unsafe.Count) problem(s)$(if ($unsafe.Count) { ': ' + (($unsafe | Select-Object -First 8) -join ' | ') })"
 if ($unsafe.Count -gt 0) { Out-Sum 'STOPPED: the send copy is not safe to send (no zip made)'; Out-Sum "finished $(Get-Date -Format 'HH:mm:ss')"; return }
 

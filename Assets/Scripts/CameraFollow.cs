@@ -38,6 +38,12 @@ namespace BuildingEscape
         /// <summary>Yaw the character should face / move relative to (ignores free look).</summary>
         public float AimYaw => aimYaw;
         public bool FreeLooking { get; private set; }
+        /// <summary>Tests: the free look key is held like the real key (the view then unlocks only after <see cref="FreeLookRules.HoldSeconds"/>, as with the real one).</summary>
+        public static bool TestFreeLookKey;
+        float freeLookHeld;                   // seconds the free look key has been held (FreeLookRules)
+
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        static void ResetTestHooks() { TestFreeLookKey = false; }
 
         // the dart game (the owner, 2026-10-20): at the throw line the aim can turn only a little, like Wii bowling
         bool aimLimited; float limitCentre, limitHalf, limitPitchMin, limitPitchMax;
@@ -77,6 +83,28 @@ namespace BuildingEscape
         }
 
         float aimYaw, pitch = 12f, lookYaw, lookPitch;
+
+        float deskYaw, deskPitch;
+        /// <summary>The turn of the view towards the cursor at the security computer (degrees): sideways to the right and down. Tests read it.</summary>
+        public Vector2 DeskLook => new Vector2(deskYaw, deskPitch);
+
+        /// <summary>
+        /// At the security computer (the owner, 2026-10-23): with the cursor over the monitor the view stays; with the cursor outside it the view turns towards the cursor, a little (<see cref="DeskLookRules.MaxYaw"/>, <see cref="DeskLookRules.MaxPitch"/> degrees)
+        /// and very slowly (<see cref="DeskLookRules.Ease"/>); back over the monitor, or with the screen shut, it eases back. It drives the free look's own offsets, which nothing else touches while a screen has the cursor.
+        /// </summary>
+        void DeskLookStep()
+        {
+            if (!ComputerScreen.TryGetMonitor(out var mon)) { deskYaw = deskPitch = 0f; return; }          // (the screen is shut: the usual return takes over from wherever the view is)
+            var cursor = ComputerScreen.CursorPosition;
+            DeskLookRules.Target(cursor.x, Screen.height - cursor.y, mon.x, mon.y, mon.width, mon.height, Screen.width, Screen.height, out float wantYaw, out float wantPitch);
+            float dt = Time.unscaledDeltaTime;
+            deskYaw = DeskLookRules.Ease(deskYaw, wantYaw, dt);
+            deskPitch = DeskLookRules.Ease(deskPitch, wantPitch, dt);
+            if (wantYaw == 0f && Mathf.Abs(deskYaw) < 0.05f) deskYaw = 0f;
+            if (wantPitch == 0f && Mathf.Abs(deskPitch) < 0.05f) deskPitch = 0f;
+            lookYaw = deskYaw;
+            lookPitch = deskPitch;
+        }
         float zoom, zoomTarget;               // 0 = third person .. 1 = first person (ViewRules)
         readonly List<Renderer> hiddenBody = new List<Renderer>();
         readonly Dictionary<Renderer, ShadowCastingMode> bodyModes = new Dictionary<Renderer, ShadowCastingMode>();
@@ -131,13 +159,14 @@ namespace BuildingEscape
 
         void Update()
         {
+            DeskLookStep();
             var hm = HeistManager.Instance;
             bool menu = hm && (hm.Phase == HeistPhase.Won || hm.Phase == HeistPhase.Failed);
             cursorFree = EscapeMenu.Open; // Esc opens the menu (it does not pause)
             bool locked = !menu && !cursorFree && !Backpack.UiOpen && !TestMode.PanelOpen && !Vendor.ShopOpen && !ElevatorPanel.Open && !OutpostUi.FreeCursor;
             Cursor.lockState = locked ? CursorLockMode.Locked : CursorLockMode.None;
             Cursor.visible = !locked;
-            if (!locked) return;
+            if (!locked) { freeLookHeld = 0f; FreeLooking = false; return; }          // (a menu is open: the key does not count)
 
             bool ctrl = Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl);
             zoomTarget = ViewRules.Target(zoomTarget, Input.mouseScrollDelta.y, ctrl && Input.GetKeyDown(KeyCode.UpArrow), ctrl && Input.GetKeyDown(KeyCode.DownArrow), Input.GetKeyDown(viewKey));
@@ -149,7 +178,11 @@ namespace BuildingEscape
                 float k = Mathf.Tan(viewCamera.fieldOfView * Mathf.Deg2Rad * 0.5f) / Mathf.Tan(scopeBaseFov * Mathf.Deg2Rad * 0.5f);
                 mx *= k; my *= k;
             }
-            FreeLooking = !aimLimited && (Input.GetKey(freeLookKey) || Input.GetKey(altFreeLookKey));
+            // Alt (or V) unlocks the view only while it is HELD, and only after FreeLookRules.HoldSeconds: a tap does nothing (the owner, 2026-10-23: "Clicking Alt should not unlock the camera view only when holding it");
+            // a window that lost the focus (Alt+Tab) counts as let go
+            bool freeKey = (Application.isFocused && (Input.GetKey(freeLookKey) || Input.GetKey(altFreeLookKey))) || TestFreeLookKey;
+            freeLookHeld = FreeLookRules.Held(freeLookHeld, freeKey, Time.unscaledDeltaTime);
+            FreeLooking = !aimLimited && FreeLookRules.Unlocked(freeLookHeld);
             if (FreeLooking)
             {
                 lookYaw += mx;
@@ -331,7 +364,7 @@ namespace BuildingEscape
 
         void LateUpdate()
         {
-            if (!target) return;
+            if (!target && !spectate) return;           // (a developer who watches has no body of his own: DevSpectator)
             // using the elevator panel: the camera glides in front of it and looks straight at it
             if (ElevatorPanel.Open && ElevatorPanel.Active && ElevatorPanel.Active.TryGetView(out var viewPos, out var viewRot))
             {

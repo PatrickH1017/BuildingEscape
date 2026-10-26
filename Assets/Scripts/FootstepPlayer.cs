@@ -50,6 +50,7 @@ namespace BuildingEscape
 
         void Step()
         {
+            if (player && player.StepsSilent) return;                                  // (silent steps: the owner, 2026-10-25)
             var cat = GameAudio.Catalog;
             if (cat == null) return;
             var clip = GameAudio.Pick(guard ? cat.stepsGuard : cat.stepsPlayer);

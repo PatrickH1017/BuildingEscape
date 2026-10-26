@@ -207,6 +207,8 @@ namespace BuildingEscape
                 var half = interior.Find("OfficeWindows");
                 if (half) { half.gameObject.SetActive(false); Kill(half.gameObject); }
             }
+            try { ClearViews(L); }          // (the owner, 2026-10-24: nothing hangs on a window, nothing blocks the view outside a glass front: FloorGenerator.ViewClear.cs)
+            catch (System.Exception e) { Debug.LogWarning("[Views] The windows could not be cleared: " + e); }
             // floor 7: the pack's wall pieces and ceiling tiles (FloorGenerator.WallSkin.cs; the accent walls are made of the same pieces); anywhere else, or if the skin cannot be built, the flat painted accent walls
             if (!BuildWallSkin(interior, L))
             {

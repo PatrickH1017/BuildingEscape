@@ -61,7 +61,7 @@ namespace BuildingEscape
                 busted = busted,
             });
             var me = Net.NetPlayer.Local;
-            HudWidgets.PlayerBadge(me && me.IsSpawned ? me.Slot + 1 : 1);          // (alone, offline: Player 1)
+            if (!(Net.NetSession.Instance != null && Net.NetSession.Instance.IsSpectator)) HudWidgets.PlayerBadge(me && me.IsSpawned ? me.Slot + 1 : 1);          // (alone, offline: Player 1; a developer who watches is no player)
             DrawBanner(m, hub, next);
         }
 
@@ -79,7 +79,7 @@ namespace BuildingEscape
             else if (hub && TowerRules.DemoOver(next))
             {
                 // the demo's last floor is done: the vendor sells the pew now (Vendor.PewForSale)
-                HudWidgets.Banner("DEMO COMPLETE", "That was the last floor of the demo. The vendor sells a pew pistol and clips for it now: try it on the training dummy", HudTheme.Cash,
+                HudWidgets.Banner("DEMO COMPLETE", "That was the last floor of the demo. The vendor sells a pew pistol and bullets for it now: try it on the training dummy", HudTheme.Cash,
                     m.SurplusPaid > 0 ? $"+{HudTheme.Money(m.SurplusPaid)} surplus from the last floor added to your cash" : null);
             }
             else if (hub)

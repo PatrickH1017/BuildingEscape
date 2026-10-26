@@ -33,7 +33,9 @@ namespace BuildingEscape
     /// </summary>
     public static class LootScanRules
     {
-        public const float PulseSpeed = 28f, PulseGap = 2.4f;
+        public const float PulseSpeed = 28f;
+        /// <summary>The cooldown of the scan (the owner, 2026-10-23: "Scanning is supposed to have a 2 second cooldown between each use not a charge up"): the next scan can leave this long after the last one, whether the key is held or pressed again.</summary>
+        public const float PulseGap = 2f;
         public const float MarkSeconds = 6f, FadeSeconds = 1.4f;
         /// <summary>No pulse goes further than this (m), whatever the room (the biggest room of a floor is 17.6 m long).</summary>
         public const float MaxReach = 30f;
@@ -140,5 +142,28 @@ namespace BuildingEscape
 
         /// <summary>Is it time for another pulse (the key is held, the last one left <paramref name="sinceLast"/> seconds ago; negative: there was none)?</summary>
         public static bool NextPulse(bool holding, float sinceLast) => holding && (sinceLast < 0f || sinceLast >= PulseGap);
+
+        /// <summary>How far the cooldown has got, 0 to 1 (1 = ready: the bar over the scan's line): <paramref name="sinceLast"/> is the time since the last scan left; negative means there was none (ready).</summary>
+        public static float ReadyFraction(float sinceLast) => sinceLast < 0f || PulseGap <= 0f ? 1f : Math.Min(1f, Math.Max(0f, sinceLast / PulseGap));
+
+        /// <summary>
+        /// The words of the scan's one pop-up (the owner, 2026-10-24: "Scanning should only have a pop-up when it says 'Item Marked', if an item is not found while scanning there should not be a pop-up"): a scan that marks nothing shows nothing.
+        /// </summary>
+        public const string MarkedText = "Item Marked";
+        /// <summary>How long the pop-up stays after a scan has marked something (s), and how much of that it spends fading out.</summary>
+        public const float MarkedPopupSeconds = 2f, MarkedFadeSeconds = 0.4f;
+
+        /// <summary>How visible the pop-up is <paramref name="sinceMark"/> seconds after a scan marked something: 1, fading to 0 at <see cref="MarkedPopupSeconds"/>; 0 before that (negative) and after it.</summary>
+        public static float MarkedPopupAlpha(float sinceMark)
+        {
+            if (sinceMark < 0f || sinceMark >= MarkedPopupSeconds) return 0f;
+            return sinceMark > MarkedPopupSeconds - MarkedFadeSeconds ? (MarkedPopupSeconds - sinceMark) / MarkedFadeSeconds : 1f;
+        }
+
+        /// <summary>
+        /// Does this press of the scan key get the error sound (the owner, 2026-10-24: "when trying to scan on cooldown there should not be a pop-up but instead use one of our sound affect assets to make an error noise")? Only a press (not a key that stays down)
+        /// that the cooldown holds back.
+        /// </summary>
+        public static bool RefusedPress(bool pressed, bool ready) => pressed && !ready;
     }
 }

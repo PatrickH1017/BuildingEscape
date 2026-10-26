@@ -102,6 +102,7 @@ namespace BuildingEscape.EditorTools
                 foreach (var t in new[] { ShieldTier.Light, ShieldTier.Medium, ShieldTier.Heavy })
                 {
                     var piece = ArmourItem.Create(t, spot + Vector3.up * 3f, null, 0f);
+                    yield return null;                                                  // (the model's own colliders are destroyed at the end of this frame)
                     var box = piece.GetComponent<BoxCollider>(); var want = ArmourItem.Size(t);
                     var model = piece.transform.Find("Armour");
                     var rs = piece.GetComponentsInChildren<Renderer>(true);
@@ -128,8 +129,8 @@ namespace BuildingEscape.EditorTools
             if (packModels) { string fitProblem = VestFitProblem(player); ArmourCheck("the light vest is the pack's model, scaled to his torso: lower edge on his hips, top at his neck, as wide as his shoulders", fitProblem.Length == 0, fitProblem); }
             var pMedium = MakeArmour(ShieldTier.Medium, spot + Vector3.up * 0.4f);
             bool second = pack.TryStore(pMedium);
-            ArmourCheck("a second piece is refused while one is worn (one at a time)", !second && PlayerArmour.TierOf(pack) == ShieldTier.Light && !pack.Contains(pMedium));
-            pack.Drop(pLight); Destroy(pLight.gameObject);
+            ArmourCheck("a second piece is taken as a spare to bring to a teammate (the owner, 2026-10-23): both are in the pack and the better one is worn", second && pack.Contains(pLight) && pack.Contains(pMedium) && PlayerArmour.TierOf(pack) == ShieldTier.Medium);
+            pack.Drop(pMedium); pack.Drop(pLight); Destroy(pLight.gameObject);
             yield return new WaitForSeconds(0.8f);
             ArmourCheck("dropped, the armour is off: nothing worn and no vest on the model", PlayerArmour.TierOf(pack) == ShieldTier.None && vis.Shown == ShieldTier.None && ArmourVestParts(player) == 0, $"(parts {ArmourVestParts(player)})");
             bool storedMedium = pack.TryStore(pMedium);

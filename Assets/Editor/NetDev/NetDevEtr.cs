@@ -111,7 +111,7 @@ namespace BuildingEscape.EditorTools
             EtrCheck("scan: holding the key scans (a pulse has left)", LootScanner.Scanning && scanner.Pulses >= 1 && scanner.Room.index == roomA.index);
             EtrCheck("scan: every valuable in the room is marked", inA.Count >= 2 && inA.All(p => scanner.IsMarked(p)), $"({inA.Count(p => scanner.IsMarked(p))} of {inA.Count} marked)");
             EtrCheck("scan: of the other rooms only what lies within ExtraReach m of the player is marked", nextDoor.Count >= 1 && !nextDoor.Any(p => !nearBy(p, player.transform.position) && scanner.IsMarked(p)) && nextDoor.Where(p => nearBy(p, player.transform.position)).All(p => scanner.IsMarked(p)) && scanner.MarkCount == marksWanted(roomA.index, player.transform.position), $"({scanner.MarkCount} marks, {marksWanted(roomA.index, player.transform.position)} wanted, {inA.Count} in the room, {nextDoor.Count(p => scanner.IsMarked(p))} of {nextDoor.Count} others)");
-            EtrCheck("scan: the top of the screen names the room and counts what is in it", scanner.StatusLine.Contains("ROOM " + roomA.label) && scanner.StatusLine.Contains(all.Count(p => (gen.RoomSpotAt(p.transform.position).index == roomA.index || nearBy(p, player.transform.position)) && isValuable(p)) + " valuable"), $"('{scanner.StatusLine}')");
+            EtrCheck("scan: the scan reads the room and counts what is in it (not drawn: the only pop-up is Item Marked)", scanner.StatusLine.Contains("ROOM " + roomA.label) && scanner.StatusLine.Contains(all.Count(p => (gen.RoomSpotAt(p.transform.position).index == roomA.index || nearBy(p, player.transform.position)) && isValuable(p)) + " valuable"), $"('{scanner.StatusLine}')");
 
             // ---- walk into room B: the old marks go and the new room's things are marked
             player.TeleportTo(new Vector3(roomB.bounds.Cx, 1.1f, roomB.bounds.Cz), Quaternion.Euler(0f, 90f, 0f));
@@ -138,7 +138,7 @@ namespace BuildingEscape.EditorTools
                 player.TeleportTo(hallPos, Quaternion.identity);
                 yield return new WaitForSeconds(0.6f);
                 yield return new WaitForSeconds(2.4f);
-                EtrCheck("scan: in a hallway it says so and finds nothing in it (bar what lies within ExtraReach m of the player)", scanner.Room.index == hall.index && scanner.MarkCount == marksWanted(hall.index, hallPos) && scanner.StatusLine.Contains("THE HALLWAY") && (marksWanted(hall.index, hallPos) > 0 || scanner.StatusLine.Contains("nothing to steal")), $"('{scanner.StatusLine}')");
+                EtrCheck("scan: in a hallway it reads as the hallway and finds nothing in it (bar what lies within ExtraReach m of the player)", scanner.Room.index == hall.index && scanner.MarkCount == marksWanted(hall.index, hallPos) && scanner.StatusLine.Contains("THE HALLWAY") && (marksWanted(hall.index, hallPos) > 0 || scanner.StatusLine.Contains("nothing to steal")), $"('{scanner.StatusLine}')");
                 yield return RoomShot(hall, "etr_scan_hall");
             }
 
@@ -489,7 +489,8 @@ namespace BuildingEscape.EditorTools
                 foreach (var d in dm.Doors)
                 {
                     int panes = (d.LowLeaf.GetComponentsInChildren<Transform>(true).Count(t => t.name == "Pane") + d.HighLeaf.GetComponentsInChildren<Transform>(true).Count(t => t.name == "Pane"));
-                    if (d.Wide) { wide++; if (panes == 12) wideDressed++; if (firstWide == null) firstWide = d; }
+                    int packs = d.LowLeaf.GetComponentsInChildren<Transform>(true).Count(t => t.name == "PackPanel") + d.HighLeaf.GetComponentsInChildren<Transform>(true).Count(t => t.name == "PackPanel");
+                    if (d.Wide) { wide++; if (panes == 12 || packs >= 2) wideDressed++; if (firstWide == null) firstWide = d; }          // (the old windows, or since 2026-10-23 the pack's own glass door)
                     else { narrow++; if (panes != 0 && panes != 16 && panes != 4) narrowPanes++; }
                 }
                 EtrCheck($"{tag}: every wide hallway door has its windows (2 leaves x 2 faces x 2 windows and a push bar)", wide == wideDressed, $"({wideDressed} of {wide} wide doors; {narrow} room doors)");

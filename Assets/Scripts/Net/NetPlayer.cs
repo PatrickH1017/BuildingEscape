@@ -21,6 +21,10 @@ namespace BuildingEscape.Net
         readonly NetworkVariable<FixedString64Bytes> look = new(default,
             NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
 
+        // The name over his head (the owner, 2026-10-23: "Players need nametags above their heads"), written by the owner of the body (his Steam name; empty without Steam), read cleaned (NameRules) by everybody.
+        readonly NetworkVariable<FixedString64Bytes> displayName = new(default,
+            NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
+
         // Hiding at a desk, written by the owner: the host's guards must see a hidden teammate as hidden.
         readonly NetworkVariable<bool> hidden = new(false,
             NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
@@ -44,6 +48,12 @@ namespace BuildingEscape.Net
         /// <summary>Join order (0 .. MaxPlayers - 1); also picks the character look so it matches on every machine.</summary>
         public int Slot => slot.Value;
 
+        /// <summary>The name this player's own machine wrote for him, cleaned (<see cref="NameRules.Clean"/>); "" when he has none (<see cref="NameRules.Tag"/> then says "Player n").</summary>
+        public string DisplayName => NameRules.Clean(displayName.Value.ToString());
+
+        /// <summary>The owner of this body writes his name (cleaned first).</summary>
+        public void SetDisplayName(string raw) { if (IsOwner) displayName.Value = NameRules.Clean(raw); }
+
         /// <summary>Host only, before spawning.</summary>
         public void AssignSlot(int s) { pendingSlot = s; }
 
@@ -61,6 +71,7 @@ namespace BuildingEscape.Net
             look.OnValueChanged += (_, v) => ApplyLook(v.ToString());
             if (IsOwner) look.Value = (PlayerAppearance.TryLoadSaved(out var chosen) ? chosen : PlayerAppearance.ForSlot(Mathf.Max(0, slot.Value))).Serialize();       // (a player who never chose is a toon person by slot: every friend looks different)
             else ApplyLook(look.Value.ToString());
+            if (IsOwner) { var steam = SteamService.Instance; SetDisplayName(steam != null && steam.Ready ? steam.LocalName : ""); }
 
             bool mine = IsOwner;
             rb.isKinematic = !mine;

@@ -66,7 +66,7 @@ namespace BuildingEscape.EditorTools
             var pack = player.GetComponent<Backpack>();
             int packBefore = pack.Items.Count, cashBefore = hm.Cash;
             var buy = typeof(Vendor).GetMethod("Buy", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-            buy.Invoke(vendor, new object[] { hm, 0 });
+            buy.Invoke(vendor, new object[] { hm, 4 });          // (the crowbar: the coffee mug, entry 0, is a vending machine's since T6)
             yield return new WaitForSeconds(0.6f);
             SneakCheck("dock: buying from inside the truck works (item in the pack, cash spent)",
                 pack.Items.Count == packBefore + 1 && hm.Cash < cashBefore, $"(pack {packBefore} -> {pack.Items.Count}, cash {cashBefore} -> {hm.Cash})");

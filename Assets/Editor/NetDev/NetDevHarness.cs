@@ -54,6 +54,158 @@ namespace BuildingEscape.EditorTools
             EditorSceneManager.OpenScene("Assets/Scenes/Greybox.unity");
             EditorApplication.isPlaying = true;
         }
+        public static void Asks1023E()
+        {
+            SessionState.SetString("netdev.mode", "asks1023e");
+            EditorSceneManager.OpenScene("Assets/Scenes/Greybox.unity");
+            EditorApplication.isPlaying = true;
+        }
+        public static void Asks1023F()
+        {
+            SessionState.SetString("netdev.mode", "asks1023f");
+            EditorSceneManager.OpenScene("Assets/Scenes/Greybox.unity");
+            EditorApplication.isPlaying = true;
+        }
+        public static void Asks1023G()
+        {
+            SessionState.SetString("netdev.mode", "asks1023g");
+            EditorSceneManager.OpenScene("Assets/Scenes/Greybox.unity");
+            EditorApplication.isPlaying = true;
+        }
+        public static void WalkieLook()
+        {
+            SessionState.SetString("netdev.mode", "walkielook");
+            EditorSceneManager.OpenScene("Assets/Scenes/Greybox.unity");
+            EditorApplication.isPlaying = true;
+        }
+        public static void PvpBattlefield()
+        {
+            SessionState.SetString("netdev.mode", "pvpbattlefield");
+            EditorSceneManager.OpenScene("Assets/Scenes/Greybox.unity");
+            EditorApplication.isPlaying = true;
+        }
+        public static void PvpBattlefieldUi()
+        {
+            SessionState.SetString("netdev.mode", "pvpbattlefieldui");
+            EditorSceneManager.OpenScene("Assets/Scenes/Greybox.unity");
+            EditorApplication.isPlaying = true;
+        }
+        public static void AudioDevicesUi()
+        {
+            SessionState.SetString("netdev.mode", "audiodevicesui");
+            EditorSceneManager.OpenScene("Assets/Scenes/Greybox.unity");
+            EditorApplication.isPlaying = true;
+        }
+        public static void GuardAlert()
+        {
+            SessionState.SetString("netdev.mode", "guardalert");
+            EditorSceneManager.OpenScene("Assets/Scenes/Greybox.unity");
+            EditorApplication.isPlaying = true;
+        }
+        public static void LampPreview()
+        {
+            SessionState.SetString("netdev.mode", "lamppreview");
+            EditorSceneManager.OpenScene("Assets/Scenes/Greybox.unity");
+            EditorApplication.isPlaying = true;
+        }
+        public static void AlarmLooks()
+        {
+            SessionState.SetString("netdev.mode", "alarmlooks");
+            EditorSceneManager.OpenScene("Assets/Scenes/Greybox.unity");
+            EditorApplication.isPlaying = true;
+        }
+        public static void Consumables()
+        {
+            SessionState.SetString("netdev.mode", "consumables");
+            EditorSceneManager.OpenScene("Assets/Scenes/Greybox.unity");
+            EditorApplication.isPlaying = true;
+        }
+        public static void ConsumablesNet() => Start("consumablesnet");
+        public static void PropScan()
+        {
+            SessionState.SetString("netdev.mode", "propscan");
+            EditorSceneManager.OpenScene("Assets/Scenes/Greybox.unity");
+            EditorApplication.isPlaying = true;
+        }
+        public static void PackKeys()
+        {
+            SessionState.SetString("netdev.mode", "packkeys");
+            EditorSceneManager.OpenScene("Assets/Scenes/Greybox.unity");
+            EditorApplication.isPlaying = true;
+        }
+        public static void SafetyNet()
+        {
+            SessionState.SetString("netdev.mode", "safetynet");
+            EditorSceneManager.OpenScene("Assets/Scenes/Greybox.unity");
+            EditorApplication.isPlaying = true;
+        }
+        public static void NameTagNet() => Start("nametagnet");
+        public static void PvpMap()
+        {
+            SessionState.SetString("netdev.mode", "pvpmap");
+            EditorSceneManager.OpenScene("Assets/Scenes/Greybox.unity");
+            EditorApplication.isPlaying = true;
+        }
+        public static void PvpLineupUi()
+        {
+            SessionState.SetString("netdev.mode", "pvplineupui");
+            EditorSceneManager.OpenScene("Assets/Scenes/Greybox.unity");
+            EditorApplication.isPlaying = true;
+        }
+        public static void Asks1023W()
+        {
+            SessionState.SetString("netdev.mode", "asks1023w");
+            EditorSceneManager.OpenScene("Assets/Scenes/Greybox.unity");
+            EditorApplication.isPlaying = true;
+        }
+        public static void Asks1023V()
+        {
+            SessionState.SetString("netdev.mode", "asks1023v");
+            EditorSceneManager.OpenScene("Assets/Scenes/Greybox.unity");
+            EditorApplication.isPlaying = true;
+        }
+        public static void Asks1023VUi()
+        {
+            SessionState.SetString("netdev.mode", "asks1023vui");
+            EditorSceneManager.OpenScene("Assets/Scenes/Greybox.unity");
+            EditorApplication.isPlaying = true;
+        }
+        public static void Asks1023D()
+        {
+            SessionState.SetString("netdev.mode", "asks1023d");
+            EditorSceneManager.OpenScene("Assets/Scenes/Greybox.unity");
+            EditorApplication.isPlaying = true;
+        }
+        public static void Asks1023C()
+        {
+            SessionState.SetString("netdev.mode", "asks1023c");
+            EditorSceneManager.OpenScene("Assets/Scenes/Greybox.unity");
+            EditorApplication.isPlaying = true;
+        }
+        public static void Asks1023B()
+        {
+            SessionState.SetString("netdev.mode", "asks1023b");
+            EditorSceneManager.OpenScene("Assets/Scenes/Greybox.unity");
+            EditorApplication.isPlaying = true;
+        }
+        public static void Asks1023BUi()
+        {
+            SessionState.SetString("netdev.mode", "asks1023bui");
+            EditorSceneManager.OpenScene("Assets/Scenes/Greybox.unity");
+            EditorApplication.isPlaying = true;
+        }
+        public static void Asks1023()
+        {
+            SessionState.SetString("netdev.mode", "asks1023");
+            EditorSceneManager.OpenScene("Assets/Scenes/Greybox.unity");
+            EditorApplication.isPlaying = true;
+        }
+        public static void DoorLooks()
+        {
+            SessionState.SetString("netdev.mode", "doorlooks");
+            EditorSceneManager.OpenScene("Assets/Scenes/Greybox.unity");
+            EditorApplication.isPlaying = true;
+        }
         public static void CoreLooks()
         {
             SessionState.SetString("netdev.mode", "corelooks");
@@ -133,6 +285,7 @@ namespace BuildingEscape.EditorTools
             EditorApplication.isPlaying = true;
         }
         public static void MenusLobby() => Start("menuslobby");
+        public static void DevUi() => Start("devui");
         public static void MenusRun() => Start("menusrun");
         public static void Menus()
         {
@@ -157,6 +310,9 @@ namespace BuildingEscape.EditorTools
         public static void DemoNet() => Start("demonet");
         public static void MeleeNet() => Start("meleenet");
         public static void PingNet() => Start("pingnet");
+        public static void DevSpectate() => Start("devspectate");
+        public static void DevDenied() => Start("devdenied");
+        public static void DragNet() => Start("dragnet");
         public static void PingUi()
         {
             SessionState.SetString("netdev.mode", "pingui");
@@ -428,8 +584,9 @@ namespace BuildingEscape.EditorTools
         {
             DontDestroyOnLoad(gameObject);
             started = Time.realtimeSinceStartup;
+            VoiceChat.QaNoRealMic = true;                                  // (no solo run opens the real microphone: the voice scenarios install a tone input)
             GuardAI.DonutRollOverride = mode == "r7" ? -1f : 1f;           // (no donut breaks in the other scenarios: a guard standing still for 6 s could upset their timing)
-            if (mode != "offline" && mode != "sneak" && mode != "floors" && mode != "roomshots" && mode != "corelooks" && mode != "looks" && mode != "floatqa" && mode != "computerui" && mode != "r5" && mode != "r6" && mode != "r7" && mode != "r7look" && mode != "probe" && mode != "doors" && mode != "outpost" && mode != "pew" && mode != "pewlook" && mode != "weaponsheet" && mode != "meleelook" && mode != "gunsheet" && mode != "charsheet" && mode != "dresssheet" && mode != "themesheet" && mode != "fplook" && mode != "gunitems" && mode != "gunlook" && mode != "gunsafes" && mode != "guns" && mode != "gunui" && mode != "combat" && mode != "armour" && mode != "assetpreview" && mode != "citynew" && mode != "round12" && mode != "checklist" && mode != "docklook" && mode != "guardcall" && mode != "guardsight" && mode != "vending" && mode != "bardrag" && mode != "cones" && mode != "asks1021" && mode != "pingui" && mode != "dockseeds" && mode != "ui" && mode != "menus" && mode != "shaft" && mode != "pewloot" && mode != "demo" && mode != "demoui" && mode != "lootqa" && mode != "etr" && mode != "etrcarry" && mode != "etrscan" && mode != "introtv" && mode != "introoffline" && mode != "invui" && mode != "doorsslide" && mode != "citylook")
+            if (mode != "offline" && mode != "sneak" && mode != "floors" && mode != "roomshots" && mode != "corelooks" && mode != "looks" && mode != "floatqa" && mode != "computerui" && mode != "r5" && mode != "r6" && mode != "r7" && mode != "r7look" && mode != "probe" && mode != "doors" && mode != "outpost" && mode != "pew" && mode != "pewlook" && mode != "weaponsheet" && mode != "meleelook" && mode != "gunsheet" && mode != "charsheet" && mode != "dresssheet" && mode != "themesheet" && mode != "fplook" && mode != "gunitems" && mode != "gunlook" && mode != "gunsafes" && mode != "guns" && mode != "gunui" && mode != "combat" && mode != "armour" && mode != "assetpreview" && mode != "citynew" && mode != "round12" && mode != "checklist" && mode != "docklook" && mode != "guardcall" && mode != "guardsight" && mode != "vending" && mode != "bardrag" && mode != "cones" && mode != "asks1021" && mode != "pingui" && mode != "dockseeds" && mode != "ui" && mode != "menus" && mode != "shaft" && mode != "pewloot" && mode != "demo" && mode != "demoui" && mode != "lootqa" && mode != "etr" && mode != "etrcarry" && mode != "etrscan" && mode != "introtv" && mode != "introoffline" && mode != "invui" && mode != "doorsslide" && mode != "citylook" && mode != "doorlooks" && mode != "asks1023" && mode != "asks1023b" && mode != "asks1023bui" && mode != "asks1023c" && mode != "asks1023d" && mode != "asks1023e" && mode != "asks1023f" && mode != "asks1023g" && mode != "walkielook" && mode != "asks1023v" && mode != "asks1023vui" && mode != "asks1023w" && mode != "pvpmap" && mode != "pvplineupui" && mode != "pvpbattlefield" && mode != "pvpbattlefieldui" && mode != "audiodevicesui" && mode != "guardalert" && mode != "lamppreview" && mode != "alarmlooks" && mode != "consumables" && mode != "safetynet" && mode != "propscan" && mode != "packkeys")
                 yield return WaitFor(() => NetSession.Instance != null && SceneManager.GetActiveScene().name == NetConst.MenuScene, 30, "menu");
             switch (mode)
             {
@@ -443,6 +600,33 @@ namespace BuildingEscape.EditorTools
                 case "floors": yield return FloorsScenario(); break;
                 case "roomshots": yield return RoomShotsScenario(); break;
                 case "corelooks": yield return CoreLooksScenario(); break;
+                case "doorlooks": yield return DoorLooksScenario(); break;
+                case "asks1023": yield return Asks1023Scenario(); break;
+                case "asks1023b": yield return Asks1023BScenario(); break;
+                case "asks1023c": yield return Asks1023CScenario(); break;
+                case "asks1023d": yield return Asks1023DScenario(); break;
+                case "asks1023v": yield return Asks1023VScenario(); break;
+                case "asks1023w": yield return Asks1023WScenario(); break;
+                case "pvpmap": yield return PvpMapScenario(); break;
+                case "pvplineupui": yield return PvpLineupUiScenario(); break;
+                case "pvpbattlefield": yield return PvpBattlefieldScenario(); break;
+                case "pvpbattlefieldui": yield return PvpBattlefieldUiScenario(); break;
+                case "audiodevicesui": yield return AudioDevicesUiScenario(); break;
+                case "guardalert": yield return GuardAlertScenario(); break;
+                case "lamppreview": yield return LampPreviewScenario(); break;
+                case "alarmlooks": yield return AlarmLooksScenario(); break;
+                case "consumables": yield return ConsumablesScenario(); break;
+                case "consumablesnet": yield return System.Environment.GetEnvironmentVariable("BE_QA_ROLE") == "host" ? ConsumablesHostScenario() : ConsumablesClientScenario(); break;
+                case "safetynet": yield return SafetyNetScenario(); break;
+                case "propscan": yield return PropScanScenario(); break;
+                case "packkeys": yield return PackKeysScenario(); break;
+                case "nametagnet": yield return System.Environment.GetEnvironmentVariable("BE_QA_ROLE") == "host" ? NameTagHostScenario() : NameTagClientScenario(); break;
+                case "asks1023vui": yield return Asks1023VUiScenario(); break;
+                case "asks1023f": yield return Asks1023FScenario(); break;
+                case "asks1023g": yield return Asks1023GScenario(); break;
+                case "walkielook": yield return WalkieLookScenario(); break;
+                case "asks1023e": yield return Asks1023EScenario(); break;
+                case "asks1023bui": yield return Asks1023BUiScenario(); break;
                 case "doors": yield return DoorsScenario(); break;
                 case "looks": yield return LooksScenario(); break;
                 case "floatqa": yield return FloatQaScenario(); break;
@@ -478,6 +662,9 @@ namespace BuildingEscape.EditorTools
                 case "asks1021": yield return Asks1021Scenario(); break;
                 case "pingui": yield return PingUiScenario(); break;
                 case "pingnet": yield return System.Environment.GetEnvironmentVariable("BE_QA_ROLE") == "host" ? PingNetHostScenario() : PingNetClientScenario(); break;
+                case "devspectate": yield return System.Environment.GetEnvironmentVariable("BE_QA_ROLE") == "host" ? DevSpectateHostScenario() : DevSpectateClientScenario(); break;
+                case "devdenied": yield return System.Environment.GetEnvironmentVariable("BE_QA_ROLE") == "host" ? DevDeniedHostScenario() : DevDeniedClientScenario(); break;
+                case "dragnet": yield return System.Environment.GetEnvironmentVariable("BE_QA_ROLE") == "host" ? DragNetHostScenario() : DragNetClientScenario(); break;
                 case "dockseeds": yield return DockSeedsScenario(); break;
                 case "checklist": yield return ChecklistScenario(); break;
                 case "assetpreview": yield return AssetPreviewScenario(); break;
@@ -503,6 +690,7 @@ namespace BuildingEscape.EditorTools
                 case "shaftnet": yield return System.Environment.GetEnvironmentVariable("BE_QA_ROLE") == "host" ? ShaftHostScenario() : ShaftClientScenario(); break;
                 case "menus": yield return MenusScenario(); break;
                 case "menuslobby": yield return MenusLobbyScenario(); break;
+                case "devui": yield return DevUiScenario(); break;
                 case "menusrun": yield return MenusRunScenario(); break;
                 case "armed": yield return System.Environment.GetEnvironmentVariable("BE_QA_ROLE") == "host" ? ArmedHostScenario() : ArmedClientScenario(); break;
                 case "armedhost": yield return ArmedHostScenario(); break;
@@ -946,8 +1134,12 @@ namespace BuildingEscape.EditorTools
             Teleport(vendor.transform.position + Vector3.up * 1.1f);
             yield return new WaitForSeconds(1.5f);
             var pack = MyPack;
-            RunSync.Instance.RequestBuy(0);                       // coffee mug
+            Teleport(MachineSpot(0));                             // (the coffee mug is a vending machine's now: the owner, 2026-10-23)
+            yield return new WaitForSeconds(1.0f);
+            RunSync.Instance.RequestMachineBuy(0, 0);                       // coffee mug
             yield return WaitFor(() => pack.Items.Count >= 1, 20, "mug in pack");
+            Teleport(vendor.transform.position + Vector3.up * 1.1f);
+            yield return new WaitForSeconds(1.0f);
             if (MeleeWeapon.Available)
             {
                 RunSync.Instance.RequestBuy(4);                   // crowbar

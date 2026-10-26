@@ -59,6 +59,31 @@ namespace BuildingEscape
         /// <summary>What a player is told who already wears armour and goes for another piece (a placeholder: the owner writes the words).</summary>
         public const string AlreadyWearing = "You already wear armour";
 
+        // ------------------------------------------------------------------ a second set, to bring to a teammate
+
+        /// <summary>The most pieces of armour one pack carries: the one that is worn and one spare for a teammate (the owner, 2026-10-23: "a player can pickup a second set of armour to bring to their teammate but it should be very heavy in the backpack").</summary>
+        public const int MaxCarried = 2;
+
+        /// <summary>
+        /// A spare piece (the one that is not worn) weighs this many times what it weighs worn, but never more than <see cref="SpareWeightCap"/> kilograms (placeholders for the owner to set: the pack holds 20 kg, so with a worn Heavy piece
+        /// a spare one fills it; a spare Light piece is 8.75 kg, a Medium or a Heavy one 12 kg).
+        /// </summary>
+        public const float SpareWeightFactor = 3.5f, SpareWeightCap = 12f;
+
+        /// <summary>What a spare piece of this tier weighs in the pack, in kilograms (0 for no armour).</summary>
+        public static float SpareWeight(ShieldTier tier) => IsArmour(tier) ? Math.Min(Weight(tier) * SpareWeightFactor, SpareWeightCap) : 0f;
+
+        /// <summary>What the armour in a pack weighs: the better of the two pieces is worn, at its normal weight, the other is a spare at its spare weight. <see cref="ShieldTier.None"/> stands for "no piece".</summary>
+        public static float PackWeight(ShieldTier a, ShieldTier b)
+        {
+            var worn = Better(a, b);
+            var spare = (ShieldTier)Math.Min((int)a, (int)b);
+            return (IsArmour(worn) ? Weight(worn) : 0f) + SpareWeight(spare);
+        }
+
+        /// <summary>What a player is told who goes for a third piece of armour (a placeholder: the owner writes the words).</summary>
+        public const string TooMuchArmour = "You can't carry a third set of armour";
+
         // ------------------------------------------------------------------ in the safes
 
         /// <summary>The chance (percent) that a weapon safe holds armour instead of a gun: on the floors where a tier is first found, and on every other floor from 3 on.</summary>

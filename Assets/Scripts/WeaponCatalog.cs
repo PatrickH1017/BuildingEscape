@@ -60,6 +60,10 @@ namespace BuildingEscape
         [Tooltip("The armour worn on the chest, Light / Medium / Heavy (Synty Battle Royale: SM_Chr_Attach_Male_Armor_01 to 03), scaled to the wearer (ArmourFitRules). Empty = the game's boxes (GuardArmour).")]
         public GameObject[] armourWorn = new GameObject[3];
 
+        [Header("The walkie talkie (the owner, 2026-10-23: the SpawnCampGames model)")]
+        [Tooltip("The walkie talkie the Vendor sells and the player holds out to use the radio (SpawnCampGames: Assets/SpawnCampGames/WalkieTalkie/Prefabs/Walkie.prefab). Empty = a dark box.")]
+        public GameObject walkie;
+
         /// <summary>The model of a piece of this tier lying about, or null when the catalog has none (then the boxes are used).</summary>
         public GameObject ArmourPickup(ShieldTier tier) { int i = (int)tier - 1; return armourPickups != null && i >= 0 && i < armourPickups.Length ? armourPickups[i] : null; }
 

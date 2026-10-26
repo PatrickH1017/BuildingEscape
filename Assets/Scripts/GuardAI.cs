@@ -200,12 +200,15 @@ namespace BuildingEscape
         /// <summary>The player this officer is holding down (host only), or null.</summary>
         public WobblyPlayer Holding => holding;
         WobblyPlayer holding;
+        /// <summary>The player this officer is after now (host only: a puppet knows nothing of it), or null. The developer spectator's overlay shows it (RunSync.DevView.cs).</summary>
+        public WobblyPlayer Target => target;
 
         NavMeshAgent agent;
         int patrolIndex;
         float waitUntil, stunUntil, lastSeen;
         Vector3 noiseTarget;
         WobblyPlayer target;
+        WobblyPlayer grabFor; float grabHeld;          // (the player he is trying to grab and how long he has held on: CustodyRules.GrabSeconds pins)
 
         void Awake()
         {
@@ -342,7 +345,8 @@ namespace BuildingEscape
                 var gen = FindFirstObjectByType<FloorGenerator>();
                 if (gen) gen.DropKey(transform.position + Vector3.up * 0.5f);
             }
-            GuardDrops.OnDown(this);         // (the owner, 2026-10-19: "guards should drop a fair amount of bullets per guard")
+            GuardDrops.OnDown(this);         // (the owner, 2026-10-19: "guards should drop a fair amount of bullets per guard"; since 2026-10-23: 0 to 3 bullets, taken by running over them)
+            HeistManager.Instance?.GuardEliminated(this);       // (the owner, 2026-10-23: 15 seconds later a new guard comes out of a stairwell)
             if (IsBoss) HeistManager.Instance?.BossDefeated();
             return true;
         }
@@ -426,6 +430,7 @@ namespace BuildingEscape
         }
 
         GuardCorpse corpse;
+        DraggableBody draggable;
 
         // ---- a donut break (the owner, 2026-10-18: "Crazy chances that a guard (not the armed guards) will randomly stop what they are doing to eat a donut")
         bool eating;
@@ -478,6 +483,7 @@ namespace BuildingEscape
             if (!Dead) return;
             if (!bodySettled) SettleBody();
             if (!IsBoss && corpse == null) corpse = gameObject.AddComponent<GuardCorpse>();
+            if (!IsBoss && draggable == null) draggable = gameObject.AddComponent<DraggableBody>();          // (the owner, 2026-10-23: a body can be dragged away to hide it)
         }
 
         void Update()
@@ -485,6 +491,7 @@ namespace BuildingEscape
             if (IsPuppet) return;
             if (eating && (Dead || State != GuardState.Patrol)) eating = false;        // (a noise, a sighting or a blow ends the break)
             TickCall();
+            if (State != GuardState.Chase) grabHeld = 0f;          // (the grab only runs in a chase)
             switch (State)
             {
                 case GuardState.Stunned:
@@ -505,6 +512,7 @@ namespace BuildingEscape
                 case GuardState.Pinning: UpdatePinning(); break;
             }
             if (State != GuardState.Chase && State != GuardState.Calling && State != GuardState.Pinning) ScanForPlayers();
+            if (State == GuardState.Patrol || State == GuardState.Investigate) ScanForBodies();
         }
 
         void StartCall(WobblyPlayer p)
@@ -526,7 +534,7 @@ namespace BuildingEscape
             if (callTimer >= callSeconds)
             {
                 calling = false;
-                HeistManager.Instance?.CallBackup(this);
+                HeistManager.Instance?.CallBackup(this, target && target.Custody == CustodyState.Free ? target : null);          // (he marks the player he spotted, or the one who shot him, and nobody else; the call for a body marks nobody)
                 if (State == GuardState.Calling)
                 {
                     if (callAnyway) { callAnyway = false; AfterGetUpCall(); return; }
@@ -621,6 +629,7 @@ namespace BuildingEscape
         /// </summary>
         void UpdateChase()
         {
+            ScanForPlayers(true);          // (the owner, 2026-10-24: a second player he notices while he chases is marked as well; the others are not his business)
             // the player he was after got pinned by someone else, or arrested: go for another free player in view
             if (target && target.Custody != CustodyState.Free) target = FindVisibleFreePlayer();
             if (!target) { LoseChase(); return; }
@@ -651,7 +660,7 @@ namespace BuildingEscape
             agent.isStopped = false;
             agent.speed = chaseSpeed;
             agent.SetDestination(target.transform.position);
-            TryCatch(target);
+            TryGrab(target);
         }
 
         /// <summary>
@@ -686,10 +695,31 @@ namespace BuildingEscape
             return true;
         }
 
+        /// <summary>
+        /// The grab (the owner, 2026-10-23: "Guards should not pin so quickly in melee range, it should take 2 seconds of being next to them"): while the player is within his arm's reach (the catch radius, nothing solid between)
+        /// a clock fills and he turns to face them; it drains twice as fast when they get away, and when it holds <see cref="CustodyRules.GrabSeconds"/> he pins them (<see cref="TryCatch"/>). True when he got hold of them.
+        /// </summary>
+        bool TryGrab(WobblyPlayer p)
+        {
+            if (p != grabFor) { grabFor = p; grabHeld = 0f; }
+            bool inReach = p && FlatDistance(p.transform) <= catchRadius && HasReach(p);
+            grabHeld = CustodyRules.GrabAfter(grabHeld, inReach, Time.deltaTime);
+            if (inReach) FaceTarget();
+            if (!CustodyRules.GrabDone(grabHeld)) return false;
+            grabHeld = 0f;
+            GrabsDone++;
+            return TryCatch(p);
+        }
+
+        /// <summary>Tests: how long the guard has held on to the player he is grabbing (0 to <see cref="CustodyRules.GrabSeconds"/>), and how many times the clock has run out (the pin itself can be refused: god mode, a player just freed).</summary>
+        public float GrabHeld => grabHeld;
+        public int GrabsDone { get; private set; }
+
         WobblyPlayer FindVisibleFreePlayer()
         {
+            var hm = HeistManager.Instance;
             foreach (var p in WobblyPlayerRegistry.All)
-                if (p && p.Custody == CustodyState.Free && CanSee(p)) return p;
+                if (p && p.Custody == CustodyState.Free && (hm == null || hm.IsMarked(p)) && CanSee(p)) return p;          // (a MARKED player: one who was spotted; the owner, 2026-10-24)
             return null;
         }
 
@@ -839,14 +869,17 @@ namespace BuildingEscape
         /// sight, the faster the closer the player is (the distance on the floor, the one the cone is measured in), and when it is full he starts his radio call (<see cref="StartCall"/>). Each guard keeps his own meters and nothing here depends on how many
         /// other guards there are.
         /// </summary>
-        void ScanForPlayers()
+        void ScanForPlayers(bool chasing = false)
         {
             float dt = Time.deltaTime;
             float factor = IsBackup ? GuardRules.BackupSpotFactor : 1f;
             float far = sightRange * Mathf.Max(1f, longSightFactor);
+            var hm = HeistManager.Instance;
+            if (chasing && hm == null) return;
             foreach (var p in WobblyPlayerRegistry.All)
             {
                 if (!p) continue;
+                if (chasing && (hm.IsMarked(p) || p.Custody != CustodyState.Free)) continue;          // (chasing: only a player who is not marked yet can be noticed now)
                 bool inSight = CanSee(p);
                 if (!noticed.TryGetValue(p, out var meter))
                 {
@@ -857,7 +890,13 @@ namespace BuildingEscape
                 var flat = p.transform.position - transform.position; flat.y = 0f;
                 float distance = Mathf.Min(flat.magnitude, far);         // (a player who got away is measured no further than he could be seen from)
                 meter.progress = GuardRules.NoticeStep(meter.progress, ref meter.unseenFor, inSight, dt, distance, spotBase, spotPerMetre, factor);
-                if (meter.progress >= 1f) { noticed.Remove(p); StartCall(p); return; }
+                if (meter.progress >= 1f)
+                {
+                    noticed.Remove(p);
+                    if (chasing) { hm.MarkSpotted(p); continue; }          // (he is after somebody already: the second player is marked, nothing else changes)
+                    StartCall(p);
+                    return;
+                }
             }
             if (noticed.Count > 0)
             {
@@ -865,6 +904,55 @@ namespace BuildingEscape
                 foreach (var kv in noticed) if (!kv.Key || kv.Value.progress <= 0f) noticeKeys.Add(kv.Key);
                 foreach (var k in noticeKeys) noticed.Remove(k);
             }
+        }
+
+        /// <summary>True on the body of an eliminated guard that has already raised the alarm: each body raises it once, whoever sees it first (<see cref="ScanForBodies"/>).</summary>
+        public bool BodyAlarmRaised { get; private set; }
+        float nextBodyScan;
+
+        /// <summary>
+        /// He looks for the bodies of eliminated guards (the owner, 2026-10-23: "Guards can see other guards eliminated bodies and get alerted"): a few times a second (host / offline) while he is on his round or looking into something. A body he sees - inside his
+        /// cone (<see cref="GuardRules.InVision"/>, the same one as for a player) with nothing in the way (<see cref="GuardSight"/>) - makes him stop, look at it and radio for backup like for a sighting (<see cref="BeginBodyCall"/>). A guard on duty in the outpost
+        /// sees only what is inside his room (<see cref="noticeGate"/>), and the boss does not look.
+        /// </summary>
+        void ScanForBodies()
+        {
+            if (IsPuppet || Dead || IsBoss || Time.time < nextBodyScan) return;
+            nextBodyScan = Time.time + GuardRules.BodyScanSeconds;
+            float far = sightRange * Mathf.Max(1f, longSightFactor);
+            var fwd = transform.forward;
+            for (int i = 0; i < All.Count; i++)
+            {
+                var other = All[i];
+                if (!other || other == this || !other.Dead || other.BodyAlarmRaised) continue;
+                var at = other.transform.position;
+                if (noticeGate != null && !noticeGate(at)) continue;
+                var flat = at - transform.position;
+                if (!GuardRules.InVision(fwd.x, fwd.z, flat.x, flat.z, sightAngle, sightRange, far, longSightAngle)) continue;
+                var eye = EyePoint;
+                float feet = at.y - GuardRules.FeetBelowMiddle * Mathf.Abs(other.transform.lossyScale.y);
+                if (sightLine == null) sightLine = LineIsClear;
+                bool seen = GuardRules.SeesBody(eye.x, eye.y, eye.z, at.x, feet, at.z, GuardRules.BodyHeightLying, sightLine);
+                if (!GuardRules.BodyAlarms(seen, other.BodyAlarmRaised)) continue;
+                BeginBodyCall(other);
+                return;
+            }
+        }
+
+        /// <summary>He has seen the body of an eliminated guard: he stops, faces it and radios for backup as for a sighting - for <see cref="callSeconds"/>, whether or not he sees a player - and when the call is through he goes to look at the body (<see cref="AfterGetUpCall"/>).</summary>
+        void BeginBodyCall(GuardAI body)
+        {
+            body.BodyAlarmRaised = true;                                 // (one alarm per body)
+            eating = false;
+            calling = true; callTimer = 0f; unseenFor = 0f; callAnyway = true; callOnGetUp = false;
+            target = null; hitBy = null;
+            noiseTarget = body.transform.position;
+            lastSeenPos = noiseTarget;
+            State = GuardState.Calling;
+            agent.isStopped = true;
+            var to = noiseTarget - transform.position; to.y = 0f;
+            if (to.sqrMagnitude > 0.01f) transform.rotation = Quaternion.LookRotation(to);
+            Debug.Log($"{name} saw the body of {body.name}: he is calling for backup");
         }
 
         /// <summary>
@@ -880,6 +968,7 @@ namespace BuildingEscape
         bool CanSee(WobblyPlayer p)
         {
             if (p.Custody != CustodyState.Free) return false; // pinned or arrested players are not what he is looking for
+            if (PlayerBuffs.IsInvisible(p)) return false;     // the "invisible" consumable (the owner, 2026-10-25): nothing of him is seen, so his notice meter never fills and no chase starts
             if (noticeGate != null && !noticeGate(p.transform.position)) return false;      // outside the room he guards: he does not see it
             float range = p.IsHidden ? hiddenSightRange : sightRange;
             float far = p.IsHidden ? range : range * Mathf.Max(1f, longSightFactor);       // (down a straight line of sight he sees much further)

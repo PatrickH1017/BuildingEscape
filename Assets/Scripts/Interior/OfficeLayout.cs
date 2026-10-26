@@ -387,6 +387,7 @@ namespace BuildingEscape
         /// <summary>Hangs a flat prop on a wall at the given height (no floor space used). Skips doorways and tall furniture. With <paramref name="clear"/> above 0 (safety gear: extinguisher, axe case, pull station) the floor in front of it, 0.9 m out and that far to either side, must be free of anything solid too, so that it can be reached.</summary>
         public Item Mount(char side, string key, float along, float height, float gap = 0.0f, float clear = 0f)
         {
+            if (!HasWall(side)) return null;                                  // (the owner's playtest, 2026-10-23: "floating items such as fire extinguishers should not be floating randomly": a side of the room without a wall has nothing to hang it on)
             var def = PropTable.Get(key);
             float pw = def.W, pd = def.D;
             float ly = 90f * FaceQ(side);

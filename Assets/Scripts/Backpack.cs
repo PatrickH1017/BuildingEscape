@@ -14,6 +14,8 @@ namespace BuildingEscape
         public float capacity = 20f;
         public KeyCode pickupKey = KeyCode.E;
         public KeyCode inventoryKey = KeyCode.Tab;
+        /// <summary>Drops the weapon in hand (the owner's playtest, 2026-10-23: "players ... couldn't drop them"); the Tab window's DROP did it only.</summary>
+        public KeyCode dropKey = KeyCode.G;
         public float reach = 2.2f;
 
         public static bool UiOpen { get; private set; }
@@ -84,6 +86,26 @@ namespace BuildingEscape
             return slot >= 0 && slot < barSlots.Length && barSlots[slot] >= 0 && barSlots[slot] < items.Count ? items[barSlots[slot]] : null;
         }
 
+        /// <summary>
+        /// The number key of a bar slot (the owner's playtest, 2026-10-23: "players couldn't unequip and re-equip their melee weapons"): the weapon of the slot comes into the hand, and when it IS in the hand already the key puts it away again.
+        /// False for an empty slot, which changes nothing.
+        /// </summary>
+        public bool PressSlot(int slot)
+        {
+            var p = BarWeapon(slot);
+            if (!p) return false;
+            SetEquipped(p == Equipped ? null : p);
+            return true;
+        }
+
+        /// <summary>Drops the weapon in hand (the drop key); false when the hands are empty.</summary>
+        public bool DropHeld()
+        {
+            if (!Equipped) return false;
+            Drop(Equipped);
+            return true;
+        }
+
         /// <summary>Takes the weapon of a bar slot in hand (the keys 1 to 6); false for an empty slot, which changes nothing.</summary>
         public bool SelectSlot(int slot)
         {
@@ -92,11 +114,78 @@ namespace BuildingEscape
             if (p != Equipped) SetEquipped(p);
             return true;
         }
+        // ---- the consumables of the vending machines (the owner, 2026-10-25; ConsumableRules)
+
+        /// <summary>How many cans of this kind the pack holds.</summary>
+        public int CountConsumable(ConsumableKind kind)
+        {
+            int n = 0;
+            foreach (var p in items) if (p && p.TryGetComponent(out ConsumableItem c) && c.kind == kind) n++;
+            return n;
+        }
+
+        /// <summary>The number key (7 8 9 0 -) of a kind: the first can of it in the pack is drunk, or the player is told he has none.</summary>
+        public void UseKind(ConsumableKind kind)
+        {
+            Pickup can = null;
+            foreach (var p in items) if (p && p.TryGetComponent(out ConsumableItem c) && c.kind == kind) { can = p; break; }
+            if (can == null) { if (Viewed) Say(ConsumableRules.NoneInPack(kind)); return; }
+            UseConsumable(can);
+        }
+
+        /// <summary>Drinks a can of the pack (the USE button, a number key): in a networked run the host decides (<c>RunSync.HostUseConsumable</c>); offline it is checked here - not while pinned or busted, not while that kind cools down (or, invisible, was used this round) - and the can is used up.</summary>
+        public void UseConsumable(Pickup can)
+        {
+            if (!can || !can.TryGetComponent(out ConsumableItem item) || !items.Contains(can)) return;
+            if (wobbly && wobbly.InCustody) return;
+            if (Net.NetRole.Synced) { Net.RunSync.Instance.RequestUseConsumable(can); return; }
+            if (!TryGetComponent(out PlayerBuffs buffs)) return;
+            var check = buffs.Check(item.kind);
+            if (check != UseCheck.Ok) { Say(ConsumableRules.Refusal(item.kind, check, buffs.Set.CooldownLeft(item.kind, Time.time))); return; }
+            RemoveUsed(can);
+            Destroy(can.gameObject);
+            buffs.StartLocal(item.kind);
+        }
+
         /// <summary>Is the crosshair on an item within reach that E would pick up right now?</summary>
         public bool HasPickupTarget => target != null;
         /// <summary>The weapon (a melee weapon or the pew) shown in the right hand (must be an item in the pack).</summary>
         public Pickup Equipped { get; private set; }
-        public float Weight { get { float w = 0; foreach (var p in items) if (p) w += p.weight; return w; } }
+        public float Weight { get { float w = 0; var worn = WornArmour; foreach (var p in items) if (p) w += WeightOf(p, worn); return w; } }
+
+        /// <summary>The piece of armour that is worn: the best tier in the pack (the first of them when two are alike); null when the pack holds none (<see cref="PlayerArmour.TierOf(Backpack)"/>).</summary>
+        public Pickup WornArmour
+        {
+            get
+            {
+                Pickup best = null; var tier = ShieldTier.None;
+                foreach (var p in items)
+                    if (p && p.TryGetComponent(out ArmourItem a) && a.tier > tier) { best = p; tier = a.tier; }
+                return best;
+            }
+        }
+
+        /// <summary>How many pieces of armour are in the pack (at most <see cref="ArmourRules.MaxCarried"/>).</summary>
+        public int CountArmour()
+        {
+            int n = 0;
+            foreach (var p in items) if (p && p.TryGetComponent(out ArmourItem _)) n++;
+            return n;
+        }
+
+        float WeightOf(Pickup p, Pickup worn) => !p ? 0f : p != worn && p.TryGetComponent(out ArmourItem a) ? ArmourRules.SpareWeight(a.tier) : p.weight;
+
+        /// <summary>What this item weighs in this pack: its own weight, except a piece of armour that is not the one worn: that is a spare to bring to a teammate and weighs <see cref="ArmourRules.SpareWeight"/>.</summary>
+        public float WeightOf(Pickup p) => WeightOf(p, WornArmour);
+
+        /// <summary>What taking this item would add to the weight: its own weight, except a second piece of armour (then the better of the two is worn and the other is the spare: <see cref="ArmourRules.PackWeight"/>).</summary>
+        public float AddedWeight(Pickup p)
+        {
+            if (!p) return 0f;
+            if (!p.TryGetComponent(out ArmourItem a) || CountArmour() != 1) return p.weight;
+            var have = PlayerArmour.TierOf(this);
+            return ArmourRules.PackWeight(have, a.tier) - ArmourRules.Weight(have);
+        }
 
         /// <summary>Is this the pack the camera follows (the one whose screens and keys this machine shows)? True while there is no camera.</summary>
         public bool Viewed
@@ -134,14 +223,49 @@ namespace BuildingEscape
         }
         public List<Pickup> Snapshot() => new List<Pickup>(items);
 
-        /// <summary>Where a dropped item lands (in front of the player).</summary>
-        public Vector3 DropPosition() => transform.position + transform.forward * 1.3f + Vector3.up * 0.5f
-                                         + Random.insideUnitSphere * 0.15f;
+        /// <summary>How far in front of the player a dropped item lands (m), how much room it needs on the way (its own half size and the player's reach) and how fat the sweep that looks for a wall is.</summary>
+        const float DropReach = 1.3f, DropRoom = 0.65f, DropSweepRadius = 0.3f;
+        static readonly RaycastHit[] dropHits = new RaycastHit[16];
+
+        /// <summary>Is the way from <paramref name="from"/> along <paramref name="dir"/> free of anything solid that stays where it is (a wall, a shut door, furniture) for <paramref name="distance"/> metres?</summary>
+        bool DropWayFree(Vector3 from, Vector3 dir, float distance)
+        {
+            int n = Physics.SphereCastNonAlloc(from, DropSweepRadius, dir, dropHits, distance, ~0, QueryTriggerInteraction.Ignore);
+            for (int i = 0; i < n; i++)
+            {
+                var c = dropHits[i].collider;
+                if (!c || c.attachedRigidbody != null || c.transform.IsChildOf(transform)) continue;           // (loose things move away; the player himself is not a wall)
+                return false;
+            }
+            return true;
+        }
+
+        /// <summary>
+        /// Where a dropped item lands: in front of the player as far as the way is free - the first of in front, to his right, to his left and behind him that has room (the owner, 2026-10-23: the big prototype server dropped in the elevator "makes it fall outside the
+        /// elevator": it was put 1.3 m in front of a player who stood by the wall, that is inside the wall, and the physics threw it out). With a wall on every side it lands on the player himself (the physics pushes it out of him).
+        /// </summary>
+        public Vector3 DropPosition()
+        {
+            var origin = transform.position + Vector3.up * 0.5f;
+            var jitter = Random.insideUnitSphere * 0.15f;
+            foreach (var dir in new[] { transform.forward, transform.right, -transform.right, -transform.forward })
+                if (DropWayFree(origin, dir, DropReach + DropRoom)) return origin + dir * DropReach + jitter;
+            return origin + Vector3.up * 0.3f + jitter;
+        }
+
+        /// <summary>Where the <paramref name="index"/>-th piece of a "drop all" lies, relative to <see cref="DropPosition"/>: the first on it, the rest in rings around it (the owner, 2026-10-23: "Drop all loot is not dropping all loot properly"), so thirty pieces never lie on one spot and shove each other through the floor.</summary>
+        public static Vector3 DropSpread(int index)
+        {
+            if (index <= 0) return Vector3.zero;
+            int ring = (index - 1) / 6, slot = (index - 1) % 6;
+            float radius = 0.32f + ring * 0.24f, angle = (slot * 60f + ring * 30f) * Mathf.Deg2Rad;
+            return new Vector3(Mathf.Cos(angle) * radius, 0f, Mathf.Sin(angle) * radius);
+        }
 
         /// <summary>Put it in the pack. In a networked run the host decides and everybody applies the result.</summary>
         public bool TryStore(Pickup p)
         {
-            if (!p) return false;
+            if (!p || p.runOverOnly) return false;                                         // (bullets lying about are taken by running over them, not with E)
             if (Net.NetRole.Synced) { Net.RunSync.Instance.RequestStore(p); return true; }
             if (p.TryGetComponent(out AmmoClip ammo)) return TakeClip(p, ammo);
             if (!CanFit(p, out string why)) { Say(why); return false; }
@@ -154,17 +278,13 @@ namespace BuildingEscape
         public static string ClipTaken(int rounds) => "+" + rounds + " rounds for your pew";
         /// <summary>The same for a clip of any gun: what a player is told who goes for a clip of a gun he does not carry, one who carries the most clips already, and who has taken one (placeholders: the owner writes the words).</summary>
         public static string NoGunForClip(RangedWeapon.Kind kind) => kind == RangedWeapon.Kind.Pew ? NoPewForClip : "You have no " + RangedWeapon.Specs[(int)kind].name + " for this clip";
-        /// <summary>What a player is told who carries the most clips of a gun already: "three" for most guns, "twelve" for the pistol (the owner writes the words: this keeps the old sentence with the right number).</summary>
-        public static string TooManyClipsFor(GunMagazine m) => "You can't carry more than " + ClipWord(m.Capacity > 0 ? m.MaxRounds / m.Capacity : 3) + " clips";
-        static string ClipWord(int n) => n >= 1 && n <= 12 ? new[] { "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "eleven", "twelve" }[n - 1] : n.ToString();
         public static string ClipTaken(int rounds, RangedWeapon.Kind kind) => kind == RangedWeapon.Kind.Pew ? ClipTaken(rounds) : "+" + rounds + " rounds for your " + RangedWeapon.Specs[(int)kind].name;
 
         /// <summary>Offline: a spare clip (<see cref="AmmoClip"/>) is taken - its rounds go into the pew in this pack and the clip is used up; without a pew it stays where it lies. A networked run does the same through the host (RunSync.HostStore).</summary>
-        bool TakeClip(Pickup p, AmmoClip clip)
+        internal bool TakeClip(Pickup p, AmmoClip clip)
         {
             var gun = Vendor.GunOf(this, clip.kind);
             if (gun == null) { Say(NoGunForClip(clip.kind)); return false; }
-            if (gun.Magazine.Room < clip.rounds) { Say(TooManyClipsFor(gun.Magazine)); return false; }               // (three clips at most: the clip stays where it lies)
             Vendor.GiveAmmo(this, clip.rounds, clip.kind);
             int rounds = clip.rounds;
             Destroy(p.gameObject);
@@ -176,9 +296,11 @@ namespace BuildingEscape
         public bool CanFit(Pickup p, out string why)
         {
             why = null;
-            if (p.TryGetComponent(out ArmourItem _) && PlayerArmour.Wears(this)) { why = ArmourRules.AlreadyWearing; return false; }        // (one piece of armour at a time)
-            if (Weight + p.weight <= capacity + 0.001f) return true;
-            why = $"Too heavy for your pack ({WeightUnits.Lbs(p.weight)}, {WeightUnits.Lbs(Mathf.Max(0, capacity - Weight))} free)" +
+            if (p.TryGetComponent(out ArmourItem _) && CountArmour() >= ArmourRules.MaxCarried) { why = ArmourRules.TooMuchArmour; return false; }        // (the one worn and one spare for a teammate)
+            if (p.TryGetComponent(out ConsumableItem can) && CountConsumable(can.kind) >= ConsumableRules.Of(can.kind).limit) { why = ConsumableRules.AtLimit(can.kind); return false; }          // (the owner's "limit of n in inventory")
+            float add = AddedWeight(p);
+            if (Weight + add <= capacity + 0.001f) return true;
+            why = $"Too heavy for your pack ({WeightUnits.Lbs(add)}, {WeightUnits.Lbs(Mathf.Max(0, capacity - Weight))} free)" +
                   (p.Loot && p.Loot.lifters > 1 ? " - carry it with friends (Q)" : "");
             return false;
         }
@@ -188,11 +310,11 @@ namespace BuildingEscape
         {
             if (!p || items.Contains(p)) return;
             items.Add(p);
-            if (!Equipped && RangedWeapon.IsWeapon(p)) Equipped = p;
+            if (!Equipped && RangedWeapon.IsWeapon(p) && !WalkieTalkie.IsWalkie(p)) Equipped = p;          // (a walkie talkie is held out by choice, never by itself)
             p.transform.SetParent(holder, true);
             if (p.TryGetComponent(out Rigidbody rb) && !rb.isKinematic) { rb.linearVelocity = Vector3.zero; rb.angularVelocity = Vector3.zero; }
             p.gameObject.SetActive(false);
-            if (Viewed) Say($"Picked up {p.Label} ({WeightUnits.Lbs(p.weight)})");
+            if (Viewed) Say($"Picked up {p.Label} ({WeightUnits.Lbs(WeightOf(p))})");
         }
 
         public void Drop(Pickup p)
@@ -212,12 +334,14 @@ namespace BuildingEscape
             p.transform.position = pos;
             p.gameObject.SetActive(true);
             if (p.TryGetComponent(out Rigidbody rb) && !rb.isKinematic) { rb.linearVelocity = Vector3.zero; rb.angularVelocity = Vector3.zero; }
+            if (p.TryGetComponent(out HeavyLoot heavy)) heavy.NoteSetDown();                  // (let go of now: the elevator car keeps a heavy piece that was let go of in it, see ElevatorExtraction)
         }
 
         public void DropAll()
         {
             if (Net.NetRole.Synced) { Net.RunSync.Instance.RequestDropAll(); return; }
-            foreach (var p in new List<Pickup>(items)) if (p && p.Loot) ApplyDropped(p, DropPosition());          // (loot only: weapons, armour and the other equipment stay)
+            int n = 0;
+            foreach (var p in new List<Pickup>(items)) if (p && p.CountsAsLoot) ApplyDropped(p, DropPosition() + DropSpread(n++));          // (loot only: weapons, armour and the other equipment stay)
         }
 
         /// <summary>Equip a weapon from the pack, or null to put it away.</summary>
@@ -280,7 +404,11 @@ namespace BuildingEscape
             if (Input.GetKeyDown(inventoryKey) && !Vendor.ShopOpen && !ElevatorPanel.Open && !OutpostUi.Open) { UiOpen = !UiOpen; scroll = Vector2.zero; }
             if (!UiOpen && !talk && !EscapeMenu.Open && !TestMode.PanelOpen)
                 for (int d = 1; d <= WeaponBarRules.Slots; d++)
-                    if (Input.GetKeyDown(KeyCode.Alpha0 + d) || Input.GetKeyDown(KeyCode.Keypad0 + d)) SelectSlot(WeaponBarRules.SlotOfKey(d));
+                    if (Input.GetKeyDown(KeyCode.Alpha0 + d) || Input.GetKeyDown(KeyCode.Keypad0 + d)) PressSlot(WeaponBarRules.SlotOfKey(d));
+            if (!UiOpen && !talk && !EscapeMenu.Open && !TestMode.PanelOpen)
+                for (int k = 0; k < ConsumableRules.Count; k++)
+                    if (Input.GetKeyDown(ConsumableItem.Keys[k])) UseKind((ConsumableKind)k);
+            if (!UiOpen && !talk && !EscapeMenu.Open && !TestMode.PanelOpen && Input.GetKeyDown(dropKey)) DropHeld();
 
             // E works what the crosshair is on: an item here, a door in DoorManager, the dealer in Vendor
             var aimed = (UiOpen || talk) ? AimTarget.Nothing : Crosshair.Aim;
@@ -339,10 +467,15 @@ namespace BuildingEscape
             bool warn = false;
             if (target)
             {
-                bool fits = w + target.weight <= capacity + 0.001f;
+                float add = AddedWeight(target);                       // (a second piece of armour weighs more in the pack than it does lying about: ArmourRules.SpareWeight)
+                bool tooMuchArmour = target.TryGetComponent(out ArmourItem _) && CountArmour() >= ArmourRules.MaxCarried;
+                bool atLimit = target.TryGetComponent(out ConsumableItem canAimed) && CountConsumable(canAimed.kind) >= ConsumableRules.Of(canAimed.kind).limit;
+                bool fits = !tooMuchArmour && !atLimit && w + add <= capacity + 0.001f;
                 prompt = fits
-                    ? $"[E] Pick up {target.Label}  ({WeightUnits.Lbs(target.weight)}" + (target.Value > 0 ? $", ${target.Value}" : "") + ")"
-                    : $"{target.Label} ({WeightUnits.Lbs(target.weight)}) is too heavy for your pack - [Q] carry it";
+                    ? $"[E] Pick up {target.Label}  ({WeightUnits.Lbs(add)}" + (target.Value > 0 ? $", ${target.Value}" : "") + ")"
+                    : tooMuchArmour ? $"{target.Label}: {ArmourRules.TooMuchArmour}"
+                    : atLimit ? $"{target.Label}: {ConsumableRules.AtLimit(canAimed.kind)}"
+                    : $"{target.Label} ({WeightUnits.Lbs(add)}) is too heavy for your pack - [Q] carry it";
                 warn = !fits;
             }
             else if (Time.time < noticeUntil) prompt = notice;
@@ -357,7 +490,7 @@ namespace BuildingEscape
         readonly MenuKit.Scroll invScroll = new MenuKit.Scroll();
         float invCardH;
         const float InvRowHeight = 62f;
-        const int ActNone = 0, ActDrop = 1, ActEquip = 2, ActTake = 3;
+        const int ActNone = 0, ActDrop = 1, ActEquip = 2, ActTake = 3, ActUse = 4;
 
         /// <summary>
         /// The window: the weight bar and what the loot in the pack is worth at the top, what is in the pack (Equip / Put away and Drop for each) and what lies within reach
@@ -460,6 +593,7 @@ namespace BuildingEscape
             if (action == -1) DropAll();
             else if (action == ActDrop && picked) Drop(picked);
             else if (action == ActEquip && picked) SetEquipped(picked == Equipped ? null : picked);
+            else if (action == ActUse && picked) UseConsumable(picked);
             else if (action == ActTake && picked) { TryStore(picked); nearby.Remove(picked); }
         }
 
@@ -655,6 +789,12 @@ namespace BuildingEscape
                 var dropRect = new Rect(x - 96f * s, by, 96f * s, bh);
                 x = dropRect.x - gap;
                 if (MenuKit.Button(dropRect, "DROP", HudTheme.Warning, 19f)) act = ActDrop;
+                if (ConsumableItem.IsConsumable(p))
+                {
+                    var useRect = new Rect(x - 110f * s, by, 110f * s, bh);                              // (the owner, 2026-10-25: the consumables are drunk from here or with their number key)
+                    x = useRect.x - gap;
+                    if (MenuKit.Button(useRect, "USE", HudTheme.Good, 19f)) act = ActUse;
+                }
                 if (gun)
                 {
                     var equipRect = new Rect(x - 128f * s, by, 128f * s, bh);
@@ -664,7 +804,7 @@ namespace BuildingEscape
             }
             else
             {
-                bool fits = weightNow + p.weight <= capacity + 0.001f;
+                bool fits = weightNow + AddedWeight(p) <= capacity + 0.001f && !(p.TryGetComponent(out ArmourItem _) && CountArmour() >= ArmourRules.MaxCarried);
                 var takeRect = new Rect(x - 132f * s, by, 132f * s, bh);
                 x = takeRect.x - gap;
                 if (MenuKit.Button(takeRect, fits ? "TAKE" : "TOO HEAVY", HudTheme.Good, fits ? 19f : 16f, fits)) act = ActTake;
@@ -702,7 +842,7 @@ namespace BuildingEscape
             if (slotText != null) HudTheme.Chip(new Rect(chipX, r.y + 10f * s, slotW, 22f * s), slotText, HudTheme.Quota, 12f);
 
             float dx = tx, dy = r.y + 34f * s;
-            string weight = WeightUnits.Lbs(p.weight);
+            string weight = WeightUnits.Lbs(inPack ? WeightOf(p) : AddedWeight(p));
             HudTheme.Text(new Rect(dx, dy, 110f * s, 22f * s), weight, 15f, HudTheme.Muted, TextAnchor.MiddleLeft, false);
             dx += HudTheme.Width(weight, 15f) + 18f * s;
             if (p.TryGetComponent(out RangedWeapon rw))

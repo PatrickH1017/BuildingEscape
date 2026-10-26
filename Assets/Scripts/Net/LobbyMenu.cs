@@ -13,7 +13,7 @@ namespace BuildingEscape.Net
     /// </summary>
     public class LobbyMenu : MonoBehaviour
     {
-        enum Page { Main, Play, Browse, Customize, Settings, HowTo, Invite, Keybinds }
+        enum Page { Main, Play, Browse, Customize, Settings, HowTo, Invite, Keybinds, Spectate }
 
         const float PanelW = 470f;   // reference pixels (see HudTheme.S)
         const string VolumeKey = "OvertimeEscape.MasterVolume";   // shared with the in-run Esc menu
@@ -40,6 +40,7 @@ namespace BuildingEscape.Net
 
         Page page;
         string codeInput = "";
+        string spectateCode = "", spectateStatus = "";          // (the dev UI's spectate page)
         string ipInput = "127.0.0.1";
         readonly List<LobbyListing> listings = new();
         bool searching;
@@ -89,6 +90,7 @@ namespace BuildingEscape.Net
                 case Page.Browse: page = Page.Play; break;
                 case Page.Settings: PlayerPrefs.Save(); page = Page.Main; break;
                 case Page.HowTo:
+                case Page.Spectate:
                 case Page.Invite: page = Page.Main; break;
             }
         }
@@ -108,7 +110,8 @@ namespace BuildingEscape.Net
             }
 
             // A lobby / connection takes over the panel; pages that make no sense online fall back to Main.
-            if (net.State != NetSessionState.Offline && (page == Page.Play || page == Page.Browse)) page = Page.Main;
+            if (net.State != NetSessionState.Offline && (page == Page.Play || page == Page.Browse || page == Page.Spectate)) page = Page.Main;
+            if (page == Page.Spectate && !DevAccess.Unlocked) page = Page.Main;                 // (the code was typed again: back to the normal UI, the owner, 2026-10-24)
             if (net.State == NetSessionState.Offline && page == Page.Invite) page = Page.Main;
 
             MenuKit.Begin();
@@ -155,6 +158,7 @@ namespace BuildingEscape.Net
             scroll.End(view, flow.y);
 
             DrawFooter(net, new Rect(panel.x + pad, panel.yMax - pad - footerH, panel.width - pad * 2f, footerH));
+            if (DevAccess.Unlocked) HudTheme.Chip(new Rect(panel.xMax - 86f * s, panel.yMax - 14f * s, 74f * s, 28f * s), "DEV", HudTheme.Danger, 15f);          // (the dev UI is on: a tab on the card's lower edge)
             HudAnim.End(mat);
         }
 
@@ -168,6 +172,7 @@ namespace BuildingEscape.Net
                 case Page.Settings: return "SETTINGS";
                 case Page.HowTo: return "HOW TO PLAY";
                 case Page.Invite: return "INVITE FRIENDS";
+                case Page.Spectate: return "SPECTATE";
                 default: return net.State == NetSessionState.Connecting ? "CONNECTING" : "LOBBY";
             }
         }
@@ -210,6 +215,7 @@ namespace BuildingEscape.Net
             else if (page == Page.Settings) DrawSettings(f);
             else if (page == Page.HowTo) DrawHowTo(f);
             else if (page == Page.Invite) DrawInvite(net, f);
+            else if (page == Page.Spectate) DrawSpectate(net, f);
             else switch (net.State)
             {
                 case NetSessionState.Offline:
@@ -269,6 +275,31 @@ namespace BuildingEscape.Net
             if (MenuKit.Button(f.Row(62f, 14f), "CUSTOMIZE", HudTheme.Info, 28f)) OpenCustomize();
             if (MenuKit.Button(f.Row(62f, 14f), "HOW TO PLAY", HudTheme.Warning, 28f)) page = Page.HowTo;
             if (MenuKit.Button(f.Row(62f, 14f), "SETTINGS", Violet, 28f)) page = Page.Settings;
+            if (DevAccess.Unlocked && MenuKit.Button(f.Row(62f, 14f), "SPECTATE", HudTheme.Danger, 28f)) { page = Page.Spectate; GUI.FocusControl(null); }          // (the dev UI: the owner, 2026-10-24)
+        }
+
+        /// <summary>
+        /// The dev UI's spectate page (the owner, 2026-10-24: "a spectate button on the lobby where we can access that spectate menu feature"): the lobby code of the match to watch and a button; the terminal's <c>spectate CODE</c> does the same. The host lets a
+        /// developer in only when Steam says his account is on the list (<c>DevAccounts</c>), before the run starts. NO Steam ID and no list answer is shown here (the owner: that might make it easy for a hacker to get dev permissions).
+        /// </summary>
+        void DrawSpectate(NetSession net, MenuKit.Flow f)
+        {
+#if ETR_DEV_TOOLS || UNITY_EDITOR
+            MenuKit.Header(f.Row(28f, 8f), "WATCH A MATCH", HudTheme.Danger);
+            MenuKit.Label(f.Row(22f, 6f), "the lobby code of the match, before its run starts", 15f, HudTheme.Muted);
+            var row = f.Row(52f, 12f);
+            var box = MenuKit.Cell(row, 0, 2, 10f);
+            spectateCode = MenuKit.TextBox(box, spectateCode, NetConst.CodeLength, "spectatecode", "LOBBY CODE").ToUpperInvariant();
+            if (MenuKit.Button(MenuKit.Cell(row, 1, 2, 10f), "SPECTATE", HudTheme.Danger, 19f)) spectateStatus = net.SpectateByCode(spectateCode);
+            if (spectateStatus.Length > 0)
+            {
+                float s = HudTheme.S;
+                float hh = MenuKit.WrappedHeight(spectateStatus, 15f * s, f.w - 24f * s) + 14f * s;
+                var plate = f.Row(hh / s, 8f);
+                HudTheme.Rounded(plate, HudTheme.Alpha(HudTheme.Warning, 0.3f), 12f * s);
+                MenuKit.Wrapped(new Rect(plate.x + 12f * s, plate.y + 7f * s, plate.width - 24f * s, plate.height), spectateStatus, 15f * s, HudTheme.Bright);
+            }
+#endif
         }
 
         static void Quit()
@@ -364,6 +395,7 @@ namespace BuildingEscape.Net
         void DrawLobby(NetSession net, MenuKit.Flow f)
         {
             float s = HudTheme.S;
+            if (net.IsSpectator) { DrawSpectatorLobby(f); return; }
             if (net.UsingSteam && !string.IsNullOrEmpty(net.LobbyCode))
             {
                 var row = f.Row(66f, 14f);
@@ -418,6 +450,15 @@ namespace BuildingEscape.Net
                 MenuKit.Notice(f.Row(34f, 0f), "WAITING FOR THE HOST TO START...", HudTheme.Shade(HudTheme.Card, 0.3f), 16f);
             }
             else MenuKit.Notice(f.Row(34f, 0f), "WAITING FOR THE HOST TO START...", HudTheme.Shade(HudTheme.Card, 0.3f), 16f);
+        }
+
+        /// <summary>The lobby page of a developer who watches (the owner, 2026-10-23): no party list, nothing to get ready; he waits for the host to start the run. Plain tool words.</summary>
+        void DrawSpectatorLobby(MenuKit.Flow f)
+        {
+            f.Gap(18f);
+            MenuKit.Header(f.Row(28f, 8f), "DEV SPECTATOR", HudTheme.Info);
+            MenuKit.Notice(f.Row(34f, 8f), "YOU ARE WATCHING THIS LOBBY. THE PARTY CANNOT SEE YOU.", HudTheme.Shade(HudTheme.Card, 0.3f), 15f);
+            MenuKit.Notice(f.Row(34f, 0f), "WAITING FOR THE HOST TO START...", HudTheme.Shade(HudTheme.Card, 0.3f), 16f);
         }
 
         // ------------------------------------------------------------------ customize

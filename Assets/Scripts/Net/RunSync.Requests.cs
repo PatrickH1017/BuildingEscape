@@ -61,7 +61,7 @@ namespace BuildingEscape.Net
         {
             var np = PlayerOf(who);
             var p = NetIds.Get<Pickup>(id);
-            if (np == null || p == null || !p.isActiveAndEnabled || p.IsHeld) return;
+            if (np == null || p == null || !p.isActiveAndEnabled || p.IsHeld || p.runOverOnly) return;
             var loot = p.Loot;
             if (loot != null && loot.Holders > 0) return;
             if (!Near(np.transform, p.transform, ReachCheck)) return;
@@ -72,7 +72,6 @@ namespace BuildingEscape.Net
                 // a spare clip is used up on the spot (the owner, 2026-10-18): its rounds go into the pew this player carries - every machine adds them, as for the dealer's clip - and the clip is gone everywhere; no pew, no clip
                 var clipGun = Vendor.GunOf(bp, clip.kind);
                 if (clipGun == null) { Notice(who, Backpack.NoGunForClip(clip.kind)); return; }
-                if (clipGun.Magazine.Room < clip.rounds) { Notice(who, Backpack.TooManyClipsFor(clipGun.Magazine)); return; }      // (three clips at most: the clip stays where it lies)
                 int rounds = clip.rounds;
                 AnnounceAmmo(np.Slot, rounds, clip.kind);
                 Notice(who, Backpack.ClipTaken(rounds, clip.kind));
@@ -82,6 +81,23 @@ namespace BuildingEscape.Net
             }
             if (!bp.CanFit(p, out string why)) { Notice(who, why); return; }
             StoredRpc((ushort)id, (byte)np.Slot);
+        }
+
+        /// <summary>
+        /// Host: this player ran over the bullets a guard dropped (<see cref="AmmoRunOver"/>; the owner, 2026-10-23: "A player should have to run over the eliminated guard to get the dropped bullets"). When he carries a gun of their kind every machine adds
+        /// the rounds to it (the same announcement as the dealer's ammunition) and the bullets are gone everywhere. False when nothing happened.
+        /// </summary>
+        public bool HostRunOver(NetPlayer np, Pickup p)
+        {
+            if (!IsServer || np == null || p == null || !p.isActiveAndEnabled || !p.TryGetComponent(out AmmoClip clip)) return false;
+            var bp = np.GetComponent<Backpack>();
+            if (bp == null || Vendor.GunOf(bp, clip.kind) == null) return false;
+            int rounds = clip.rounds;
+            AnnounceAmmo(np.Slot, rounds, clip.kind);
+            Notice(np.OwnerClientId, Backpack.ClipTaken(rounds, clip.kind));
+            BroadcastConsumed(p.NetId);
+            Destroy(p.gameObject);
+            return true;
         }
 
         public void RequestDrop(Pickup p)
@@ -116,8 +132,9 @@ namespace BuildingEscape.Net
             var np = PlayerOf(who);
             var bp = np ? np.GetComponent<Backpack>() : null;
             if (bp == null) return;
+            int n = 0;
             foreach (var p in bp.Snapshot())
-                if (p && p.Loot && p.NetId >= 0) DroppedRpc((ushort)p.NetId, (byte)np.Slot, bp.DropPosition());          // (loot only: the equipment stays)
+                if (p && p.CountsAsLoot && p.NetId >= 0) DroppedRpc((ushort)p.NetId, (byte)np.Slot, bp.DropPosition() + Backpack.DropSpread(n++));          // (loot only: the equipment stays)
         }
 
         /// <summary>Equip a weapon from the pack, or pass null to put it away.</summary>
@@ -305,6 +322,26 @@ namespace BuildingEscape.Net
             var v = Vendor.Current;
             if (np == null || v == null) return;
             string msg = v.HostBuy(np, index);
+            if (!string.IsNullOrEmpty(msg)) Notice(who, msg);
+        }
+
+        /// <summary>A button of a vending machine (the owner, 2026-10-23): the machine's number (<see cref="VendingMachine.Number"/>, the same on every machine) and the product (an entry of the dealer's catalog the machines sell).</summary>
+        public void RequestMachineBuy(int machine, int product)
+        {
+            if (machine < 0 || machine > byte.MaxValue || product < 0 || product > byte.MaxValue) return;
+            if (IsServer) HostMachineBuy(Me, machine, product); else MachineBuyRequestRpc((byte)machine, (byte)product);
+        }
+
+        [Rpc(SendTo.Server)]
+        void MachineBuyRequestRpc(byte machine, byte product, RpcParams rp = default) => HostMachineBuy(rp.Receive.SenderClientId, machine, product);
+
+        void HostMachineBuy(ulong who, int machine, int product)
+        {
+            var np = PlayerOf(who);
+            var v = Vendor.Current;
+            var m = VendingMachine.ByNumber(machine);
+            if (np == null || v == null || m == null) return;
+            string msg = v.HostBuyAtMachine(np, m, product);
             if (!string.IsNullOrEmpty(msg)) Notice(who, msg);
         }
 

@@ -41,30 +41,21 @@ namespace BuildingEscape.EditorTools
                 && RangedWeapon.IsSilenced(S[smg], true) && RangedWeapon.IsSilenced(S[rifle], true) && !RangedWeapon.IsSilenced(S[shotgun], true) && !RangedWeapon.IsSilenced(S[sniper], true)
                 && Mathf.Approximately(S[shotgun].silencedNoise, S[shotgun].noise) && Mathf.Approximately(S[sniper].silencedNoise, S[sniper].noise));
 
-            // ---- ammunition: a clip is for one gun, three clips at most, found guns hold their one clip, the dealer's clips are dear
+            // ---- ammunition (the owner, 2026-10-23: "Clips should be removed and it should go based of bullets"): every gun has its own, found guns hold their one magazine, a player carries as many bullets as he finds or buys
             bool perRound = true;
             for (int k = 1; k < S.Length; k++) perRound &= S[k].clipPrice / (float)S[k].magazine >= S[pew].clipPrice / (float)S[pew].magazine;
-            Check("ammunition: every gun has its own (pistol clip, SMG magazine, rifle magazine, shotgun shells, sniper rounds) and the dealer's rounds for the new guns cost at least what the pistol's do",
+            Check("ammunition: every gun has its own (the safes' items keep their names: pistol clip, SMG magazine, rifle magazine, shotgun shells, sniper rounds) and the dealer's rounds for the new guns cost at least what the pistol's do",
                 S[pew].ammoName == "Pistol Clip" && S[smg].ammoName == "SMG Magazine" && S[rifle].ammoName == "Rifle Magazine" && S[shotgun].ammoName == "Shotgun Shells" && S[sniper].ammoName == "Sniper Rounds"
                 && S[pew].clipPrice == Vendor.AmmoClipPrice && perRound);
-            Check("ammunition: a player carries at most three clips of a gun, the one in the gun counted", GunRules.MaxClips == 3);
             var fresh = RangedWeapon.NewMagazine(S[pew]);
             var found = RangedWeapon.NewMagazine(S[smg], 0);
-            Check("ammunition: a pistol that was bought holds its clip and two spares and has room for nine clips more (twelve in all: 96 rounds); a gun that was found holds its one clip and has room for two more",
-                fresh.Capacity == 8 && fresh.Rounds == 8 && fresh.Reserve == 16 && fresh.Room == 72 && S[pew].maxClips == 12
-                && found.Capacity == 24 && found.Rounds == 24 && found.Reserve == 0 && found.Room == 48);
-            int pistolAdded = 0;
-            for (int i = 0; i < 12; i++) pistolAdded += fresh.AddReserve(8);
-            Check("ammunition: the pistol takes nine more clips and no tenth (twelve clips, 96 rounds, the one in the gun counted); the other guns keep their three", pistolAdded == 72 && fresh.Reserve == 88 && fresh.Room == 0 && fresh.AddReserve(8) == 0
-                && S[smg].maxClips == 0 && S[rifle].maxClips == 0 && S[shotgun].maxClips == 0 && S[sniper].maxClips == 0);
-            int got1 = found.AddReserve(24), got2 = found.AddReserve(24), got3 = found.AddReserve(24);
-            Check("ammunition: two clips fit in the reserve of a found gun, a third is not taken; a reload empties the room again",
-                got1 == 24 && got2 == 24 && got3 == 0 && found.Reserve == 48 && found.Room == 0);
-            var partial = RangedWeapon.NewMagazine(S[rifle], 0);
-            partial.AddReserve(50);
-            Check("ammunition: rounds that would go beyond three clips are not taken (50 and then 40 go into a reserve with room for 60: 10 are left over)", partial.Reserve == 50 && partial.AddReserve(40) == 10 && partial.Reserve == 60 && partial.Room == 0);
+            Check("ammunition: a pistol that was bought holds its magazine and two magazines' worth of bullets; a gun that was found holds its one magazine and no bullets besides",
+                fresh.Capacity == 8 && fresh.Rounds == 8 && fresh.Reserve == 16 && found.Capacity == 24 && found.Rounds == 24 && found.Reserve == 0);
+            int added = 0;
+            for (int i = 0; i < 40; i++) added += fresh.AddReserve(8);
+            Check("ammunition: there is no limit on the bullets carried: forty more magazines' worth are all taken, and so are a thousand for a gun that was found", added == 320 && fresh.Reserve == 336 && found.AddReserve(1000) == 1000 && found.Reserve == 1000);
             var endless = new GunMagazine(8, 2f, 0.3f);
-            Check("ammunition: an officer's gun (an endless reserve) is not limited and takes nothing", endless.InfiniteReserve && endless.Room == 0 && endless.AddReserve(8) == 0);
+            Check("ammunition: an officer's gun (an endless reserve) takes nothing", endless.InfiniteReserve && endless.AddReserve(8) == 0);
 
             // ---- the shots: pellets, sounds
             bool seeds = true; var seen = new System.Collections.Generic.HashSet<int>();
@@ -90,16 +81,16 @@ namespace BuildingEscape.EditorTools
 
             // ---- what the dealer has on offer
             var cat = Vendor.Catalog;
-            bool ammoRows = cat.Length == 16;                               // (the nine it was, the ammunition of the other four guns, and the three pieces of armour at the end)
+            bool ammoRows = cat.Length == 17 + ConsumableRules.Count;                               // (the nine it was, the ammunition of the other four guns, the three pieces of armour and the walkie talkie at the end)
             for (int k = 1; k < S.Length && ammoRows; k++)
             {
                 var p = cat[Vendor.AmmoIndex + k];
-                ammoRows &= p.isAmmo && !p.isGun && (int)p.gun == k && p.price == S[k].clipPrice && p.rounds == S[k].magazine && p.name == S[k].ammoName;
+                ammoRows &= p.isAmmo && !p.isGun && (int)p.gun == k && p.price == S[k].clipPrice && p.rounds == S[k].magazine && p.name == (k == (int)RangedWeapon.Kind.Smg ? "SMG Bullets" : k == (int)RangedWeapon.Kind.Rifle ? "Rifle Bullets" : S[k].ammoName);
             }
-            Check("vendor: the dealer's list is the nine it was, four more (the ammunition of the SMG, the rifle, the shotgun and the sniper rifle (their own names, prices and clip sizes) and three pieces of armour at the end - no gun but the pew is for sale", ammoRows && cat[Vendor.PewIndex].isGun && cat[Vendor.PewIndex].gun == RangedWeapon.Kind.Pew);
+            Check("vendor: the dealer's list is the nine it was, four more (the ammunition of the SMG, the rifle, the shotgun and the sniper rifle (their own names - bullets, shells, rounds - prices and magazine sizes), three pieces of armour and the walkie talkie at the end - no gun but the pew is for sale", ammoRows && cat[Vendor.PewIndex].isGun && cat[Vendor.PewIndex].gun == RangedWeapon.Kind.Pew);
             RunUnlocks.Reset();
-            bool basics = true; for (int i = 0; i < Vendor.PewIndex; i++) basics &= Vendor.OnOffer(i, 1) && Vendor.OnOffer(i, 13);
-            Check("vendor: the first seven are always for sale; before floor 3 is done nothing else is (no pew, no ammunition)", basics && !Vendor.OnOffer(Vendor.PewIndex, 3) && !Vendor.OnOffer(Vendor.AmmoIndex, 3) && !Vendor.OnOffer(9, 3) && !Vendor.OnOffer(10, 3) && !Vendor.OnOffer(11, 3) && !Vendor.OnOffer(12, 3));
+            bool basics = true; for (int i = 0; i < Vendor.PewIndex; i++) basics &= Vendor.OnOffer(i, 1) == !Vendor.Catalog[i].machine && Vendor.OnOffer(i, 13) == !Vendor.Catalog[i].machine;
+            Check("vendor: the three melee weapons are always for sale (the four consumables are the vending machines' now); before floor 3 is done nothing else is (no pew, no ammunition)", basics && !Vendor.OnOffer(Vendor.PewIndex, 3) && !Vendor.OnOffer(Vendor.AmmoIndex, 3) && !Vendor.OnOffer(9, 3) && !Vendor.OnOffer(10, 3) && !Vendor.OnOffer(11, 3) && !Vendor.OnOffer(12, 3));
             Check("vendor: once floor 3 is done the pew and its clips are for sale, and still no other gun's ammunition", Vendor.OnOffer(Vendor.PewIndex, 4) && Vendor.OnOffer(Vendor.AmmoIndex, 4) && !Vendor.OnOffer(9, 4) && !Vendor.OnOffer(10, 4) && !Vendor.OnOffer(11, 13) && !Vendor.OnOffer(12, 13));
             RunUnlocks.Unlock(RangedWeapon.Kind.Rifle);
             Check("vendor: a gun that was found and brought back puts its own ammunition on offer, at any time, and nobody else's", Vendor.OnOffer(10, 1) && !Vendor.OnOffer(9, 1) && !Vendor.OnOffer(11, 1) && !Vendor.OnOffer(12, 1) && !Vendor.OnOffer(Vendor.PewIndex, 1));

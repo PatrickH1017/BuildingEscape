@@ -32,6 +32,7 @@ namespace BuildingEscape.EditorTools
                     if (!cat.pew || !cat.pewBullet) FillGuns(cat, false);
                     if (cat.modelsVersion < SyntyVersion) FillSynty(cat, false);
                     if (!ArmourFilled(cat)) FillArmour(cat, true);
+                    if (!cat.walkie) FillWalkie(cat, true);
                     if (cat.longGuns == null || cat.longGuns.Length < LongGunNames.Length || !cat.longGuns[0].prefab || !cat.redDot || !cat.longGuns[LongGunNames.Length - 1].prefab || cat.longGuns[LongGunNames.Length - 1].prefab.name != LongGunNames[LongGunNames.Length - 1]) FillLongGuns(cat, false);
                 }
             };
@@ -63,6 +64,29 @@ namespace BuildingEscape.EditorTools
             EditorUtility.SetDirty(cat);
             AssetDatabase.SaveAssets();
             if (log) Debug.Log(ArmourFilled(cat) ? "Body armour set in the weapon catalog (Synty Battle Royale, three tiers)." : "The Synty Battle Royale armour was not all found under " + SyntyChars + ": the missing tiers keep the old boxes.");
+        }
+
+        const string WalkiePath = "Assets/SpawnCampGames/WalkieTalkie/Prefabs/Walkie.prefab";
+
+        /// <summary>The SpawnCampGames walkie talkie (the owner, 2026-10-23: "please use the SPAWNCAMPGAMES asset"): only filled when it is missing, so a model chosen by hand stays.</summary>
+        static void FillWalkie(WeaponCatalog cat, bool log)
+        {
+            if (!cat.walkie) cat.walkie = Load<GameObject>(WalkiePath);
+            EditorUtility.SetDirty(cat);
+            AssetDatabase.SaveAssets();
+            if (log) Debug.Log(cat.walkie ? "Walkie talkie set in the weapon catalog (SpawnCampGames)." : "The SpawnCampGames walkie talkie was not found at " + WalkiePath + ": the Vendor's walkie talkie is a dark box.");
+        }
+
+        /// <summary>For the QA runs (<c>-executeMethod</c>): puts the walkie talkie into the catalog now, the same as the first editor start does, and exits.</summary>
+        public static void WalkieBatch()
+        {
+            try
+            {
+                var cat = AssetDatabase.LoadAssetAtPath<WeaponCatalog>(CatalogPath);
+                if (!cat) { Debug.LogError("[Weapons] no catalog"); return; }
+                FillWalkie(cat, true);
+            }
+            finally { EditorApplication.Exit(0); }
         }
 
         /// <summary>The pew and its cartridge from the Guns pack (only what is missing is filled).</summary>
@@ -421,6 +445,7 @@ namespace BuildingEscape.EditorTools
             FillGuns(cat, false);
             FillSynty(cat, false);
             FillArmour(cat, false);
+            FillWalkie(cat, false);
             EditorUtility.SetDirty(cat);
             AssetDatabase.SaveAssets();
             if (log) Debug.Log($"Weapon catalog ready ({kept} slash curves retargeted).");

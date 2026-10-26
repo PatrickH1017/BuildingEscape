@@ -382,20 +382,42 @@ namespace BuildingEscape
         {
             public string name;
             public int rounds, capacity;
+            /// <summary>The bullets carried besides the ones in the gun: the second number, with no upper limit (the owner, 2026-10-23: "In the ammo UI the second number should be unbound for however many bullets you have"). -1 = not shown (the gun's reserve is endless).</summary>
+            public int reserve;
             public bool reloading;
             public float reloadProgress;
+            /// <summary>While reloading: how many rounds this reload puts in the gun and how many are in so far; the ring counts them when <see cref="counted"/> (the shotgun: "for the shotgun it should display a counter as well for each shell getting loaded").</summary>
+            public int loads, loaded;
+            public bool counted;
             /// <summary>The basement: the ammunition never runs out.</summary>
             public bool unlimited;
         }
 
+        /// <summary>The dots of the reload ring, and how many of them are lit at this fraction (a fraction of 0 lights none, 1 all of them).</summary>
+        public const int RingDots = 60;
+        public static int RingDotsLit(float fraction) => Mathf.RoundToInt(Mathf.Clamp01(fraction) * RingDots);
+
+        /// <summary>A ring that fills clockwise from the top (IMGUI has no arcs: a string of dots): <paramref name="fraction"/> of it is <paramref name="fill"/>, the rest <paramref name="back"/>.</summary>
+        public static void ProgressRing(Vector2 centre, float diameter, float dot, float fraction, Color fill, Color back)
+        {
+            float radius = (diameter - dot) * 0.5f;
+            int lit = RingDotsLit(fraction);
+            for (int i = 0; i < RingDots; i++)
+            {
+                float a = (-90f + 360f * i / RingDots) * Mathf.Deg2Rad;
+                HudTheme.Circle(centre + new Vector2(Mathf.Cos(a), Mathf.Sin(a)) * radius, dot, i < lit ? fill : back);
+            }
+        }
+
         /// <summary>
-        /// The gun's name, rounds left (orange at 3 or fewer, red at none) and one bullet per round; while it reloads the bullets give way to
-        /// the reload bar. A small panel in the bottom right corner.
+        /// The gun's name, "rounds in the gun / bullets carried" (orange at 3 rounds or fewer, red at none) and one bullet icon per round of the magazine; while it reloads the icons give way to a RING that fills clockwise (the owner,
+        /// 2026-10-23: "A circular loading bar for reloading progress"), with a counter in it for the shotgun that steps up for every shell. A small panel in the bottom right corner.
         /// </summary>
         public static void AmmoPanel(in AmmoModel m)
         {
             if (Event.current.type != EventType.Repaint) return;
-            float s = S, w = 196f * s, h = 68f * s, pad = 9f * s;
+            bool ring = m.reloading && !m.unlimited;
+            float s = S, w = 196f * s, h = (ring ? 100f : 68f) * s, pad = 9f * s;
             var r = new Rect(Screen.width - 14f * s - w, Screen.height - 14f * s - h, w, h);
             HudTheme.Glass(r, 0.3f, 0.5f);                                       // (see-through, like the weapon bar: the owner, 2026-10-20 night)
             Color accent = m.reloading ? HudTheme.Warning : m.rounds == 0 ? HudTheme.Danger : m.rounds <= 3 ? HudTheme.Warning : HudTheme.Bright;
@@ -406,11 +428,18 @@ namespace BuildingEscape
             float punch = HudAnim.Bump(HudAnim.Id.Rounds, m.rounds);
             var count = new Rect(x + iw * 0.38f, y - 2f * s, iw * 0.62f, 30f * s);
             var mat = HudAnim.Begin(punch, count.center);
-            HudTheme.Text(count, m.unlimited ? "UNLIMITED" : m.reloading ? "RELOADING" : ammoText.Get(m.rounds, m.capacity), m.unlimited || m.reloading ? 18f : 28f, m.unlimited ? HudTheme.Good : accent == HudTheme.Danger ? HudTheme.Light(accent, 0.4f) : accent, TextAnchor.MiddleRight);
+            HudTheme.Text(count, m.unlimited ? "UNLIMITED" : m.reloading ? "RELOADING" : ammoText.Get(m.rounds, m.reserve >= 0 ? m.reserve : m.capacity), m.unlimited || m.reloading ? 18f : 28f, m.unlimited ? HudTheme.Good : accent == HudTheme.Danger ? HudTheme.Light(accent, 0.4f) : accent, TextAnchor.MiddleRight);
             HudAnim.End(mat);
             y += 32f * s;
 
-            if (m.reloading && !m.unlimited) { HudTheme.Bar(new Rect(x, y + 2f * s, iw, 14f * s), m.reloadProgress, HudTheme.Warning, 2.5f); return; }
+            if (ring)
+            {
+                float d = 56f * s, dot = 6f * s;
+                var centre = new Vector2(r.center.x, r.yMax - pad - d * 0.5f);
+                ProgressRing(centre, d, dot, m.reloadProgress, HudTheme.Warning, HudTheme.Alpha(HudTheme.Ink, 0.45f));
+                if (m.counted && m.loads > 0) HudTheme.Text(new Rect(centre.x - d * 0.35f, centre.y - d * 0.25f, d * 0.7f, d * 0.5f), (m.rounds + m.loaded) + "/" + m.capacity, 15f, HudTheme.Bright, TextAnchor.MiddleCenter);
+                return;
+            }
             float bh = 18f * s, gap = 3f * s, bw = Mathf.Min(bh * 0.5f, (iw - (m.capacity - 1) * gap) / Mathf.Max(1, m.capacity));
             float rowW = m.capacity * bw + (m.capacity - 1) * gap;
             for (int i = 0; i < m.capacity; i++)

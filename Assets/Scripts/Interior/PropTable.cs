@@ -208,6 +208,14 @@ namespace BuildingEscape
             Add("crate_large", Br + "SM_Prop_Crate_Large_01", .81f, .79f, .81f, cat: PropCat.Deco);
             Add("pallet_loaded", Br + "SM_Prop_Pallet_Loaded_02", 1.44f, 1.14f, 1.42f, cat: PropCat.Deco);
             Add("barrel", Br + "SM_Prop_Barrel_01", .66f, .91f, .57f, cat: PropCat.Deco);
+            // the PVP room as a battlefield (the owner, 2026-10-23: "use the battle royale assets from SYNTY to make it seem more like a battlefield"; PvpBattlefieldRules): gabion barriers, a long barrier wall, a block wall, a tank trap, a wire spool
+            Add("hesco_a", Br + "SM_Prop_Barrier_01", 1.12f, 1.07f, 1.12f, cat: PropCat.Deco);
+            Add("hesco_b", Br + "SM_Prop_Barrier_02", 1.12f, 1.07f, 1.12f, cat: PropCat.Deco);
+            Add("hesco_c", Br + "SM_Prop_Barrier_03", 1.15f, 1.07f, 1.15f, cat: PropCat.Deco);
+            Add("hesco_wall", Br + "SM_Prop_Barrier_04", 5.5f, 2.13f, 1.39f, cat: PropCat.Deco);
+            Add("cinder_wall", Br + "SM_Prop_Cinderblock_Wall_01", 2.5f, 1.08f, .27f, cat: PropCat.Deco);
+            Add("tank_trap", Br + "SM_Prop_TankTrap_01", 1.61f, 1.31f, 1.5f, cat: PropCat.Deco);
+            Add("wire_spool", Br + "SM_Prop_Wirespool_01", 1.56f, 1.02f, 1.56f, cat: PropCat.Deco);
             Add("extinguisher", Syn + "Props/Wall Props/SM_Prop_Fire_Extinguisher_01", .3f, .53f, .16f, solid: false, cat: PropCat.Mount);
             Add("fire_alarm", Syn + "Props/Wall Props/SM_Prop_FireAlarm_Switch_01", .2f, .2f, .06f, solid: false, cat: PropCat.Mount);
             Add("emergency_axe", Syn + "Props/Wall Props/SM_Prop_Emergency_Axe_01", .98f, .7f, .13f, solid: false, cat: PropCat.Mount);
@@ -410,6 +418,11 @@ namespace BuildingEscape
             Add("skin_wall_blank", Syn + "Buildings/SM_Bld_Wall_Blank_01", 2.5f, 2.997f, 0.15f, solid: false, cat: PropCat.Deco);
             Add("skin_wall_brick", Syn + "Buildings/SM_Bld_Wall_Brick_01", 2.5f, 2.997f, 0.15f, solid: false, cat: PropCat.Deco);
             Add("skin_ceiling_panel", Syn + "Buildings/SM_Bld_Ceiling_Panel_02", 2.5f, 0.039f, 2.5f, solid: false, cat: PropCat.Deco);
+            // ---------- the Floor 7 doors (the owner, 2026-10-23): the pack's doors, fitted to the sliding leaves by DoorSkinRules / FloorGenerator.DoorSkin (a leaf is a unit cube, so only the measures matter, not the way they face).
+            Add("skin_door_white", Syn + "Buildings/SM_Bld_Door_02", 1.029f, 1.967f, 0.247f, solid: false, cat: PropCat.Deco);
+            Add("skin_door_wood", Syn + "Buildings/SM_Bld_Door_05", 1.029f, 1.967f, 0.247f, solid: false, cat: PropCat.Deco);
+            Add("skin_door_glass_l", Syn + "Buildings/SM_Bld_Door_Large_01_L", 0.974f, 2.452f, 0.172f, solid: false, cat: PropCat.Deco);
+            Add("skin_door_glass_r", Syn + "Buildings/SM_Bld_Door_Large_01_R", 0.974f, 2.452f, 0.172f, solid: false, cat: PropCat.Deco);
 
             // ---------- built from boxes in code (no prefab, so the editor's catalog builder skips them): the guard outpost's lockers
             // and the floor safe. The safe is under 0.9 m tall on purpose: you cannot duck behind it.

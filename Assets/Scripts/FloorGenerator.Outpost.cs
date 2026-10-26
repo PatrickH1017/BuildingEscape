@@ -621,6 +621,25 @@ namespace BuildingEscape
 
         // ------------------------------------------------------------------ what the guards keep (after everything else)
 
+        /// <summary>
+        /// The one loose crowbar of floor 1 (the owner, 2026-10-23: "One random crowbar spawn on the first floor outside of the outpost"): it lies on the floor at one of the floor's walkable patrol spots outside the outpost, chosen from the run's seed
+        /// (a new place every run, the same on every machine) and never from the floor's own random numbers. Other floors get none.
+        /// </summary>
+        void FillFloorOneCrowbar(int floor)
+        {
+            if (floor != 1 || layout == null || !Application.isPlaying || !MeleeWeapon.Available) return;
+            var spots = new System.Collections.Generic.List<float[]>();
+            foreach (var w in layout.waypoints)
+            {
+                var at = new Vector3(w[0], 0f, w[1]);
+                if (!InOutpost(at)) spots.Add(w);                           // (the planner's patrol stops are free floor in rooms and corridors: never the guards' shafts, a restroom, a suite or the server room)
+            }
+            if (spots.Count == 0) return;
+            var pick = spots[(int)(SafeRules.Hash(intelNow, floor, 741) % (uint)spots.Count)];
+            float yaw = SafeRules.Hash(intelNow, floor, 742) % 360U;
+            MeleeWeapon.Create(MeleeWeapon.Kind.Crowbar, new Vector3(pick[0], 0.08f, pick[1]), current, yaw);
+        }
+
         /// <summary>How many loose melee weapons a floor has (the owner: floor 1 always one and sometimes two; floors 2-12 a chance of one, never two).</summary>
         public static int LooseMeleeCount(int runSeed, int floor)
         {

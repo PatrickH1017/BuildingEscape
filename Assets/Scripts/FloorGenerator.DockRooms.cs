@@ -64,6 +64,13 @@ namespace BuildingEscape
             DockDressing.BoxBlock(dockHolder != null ? dockHolder : parent, x, z, yaw, cols, rowsN, layers, pallet, (int)(Mathf.Abs(x) * 31f + Mathf.Abs(z) * 17f));          // (the lobby's cardboard on its pallet, square to the room)
         }
 
+        /// <summary>The PVP room's cover in the middle: the Battle Royale pack's pieces of <see cref="PvpBattlefieldRules"/> (the owner, 2026-10-23), solid, square to the room.</summary>
+        void BuildPvpBattlefield(Transform parent)
+        {
+            foreach (var p in PvpBattlefieldRules.Pieces) PlaceKey(p.key, p.x, p.z, p.yaw, parent, 0f, true);
+            BoxBlock(parent, PvpBattlefieldRules.BoxBlockX, PvpBattlefieldRules.BoxBlockZ, 0f, 2, 2, 2, true);          // (a few cardboard boxes stay: the owner, 2026-10-20, "more shelves with boxes")
+        }
+
         void BuildDockRooms(Transform parent)
         {
             var elev = CellCenter(Vector2Int.zero);
@@ -110,6 +117,13 @@ namespace BuildingEscape
             Box("RestroomDoor", new Vector3(rdx, 1.05f, rdz), new Vector3(0.95f, 2.1f, 0.08f), doorMat, parent, collider: false);
             Box("RestroomDoorHandle", new Vector3(rdx + 0.34f, 1.0f, rdz - 0.07f), new Vector3(0.04f, 0.04f, 0.1f), Flat(new Color(0.8f, 0.8f, 0.82f), 0.5f), parent, collider: false);
             PlaceKey("sign_wc", rdx, BreakRoom.yMax - 0.02f, 180f, parent, 2.25f, false);
+            // two posters (the owner, 2026-10-24: "please put a poster or two up in the Loading Docks break room, reference image attached for which spots"): the west wall over the desk and the south wall between the TV and the corner (DockPosterRules)
+            foreach (var poster in DockPosterRules.BreakRoom(BreakRoom.xMin, BreakRoom.yMin, BreakRoom.xMax, BreakRoom.yMax))
+            {
+                if (!PropTable.TryGet(poster.key, out var pd)) continue;
+                float outX = Mathf.Sin(poster.yaw * Mathf.Deg2Rad), outZ = Mathf.Cos(poster.yaw * Mathf.Deg2Rad);          // (the way it faces: into the room)
+                PlaceKey(poster.key, poster.x + outX * (pd.D * 0.5f + 0.005f), poster.z + outZ * (pd.D * 0.5f + 0.005f), poster.yaw, parent, poster.centreY - pd.H * 0.5f, false);
+            }
 
             // ================= the PVP room: a warehouse of the Loading Dock (the owner, 2026-10-19 night: "storage containers for players to use as coverage, somewhat like a warehouse"; 2026-10-20: "extend it further back behind the elevator and extend out
             // the walls wider to the right when you walk into the PvP room"; and later that day: "the doorway to the PvP room should also be a bit larger since the forklift should technically fit through it and the PvP room should not have any
@@ -135,9 +149,10 @@ namespace BuildingEscape
             RackRow(PvpRoomArea.xMin + 0.02f + halfLen, PvpRoomArea.xMax - 0.02f - halfLen, northRackZ, 5);                                  // the north wall: five units across its whole width
             RackColumn(westX, PvpRoomAnnex.yMin + 0.02f + halfLen, northRackZ - rackHalf - 0.02f - halfLen, 10);                           // the west wall: one line of ten, from the pocket's south wall to the north row
             RackRow(5.65f + halfLen, PvpRoomArea.xMax - 0.02f - halfLen, southRackZ, 2);                                                     // the elevator room's north wall: two units, flush with the east wall
-            RackRow(4.75f - 1.83f, 4.75f + 1.83f, 21.9f, 3);                                                                                  // a row north of the mat
-            RackRow(2.05f + halfLen, 5.65f - halfLen, 15.5f, 2);                                                                              // a row south of it, west of the doorway's lane
-            RackColumn(2.3f, PvpRoomAnnex.center.y - 1.83f, PvpRoomAnnex.center.y + 1.83f, 3);                                              // a row down the middle of the pocket
+            bool battlefield = PvpBattlefieldRules.On;                                                                                        // (T7, the owner, 2026-10-23: the cover in the middle is the Battle Royale pack's: PvpBattlefieldRules; false = the racks and cardboard of before)
+            if (!battlefield) RackRow(4.75f - 1.83f, 4.75f + 1.83f, 21.9f, 3);                                                                                  // a row north of the mat
+            if (!battlefield) RackRow(2.05f + halfLen, 5.65f - halfLen, 15.5f, 2);                                                                              // a row south of it, west of the doorway's lane
+            if (!battlefield) RackColumn(2.3f, PvpRoomAnnex.center.y - 1.83f, PvpRoomAnnex.center.y + 1.83f, 3);                                              // a row down the middle of the pocket
 
             // lower cover: stacked crates and two blocks of boxes on the pocket's east side, loaded pallets and crates on the hall's east side, two blocks of boxes on pallets by the west line (the way in from the doorway and the middle stay open)
             foreach (float cz in new[] { PvpRoomAnnex.yMin + 2.2f, PvpRoomAnnex.yMax - 2.2f })
@@ -147,12 +162,13 @@ namespace BuildingEscape
             }
             BoxBlock(parent, 4.15f, PvpRoomAnnex.yMin + 0.52f, 0f, 2, 2, 1, true);                  // the pocket's east side: a block of boxes on a pallet in its south-east corner ...
             BoxBlock(parent, 4.15f, PvpRoomAnnex.center.y, 0f, 2, 2, 2, true);                       // ... and a taller one in the middle, between the crate pairs
-            PlaceKey("pallet_loaded", 7.9f, 18.2f, 90f, parent, 0f, true);
-            PlaceKey("pallet_loaded", 7.9f, 20.2f, 0f, parent, 0f, true);
-            PlaceKey("crate_large", 8.7f, 21.6f, 0f, parent, 0f, true);
-            PlaceKey("crate_large", 8.7f, 22.4f, 0f, parent, 0f, true);
-            BoxBlock(parent, 1.9f, 16.85f, 0f, 2, 2, 2, true);
-            BoxBlock(parent, 1.9f, 19.9f, 0f, 2, 2, 1, true);
+            if (!battlefield) PlaceKey("pallet_loaded", 7.9f, 18.2f, 90f, parent, 0f, true);
+            if (!battlefield) PlaceKey("pallet_loaded", 7.9f, 20.2f, 0f, parent, 0f, true);
+            if (!battlefield) PlaceKey("crate_large", 8.7f, 21.6f, 0f, parent, 0f, true);
+            if (!battlefield) PlaceKey("crate_large", 8.7f, 22.4f, 0f, parent, 0f, true);
+            if (!battlefield) BoxBlock(parent, 1.9f, 16.85f, 0f, 2, 2, 2, true);
+            if (!battlefield) BoxBlock(parent, 1.9f, 19.9f, 0f, 2, 2, 1, true);
+            if (battlefield) BuildPvpBattlefield(parent);
         }
     }
 }

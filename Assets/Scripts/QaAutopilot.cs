@@ -12,7 +12,7 @@ namespace BuildingEscape
 {
     /// <summary>
     /// A way to test a BUILT player without a person: start the exe with <c>-be-autopilot</c> (and optionally <c>-be-out &lt;folder&gt;</c>) and it plays
-    /// the offline loop by itself - the menu, a solo run, the docks, floors 1 to 4 (each one built, looked at from the elevator, the guards'
+    /// the offline loop by itself - the menu, a solo run, the docks, floors 1 to 6 (each one built, looked at from the elevator, the guards'
     /// elevator, both ends of the outpost and a piece of loot, then finished and left for the docks) and the docks with the demo over - taking a
     /// picture at every stop (and counting magenta pixels in it: an error shader, a stripped shader) and writing what it saw to the player log
     /// (lines starting "[Autopilot]") and to <c>autopilot_report.txt</c>, then quits. It measures frame times as it goes.
@@ -199,11 +199,11 @@ namespace BuildingEscape
                 {
                     fpRig.SetFirstPerson(true);
                     yield return Wait(1.8f);
-                    bool fpArms = fpRig.IsFirstPerson && fpRig.ArmsShown;
+                    bool fpArms = fpRig.IsFirstPerson && (CameraFollow.ShowArms ? fpRig.ArmsShown : !fpRig.ArmsShown);          // (since 2026-10-20 night nothing of the body is drawn in first person unless ShowArms is on: only what is in the hands)
                     yield return Shot("02b_first_person");
                     fpRig.SetFirstPerson(false);
                     yield return Wait(1.2f);
-                    Check("first person works in the built game: the arms shader is in the build, the body is drawn as its arms; third person brings it back", fpShader && fpArms && !fpRig.IsFirstPerson && !fpRig.ArmsShown, $"(shader {fpShader}, arms shown in first person {fpArms}, back in third person {!fpRig.IsFirstPerson && !fpRig.ArmsShown})");
+                    Check("first person works in the built game: the arms shader is in the build, the body is gone from the picture in first person (its arms only when CameraFollow.ShowArms asks); third person brings it back", fpShader && fpArms && !fpRig.IsFirstPerson && !fpRig.ArmsShown, $"(shader {fpShader}, arms shown in first person {fpArms}, back in third person {!fpRig.IsFirstPerson && !fpRig.ArmsShown})");
                 }
                 else Check("first person works in the built game: there is a camera rig", false);
             }
@@ -215,9 +215,24 @@ namespace BuildingEscape
             { var rig = FindFirstObjectByType<CameraFollow>(); if (rig) rig.enabled = true; }
             Check("the docks have a vendor and a training dummy", vendor != null && dummy != null);
             Check("before the demo is over the vendor has no pew for sale", !Vendor.PewForSale(tm.ResumeLevel));
+            yield return PackActs("solo");
+            yield return ConsumableActs();
+            {
+                var vc = VoiceChat.Instance;
+                string micLine = vc != null ? vc.HudLine(out bool micOff) : "";
+                Check("solo: the mic pill is up under the player badge and says how to mute (M)", micLine.Length > 0 && micLine.Contains("M"), $"('{micLine}')");
+                if (IntelScreens.Instance != null)
+                {
+                    IntelScreens.Instance.JournalTab = 0;
+                    IntelScreens.Instance.OpenJournal();
+                    Check("solo: J opens the journal on its CHECKLIST tab", IntelScreens.Instance.JournalTab == 1 && OutpostUi.Current == OutpostUi.Kind.Journal, $"(tab {IntelScreens.Instance.JournalTab})");
+                    Check("solo: the checklist has five lines and the fifth is the guards' outpost (not done yet)", ChecklistRules.Count == 5 && ChecklistRules.Label(ScanKind.Outpost) == ChecklistRules.OutpostLabel && !FloorChecklistTracker.IsDone(ScanKind.Outpost));
+                    OutpostUi.Hide(OutpostUi.Kind.Journal);
+                }
+            }
 
-            // ---- floors 1 to 4
-            for (int floor = 1; floor <= 4; floor++)
+            // ---- floors 1 to the demo's last (6)
+            for (int floor = 1; floor <= TowerRules.DemoLastFloor; floor++)
             {
                 tm.RideTo(floor);
                 yield return Until(() => tm.Loading || hm.Floor == floor, 15f, $"the ride to floor {floor} to begin");
@@ -227,7 +242,15 @@ namespace BuildingEscape
                 yield return Wait(3f);
                 var info = tm.CurrentInfo;
                 Check($"floor {floor} is built", info.floor == floor && info.rooms > 4 && info.quota > 0, $"({info.cols}x{info.rows} cells, {info.rooms} rooms, quota {info.quota}, loot {info.lootValue}, {info.guards} guards)");
-                yield return EtrFloorChecks(floor, gen, hm, tm);
+                Check($"floor {floor}: the guards' alert starts quiet: nobody marked, no Big Alarm, and the cap is {AlertRules.GuardCap(floor, false)} guards ({AlertRules.GuardCap(floor, true)} with the Big Alarm)", hm.MarkedCount == 0 && !hm.BigAlarmActive && hm.GuardCap == AlertRules.GuardCap(floor, false) && hm.GuardCap == (floor <= 2 ? 6 : 13), $"(marked {hm.MarkedCount}, big {hm.BigAlarmActive}, cap {hm.GuardCap})");
+                {
+                    var ceilSpeakers = FindObjectsByType<LoudSpeaker>(FindObjectsSortMode.None);
+                    int ceilFlat = 0;
+                    foreach (var cs in ceilSpeakers) { var dsk = cs.transform.Find("Disc"); var dskRend = dsk ? dsk.GetComponent<Renderer>() : null; if (dskRend && dskRend.bounds.max.y >= gen.CeilingUnderside - 0.08f && dskRend.bounds.max.y <= gen.CeilingUnderside) ceilFlat++; }
+                    var cornerBeacons = gen.Beacons;
+                    Check($"floor {floor}: the hallway loudspeakers are round discs flat on the ceiling and the alarm beacons hang dark high on the walls with their backs against them (the owner, 2026-10-24)", ceilSpeakers.Length >= 1 && ceilFlat == ceilSpeakers.Length && cornerBeacons != null && cornerBeacons.Count >= 4 && cornerBeacons.TouchingWall() == cornerBeacons.Count && cornerBeacons.Level == 0f && cornerBeacons.LiveLights == 0, $"({ceilFlat} of {ceilSpeakers.Length} speakers flat, {(cornerBeacons != null ? cornerBeacons.Count : -1)} beacons, {(cornerBeacons != null ? cornerBeacons.TouchingWall() : -1)} on a wall)");
+                }
+                yield return EtrFloorChecks(floor, gen, hm, tm);          // (the last floor's checks mark the solo player to try the Big Alarm: the quiet check above has to come first)
                 yield return Shot($"floor{floor}_0_elevator");
                 yield return Measure($"floor {floor} in the elevator", 3f);
 
@@ -309,10 +332,10 @@ namespace BuildingEscape
                 Check($"floor {floor} done: back in the docks, the elevator resumes at floor {floor + 1}", tm.ResumeLevel == floor + 1, $"(resume {tm.ResumeLevel})");
                 bool pewNow = floor >= Vendor.PewAfterFloor;
                 Check($"floor {floor} done: the vendor's pew is {(pewNow ? "for sale" : "not for sale yet")}", Vendor.PewForSale(tm.ResumeLevel) == pewNow);
-                if (floor == 4) yield return Shot("docks_demo_complete");
+                if (floor == TowerRules.DemoLastFloor) yield return Shot("docks_demo_complete");
             }
 
-            Check("floor 4 done: the demo is over and the vendor has the pew", TowerRules.DemoOver(tm.ResumeLevel) && Vendor.PewForSale(tm.ResumeLevel));
+            Check("the last floor (6) done: the demo is over and the vendor has the pew", TowerRules.DemoOver(tm.ResumeLevel) && Vendor.PewForSale(tm.ResumeLevel));
             yield return Measure("docks, demo complete", 3f);
             Finish(checksFailed == 0 ? 0 : 3);
         }
@@ -327,7 +350,7 @@ namespace BuildingEscape
         /// </summary>
         IEnumerator EtrFloorChecks(int floor, FloorGenerator gen, HeistManager hm, TowerManager tm)
         {
-            // the hallway doors: every wide door has its windows (2 leaves x 2 faces x (2 windows and a push bar) = 12 pictures), the rooms' doors have none
+            // the hallway doors: every wide door has its windows (the old dressing: 2 leaves x 2 faces x (2 windows and a push bar) = 12 pictures; the pack's glass door on floors 1 to 7), the rooms' doors have none
             var dm = FindFirstObjectByType<DoorManager>();
             int wide = 0, dressed = 0;
             if (dm != null)
@@ -335,7 +358,9 @@ namespace BuildingEscape
                 {
                     if (!d.Wide) continue;
                     wide++;
-                    if (d.LowLeaf.GetComponentsInChildren<Transform>(true).Count(t => t.name == "Pane") + d.HighLeaf.GetComponentsInChildren<Transform>(true).Count(t => t.name == "Pane") == 12) dressed++;
+                    int panes = d.LowLeaf.GetComponentsInChildren<Transform>(true).Count(t => t.name == "Pane") + d.HighLeaf.GetComponentsInChildren<Transform>(true).Count(t => t.name == "Pane");
+                    int packs = d.LowLeaf.GetComponentsInChildren<Transform>(true).Count(t => t.name == "PackPanel") + d.HighLeaf.GetComponentsInChildren<Transform>(true).Count(t => t.name == "PackPanel");
+                    if (panes == 12 || packs >= 2) dressed++;                                        // (the old windows, or since 2026-10-23 on floors 1 to 7 the pack's own door: a wide hall door is its glass door)
                 }
             Check($"floor {floor}: every main hallway door has its windows", dm != null && wide == dressed, $"({dressed} of {wide} wide doors)");
             var signs = gen.PlanSigns();
@@ -362,11 +387,27 @@ namespace BuildingEscape
                 int safesHere = FloorSafe.OnShow.Count(sf => sf && !sf.IsOpen && gen.RoomSpotAt(sf.transform.position).index == spot.index) + (GunSafeProp.Active && !GunSafeProp.Active.IsOpen && gen.RoomSpotAt(GunSafeProp.Active.transform.position).index == spot.index ? 1 : 0);
                 bool all = inRoom.All(p => scanner.IsMarked(p)), onlyThose = scanner.MarkCount == inRoom.Count + safesHere;
                 Check($"floor {floor}: holding Z scans the room the player is in (its {inRoom.Count} valuables marked, nothing from the next room)", all && onlyThose && LootScanner.Scanning, $"({scanner.MarkCount} marks, '{scanner.StatusLine}')");
+                Check($"floor {floor}: the scan's only pop-up says Item Marked, and it is up now that the scan marked things", scanner.PopupText == LootScanRules.MarkedText, $"('{scanner.PopupText}')");
                 if (floor == 1) yield return Shot("floor1_6_scan");
                 LootScanner.TestHold = false;
+                yield return Wait(0.1f);
+                int beeps0 = LootScanner.ErrorBeeps;                                              // (the owner, 2026-10-24: a press while the 2 s cooldown holds the scan back makes an error sound, no pop-up)
+                LootScanner.TestKeyDown = true;
+                yield return Wait(0.1f);
+                LootScanner.TestKeyDown = false;
+                Check($"floor {floor}: pressing Z in the 2 s cooldown makes the error sound once", LootScanner.ErrorBeeps == beeps0 + 1, $"({LootScanner.ErrorBeeps - beeps0} sounds)");
                 yield return Wait(0.3f);
             }
             else Check($"floor {floor}: there is a room with loot to scan", false);
+            if (floor == TowerRules.DemoLastFloor && WobblyPlayerRegistry.All.Count > 0)
+            {
+                var spotted = WobblyPlayerRegistry.All[0];
+                bool bigNow = hm.MarkSpotted(spotted);                                             // (a solo player who is spotted is the whole party: the Big Alarm, the owner, 2026-10-24)
+                Check($"floor {floor}: a solo player who is spotted is marked and the Big Alarm goes on (the cap is {AlertRules.GuardCap(floor, true)}); the stand-down refuses", bigNow && hm.BigAlarmActive && hm.IsMarked(spotted) && !hm.StandDown(), $"(big {hm.BigAlarmActive}, cap {hm.GuardCap})");
+                yield return Wait(1.3f);
+                var alarmBeacons = gen.Beacons;
+                Check($"floor {floor}: with the Big Alarm the beacons (the pack's lamp, in the build) are lit and cast red light, and the intense music is chosen", alarmBeacons != null && alarmBeacons.FromPack && alarmBeacons.Level > 0.99f && alarmBeacons.LiveLights >= 1 && MusicDirector.Instance != null && MusicDirector.Instance.Current == MusicDirector.Mood.Intense, $"(from pack {(alarmBeacons != null && alarmBeacons.FromPack)}, level {(alarmBeacons != null ? alarmBeacons.Level : -1f):0.00}, {(alarmBeacons != null ? alarmBeacons.LiveLights : -1)} lights, mood {(MusicDirector.Instance != null ? MusicDirector.Instance.Current.ToString() : "none")})");
+            }
 
             // the basement gate: the elevator panel will not take the team down before the quota is met
             var car = ElevatorExtraction.Current;
@@ -629,7 +670,7 @@ namespace BuildingEscape
         }
 
         /// <summary>
-        /// The guards over the network (the owner's queue of 2026-10-19), floor 3, after the safes. The host puts an armed officer down for good: he drops a clip of pistol ammunition, which the client has too (the host's network id) and takes with
+        /// The guards over the network (the owner's queue of 2026-10-19), floor 3, after the safes. The host puts an armed officer down for good: he drops two bullets (a pile of brass: GuardDrops.TestRoll forces the roll), which the client has too (the host's network id) and takes by running over them (2026-10-23: no E)
         /// E - the host finds it by that id and the rounds go into the client's pistol on both machines. Then the host plays a shotgun's hit on the CLIENT's player (the host stays free, so the team is not down): he is busted at once on both machines
         /// and the blast plays on both.
         /// </summary>
@@ -642,7 +683,14 @@ namespace BuildingEscape
                 yield return Wait(5f);                                                   // (the client has done with the safes' clip)
                 var hm = HeistManager.Instance;
                 GuardAI victim = null;
-                foreach (var g in GuardAI.All) if (g && !g.IsPuppet && !g.IsBoss && g.Armed && !g.Dead && g.name != "Guard_Outpost") { victim = g; break; }
+                float victimFar = -1f;                                                      // (the armed guard farthest from every player: nobody runs over his bullets by chance before the test looks)
+                foreach (var g in GuardAI.All)
+                {
+                    if (!g || g.IsPuppet || g.IsBoss || !g.Armed || g.Dead || g.name == "Guard_Outpost") continue;
+                    float nearest = float.MaxValue;
+                    foreach (var np in NetPlayer.All) if (np) nearest = Mathf.Min(nearest, Vector3.Distance(np.transform.position, g.transform.position));
+                    if (nearest > victimFar) { victimFar = nearest; victim = g; }
+                }
                 Check($"{who}: floor {floor} has an armed patrolling guard to put down", victim != null);
                 NetPlayer remote = null;
                 foreach (var np in NetPlayer.All) if (np && !np.IsOwner) remote = np;
@@ -652,18 +700,22 @@ namespace BuildingEscape
                 {
                     var at = victim.transform.position;
                     int clips0 = FindObjectsByType<AmmoClip>(FindObjectsSortMode.None).Length;
+                    if (rGun != null) rGun.Magazine.SetReserve(0);                       // (before he goes down: the bullets that come are counted from nothing, whenever they come)
+                    GuardDrops.TestRoll = 70;                                            // (the owner, 2026-10-23: a guard drops 0 to 3 bullets; the roll of 70 is two of them)
                     victim.BulletHitHost(50f, false, null);
-                    yield return Wait(1.0f);
+                    GuardDrops.TestRoll = -1;
+                    yield return null;                                                   // (one frame: the pile is made at once)
+                    foreach (var np in NetPlayer.All) if (np) Say($"{who}: [diag] player {np.Slot} (mine {np.IsOwner}) is {Vector3.Distance(np.transform.position, at):0.0} m from the guard who went down");
+                    Say($"{who}: [diag] this machine has made {GuardDrops.Dropped} pile(s) of bullets ({GuardDrops.DroppedBullets} bullets); {FindObjectsByType<AmmoClip>(FindObjectsSortMode.None).Length} clip objects lie about now");
                     var made = new List<AmmoClip>();
                     foreach (var c in FindObjectsByType<AmmoClip>(FindObjectsSortMode.None)) if (c && c.kind == RangedWeapon.Kind.Pew && Vector3.Distance(c.transform.position, at) < 3f) made.Add(c);
-                    Check($"{who}: the armed guard went down for good and dropped one clip of pistol ammunition where he fell", victim.Dead && made.Count == 1 && made[0].rounds == pewSpec.magazine && FindObjectsByType<AmmoClip>(FindObjectsSortMode.None).Length == clips0 + 1,
+                    Check($"{who}: the armed guard went down for good and dropped two bullets of pistol ammunition where he fell (a pile that is only taken by running over it)", victim.Dead && made.Count == 1 && made[0].rounds == 2 && made[0].GetComponent<Pickup>().runOverOnly && FindObjectsByType<AmmoClip>(FindObjectsSortMode.None).Length == clips0 + 1,
                         $"(dead {victim.Dead}, {made.Count} clip(s) near, {FindObjectsByType<AmmoClip>(FindObjectsSortMode.None).Length} lie about of {clips0 + 1})");
                     if (rGun != null)
                     {
-                        rGun.Magazine.SetReserve(0);                                     // (room for a clip: the client does the same to his copy)
-                        yield return Until(() => rGun.Magazine.Reserve >= pewSpec.magazine, 90f, "the client to take the dropped clip");
+                        yield return Until(() => rGun.Magazine.Reserve >= 2, 90f, "the client to run over the dropped bullets");
                         yield return Wait(0.5f);
-                        Check($"{who}: the client took the dropped clip (his E, my answer by its id): its rounds are in his pistol's reserve here too and the clip is gone", rGun.Magazine.Reserve == pewSpec.magazine && FindObjectsByType<AmmoClip>(FindObjectsSortMode.None).Length == clips0,
+                        Check($"{who}: the client ran over the bullets (my copy of him came within reach: I decided): they are in his pistol's reserve here too and the pile is gone", rGun.Magazine.Reserve == 2 && FindObjectsByType<AmmoClip>(FindObjectsSortMode.None).Length == clips0,
                             $"(reserve {rGun.Magazine.Reserve}, {FindObjectsByType<AmmoClip>(FindObjectsSortMode.None).Length} clips lie about of {clips0})");
                     }
                 }
@@ -691,24 +743,23 @@ namespace BuildingEscape
                         foreach (var g in GuardAI.All) if (g && g.Dead && Vector3.Distance(g.transform.position, c.transform.position) < 3f) { dropped = c.GetComponent<Pickup>(); return true; }
                     }
                     return false;
-                }, 90f, "the clip the host's armed guard dropped");
-                Check($"{who}: the host's armed guard went down and his clip lies here too - eight rounds for the pistol, with a network id", dropped != null && dropped.GetComponent<AmmoClip>().rounds == pewSpec.magazine && dropped.NetId >= 0, $"(id {(dropped != null ? dropped.NetId : -1)})");
+                }, 90f, "the bullets the host's armed guard dropped");
+                Check($"{who}: the host's armed guard went down and his two bullets lie here too (a pile of brass with a network id)", dropped != null && dropped.GetComponent<AmmoClip>().rounds == 2 && dropped.NetId >= 0, $"(id {(dropped != null ? dropped.NetId : -1)})");
                 var wob = NetPlayer.Local != null ? NetPlayer.Local.GetComponent<WobblyPlayer>() : null;
                 var rb = wob != null ? wob.GetComponent<Rigidbody>() : null;
                 var cPack = wob != null ? wob.GetComponent<Backpack>() : null;
                 var cGun = cPack != null ? Vendor.GunOf(cPack) : null;
                 if (dropped != null && cGun != null && rb != null)
                 {
-                    cGun.Magazine.SetReserve(0);                                         // (room for a clip: the host does the same to his copy of my pistol)
-                    wob.TeleportTo(dropped.transform.position + Vector3.up * 1.0f, wob.transform.rotation);
+                    cGun.Magazine.SetReserve(0);                                         // (the host does the same to his copy of my pistol)
+                    wob.TeleportTo(dropped.transform.position + Vector3.up * 1.0f, wob.transform.rotation);          // (running over the bullets: the host's copy of me comes within reach of the pile and the host takes them for me)
                     rb.linearVelocity = Vector3.zero;
-                    yield return Wait(2.5f);                                             // (the host's copy of me has to arrive at the clip)
-                    cPack.TryStore(dropped);
-                    yield return Until(() => cGun.Magazine.Reserve >= pewSpec.magazine, 30f, "the dropped clip's rounds to reach my pistol");
+                    yield return Wait(2.5f);
+                    yield return Until(() => cGun.Magazine.Reserve >= 2, 30f, "the run-over bullets to reach my pistol");
                     yield return Wait(0.5f);
-                    Check($"{who}: the dropped clip's rounds went into my pistol's reserve (the host found the clip by its id) and the clip is gone here", cGun.Magazine.Reserve == pewSpec.magazine && !dropped, $"(reserve {cGun.Magazine.Reserve})");
+                    Check($"{who}: running over the bullets put them into my pistol's reserve (the host decided) and the pile is gone here", cGun.Magazine.Reserve == 2 && !dropped, $"(reserve {cGun.Magazine.Reserve})");
                 }
-                else Check($"{who}: a pistol and a body to take the dropped clip with", false);
+                else Check($"{who}: a pistol and a body to run over the dropped bullets with", false);
                 yield return Until(() => BlastFx.Played >= 1, 120f, "the blast the host played on me");
                 if (wob != null) yield return Until(() => wob.Custody == CustodyState.Busted, 30f, "the host to bust me");
                 Check($"{who}: a shotgun's hit blew me up - the blast played here and the host busted me", BlastFx.Played >= 1 && wob != null && wob.Custody == CustodyState.Busted, $"(blasts {BlastFx.Played}, {(wob != null ? wob.Custody.ToString() : "no body")})");
@@ -867,9 +918,10 @@ namespace BuildingEscape
             Check("the host sees both players in the docks", NetPlayer.All.Count == 2, $"({NetPlayer.All.Count})");
             yield return Shot("n3_host_docks");
             yield return ArmourNet(true);
+            yield return PackNet(true);
             yield return DartsNet(true);
             yield return PvpNet(true);
-            for (int floor = 1; floor <= 4; floor++)
+            for (int floor = 1; floor <= TowerRules.DemoLastFloor; floor++)
             {
                 tm.RideTo(floor);
                 yield return Until(() => tm.Loading || hm.Floor == floor, 15f, $"the ride to floor {floor}");
@@ -908,9 +960,10 @@ namespace BuildingEscape
             Check("my own body stands in the elevator, not in the void", NetPlayer.Local != null && NetPlayer.Local.transform.position.y > -1f && NetPlayer.Local.transform.position.y < 3f);
             yield return Shot("n3_client_docks");
             yield return ArmourNet(false);
+            yield return PackNet(false);
             yield return DartsNet(false);
             yield return PvpNet(false);
-            for (int floor = 1; floor <= 4; floor++)
+            for (int floor = 1; floor <= TowerRules.DemoLastFloor; floor++)
             {
                 yield return Until(() => FloorIs(floor), 240f, $"floor {floor} (the host rides up)");
                 yield return Wait(8f);
@@ -924,6 +977,144 @@ namespace BuildingEscape
             }
             yield return Wait(4f);
             Finish(checksFailed == 0 ? 0 : 3);
+        }
+
+        // ------------------------------------------------------------------ the pack in a built player (the owner's playtest of 2026-10-23: "players couldn't unequip and re-equip their melee weapons and they couldn't drop them")
+
+        static Pickup MeleeOf(Backpack b) { if (b == null) return null; foreach (var i in b.Items) if (i && i.GetComponent<MeleeWeapon>()) return i; return null; }
+        static bool HoldsMelee(Backpack b) => b != null && b.Equipped && b.Equipped.GetComponent<MeleeWeapon>();
+
+        /// <summary>The local player's round with a crowbar: buys it at the counter, holds it out, puts it away, holds it out again, drops it and takes it up again - each step through the pack's own calls (what the EQUIP / PUT AWAY / DROP buttons do), waiting for the answer a client gets from the host.</summary>
+        /// <summary>The consumables of the vending machines in the built game (the owner, 2026-10-25): two are bought at a machine, drunk, and their effects are there; the effects are cleared afterwards so that nothing later in the run is changed by them.</summary>
+        IEnumerator ConsumableActs()
+        {
+            var wob = WobblyPlayerRegistry.All.Count > 0 ? WobblyPlayerRegistry.All[0] : null;
+            var pack = wob != null ? wob.GetComponent<Backpack>() : null;
+            var buffs = wob != null ? wob.GetComponent<PlayerBuffs>() : null;
+            var machine = VendingMachine.Machines.Count > 0 ? VendingMachine.Machines[0] : null;
+            var vendor = Vendor.Current;
+            var hm = HeistManager.Instance;
+            if (wob == null || pack == null || buffs == null || machine == null || vendor == null || hm == null) { Check("solo: a vending machine, my pack and the dealer are here for the consumables", false); yield break; }
+            hm.AddCash(2000);
+            wob.TeleportTo(machine.TrayPoint + Vector3.up * 0.6f, wob.transform.rotation);
+            yield return Wait(1.0f);
+            int speed = System.Array.FindIndex(Vendor.Catalog, p => p.isConsumable && p.consumable == ConsumableKind.SpeedBurst);
+            int silent = System.Array.FindIndex(Vendor.Catalog, p => p.isConsumable && p.consumable == ConsumableKind.SilentSteps);
+            string said1 = vendor.BuyAtMachine(hm, pack, speed, machine.TrayPoint), said2 = vendor.BuyAtMachine(hm, pack, silent, machine.TrayPoint);
+            yield return Wait(0.5f);
+            Check("solo: the vending machine sells the five consumables, and a speed burst and silent steps bought there are in my pack", Vendor.MachineProducts.Length >= 9 && pack.CountConsumable(ConsumableKind.SpeedBurst) == 1 && pack.CountConsumable(ConsumableKind.SilentSteps) == 1, $"('{said1}' / '{said2}')");
+            pack.UseKind(ConsumableKind.SpeedBurst);
+            pack.UseKind(ConsumableKind.SilentSteps);
+            yield return Wait(0.6f);
+            Check("solo: drunk, the cans are gone, my speed is up and my steps are silent", pack.CountConsumable(ConsumableKind.SpeedBurst) == 0 && pack.CountConsumable(ConsumableKind.SilentSteps) == 0 && wob.SpeedBuff > 1f && wob.StepsSilent && wob.CurrentFootstepNoise == 0f, $"(speed {wob.SpeedBuff:0.0}, silent {wob.StepsSilent})");
+            Check("solo: the HUD row above the weapon bar shows the two that run", ConsumableHud.LastChips >= 2, $"({ConsumableHud.LastChips} chips)");
+            yield return Shot("02c_consumables");
+            buffs.Set.Clear();
+            yield return Wait(0.3f);
+        }
+
+        IEnumerator PackActs(string who)
+        {
+            var wob = NetPlayer.Local != null ? NetPlayer.Local.GetComponent<WobblyPlayer>() : (WobblyPlayerRegistry.All.Count > 0 ? WobblyPlayerRegistry.All[0] : null);
+            var rb = wob != null ? wob.GetComponent<Rigidbody>() : null;
+            var pack = wob != null ? wob.GetComponent<Backpack>() : null;
+            var counter = Vendor.Current != null ? Vendor.Current.GetComponent<Collider>() : null;
+            if (wob == null || rb == null || pack == null || counter == null) { Check($"{who}: my body, my pack and the dealer's counter are here", false); yield break; }
+            bool online = NetSession.Online;
+            if (!online && HeistManager.Instance != null) HeistManager.Instance.AddCash(500);
+            wob.TeleportTo(counter.bounds.center + Vector3.up * 0.2f, wob.transform.rotation);           // (the host sells only to somebody at the counter)
+            rb.linearVelocity = Vector3.zero;
+            yield return Wait(2.5f);                                                                 // (the host's copy of me has to arrive)
+            if (online) RunSync.Instance.RequestBuy(4); else Vendor.Current.TestBuy(4);              // (the crowbar)
+            yield return Until(() => MeleeOf(pack) != null, 60f, "the crowbar in my pack");
+            var crowbar = MeleeOf(pack);
+            Check($"{who}: the crowbar I bought is in my pack", crowbar != null);
+            if (crowbar == null) yield break;
+            yield return Wait(1.0f);
+            pack.SetEquipped(crowbar);
+            yield return Until(() => pack.Equipped == crowbar, 30f, "the crowbar in my hand");
+            Check($"{who}: EQUIP holds the crowbar out", pack.Equipped == crowbar);
+            yield return Wait(1.0f);
+            pack.SetEquipped(null);
+            yield return Until(() => pack.Equipped == null, 30f, "the crowbar put away");
+            Check($"{who}: PUT AWAY empties the hand and the crowbar stays in the pack", pack.Equipped == null && pack.Items.Contains(crowbar));
+            yield return Wait(1.0f);
+            pack.SetEquipped(crowbar);
+            yield return Until(() => pack.Equipped == crowbar, 30f, "the crowbar in my hand again");
+            Check($"{who}: EQUIP again holds the crowbar out again", pack.Equipped == crowbar);
+            yield return Wait(1.0f);
+            pack.Drop(crowbar);
+            yield return Until(() => !pack.Items.Contains(crowbar), 30f, "the crowbar dropped");
+            Check($"{who}: DROP puts the crowbar on the floor next to me, out of the pack and out of my hand", !pack.Items.Contains(crowbar) && crowbar && crowbar.gameObject.activeInHierarchy && pack.Equipped != crowbar && Vector3.Distance(crowbar.transform.position, wob.transform.position) < 4f,
+                $"(in pack {pack.Items.Contains(crowbar)}, in hand {pack.Equipped == crowbar}, {(crowbar ? Vector3.Distance(crowbar.transform.position, wob.transform.position) : -1f):0.0} m away)");
+            yield return Wait(1.5f);
+            if (crowbar) pack.TryStore(crowbar);
+            yield return Until(() => crowbar && pack.Items.Contains(crowbar), 30f, "the crowbar taken up again");
+            Check($"{who}: E on the dropped crowbar takes it up again", crowbar && pack.Items.Contains(crowbar));
+            yield return Wait(1.0f);
+
+            // the keys: the slot key of the weapon in hand puts it away and takes it out again, the drop key drops it
+            if (pack.Equipped != crowbar) { pack.SetEquipped(crowbar); yield return Until(() => pack.Equipped == crowbar, 30f, "the crowbar in my hand for the keys"); }
+            int slot = pack.BarSlotOf(crowbar);
+            Check($"{who}: the crowbar is on a slot of the weapon bar", slot >= 0, $"(slot {slot})");
+            pack.PressSlot(slot);
+            yield return Until(() => pack.Equipped == null, 30f, "the slot key puts it away");
+            Check($"{who}: the slot key of the weapon in hand puts it away (it stays in the pack)", pack.Equipped == null && pack.Items.Contains(crowbar));
+            yield return Wait(1.0f);
+            pack.PressSlot(slot);
+            yield return Until(() => pack.Equipped == crowbar, 30f, "the slot key takes it out");
+            Check($"{who}: the slot key again takes it out", pack.Equipped == crowbar);
+            yield return Wait(1.0f);
+            pack.DropHeld();
+            yield return Until(() => !pack.Items.Contains(crowbar), 30f, "the drop key drops it");
+            Check($"{who}: the drop key drops the weapon in hand onto the floor", !pack.Items.Contains(crowbar) && pack.Equipped == null && crowbar && crowbar.gameObject.activeInHierarchy);
+            yield return Wait(1.5f);
+            if (crowbar) pack.TryStore(crowbar);
+            yield return Until(() => crowbar && pack.Items.Contains(crowbar), 30f, "the crowbar taken up once more");
+            pack.SetEquipped(null);                                                                  // (the hand is empty again: whatever comes next, a pistol, comes into it)
+            yield return Until(() => pack.Equipped == null, 30f, "the hand empty");
+            Check($"{who}: the round ends with the crowbar in the pack and the hand empty", crowbar && pack.Items.Contains(crowbar) && pack.Equipped == null);
+            yield return Wait(1.0f);
+        }
+
+        /// <summary>The other player's copy of the same round, watched from this machine: his pack here shows every step he takes.</summary>
+        IEnumerator PackWatch(string who, Backpack rPack, string whose)
+        {
+            yield return Until(() => MeleeOf(rPack) != null, 120f, $"{whose} crowbar in his pack");
+            var cb = MeleeOf(rPack);
+            Check($"{who}: {whose} crowbar is in his pack here", cb != null);
+            if (cb == null) yield break;
+            yield return Until(() => HoldsMelee(rPack), 60f, $"{whose} crowbar in his hand");
+            Check($"{who}: I see {whose} crowbar in his hand", HoldsMelee(rPack));
+            yield return Until(() => rPack.Equipped == null, 60f, $"{whose} crowbar put away");
+            Check($"{who}: I see him put it away (it stays in his pack)", rPack.Equipped == null && rPack.Items.Contains(cb));
+            yield return Until(() => HoldsMelee(rPack), 60f, $"{whose} crowbar in his hand again");
+            Check($"{who}: I see it in his hand again", HoldsMelee(rPack));
+            yield return Until(() => !rPack.Items.Contains(cb), 60f, $"{whose} crowbar dropped");
+            Check($"{who}: I see it drop out of his pack onto the floor", !rPack.Items.Contains(cb) && cb && cb.gameObject.activeInHierarchy && rPack.Equipped != cb);
+            yield return Until(() => rPack.Items.Contains(cb), 60f, $"{whose} crowbar taken up again");
+            Check($"{who}: I see him take it up again", rPack.Items.Contains(cb));
+            // the second half of his round: the keys
+            yield return Until(() => rPack.Equipped == null, 60f, $"{whose} slot key putting the crowbar away");
+            Check($"{who}: I see the slot key put it away (it stays in his pack)", rPack.Equipped == null && rPack.Items.Contains(cb));
+            yield return Until(() => HoldsMelee(rPack), 60f, $"{whose} slot key taking the crowbar out");
+            Check($"{who}: I see the slot key take it out again", HoldsMelee(rPack));
+            yield return Until(() => !rPack.Items.Contains(cb), 60f, $"{whose} drop key");
+            Check($"{who}: I see the drop key drop it onto the floor", !rPack.Items.Contains(cb) && cb && cb.gameObject.activeInHierarchy && rPack.Equipped != cb);
+            yield return Until(() => rPack.Items.Contains(cb) && rPack.Equipped == null, 60f, $"{whose} round to end with the crowbar in his pack and his hand empty");
+            Check($"{who}: his round ends with the crowbar in his pack and his hand empty", rPack.Items.Contains(cb) && rPack.Equipped == null);
+        }
+
+        /// <summary>Two built players: the client does the round while the host watches, then the host does it while the client watches.</summary>
+        IEnumerator PackNet(bool host)
+        {
+            string who = host ? "host" : "client";
+            NetPlayer remote = null;
+            foreach (var np in NetPlayer.All) if (np && !np.IsOwner) remote = np;
+            var rPack = remote != null ? remote.GetComponent<Backpack>() : null;
+            if (rPack == null) { Check($"{who}: the other player's pack is here", false); yield break; }
+            if (host) { yield return PackWatch(who, rPack, "the client's"); yield return PackActs(who); }
+            else { yield return PackActs(who); yield return PackWatch(who, rPack, "the host's"); }
         }
 
         // ------------------------------------------------------------------ the run-start cinematic (the Intro) in a built player (DEVELOPER_NOTES 2.19)

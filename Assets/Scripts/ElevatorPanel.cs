@@ -84,12 +84,12 @@ namespace BuildingEscape
             headerGlyphs = new GameObject("Readout").transform;
             headerGlyphs.SetParent(transform, false);
 
-            // floor buttons: 13 at the top left down to 1, then the docks
-            for (int k = 0; k < 14; k++)
+            // floor buttons rising from left to right and from the bottom row up, like a real panel (the owner, 2026-10-23, with a photograph: "in order from left to right ascending"): the docks, 1, 2 / 3 4 5 / ... / 12 13 at the top (ElevatorPanelRules)
+            for (int k = 0; k < ElevatorPanelRules.Buttons; k++)
             {
-                int floor = k < 13 ? 13 - k : 0;
-                int row = k / Columns, col = k % Columns;
-                var pos = new Vector3((col - 1) * Pitch, 0.5f - row * Pitch, FaceZ);
+                int floor = ElevatorPanelRules.FloorOf(k);
+                ElevatorPanelRules.Position(k, 0.5f, out float bx, out float by);
+                var pos = new Vector3(bx, by, FaceZ);
                 var b = MakeButton(floor.ToString(), pos, ButtonSize, floor == 0 ? "Ld" : floor.ToString(), 0.16f);
                 b.floor = floor;
                 buttons.Add(b);

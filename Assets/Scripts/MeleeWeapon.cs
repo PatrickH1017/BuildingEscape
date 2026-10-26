@@ -30,9 +30,9 @@ namespace BuildingEscape
         // length = how long the weapon is in metres when held; stun in seconds; knock = shove on hit.
         public static readonly Spec[] Specs =
         {
-            new Spec { name = "Crowbar",      weight = 3f, length = 0.85f, stun = 4f, knock = 5f, cooldown = 0.9f, noise = 16f, damage = 14f, guardDamage = GuardHealthRules.CrowbarDamage },
-            new Spec { name = "Baseball Bat", weight = 2f, length = 1.00f, stun = 3f, knock = 9f, cooldown = 0.8f, noise = 14f, damage = 11f, guardDamage = GuardHealthRules.BatDamage },
-            new Spec { name = "Hatchet",      weight = 3f, length = 0.70f, stun = 6f, knock = 4f, cooldown = 1.0f, noise = 18f, damage = 22f, guardDamage = GuardHealthRules.HatchetDamage },
+            new Spec { name = "Crowbar",      weight = 1.5f, length = 0.85f, stun = 4f, knock = 5f, cooldown = 0.9f, noise = 16f, damage = 14f, guardDamage = GuardHealthRules.CrowbarDamage },
+            new Spec { name = "Baseball Bat", weight = 1f, length = 1.00f, stun = 3f, knock = 9f, cooldown = 0.8f, noise = 14f, damage = 11f, guardDamage = GuardHealthRules.BatDamage },
+            new Spec { name = "Hatchet",      weight = 1.5f, length = 0.70f, stun = 6f, knock = 4f, cooldown = 1.0f, noise = 18f, damage = 22f, guardDamage = GuardHealthRules.HatchetDamage },
         };
 
         /// <summary>How far up the handle (m, as held) the hand closes, from the end opposite the head: a hand's width, so that a little of the handle shows below the fist (crowbar, bat, hatchet).</summary>

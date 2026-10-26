@@ -39,6 +39,8 @@ namespace BuildingEscape.EditorTools
             Run(dir, true);
         }
 
+        static bool Flag(string name) => Array.IndexOf(Environment.GetCommandLineArgs(), name) >= 0;
+
         static string Arg(string name)
         {
             var a = Environment.GetCommandLineArgs();
@@ -66,6 +68,8 @@ namespace BuildingEscape.EditorTools
                 target = BuildTarget.StandaloneWindows64,
                 targetGroup = BuildTargetGroup.Standalone,
                 options = BuildOptions.None,
+                // the developer tools (the terminal, the dev menu, spectating a match) are in the friends' build and in no release build: -noDevTools leaves them out
+                extraScriptingDefines = Flag("-noDevTools") ? new string[0] : new[] { "ETR_DEV_TOOLS" },
             };
             Debug.Log($"[DemoBuild] building {scenes.Length} scenes ({string.Join(", ", scenes)}) to {options.locationPathName}");
             var report = BuildPipeline.BuildPlayer(options);

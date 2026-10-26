@@ -58,7 +58,7 @@ namespace BuildingEscape.Net
             byte best = 0; int bestRank = -1; Vector3 firstEnd = default;
             for (int i = 0; i < spec.Pellets; i++)                                     // (a shotgun's pellets: each its own spread, from the shot's seed)
             {
-                GunRules.Spread(GunRules.PelletSeed(seed, i), spec.spread, out float yaw, out float pitch);
+                GunRules.Spread(GunRules.PelletSeed(seed, i), spec.spread * PlayerBuffs.SpreadFactor(np.gameObject), out float yaw, out float pitch);
                 var d = Quaternion.LookRotation(dir) * Quaternion.Euler(-pitch, yaw, 0f) * Vector3.forward;
                 var imp = Ballistics.Trace(muzzle, d, spec.range, np.transform, false);
                 if (imp.guard == null && i == 0) imp = Forgiven(imp, np.transform, muzzle, d, spec.range, guardId);

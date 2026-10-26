@@ -122,6 +122,7 @@ namespace BuildingEscape
             }
             GlassPanes += panes;
             GlassFronts.Add((new Vector3(r.Cx, 1.6f, r.Cz), outward));
+            glassSpans.Add(new WindowSpan { alongX = alongX, line = centre, half = half, lo = lo, hi = hi, a = a, b = b, sill = sill, head = head, outwardSign = alongX ? outward.z : outward.x });          // (ClearViews keeps these clear)
             return true;
         }
 
@@ -179,6 +180,7 @@ namespace BuildingEscape
             foreach (var w in windowedWalls)
                 if (wallObjects.TryGetValue(w, out var go) && go) { var rr = go.GetComponent<Renderer>(); if (rr) rr.enabled = true; }
             windowedWalls.Clear();
+            glassSpans.Clear();
         }
 
         /// <summary>Glass fronts for the offices and meeting rooms that get them (see the class summary). Runs before the accent walls (a window is not painted).</summary>
@@ -186,6 +188,7 @@ namespace BuildingEscape
         {
             GlassPanes = 0; GlassOffices = 0; CornerOffices = 0; GlassDoors = 0;
             GlassFronts.Clear();
+            glassSpans.Clear();
             glassRooms.Clear();
             windowedWalls.Clear();
             windowedOutward.Clear();

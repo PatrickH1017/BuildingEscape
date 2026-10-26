@@ -248,7 +248,7 @@ namespace BuildingEscape
         }
 
         /// <summary>
-        /// Where the dock's vending machines stand (<see cref="DockVendingRules"/>): [0] the black one and [1] the red one on the main room's south wall, [2] the black one in the break room. Empty when the machines could not be built (their packs are
+        /// Where the dock's vending machines stand (<see cref="DockVendingRules"/>): [0] and [1] the two black ones on the main room's south wall, [2] the black one in the break room. Empty when the machines could not be built (their packs are
         /// not in the project). For tests and tools.
         /// </summary>
         public DockVendingRules.Spot[] DockVendingSpots { get; private set; } = new DockVendingRules.Spot[0];
@@ -257,29 +257,26 @@ namespace BuildingEscape
         const float DockWallInner = 0.2f;
 
         /// <summary>
-        /// The vending machines (the owner, 2026-10-22: "add them both to the main room of the loading dock and add the smaller black one to the break room ... In the main room I want them on the wall across from the vendor"): the black Synty one
+        /// The vending machines (the owner, 2026-10-23: both machines of the main room are the black one - "Use the black vending machine instead of the red" - and every machine sells the consumables, see <see cref="VendingMachine"/>; 2026-10-22: "add them both to the main room of the loading dock and add the smaller black one to the break room ... In the main room I want them on the wall across from the vendor"): the black Synty one
         /// ("vending") and the big red nappin one ("vending_red") side by side on the main room's south wall, which is across from the vendor's trailer in the north wall, the pair centred on the vendor; and a second black one in the break room, against
         /// its east wall in the corner by the south wall (the cast of the run-start cutscene stands further north and the doorway is beside it). Plain solid props for now: nothing is sold from them yet.
         /// </summary>
         void BuildDockVending(Transform parent, float vendorX)
         {
             DockVendingSpots = new DockVendingRules.Spot[0];
-            if (!PropTable.TryGet("vending", out var black) || !PropTable.TryGet("vending_red", out var red)) return;
-            DockVendingRules.MainRoom(vendorX, DockWallInner, black.W, black.D, red.W, red.D, out var blackSpot, out var redSpot);
+            if (!PropTable.TryGet("vending", out var black)) return;
+            // both machines of the main room are the black one (the owner, 2026-10-23: "Use the black vending machine instead of the red"); each of the three is a vending machine that sells the consumables (VendingMachine)
+            DockVendingRules.MainRoom(vendorX, DockWallInner, black.W, black.D, black.W, black.D, out var firstSpot, out var secondSpot);
             var breakSpot = DockVendingRules.BreakRoom(BreakRoom.xMax, BreakRoom.yMin, black.W, black.D);
-            DockVendingSpots = new[] { blackSpot, redSpot, breakSpot };
-            var blackGo = PlaceKey("vending", blackSpot.x, blackSpot.z, blackSpot.yaw, parent, 0f, true);
-            SnapBackToWall(blackGo, blackSpot, DockWallInner);
-            HideVendingGlass(blackGo);
-            var redGo = PlaceKey("vending_red", redSpot.x, redSpot.z, redSpot.yaw, parent, 0f, true);
-            SnapBackToWall(redGo, redSpot, DockWallInner);
-            var breakGo = PlaceKey("vending", breakSpot.x, breakSpot.z, breakSpot.yaw, parent, 0f, true);
-            SnapBackToWall(breakGo, breakSpot, BreakRoom.xMax);
-            HideVendingGlass(breakGo);
-            // the red machine is the nappin pack's stocked one: 168 parts and 3.8 million vertices (24 bags of chips at 72,000 vertices each, 42 cans, 56 bars). The goods inside are small, so they cast no shadow (the casing still does): that is the cheaper half of the cost
-            if (redGo != null)
-                foreach (var r in redGo.GetComponentsInChildren<Renderer>(true))
-                    if (r.bounds.size.magnitude < 0.45f) r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            DockVendingSpots = new[] { firstSpot, secondSpot, breakSpot };
+            var walls = new[] { DockWallInner, DockWallInner, BreakRoom.xMax };
+            for (int i = 0; i < DockVendingSpots.Length; i++)
+            {
+                var go = PlaceKey("vending", DockVendingSpots[i].x, DockVendingSpots[i].z, DockVendingSpots[i].yaw, parent, 0f, true);
+                SnapBackToWall(go, DockVendingSpots[i], walls[i]);
+                HideVendingGlass(go);
+                if (go != null) go.AddComponent<VendingMachine>().Setup(DockVendingSpots[i], go.transform.position.y);
+            }
         }
 
         /// <summary>

@@ -53,7 +53,7 @@ namespace BuildingEscape.EditorTools
                     if (pb.min.y < 2.2f && pb.max.x > gen.BreakRoomDoor.x + 0.2f && pb.min.x < 17.8f && pb.max.z > 0.2f && pb.min.z < 7f) hall.Add(pt.name + "@" + pb.center.ToString("0.0"));
                 }
                 string wayIn = PvpWayIn(gen);                                                                    // (the owner, 2026-10-20: players must be able to get into the PVP room, whatever the seed)
-                bool ok = lifts >= 1 && drums >= 2 && blocks >= 6 && stacks >= 10 && shelves >= 4 && way.Length == 0 && truck.Length == 0 && dummy.Length == 0 && hall.Count == 0 && wayIn.Length == 0;
+                bool ok = lifts >= 1 && drums >= 2 && blocks >= (PvpBattlefieldRules.On ? 4 : 6) /* two cardboard blocks of the PVP room made way for the battlefield (T7) */ && stacks >= 10 && shelves >= 4 && way.Length == 0 && truck.Length == 0 && dummy.Length == 0 && hall.Count == 0 && wayIn.Length == 0;
                 if (!ok) fails++;
                 Log($"[DockSeeds] {(ok ? "PASS" : "FAIL")} seed {seed}: {lifts} forklifts, {drums} drums, {blocks} blocks, {stacks} stacks, {shelves} shelves" + (ok ? "" : $"; way [{way}] truck [{truck}] dummy [{dummy}] hallway [{string.Join(",", hall)}] PVP room [{wayIn}]"));
             }

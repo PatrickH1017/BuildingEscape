@@ -14,9 +14,43 @@ namespace BuildingEscape
     {
         public static ComputerScreen Instance { get; private set; }
 
+        // ---- looking round at the computer (the owner, 2026-10-23, DeskLookRules): where the monitor is on the screen, and where the cursor is
+        static Vector2? testCursor;
+        bool cursorWasOutside;
+
+        /// <summary>How big the screen is drawn: 1 on a 1080 pixel high screen.</summary>
+        static float Scale => Mathf.Clamp(Screen.height / 1080f, 0.75f, 2f);
+
+        /// <summary>Where the monitor is on the screen (GUI pixels, y down): the very rectangle the drawing uses, worked out from the screen's size alone (so the camera and the tests need no drawn frame to ask).</summary>
+        public static Rect MonitorRect()
+        {
+            float s = Scale;
+            float w = Mathf.Min(1160f * s, Screen.width - 60f), h = w * 0.74f;
+            return new Rect((Screen.width - w) * 0.5f, (Screen.height - h) * 0.5f - 24f * s, w, h);
+        }
+
+        /// <summary>Where the monitor is while the computer's screen is up; false when it is not.</summary>
+        public static bool TryGetMonitor(out Rect rect)
+        {
+            rect = MonitorRect();
+            return Showing;
+        }
+
+        /// <summary>The cursor's place in screen pixels (y up, as Input.mousePosition): a test can put it where it likes.</summary>
+        public static Vector2 CursorPosition => testCursor ?? (Vector2)Input.mousePosition;
+
+        /// <summary>Tests: put the cursor at this screen place (y up), or null to give it back to the mouse.</summary>
+        public static void SetTestCursor(Vector2? position) { testCursor = position; }
+
+        /// <summary>Tests: the E key held down, as the keyboard would.</summary>
+        public static bool TestKeyE;
+
         /// <summary>The player may stand this much farther from the computer than its reach before the screen closes.</summary>
         const float WalkAwaySlack = 1.5f;
         public const int TabNone = 0, TabSafes = 1, TabNav = 2, TabHacked = 3;
+        /// <summary>The tabs left to right (the owner, 2026-10-23: the Nav tab first, then Safes, and a third tab called Commands - the door terminal that used to be called Hacked): each keeps its id, so only this order and these names say where it stands.</summary>
+        public static readonly int[] TabOrder = { TabNav, TabSafes, TabHacked };
+        public static readonly string[] TabNames = { "Nav", "Safes", "Commands" };
 
         // the door terminal (a few lines under the map on the Nav page, the whole page on the Hacked tab): a log and the line being typed
         readonly List<string> termLog = new List<string>();
@@ -42,7 +76,7 @@ namespace BuildingEscape
         public static bool LearnedSomething => Showing && Instance.learned;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
-        static void ResetStatics() { Instance = null; }
+        static void ResetStatics() { Instance = null; testCursor = null; TestKeyE = false; }
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         static void Boot()
@@ -77,6 +111,7 @@ namespace BuildingEscape
             learned = false;
             tab = TabNone;
             loggedIn = SafeIntel.IsLoggedIn(p.outpostFloor);          // (a player who logged in on this floor stays logged in until the run ends)
+            if (loggedIn) ShowTab(TabNav, false);                      // (the Nav tab is what opens first: the owner, 2026-10-23)
             focusUser = true;
             OutpostUi.Show(OutpostUi.Kind.Computer);
             Beep(1f, 0.5f);
@@ -106,7 +141,7 @@ namespace BuildingEscape
                 loggedIn = true;
                 SafeIntel.LogIn(prop.outpostFloor);
                 user = pass = message = "";
-                tab = TabNone;
+                ShowTab(TabNav, false);                                   // (signed in: the Nav tab opens first, the owner, 2026-10-23)
                 Beep(1.3f, 0.5f);
                 return true;
             }
@@ -116,7 +151,10 @@ namespace BuildingEscape
             return false;
         }
 
-        void ChooseTab(int t)
+        void ChooseTab(int t) => ShowTab(t);
+
+        /// <summary>What a tab shows once it is up: the Safes tab writes its record into the journal, the Nav tab and the Commands tab (the door terminal) get their first lines and the keyboard. A click on a tab beeps as well; the tab that opens by itself does not.</summary>
+        void ShowTab(int t, bool beep = true)
         {
             tab = t;
             if (t == TabSafes) RevealRecord();
@@ -130,7 +168,7 @@ namespace BuildingEscape
                 }
                 focusTerm = true;
             }
-            Beep(1.1f, 0.35f);
+            if (beep) Beep(1.1f, 0.35f);
         }
 
         /// <summary>
@@ -182,10 +220,32 @@ namespace BuildingEscape
         /// </summary>
         void UpdatePa()
         {
-            bool want = OutpostUi.Current == OutpostUi.Kind.Computer && loggedIn && Input.GetKey(KeyCode.V) && !OtherScreenUp;
+            bool want = OutpostUi.Current == OutpostUi.Kind.Computer && loggedIn && (Input.GetKey(KeyCode.V) || MicKeyHeld()) && !OtherScreenUp;
             if (want == paHeld) return;
             paHeld = want;
             PaState.RequestLive(want);
+        }
+
+        /// <summary>
+        /// E at the microphone (the owner, 2026-10-23: "when looking at the microphone the player should be able to press E to speak into it"): the cursor is outside the monitor (the view is looking round, nothing is typed) and the middle of the view is on the
+        /// microphone's button (<see cref="DeskLookRules.AtMicrophone"/>). It is the PA, like V.
+        /// </summary>
+        bool MicKeyHeld()
+        {
+            if (!(Input.GetKey(KeyCode.E) || TestKeyE)) return false;
+            if (!TryGetMonitor(out var mon)) return false;
+            var c = CursorPosition;
+            if (!DeskLookRules.Outside(c.x, Screen.height - c.y, mon.x, mon.y, mon.width, mon.height)) return false;          // (the cursor is over the monitor: E is a letter)
+            return LookingAtMicrophone();
+        }
+
+        /// <summary>Is the middle of the view on the microphone on the desk?</summary>
+        public static bool LookingAtMicrophone()
+        {
+            var mic = MicProp.Active; var cam = Camera.main;
+            if (!mic || !cam) return false;
+            var to = mic.ButtonWorld - cam.transform.position;
+            return DeskLookRules.AtMicrophone(Vector3.Angle(cam.transform.forward, to), to.magnitude);
         }
 
         /// <summary>For the tests: the PA key held down or let go, as the keyboard would.</summary>
@@ -255,9 +315,13 @@ namespace BuildingEscape
             if (OutpostUi.Current != OutpostUi.Kind.Computer || prop == null) return;
             GUI.depth = -100;
             MenuKit.Begin();
-            float s = Mathf.Clamp(Screen.height / 1080f, 0.75f, 2f);
-            float w = Mathf.Min(1160f * s, Screen.width - 60f), h = w * 0.74f;
-            var mon = new Rect((Screen.width - w) * 0.5f, (Screen.height - h) * 0.5f - 24f * s, w, h);
+            float s = Scale;
+            var mon = MonitorRect();
+            var cur = CursorPosition;
+            bool outsideNow = DeskLookRules.Outside(cur.x, Screen.height - cur.y, mon.x, mon.y, mon.width, mon.height);
+            if (outsideNow) { focusUser = false; focusTerm = false; GUI.FocusControl(null); }                  // (looking round: the keyboard goes nowhere, so E is the microphone's and not a letter)
+            else if (cursorWasOutside) { focusUser = !loggedIn; focusTerm = loggedIn; }                          // (back over the monitor: the box that was being typed in takes the keyboard again)
+            cursorWasOutside = outsideNow;
             Fill(new Rect(mon.center.x - 70f * s, mon.yMax - 4f * s, 140f * s, 34f * s), Bezel);                        // the stand
             Fill(new Rect(mon.center.x - 190f * s, mon.yMax + 26f * s, 380f * s, 14f * s), Bezel);
             Fill(new Rect(mon.x - 5f * s, mon.y - 5f * s, mon.width + 10f * s, mon.height + 10f * s), new Color(0f, 0f, 0f, 0.55f));
@@ -304,11 +368,10 @@ namespace BuildingEscape
         void DrawDesktop(Rect scr, Rect bar, float s)
         {
             var strip = new Rect(scr.x + 20f * s, bar.yMax + 16f * s, 190f * s, 50f * s);
-            string[] names = { "Safes", "Nav", "Hacked" };
-            for (int i = 0; i < 3; i++)
+            for (int i = 0; i < TabOrder.Length; i++)
             {
                 var b = new Rect(strip.x + i * (strip.width + 14f * s), strip.y, strip.width, strip.height);
-                if (MenuKit.Pick(b, names[i].ToUpperInvariant(), tab == i + 1, HudTheme.Quota, 22f)) ChooseTab(i + 1);
+                if (MenuKit.Pick(b, TabNames[i].ToUpperInvariant(), tab == TabOrder[i], HudTheme.Quota, 22f)) ChooseTab(TabOrder[i]);
             }
             var body = new Rect(scr.x + 24f * s, strip.yMax + 22f * s, scr.width - 48f * s, scr.yMax - strip.yMax - 40f * s);
             if (tab == TabNone)

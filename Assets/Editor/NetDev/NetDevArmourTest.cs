@@ -94,8 +94,8 @@ namespace BuildingEscape.EditorTools
             RunUnlocks.UnlockArmour(medium);
             bool offAfter = Vendor.OnOffer(im, 1) && !Vendor.OnOffer(il, 1) && !Vendor.OnOffer(ih, 1);
             RunUnlocks.Reset();
-            Check("armour: the dealer has the three pieces at the end of his list - priced by the rules - and sells a tier only once it was brought back to the docks (whatever floor the elevator goes to next)",
-                il >= 0 && im == il + 1 && ih == im + 1 && ih == Vendor.Catalog.Length - 1 && Vendor.Catalog[il].name == "Light Armour" && Vendor.Catalog[im].name == "Medium Armour" && Vendor.Catalog[ih].name == "Heavy Armour"
+            Check("armour: the dealer has the three pieces at the end of his list (before the walkie talkie) - priced by the rules - and sells a tier only once it was brought back to the docks (whatever floor the elevator goes to next)",
+                il >= 0 && im == il + 1 && ih == im + 1 && ih == Vendor.WalkieIndex - 1 && Vendor.Catalog[Vendor.WalkieIndex].isWalkie && Vendor.Catalog[il].name == "Light Armour" && Vendor.Catalog[im].name == "Medium Armour" && Vendor.Catalog[ih].name == "Heavy Armour"
                 && Vendor.Catalog[il].price == ArmourRules.Price(light) && Vendor.Catalog[im].price == ArmourRules.Price(medium) && Vendor.Catalog[ih].price == ArmourRules.Price(heavy) && offBefore && offAfter);
 
             // ---- vertical safes (the owner, 2026-10-19): a safe that holds a shotgun or a sniper rifle

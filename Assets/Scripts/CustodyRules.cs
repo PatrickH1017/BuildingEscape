@@ -42,6 +42,23 @@ namespace BuildingEscape
         public const float PinImmunitySeconds = 3f;
 
         /// <summary>
+        /// How long an officer must hold on to a free player - the player within his arm's reach, nothing solid between them - before the player is pinned (the owner, 2026-10-23: "Guards should not pin so quickly in melee range,
+        /// it should take 2 seconds of being next to them").
+        /// </summary>
+        public const float GrabSeconds = 1f;          // (2 until the friends' playtest of 2026-10-23, then the owner: "The guard pin time should be 1 second next to a player (right now is too long)")
+
+        /// <summary>The grab clock after <paramref name="dt"/> more seconds: it fills while the player is in reach and drains twice as fast once they get away (never below 0, never above <see cref="GrabSeconds"/>).</summary>
+        public static float GrabAfter(float held, bool inReach, float dt)
+        {
+            dt = Math.Max(0f, dt);
+            held = inReach ? held + dt : held - dt * 2f;
+            return Math.Min(GrabSeconds, Math.Max(0f, held));
+        }
+
+        /// <summary>Has he held on for the whole <see cref="GrabSeconds"/>?</summary>
+        public static bool GrabDone(float held) => held >= GrabSeconds - 0.0001f;
+
+        /// <summary>
         /// After the alarm panel in a guard outpost has been used the officers' radios are jammed for this long: an officer who was in the
         /// middle of keying his radio when the button was pressed cannot start the backup all over again at once.
         /// </summary>

@@ -50,10 +50,14 @@ namespace BuildingEscape
         /// <summary>Raised on every machine when the custody state changes.</summary>
         public event System.Action<CustodyState> CustodyChanged;
         public bool IsSprinting { get; private set; }
+        /// <summary>The walking speed is multiplied by this (1 = none): the speed burst (<see cref="PlayerBuffs"/>, the owner, 2026-10-25).</summary>
+        public float SpeedBuff { get; set; } = 1f;
+        /// <summary>The steps make no sound and no noise for the guards: silent steps (<see cref="PlayerBuffs"/>, the owner, 2026-10-25). Set on every machine, puppets included.</summary>
+        public bool StepsSilent { get; set; }
         /// <summary>Crouched: slower, lower, and a footstep only carries <see cref="crouchNoise"/> metres.</summary>
         public bool IsCrouching { get; private set; }
         /// <summary>The loudness (guard hearing radius) a footstep has right now.</summary>
-        public float CurrentFootstepNoise => IsSprinting ? sprintNoise : IsCrouching ? crouchNoise : footstepNoise;
+        public float CurrentFootstepNoise => StepsSilent ? 0f : IsSprinting ? sprintNoise : IsCrouching ? crouchNoise : footstepNoise;
         /// <summary>Set by NetPlayer on remote puppets, whose script is switched off.</summary>
         public void SetPuppetCrouch(bool crouching) => IsCrouching = crouching;
 #if UNITY_EDITOR
@@ -65,6 +69,10 @@ namespace BuildingEscape
         public event System.Action Jumped;
         /// <summary>Set by NetPlayer on remote puppets (kinematic, so the rigidbody reports no speed).</summary>
         public Vector3? VelocityOverride { get; set; }
+        /// <summary>The share of his walking speed this player keeps while he drags a body (1 = none; <see cref="DraggableBody"/> sets it to <see cref="DraggableBodyRules.DraggerSpeedShare"/>).</summary>
+        public float DragFactor { get; set; } = 1f;
+        /// <summary>The player who drags THIS player's body (this player is busted: T12), or null. Every machine knows it (<see cref="PlayerGrab.ApplyDragPlayerBody"/>); the machine that owns this body pulls it along.</summary>
+        public WobblyPlayer DraggedBy { get; set; }
 
         Rigidbody rb;
         float stumbleUntil, nextStep, nextRigLookup;
@@ -82,6 +90,7 @@ namespace BuildingEscape
         void Awake()
         {
             rb = GetComponent<Rigidbody>(); rb.maxAngularVelocity = 12f; cam = Camera.main ? Camera.main.transform : null;
+            rb.maxDepenetrationVelocity = PlayerSafetyRules.MaxDepenetrationSpeed;          // (the friends' playtest, 2026-10-23: officers squeezing a body into a corner threw it up through the ceiling: the push out of an overlap is slow now)
             capsule = GetComponent<CapsuleCollider>();
             TryGetComponent(out grab);
             if (capsule) { standHeight = capsule.height; standCenter = capsule.center; }
@@ -90,10 +99,12 @@ namespace BuildingEscape
             if (!GetComponent<MeleeController>()) gameObject.AddComponent<MeleeController>();
             if (!GetComponent<GunController>()) gameObject.AddComponent<GunController>();
             if (!GetComponent<Stamina>()) gameObject.AddComponent<Stamina>();
+            if (!GetComponent<PlayerBuffs>()) gameObject.AddComponent<PlayerBuffs>();                              // (the consumables in use: the owner, 2026-10-25; after the stamina meter, which it hands the drain factor)
             if (!GetComponent<PvpFighter>()) gameObject.AddComponent<PvpFighter>();
             TryGetComponent(out stamina);
             if (usePartyCharacter && !GetComponent<PlayerVisual>()) gameObject.AddComponent<PlayerVisual>();
             if (!GetComponent<PlayerArmourVisual>()) gameObject.AddComponent<PlayerArmourVisual>();          // (the vest of the armour he wears: every machine reads his pack)
+            if (!GetComponent<HeldWalkie>()) gameObject.AddComponent<HeldWalkie>();                              // (the walkie talkie he holds out: the same)
         }
 
         // This script only runs for the body this machine controls (NetPlayer switches it off on every teammate's puppet). The
@@ -114,6 +125,7 @@ namespace BuildingEscape
             rb.interpolation = RigidbodyInterpolation.None;
             transform.SetPositionAndRotation(position, rotation);
             rb.position = position;
+            haveSafeSpot = false;                                                      // (a good spot of the place he was before is no spot to come back to)
             rb.rotation = rotation;
             if (!rb.isKinematic) { rb.linearVelocity = Vector3.zero; rb.angularVelocity = Vector3.zero; }
             Physics.SyncTransforms();
@@ -173,14 +185,44 @@ namespace BuildingEscape
             capsule.center = new Vector3(standCenter.x, bottom + h * 0.5f, standCenter.z);
         }
 
+        // ---- the safety net (the friends' playtest, 2026-10-23: "a player was pushed to the roof of the building, out of the map, because too many guards pushed him into a corner"): the body is never left outside the building
+        Vector3 safeSpot; bool haveSafeSpot; float nextSafeSpot;
+        /// <summary>How many times the net put this body back (tests, the log).</summary>
+        public int Rescues { get; private set; }
+
+        void KeepInTheBuilding()
+        {
+            if (rb.isKinematic) return;
+            var p = rb.position;
+            if (PlayerSafetyRules.Outside(p.y))
+            {
+                Vector3 to;
+                if (haveSafeSpot) to = safeSpot + Vector3.up * 0.1f;
+                else
+                {
+                    var tower = TowerManager.Instance;
+                    to = (tower != null && tower.HasFloor ? tower.CurrentInfo.spawn : new Vector3(p.x, 0f, p.z)) + Vector3.up * 1.1f;
+                }
+                Rescues++;
+                Debug.LogWarning($"[Safety] a body was found outside the building at {p}: put back at {to}");
+                TeleportTo(to, transform.rotation);
+                safeSpot = to; haveSafeSpot = true; nextSafeSpot = Time.time + PlayerSafetyRules.RememberEvery;
+                return;
+            }
+            var v = rb.linearVelocity;
+            if (v.y > PlayerSafetyRules.MaxUpSpeed) { v.y = PlayerSafetyRules.MaxUpSpeed; rb.linearVelocity = v; }          // (a jump is 5.5: nothing but a squeeze goes faster)
+            if (Time.time >= nextSafeSpot && PlayerSafetyRules.WorthRemembering(grounded, p.y, v.magnitude)) { safeSpot = p; haveSafeSpot = true; nextSafeSpot = Time.time + PlayerSafetyRules.RememberEvery; }
+        }
+
         void FixedUpdate()
         {
             grounded = CheckGrounded();
+            KeepInTheBuilding();
             if (rb.isKinematic) return;                // held still while the floor is built: nothing to push
-            if (InCustody) { HoldDown(); return; }
+            if (InCustody) { HoldDown(); FollowDragger(); return; }
             if (!IsStumbling)
             {
-                float gait = IsSprinting ? sprintMultiplier : IsCrouching ? crouchSpeedMultiplier : 1f;
+                float gait = (IsSprinting ? sprintMultiplier : IsCrouching ? crouchSpeedMultiplier : 1f) * DragFactor * SpeedBuff;
                 float f = moveForce * gait;
                 var flat = new Vector3(rb.linearVelocity.x, 0, rb.linearVelocity.z);
                 if (flat.magnitude < maxSpeed * gait)
@@ -220,6 +262,23 @@ namespace BuildingEscape
                 if (c && c.attachedRigidbody != rb && !c.transform.IsChildOf(transform)) return true;
             }
             return false;
+        }
+
+        /// <summary>A busted body that a teammate drags (T12): it slides to the spot behind him at most <see cref="DraggableBodyRules.FollowSpeed"/> m/s (a velocity, so a wall stops it); only the machine that owns the body runs this.</summary>
+        readonly DraggableBodyRules.Trail dragTrail = new DraggableBodyRules.Trail();
+        bool dragTrailLive;
+
+        void FollowDragger()
+        {
+            var by = DraggedBy;
+            if (!by) { dragTrailLive = false; return; }
+            if (Custody != CustodyState.Busted) { DraggedBy = null; dragTrailLive = false; return; }
+            var p = by.transform.position;
+            if (!dragTrailLive) { dragTrail.Begin(rb.position.x, rb.position.z, p.x, p.z); dragTrailLive = true; }
+            dragTrail.Add(p.x, p.z);
+            dragTrail.Advance(Time.deltaTime, out float nx, out float nz);          // (inside FixedUpdate Time.deltaTime is the fixed step)
+            rb.MovePosition(new Vector3(nx, rb.position.y, nz));
+            rb.linearVelocity = new Vector3(0f, rb.linearVelocity.y, 0f);
         }
 
         /// <summary>Pinned / busted: the body lies where it fell. No walking, no righting torque; it just settles.</summary>

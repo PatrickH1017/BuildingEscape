@@ -125,8 +125,8 @@ namespace BuildingEscape.EditorTools
             }
             Check("safes: floor 3 holds no gun and no spare clip in any safe of any run (the one pistol of the floor is in the outpost's gun safe); armour and cash still turn up there and the safes of floor 4 still hold guns and clips (the owner, 2026-10-19 night)",
                 noGun && noClip && armourStays && cashStays && gunsLater && clipsLater && !SafeRules.SafesHoldGuns(3) && SafeRules.SafesHoldGuns(4) && OutpostLoot.PewFloor == 3);
-            Check("pistol: it carries twelve clips - 96 rounds, about 100 shots - and the other guns three (the owner, 2026-10-19 night)",
-                RangedWeapon.Specs[(int)RangedWeapon.Kind.Pew].maxClips == 12 && RangedWeapon.NewMagazine(RangedWeapon.Specs[(int)RangedWeapon.Kind.Pew]).MaxRounds == 96 && RangedWeapon.NewMagazine(RangedWeapon.Specs[(int)RangedWeapon.Kind.Smg]).MaxRounds == 72);
+            Check("pistol: it carries no limit of bullets any more (the owner, 2026-10-23: no clips, the second number is unbound), and the other guns neither",
+                RangedWeapon.NewMagazine(RangedWeapon.Specs[(int)RangedWeapon.Kind.Pew]).AddReserve(500) == 500 && RangedWeapon.NewMagazine(RangedWeapon.Specs[(int)RangedWeapon.Kind.Smg]).AddReserve(500) == 500);
             // ---- the intro: the vendor's bay opens after the workers' line and the vendor says his four lines (the owner, 2026-10-20)
             var beats = IntroRules.Beats; int last = beats.Length - 1;
             Check("intro: the vendor's bay door starts to roll up after the workers' line has ended and is all the way up before he speaks, and his four lines end the Intro",
@@ -211,11 +211,11 @@ namespace BuildingEscape.EditorTools
                 // no freight containers (the owner, 2026-10-20: "the PvP room should not have any freight containers inside of it, more shelves with boxes"): steel shelving with its cardboard instead, pallets and crates for lower cover
                 var pvpContainers = warehouse.Where(w => (w.name == "container" || w.name == "container_small") && InPvp(w.position)).ToList();
                 var pvpRacks = warehouse.Where(w => w.name == "Shelf" && InPvp(w.position)).ToList();
-                int cover = warehouse.Count(w => (w.name == "pallet_loaded" || w.name == "crate_large" || w.name == "barrel") && InPvp(w.position));
+                int cover = warehouse.Count(w => (w.name == "pallet_loaded" || w.name == "crate_large" || w.name == "barrel" || PvpBattlefieldRules.Pieces.Any(bp => bp.key == w.name)) && InPvp(w.position));          // (T7: the battlefield's pieces are cover too)
                 bool racksSolid = pvpRacks.All(w => w.GetComponentsInChildren<Collider>().Length == 1 && w.GetComponent<BoxCollider>() != null);
                 int rackBoxes = pvpRacks.Sum(w => w.GetComponentsInChildren<Transform>().Count(c => c.name == "ShelfBox"));
-                R12Check("no shipping container stands in the PVP room; steel shelving with its boxes does (20 units or more, each solid with one box collider), and pallets and crates give lower cover (at least 6 pieces)",
-                    pvpContainers.Count == 0 && pvpRacks.Count >= 20 && racksSolid && rackBoxes >= pvpRacks.Count * 4 && cover >= 6, $"({pvpContainers.Count} containers, {pvpRacks.Count} shelves with {rackBoxes} boxes, {cover} pallets / crates / barrels)");
+                R12Check("no shipping container stands in the PVP room; steel shelving with its boxes does (20 units or more, 15 with the battlefield of T7; each solid with one box collider), and pallets and crates give lower cover (at least 6 pieces)",
+                    pvpContainers.Count == 0 && pvpRacks.Count >= (PvpBattlefieldRules.On ? 15 : 20) && racksSolid && rackBoxes >= pvpRacks.Count * 4 && cover >= 6, $"({pvpContainers.Count} containers, {pvpRacks.Count} shelves with {rackBoxes} boxes, {cover} pallets / crates / barrels)");
                 // nothing stands inside anything else or through a wall: the floor plans of the shelves, pallets, crates and box blocks do not overlap (a crate on a crate is above it, not in it) and lie within the room
                 var pvpPieces = new List<(string name, Bounds box)>();
                 foreach (var piece in warehouse.Where(w => (w.name == "Shelf" || w.name == "pallet_loaded" || w.name == "crate_large" || w.name == "barrel" || w.name == "BoxBlock") && InPvp(w.position)))

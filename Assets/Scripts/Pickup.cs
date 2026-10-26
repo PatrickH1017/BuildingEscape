@@ -19,6 +19,12 @@ namespace BuildingEscape
 
         public bool IsHeld { get; set; }
 
+        /// <summary>
+        /// True for the bullets an eliminated guard drops (<see cref="GuardDrops"/>): they are no item for the pack and the crosshair never finds them (<see cref="ScanAround"/> skips them, <c>Backpack.TryStore</c> and <c>RunSync.HostStore</c> refuse them):
+        /// a player who carries a gun of their kind takes them by running over them (<see cref="AmmoRunOver"/>; the owner, 2026-10-23).
+        /// </summary>
+        public bool runOverOnly;
+
         /// <summary>Network id (same on every machine for things the floor generator made). -1 = not registered.</summary>
         public int NetId { get; private set; } = Net.NetIds.None;
 
@@ -42,6 +48,8 @@ namespace BuildingEscape
         public string Label => !string.IsNullOrEmpty(label) ? label : (Loot ? Loot.displayName : name);
         /// <summary>Cash value (0 for plain items like mugs).</summary>
         public int Value => Loot ? Loot.CurrentValue : bankValue;
+        /// <summary>Is this a piece of loot (the owner, 2026-10-23: "Drop all loot is not dropping all loot properly")? A heavy treasure, or anything with a cash value to bank: the small valuables and the cash bundles have a bank value and no HeavyLoot. Weapons, armour, keys and ammunition have none.</summary>
+        public bool CountsAsLoot => !RangedWeapon.IsWeapon(this) && (Loot != null || bankValue > 0);
 
         // ------------------------------------------------------------------ finding pickups near a player
         // Asked every frame by the local player's backpack, so nothing here allocates: the buffers are shared (the game
@@ -86,7 +94,7 @@ namespace BuildingEscape
             for (int i = 0; i < n; i++)
             {
                 var p = overlap[i].GetComponentInParent<Pickup>();
-                if (!p || p.IsHeld || !p.isActiveAndEnabled || !seen.Add(p)) continue;
+                if (!p || p.IsHeld || p.runOverOnly || !p.isActiveAndEnabled || !seen.Add(p)) continue;
                 var l = p.Loot;
                 if (l && l.Holders > 0) continue; // someone is carrying it
                 into.Add(p);

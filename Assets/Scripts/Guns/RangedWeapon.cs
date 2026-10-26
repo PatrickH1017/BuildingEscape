@@ -57,8 +57,7 @@ namespace BuildingEscape
             public int magazine;
             /// <summary>The spare clips a new gun comes with when it is bought or handed over by the test menu (the clip in the gun is the first of the three). A gun FOUND in a safe has none: one clip, the one in it (the owner, 2026-10-19).</summary>
             public int spareClips;
-            /// <summary>The most clips of this gun a player may carry, the one in the gun counted; 0 = the three of <see cref="GunRules.MaxClips"/>. The pistol carries twelve: 96 rounds (the owner, 2026-10-19 night: "Max ammo for the pistol should be about 100 shots").</summary>
-            public int maxClips;
+
             public float reloadSeconds, fireInterval;
             /// <summary>How far a bullet flies (m) and the cone it is fired into (degrees).</summary>
             public float range, spread;
@@ -90,35 +89,35 @@ namespace BuildingEscape
         {
             new Spec
             {
-                name = "Pew", weight = 1.2f, length = 0.30f,
+                name = "Pew", weight = 0.6f, length = 0.30f,
                 damage = 60f, guardHits = 4, stun = 0f, knock = 16f, noise = 45f, silencedNoise = 12f, silencerLength = 0.16f, weaponClass = WeaponClass.Pistol,
-                magazine = 8, spareClips = 2, maxClips = 12, reloadSeconds = 2.2f, fireInterval = 0.3f, range = 45f, spread = 1.2f,
-                hold = HoldStyle.OneHand, sounds = SoundSet.Handgun, kick = 9f, flash = 1f, unlockFloor = 3, ammoName = "Pistol Clip", clipPrice = 120, ammoPlural = "pistol clips", pitch = 1f,
+                magazine = 8, spareClips = 2, reloadSeconds = 2.2f, fireInterval = 0.3f, range = 45f, spread = 1.2f,
+                hold = HoldStyle.OneHand, sounds = SoundSet.Handgun, kick = 9f, flash = 1f, unlockFloor = 3, ammoName = "Pistol Clip", clipPrice = 120, ammoPlural = "pistol bullets", pitch = 1f,
             },
             new Spec
             {
-                name = "SMG", weight = 1.9f, length = 0.50f,
+                name = "SMG", weight = 0.95f, length = 0.50f,
                 damage = 24f, guardHits = 2, stun = 0f, knock = 4f, noise = 40f, silencedNoise = 11f, silencerLength = 0.16f, weaponClass = WeaponClass.SubMachineGun,
                 magazine = 24, spareClips = 2, reloadSeconds = 2.0f, fireInterval = 0.085f, range = 38f, spread = 3.4f,
-                hold = HoldStyle.TwoHand, sounds = SoundSet.Handgun, kick = 3f, flash = 0.9f, unlockFloor = 5, ammoName = "SMG Magazine", clipPrice = 480, ammoPlural = "SMG magazines", pitch = 1.08f,
+                hold = HoldStyle.TwoHand, sounds = SoundSet.Handgun, kick = 3f, flash = 0.9f, unlockFloor = 5, ammoName = "SMG Magazine", clipPrice = 480, ammoPlural = "SMG bullets", pitch = 1.08f,
             },
             new Spec
             {
-                name = "Rifle", weight = 3.4f, length = 0.90f,
+                name = "Rifle", weight = 1.7f, length = 0.90f,
                 damage = 42f, guardHits = 4, stun = 0f, knock = 8f, noise = 55f, silencedNoise = 14f, silencerLength = 0.20f, weaponClass = WeaponClass.Rifle,
                 magazine = 30, spareClips = 2, reloadSeconds = 2.6f, fireInterval = 0.12f, range = 70f, spread = 1.6f,
-                hold = HoldStyle.TwoHand, sounds = SoundSet.Rifle, kick = 4f, flash = 1.1f, unlockFloor = 8, ammoName = "Rifle Magazine", clipPrice = 750, ammoPlural = "rifle magazines", pitch = 1f,
+                hold = HoldStyle.TwoHand, sounds = SoundSet.Rifle, kick = 4f, flash = 1.1f, unlockFloor = 8, ammoName = "Rifle Magazine", clipPrice = 750, ammoPlural = "rifle bullets", pitch = 1f,
             },
             new Spec
             {
-                name = "Shotgun", weight = 3.6f, length = 1.00f,
+                name = "Shotgun", weight = 1.8f, length = 1.00f,
                 damage = 14f, guardHits = 1, stun = 0f, knock = 2f, noise = 60f, silencedNoise = 60f, silencerLength = 0f, weaponClass = WeaponClass.Shotgun,
                 magazine = 6, spareClips = 2, reloadSeconds = 3.0f, fireInterval = 0.85f, range = 24f, spread = 5.5f,
                 pellets = 8, hold = HoldStyle.TwoHand, sounds = SoundSet.Shotgun, kick = 12f, flash = 1.6f, unlockFloor = 6, ammoName = "Shotgun Shells", clipPrice = 420, ammoPlural = "shotgun shells", pitch = 1f,
             },
             new Spec
             {
-                name = "Sniper", weight = 4.8f, length = 1.15f,
+                name = "Sniper", weight = 2.4f, length = 1.15f,
                 damage = 150f, guardHits = 10, stun = 0f, knock = 20f, noise = 85f, silencedNoise = 85f, silencerLength = 0f, weaponClass = WeaponClass.Sniper,
                 magazine = 5, spareClips = 2, reloadSeconds = 3.4f, fireInterval = 1.35f, range = 120f, spread = 0.25f,
                 hold = HoldStyle.TwoHand, sounds = SoundSet.Rifle, kick = 14f, flash = 1.5f, unlockFloor = 10, ammoName = "Sniper Rounds", clipPrice = 600, ammoPlural = "sniper rounds", pitch = 0.78f,
@@ -248,7 +247,6 @@ namespace BuildingEscape
         {
             var m = new GunMagazine(s.magazine, s.reloadSeconds, s.fireInterval);
             m.SetReserve((spareClips < 0 ? s.spareClips : spareClips) * s.magazine);
-            m.MaxRounds = (s.maxClips > 0 ? s.maxClips : GunRules.MaxClips) * s.magazine;                    // (a player carries at most three clips of a gun; of the pistol twelve)
             return m;
         }
 
@@ -262,8 +260,8 @@ namespace BuildingEscape
         /// <summary>The empty case this kind of gun throws out: its own cartridge (a rifle's, a shotgun's shell), else the pistol's.</summary>
         public static GameObject CasingOf(Kind k) { var m = ModelOf(k); return m != null && m.casing ? m.casing : (Catalog ? Catalog.pewBullet : null); }
 
-        /// <summary>True for any item that is a weapon (the backpack equips these).</summary>
-        public static bool IsWeapon(Pickup p) => p && (p.TryGetComponent(out MeleeWeapon _) || p.TryGetComponent(out RangedWeapon _));
+        /// <summary>True for any item that is a weapon (the backpack equips these) - and for the walkie talkie, which is equipped the same way (the owner, 2026-10-23: the player holds it out to use it).</summary>
+        public static bool IsWeapon(Pickup p) => p && (p.TryGetComponent(out MeleeWeapon _) || p.TryGetComponent(out RangedWeapon _) || p.TryGetComponent(out WalkieTalkie _));
 
         // ------------------------------------------------------------------ the model
 

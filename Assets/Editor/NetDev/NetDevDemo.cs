@@ -10,7 +10,7 @@ namespace BuildingEscape.EditorTools
     /// <summary>
     /// The owner's request of 2026-10-16: the game is a demo up to floor 4 (the elevator never goes higher) and, once floor 4 is finished, the
     /// vendor sells the pew pistol for nothing, so the team can try it on the dummy in the Loading Docks.
-    /// <c>Demo</c> (offline, Greybox) climbs the real way (the elevator's own <c>RideTo</c>): floors 1 to 4, each finished and left for the docks;
+    /// <c>Demo</c> (offline, Greybox) climbs the real way (the elevator's own <c>RideTo</c>): floors 1 to 6 (the demo's last: TowerRules.DemoLastFloor), each finished and left for the docks;
     /// the elevator stops at floor 4 and at the docks afterwards; the shop has no pew until then, then one free pew per player, which is fired at
     /// the training dummy. <c>DemoNet</c> (two processes: <c>runmp.ps1 -Method DemoNet -Roles host,c1</c>) does the shopping and the shooting over the network:
     /// the client buys the free pew (the host spawns it, it is in his pack and in his hand on both machines), fires it at the dummy, and the host's
@@ -65,24 +65,24 @@ namespace BuildingEscape.EditorTools
             string refused = vendor != null ? BuyFrom(vendor, hm, pack, Vendor.PewIndex) : "";
             DemoCheck("at the start the vendor will not sell the pew", !Vendor.PewForSale(tm.ResumeLevel) && refused.Contains("nothing like that") && !pack.Items.Any(i => i && i.GetComponent<RangedWeapon>()), $"(\"{refused}\")");
 
-            // ---- floors 1 to 4: finish each one and go down to the docks
-            for (int floor = 1; floor <= 4; floor++)
+            // ---- floors 1 to the demo's last (6): finish each one and go down to the docks
+            for (int floor = 1; floor <= TowerRules.DemoLastFloor; floor++)
             {
                 yield return Ride(hm, tm, floor);
                 DemoCheck($"floor {floor}: the elevator took the team there", hm.Floor == floor && hm.Phase == HeistPhase.Heist);
                 hm.DebugCompleteFloor();
                 DemoCheck($"floor {floor}: the quota is met", hm.Phase == HeistPhase.FloorComplete);
                 int up = TowerRules.UpFrom(floor, true, tm.ResumeLevel);
-                bool expectUp = floor < 3;          // (floor 3 ends its group, floor 4 ends the demo)
+                bool expectUp = !TowerRules.IsGroupEnd(floor) && floor < TowerRules.DemoLastFloor;          // (floors 3 and 6 end their group, floor 6 ends the demo)
                 DemoCheck($"floor {floor}: from here the elevator goes {(expectUp ? "up to floor " + (floor + 1) : "nowhere but down")}", expectUp ? up == floor + 1 : up == -1, $"(up {up})");
-                if (floor == 4)
+                if (floor == TowerRules.DemoLastFloor)
                 {
-                    tm.RideTo(5);
+                    tm.RideTo(TowerRules.DemoLastFloor + 1);
                     yield return new WaitForSeconds(1.5f);
-                    DemoCheck("floor 4: the elevator refuses floor 5 (nothing is built, the team stays)", hm.Floor == 4 && !tm.Loading);
+                    DemoCheck($"floor {floor}: the elevator refuses floor {floor + 1} (nothing is built, the team stays)", hm.Floor == floor && !tm.Loading);
                     tm.RideTo(13);
                     yield return new WaitForSeconds(0.5f);
-                    DemoCheck("floor 4: and the boss floor", hm.Floor == 4 && !tm.Loading);
+                    DemoCheck($"floor {floor}: and the boss floor", hm.Floor == floor && !tm.Loading);
                 }
                 yield return Ride(hm, tm, 0);
                 DemoCheck($"floor {floor}: back at the docks, the elevator would resume at floor {floor + 1}", hm.Floor == 0 && tm.ResumeLevel == floor + 1, $"(resume {tm.ResumeLevel})");
@@ -94,14 +94,14 @@ namespace BuildingEscape.EditorTools
 
             // ---- the demo is over: the docks have nothing to go up to, and the vendor has a free pew
             vendor = Vendor.Current;
-            DemoCheck("floor 4 done: the demo is over", TowerRules.DemoOver(tm.ResumeLevel) && tm.ResumeLevel == 5);
-            DemoCheck("floor 4 done: from the docks the elevator goes nowhere", TowerRules.UpFrom(0, false, tm.ResumeLevel) == -1);
+            DemoCheck("floor 6 done: the demo is over", TowerRules.DemoOver(tm.ResumeLevel) && tm.ResumeLevel == TowerRules.DemoLastFloor + 1);
+            DemoCheck("floor 6 done: from the docks the elevator goes nowhere", TowerRules.UpFrom(0, false, tm.ResumeLevel) == -1);
             tm.RideElevator();
-            tm.RideTo(5);
+            tm.RideTo(TowerRules.DemoLastFloor + 1);
             yield return new WaitForSeconds(1.5f);
-            DemoCheck("floor 4 done: neither the elevator's own up nor a ride to floor 5 builds a floor", hm.Floor == 0 && hm.Phase == HeistPhase.Hub && !tm.Loading);
+            DemoCheck("floor 6 done: neither the elevator's own up nor a ride to floor 7 builds a floor", hm.Floor == 0 && hm.Phase == HeistPhase.Hub && !tm.Loading);
 
-            DemoCheck("floor 4 done: the pew is for sale", Vendor.PewForSale(tm.ResumeLevel));
+            DemoCheck("floor 6 done: the pew is for sale", Vendor.PewForSale(tm.ResumeLevel));
             hm.TrySpend(hm.Cash); hm.AddCash(Vendor.PewPrice - 1);                      // (one dollar short)
             string noClip = BuyFrom(vendor, hm, pack, Vendor.AmmoIndex);
             DemoCheck("without a pew the vendor will not sell a clip", noClip.Contains("no pew") && hm.Cash == Vendor.PewPrice - 1, $"(\"{noClip}\")");
@@ -117,14 +117,14 @@ namespace BuildingEscape.EditorTools
             DemoCheck("the pew is in his hand with a full magazine of eight and two spare clips", gc != null && gc.Gun != null && gc.Held != null && gc.Gun.Magazine.Rounds == 8 && gc.Gun.Magazine.Reserve == 16);
             string again = BuyFrom(vendor, hm, pack, Vendor.PewIndex);
             DemoCheck("a second pew is refused (one each)", again.Contains("already") && pack.Items.Count(i => i && i.GetComponent<RangedWeapon>()) == 1, $"(\"{again}\")");
-            gc.Gun.Magazine.SetReserve(gc.Gun.Magazine.MaxRounds - gc.Gun.Magazine.Rounds);       // (the pew full to its limit: twelve clips, 96 rounds; the owner, 2026-10-19 night: "about 100 shots")
+            gc.Gun.Magazine.SetReserve(88);                                                      // (a big reserve: there is no limit on the bullets a player carries any more; the owner, 2026-10-23)
             int cashClip = hm.Cash;
-            int fullReserve = gc.Gun.Magazine.Reserve;
-            string fullPack = BuyFrom(vendor, hm, pack, Vendor.AmmoIndex);
-            DemoCheck("a pew with all its twelve clips is carrying all a player may: the dealer refuses another and takes no money", fullPack.Contains("clips") && hm.Cash == cashClip && gc.Gun.Magazine.Reserve == fullReserve && fullReserve == 88, $"(\"{fullPack}\")");
-            gc.Gun.Magazine.SetReserve(8);                                               // (a spare clip used up: there is room for one)
+            string bigPack = BuyFrom(vendor, hm, pack, Vendor.AmmoIndex);
+            DemoCheck("a pew that already carries 88 bullets still takes eight more for the price: there is no limit on the bullets carried", bigPack.Contains("Bought bullets") && cashClip - hm.Cash == Vendor.AmmoClipPrice && gc.Gun.Magazine.Reserve == 96, $"(\"{bigPack}\", reserve {gc.Gun.Magazine.Reserve})");
+            gc.Gun.Magazine.SetReserve(8);
+            cashClip = hm.Cash;
             string clip = BuyFrom(vendor, hm, pack, Vendor.AmmoIndex);
-            DemoCheck("a clip costs its price and puts eight rounds in the reserve of the pew", clip.Contains("Bought a clip") && cashClip - hm.Cash == Vendor.AmmoClipPrice && gc.Gun.Magazine.Reserve == 16, $"(\"{clip}\", cash {cashClip} -> {hm.Cash}, reserve {gc.Gun.Magazine.Reserve})");
+            DemoCheck("bullets cost their price and put eight rounds in the reserve of the pew", clip.Contains("Bought bullets") && cashClip - hm.Cash == Vendor.AmmoClipPrice && gc.Gun.Magazine.Reserve == 16, $"(\"{clip}\", cash {cashClip} -> {hm.Cash}, reserve {gc.Gun.Magazine.Reserve})");
             hm.TrySpend(hm.Cash);
             gc.Gun.Magazine.SetReserve(8);
             string brokeClip = BuyFrom(vendor, hm, pack, Vendor.AmmoIndex);
@@ -179,8 +179,8 @@ namespace BuildingEscape.EditorTools
             var tm = TowerManager.Instance;
             hm.godMode = true; hm.freezeTimer = true;
             DemoNetCheck("host: at the docks with the demo not over, the vendor has no pew for sale", !Vendor.PewForSale(tm.ResumeLevel));
-            // the demo's last floor is finished (the same state the elevator leaves behind): the next floor to climb to is 5
-            typeof(TowerManager).GetProperty("ResumeLevel").SetValue(tm, 5);
+            // the demo's last floor is finished (the same state the elevator leaves behind): the next floor to climb to is the one after it (7)
+            typeof(TowerManager).GetProperty("ResumeLevel").SetValue(tm, TowerRules.DemoLastFloor + 1);
             yield return new WaitForSeconds(1.5f);
             DemoNetCheck("host: now the demo is over and the elevator has nothing to go up to", TowerRules.DemoOver(tm.ResumeLevel) && TowerRules.UpFrom(0, false, tm.ResumeLevel) == -1);
             Signal("h_ready");
@@ -237,7 +237,7 @@ namespace BuildingEscape.EditorTools
             yield return WaitSig("h_ready", 120);
             var hm = HeistManager.Instance;
             var tm = TowerManager.Instance;
-            yield return WaitFor(() => tm.ResumeLevel == 5, 30, "the host's resume level");
+            yield return WaitFor(() => tm.ResumeLevel == TowerRules.DemoLastFloor + 1, 30, "the host's resume level");
             DemoNetCheck("client: the host's state reaches here: the demo is over and the pew is for sale", TowerRules.DemoOver(tm.ResumeLevel) && Vendor.PewForSale(tm.ResumeLevel));
             Signal("c_ready");
             yield return WaitSig("h_cash", 60);
@@ -262,7 +262,7 @@ namespace BuildingEscape.EditorTools
             Signal("c_bought");
             yield return WaitSig("h_bought_ok", 60);
             RunSync.Instance.RequestBuy(Vendor.AmmoIndex);
-            yield return WaitFor(() => gc.Gun != null && gc.Gun.Magazine.Reserve == 24, 20, "the clip in the reserve");
+            yield return WaitFor(() => gc.Gun != null && gc.Gun.Magazine.Reserve == 24 && hm.Cash == 300, 20, "the clip in the reserve and its price off the team's cash");          // (the cash comes with the host's next state, a frame or more after the ammunition)
             DemoNetCheck("client: the clip he bought added eight rounds to the reserve, for its price", gc.Gun.Magazine.Reserve == 24 && hm.Cash == 300, $"(reserve {gc.Gun.Magazine.Reserve}, cash {hm.Cash})");
             Signal("c_clip");
             yield return WaitSig("h_clip_ok", 60);

@@ -135,6 +135,7 @@ namespace BuildingEscape.EditorTools
             var expectBullets = new[] { 3, 4, 5, 9 };
             var expectParts = new[] { 0, GuardArmour.VestParts(ShieldTier.Light), GuardArmour.VestParts(ShieldTier.Medium), GuardArmour.VestParts(ShieldTier.Heavy) };
             int dropped0 = GuardDrops.Dropped;
+            GuardDrops.TestRoll = 0;                                             // (T25: the roll that leaves nothing; every eliminated guard rolls, 0 bullets is the most likely)
             if (bare.Count >= 4)
             {
                 for (int i = 0; i < 4; i++) bare[i].SetLoadout(new GuardLoadout(false, RangedWeapon.Kind.Pew, tiers[i]));
@@ -147,21 +148,23 @@ namespace BuildingEscape.EditorTools
                     while (!g.Dead && n < 40) { g.BulletHitHost(pewBullet, false, null); n++; }
                     CombatCheck($"{tiers[i]} shield: {expectBullets[i]} pew bullets put the guard down for good", g.Dead && n == expectBullets[i], $"({n} bullets, hits {g.Hits})");
                 }
-                CombatCheck("a guard who carries no gun drops no clip", GuardDrops.Dropped == dropped0);
+                CombatCheck("a guard whose drop roll is 0 (the most likely) leaves no bullets", GuardDrops.Dropped == dropped0);
             }
             else CombatCheck("floor 3 has four unarmed guards to shoot at", false, $"({bare.Count})");
 
             var victim = armed3.FirstOrDefault(g => !g.Dead);
+            GuardDrops.TestRoll = 99;                                                // (T25: the roll that leaves three bullets)
             if (victim != null)
             {
                 var vpos = victim.transform.position;
                 int n = 0;
                 while (!victim.Dead && n < 40) { victim.BulletHitHost(pewBullet, false, null); n++; }
                 yield return null;
+                GuardDrops.TestRoll = -1;
                 var clip = FindObjectsByType<AmmoClip>(FindObjectsSortMode.None).OrderBy(c => Vector3.Distance(c.transform.position, vpos)).FirstOrDefault();
-                CombatCheck("an armed guard (pistol, light shield) goes down after four bullets and drops one clip of pistol ammunition where he fell",
-                    victim.Dead && n == 4 && GuardDrops.Dropped == dropped0 + 1 && clip != null && clip.kind == RangedWeapon.Kind.Pew && clip.rounds == RangedWeapon.Specs[0].magazine && Vector3.Distance(clip.transform.position, vpos) < 2.5f,
-                    clip != null ? $"({n} bullets, clip of {clip.rounds} for {clip.kind} {Vector3.Distance(clip.transform.position, vpos):0.0} m away)" : $"({n} bullets, no clip)");
+                CombatCheck("an armed guard (pistol, light shield) goes down after four bullets and drops three bullets of pistol ammunition where he fell (the roll of 99)",
+                    victim.Dead && n == 4 && GuardDrops.Dropped == dropped0 + 1 && clip != null && clip.kind == RangedWeapon.Kind.Pew && clip.rounds == 3 && Vector3.Distance(clip.transform.position, vpos) < 2.5f,
+                    clip != null ? $"({n} bullets, {clip.rounds} bullets for {clip.kind} {Vector3.Distance(clip.transform.position, vpos):0.0} m away)" : $"({n} bullets, no bullets)");
                 var menu = new GameObject("TestModeForTest").AddComponent<TestMode>();
                 typeof(TestMode).GetMethod("GiveGun", BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.Instance).Invoke(menu, new object[] { pack, RangedWeapon.Kind.Pew });
                 yield return new WaitForSeconds(0.6f);
@@ -170,12 +173,17 @@ namespace BuildingEscape.EditorTools
                 if (pewGun != null && clip != null)
                 {
                     pewGun.Magazine.SetReserve(0);
-                    bool taken = pack.TryStore(clip.GetComponent<Pickup>());
-                    yield return null;
-                    CombatCheck("the dropped clip is taken like any spare clip: its eight rounds go into the pew's reserve and the clip is gone", pewGun.Magazine.Reserve == RangedWeapon.Specs[0].magazine && clip == null, $"(taken {taken}, reserve {pewGun.Magazine.Reserve})");
+                    var clipPk = clip.GetComponent<Pickup>();
+                    bool takenWithE = pack.TryStore(clipPk);
+                    CombatCheck("the dropped bullets are not an item for the pack: E on them does nothing", !takenWithE && clip != null && pewGun.Magazine.Reserve == 0);
+                    player.TeleportTo(clip.transform.position + Vector3.up * 1.1f, player.transform.rotation);
+                    rb.linearVelocity = Vector3.zero;
+                    yield return new WaitForSeconds(0.5f);
+                    CombatCheck("running over them puts their three bullets in the pew's reserve and they are gone", pewGun.Magazine.Reserve == 3 && clip == null, $"(reserve {pewGun.Magazine.Reserve})");
                 }
             }
             else CombatCheck("floor 3 has an armed guard to shoot at", false);
+            GuardDrops.TestRoll = -1;
 
             // ================= 3. floor 4: a bullet does not knock over, a shot guard lets go, a blow knocks over and never knocks out
             yield return R5LoadFloor(4);

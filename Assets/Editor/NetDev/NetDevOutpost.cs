@@ -182,7 +182,7 @@ namespace BuildingEscape.EditorTools
                 OutpostCheck("hack: a wrong key sets the alarm off", ctl.AlarmOn && !ctl.Unlocked && !HackPanel.Running && !OutpostUi.Open);
                 OutpostCheck("hack: the alarm calls backup, as a spotting guard does", hm.BackupCalled && hm.BackupActive);
                 yield return new WaitForSeconds(1.5f);
-                OutpostCheck("hack: two officers were sent", GuardAI.All.Count >= guardsBefore + 2, $"({guardsBefore} -> {GuardAI.All.Count} officers)");
+                OutpostCheck("hack: the officers were sent (two, or as many as the cap of the floor leaves room for: 6 on floor 1)", GuardAI.All.Count >= guardsBefore + Mathf.Min(2, hm.GuardCap - guardsBefore) && GuardAI.All.Count > guardsBefore, $"({guardsBefore} -> {GuardAI.All.Count} officers, cap {hm.GuardCap})");
                 OutpostCheck("hack: the lock is jammed while the alarm sounds", ctl.Jammed && ctl.LockPrompt != null && ctl.LockPrompt.Contains("jammed"));
                 keypad.Use(player);
                 OutpostCheck("hack: no new hack can be started while it is jammed", !HackPanel.Running);
@@ -261,7 +261,7 @@ namespace BuildingEscape.EditorTools
                     ComputerScreen.SelectTab(ComputerScreen.TabSafes);
                     OutpostCheck("computer: no tab can be clicked before logging in, and nothing is learned", ComputerScreen.Tab == ComputerScreen.TabNone && SafeIntel.Entries.Count == before);
                     OutpostCheck("computer: the post-it's words, typed in small letters, open it", ComputerScreen.TryLogin(lgn.user.ToLowerInvariant(), "  " + lgn.pass.ToLowerInvariant() + " ") && ComputerScreen.LoggedIn);
-                    OutpostCheck("computer: logged in, nothing is learned until the Safes tab is clicked", SafeIntel.Entries.Count == before && ComputerScreen.Tab == ComputerScreen.TabNone);
+                    OutpostCheck("computer: logged in, the Nav tab opens first (the owner, 2026-10-23) and nothing is learned until the Safes tab is clicked", SafeIntel.Entries.Count == before && ComputerScreen.Tab == ComputerScreen.TabNav);
                     ComputerScreen.SelectTab(ComputerScreen.TabSafes);
                     SafeIntel.Entry e;
                     bool known = SafeIntel.TryGet(1, out e);
@@ -510,11 +510,6 @@ namespace BuildingEscape.EditorTools
                             yield return new WaitForSeconds(0.2f);
                             var tGun = Vendor.GunOf(pack);
                             OutpostCheck($"{wsTag} a pistol found in a safe holds its one clip and no spare ones (the owner, 2026-10-19)", tGun != null && tGun.Magazine.Rounds == RangedWeapon.Specs[(int)RangedWeapon.Kind.Pew].magazine && tGun.Magazine.Reserve == 0, $"(rounds {(tGun != null ? tGun.Magazine.Rounds : -1)}, reserve {(tGun != null ? tGun.Magazine.Reserve : -1)})");
-                            if (tGun != null) tGun.Magazine.SetReserve(tGun.Magazine.MaxRounds - tGun.Magazine.Rounds);        // (the pistol full to its limit: twelve clips, the owner, 2026-10-19 night)
-                            // a pistol with all its clips is full: a clip is refused and stays where it lies; with a spare clip used up there is room for one
-                            bool tFullRefused = tGun != null && tGun.Magazine.Room == 0 && !pack.TryStore(tClip);
-                            yield return null;
-                            OutpostCheck($"{wsTag} with the pistol full to its limit (twelve clips) the clip is refused too and stays where it lies", tFullRefused && tClip != null && tClip.isActiveAndEnabled);
                             if (tGun != null) tGun.Magazine.SetReserve(8);
                             int tReserve0 = tGun != null ? tGun.Magazine.Reserve : -1;
                             int tRounds = tClip != null ? tClip.GetComponent<AmmoClip>().rounds : 0;

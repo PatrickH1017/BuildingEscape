@@ -67,6 +67,7 @@ namespace BuildingEscape
 
         void Update()
         {
+            if (Net.NetSession.Instance != null && Net.NetSession.Instance.IsSpectator) return;           // (a developer who watches has the camera: DevSpectator)
             if (!rig && Time.unscaledTime >= nextLookup) { rig = FindFirstObjectByType<CameraFollow>(); nextLookup = Time.unscaledTime + 0.5f; }
             if (!rig || !rig.target) { Release(); return; }
             var me = rig.target.GetComponent<WobblyPlayer>();                 // (the body the camera belongs to: this machine's own player)

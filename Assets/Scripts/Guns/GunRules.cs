@@ -42,14 +42,8 @@ namespace BuildingEscape
         public bool InfiniteReserve = true;
         public int Reserve { get; private set; }
 
-        /// <summary>
-        /// The most rounds a player may carry for this gun, the clip in it counted (the owner, 2026-10-19: "A player should be allowed to have three gun clips max"): <see cref="GunRules.MaxClips"/> clips of it, the pistol twelve
-        /// (2026-10-19 night: "Max ammo for the pistol should be about 100 shots": see RangedWeapon.Spec.maxClips). A gun with no
-        /// limit (an officer's, whose reserve is endless anyway) keeps the default.
-        /// </summary>
-        public int MaxRounds = int.MaxValue;
-        /// <summary>How many more rounds can be taken before the limit: what is in the gun and in the reserve counts. None for a gun with an endless reserve.</summary>
-        public int Room => InfiniteReserve ? 0 : Math.Max(0, MaxRounds - Rounds - Reserve);
+        // (There is no limit on the bullets a player carries any more - the owner, 2026-10-23: "Clips should be removed and it should go based of bullets ... the second number should be unbound for however many bullets you have".
+        // The old rule that a player carried three clips of a gun, the pistol twelve, went with the clips.)
 
         public int Rounds { get; private set; }
         public bool Reloading { get; private set; }
@@ -72,6 +66,17 @@ namespace BuildingEscape
         /// <summary>0..1: how far the reload has got (0 when none is going on).</summary>
         public float ReloadProgress(float now) =>
             !Reloading ? 0f : Math.Min(1f, Math.Max(0f, (now - ReloadStartedAt) / ReloadSeconds));
+
+        /// <summary>The rounds the reload that is going on will put in the gun: what is missing, never more than the reserve (0 when no reload is going on).</summary>
+        public int ReloadLoads => !Reloading ? 0 : InfiniteReserve ? Math.Max(0, Capacity - Rounds) : Math.Max(0, Math.Min(Capacity - Rounds, Reserve));
+
+        /// <summary>How many of those rounds are in the gun so far, stepping up by one over the reload (the shotgun's counter: the owner, 2026-10-23, "for the shotgun it should display a counter as well for each shell getting loaded"). The gun itself takes them all when the reload ends.</summary>
+        public int LoadedSoFar(float now)
+        {
+            int loads = ReloadLoads;
+            if (loads <= 0) return 0;
+            return Math.Min(loads, (int)Math.Floor(ReloadProgress(now) * loads + 1e-4f));
+        }
 
         /// <summary>Pull the trigger at time <paramref name="now"/>.</summary>
         public Shot TryFire(float now)
@@ -131,12 +136,11 @@ namespace BuildingEscape
         /// <summary>Give the gun a real reserve of this many rounds (the player's pistol; a new one comes with two spare clips).</summary>
         public void SetReserve(int rounds) { InfiniteReserve = false; Reserve = Math.Max(0, rounds); }
 
-        /// <summary>More rounds in the reserve (a clip from the dealer). Returns how many were added: none for a gun with an endless reserve.</summary>
+        /// <summary>More bullets in the reserve (the dealer's, a safe's clip, a guard's). Returns how many were added: none for a gun with an endless reserve.</summary>
         public int AddReserve(int rounds)
         {
             if (InfiniteReserve || rounds <= 0) return 0;
-            rounds = Math.Min(rounds, Room);                                  // (no more than the limit: the rest is not taken)
-            Reserve += rounds;
+            Reserve += rounds;                                                // (every bullet is taken: there is no limit)
             return rounds;
         }
     }
@@ -144,8 +148,7 @@ namespace BuildingEscape
     /// <summary>The other pure rules of guns: where a shot with some spread goes, and which guards carry one.</summary>
     public static class GunRules
     {
-        /// <summary>The most clips of a gun a player may carry, the one in the gun included (the owner, 2026-10-19: "A player should be allowed to have three gun clips max").</summary>
-        public const int MaxClips = 3;
+
 
         /// <summary>Ammunition is unlimited in the basement (the Loading Docks, floor 0); on every other floor a magazine is a magazine, and it is full again each time a floor starts.</summary>
         public static bool UnlimitedAmmo(int floor) => floor <= 0;
@@ -170,8 +173,7 @@ namespace BuildingEscape
         /// </summary>
         public static int PelletSeed(int shotSeed, int index) => unchecked(shotSeed + index * 7919);
 
-        /// <summary>How many spare clips these spare rounds make (a part of a clip counts as one): the "2 clips" on the screen.</summary>
-        public static int SpareClips(int reserveRounds, int capacity) => capacity <= 0 ? 0 : (Math.Max(0, reserveRounds) + capacity - 1) / capacity;
+
 
         /// <summary>A guard is a worse shot the further away the player is: the cone he fires into at this distance.</summary>
         public static float GuardCone(float baseDegrees, float perMetreDegrees, float distance) =>

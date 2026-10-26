@@ -225,8 +225,8 @@ namespace BuildingEscape.EditorTools
                 && LootScanRules.Tier(735, 4300) == 2 && LootScanRules.Tier(1260, 4300) == 3 && LootScanRules.Tier(3000, 4300) == 3 && LootScanRules.Tier(150, 9400) == 0 && LootScanRules.Tier(420, 9400) == 0);
             Check("scan: no scanning at the docks, with a screen open, pinned or busted, or during the cinematic", !LootScanRules.CanScan(0, false, false, false) && LootScanRules.CanScan(1, false, false, false)
                 && LootScanRules.CanScan(12, false, false, false) && !LootScanRules.CanScan(3, true, false, false) && !LootScanRules.CanScan(3, false, true, false) && !LootScanRules.CanScan(3, false, false, true));
-            Check("scan: holding the key sends a pulse at once, then another every 2.4 s", !LootScanRules.NextPulse(false, -1f) && LootScanRules.NextPulse(true, -1f) && !LootScanRules.NextPulse(true, 1f)
-                && !LootScanRules.NextPulse(true, 2.39f) && LootScanRules.NextPulse(true, 2.4f) && !LootScanRules.NextPulse(false, 9f));
+            Check("scan: holding the key sends a pulse at once, then another every 2 s (the cooldown)", !LootScanRules.NextPulse(false, -1f) && LootScanRules.NextPulse(true, -1f) && !LootScanRules.NextPulse(true, 1f)
+                && !LootScanRules.NextPulse(true, 1.99f) && LootScanRules.NextPulse(true, 2f) && !LootScanRules.NextPulse(false, 9f));
 
             // which room a point is in, on the real floors: the smallest that holds it; every valuable on a desk is in a room; the guard outpost is its own room inside its lobby
             const int cols = 8, rows = 5;

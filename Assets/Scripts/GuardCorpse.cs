@@ -19,10 +19,15 @@ namespace BuildingEscape
         float since;
         Vector3 start;
         bool began;
+        DraggableBody drag;
+
+        /// <summary>The body has begun to sink: it can no longer be taken hold of.</summary>
+        public bool Sinking => began;
 
         void Update()
         {
-            since += Time.deltaTime;
+            if (drag == null) drag = GetComponent<DraggableBody>();
+            if (drag == null || !drag.IsDragged) since += Time.deltaTime;                  // (a body that is dragged does not sink away under the hands that drag it: the owner, 2026-10-23)
             float wait = WaitOverride >= 0f ? WaitOverride : GuardRules.CorpseSeconds;
             float sink = GuardRules.CorpseSink(since, wait);
             if (sink <= 0f) return;

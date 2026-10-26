@@ -100,6 +100,9 @@ namespace BuildingEscape
             var pk = go.AddComponent<Pickup>();                    // (registers its network id now, in the same order on every machine)
             pk.weight = ArmourRules.Weight(tier);
             pk.label = ArmourRules.Name(tier);
+            // aimed at by its middle (2026-10-23): the pack's pieces are bigger than the old boxes and in a weapon safe the cash, the watch and the clip lie right beside one, where its whole box was in the way of the crosshair
+            // ("one crosshair, one item": the Outpost scenario found 6 of 8 items aimable on floor 4); the solid collider stays as big as the model
+            pk.aimBox = new Bounds(Vector3.zero, new Vector3(size.x * 0.7f, Mathf.Max(size.y, 0.12f), size.z * 0.55f));
             go.AddComponent<ArmourItem>().tier = tier;
             Made++;
             return go;

@@ -32,6 +32,7 @@ namespace BuildingEscape
             ("M", "Mute your microphone"),
             ("T", "Push to talk (when set in Settings)"),
             ("1 - 6", "Switch to the weapon or tool in that slot of the bar at the bottom of the screen (the first six in your pack)"),
+            ("7 8 9 0 -", "Use a consumable you bought at a vending machine: speed burst, endurance laster, silent steps, invisible, accuracy cola (or the USE button of the Tab window)"),
             ("Esc", "Menu"),
         };
 
@@ -49,8 +50,8 @@ namespace BuildingEscape
                 "Every floor hides a safe: on floors 1 and 2 it is full of cash worth half of that floor's quota, from floor 3 up there are several (up to four), each with a pistol inside, and sometimes a little cash and a spare clip (each is picked up on its own). The computer in an outpost (its log-in is on a post-it on the monitor; click its Safes tab) lists this floor's safes - each one's room, and sometimes its code " +
                 "(use it with E; J opens your journal). Without a code you can pry the safe open with a crowbar, but the crowbar snaps 35% of the time. " +
                 "Carry the cash bundles to the elevator to bank them. " +
-                "Shutting the outpost's door locks nothing - the officers open it like any other door - but a door you lock with the code stays shut for them too: at the computer's terminal (under the Nav map, or on the Hacked tab) type SECURITY to lock yourself in. Somebody outside has to hack the keypad again to open it (typing SECURITY at the computer again, or E on the door from inside, undoes it yourself). " +
-                "On the computer, the Nav tab is a map of the floor (a ring spreads from every player and officer who moves, a padlock marks a locked room, the wheel zooms it, dragging moves it, pointing at a room names it and a click opens its card), and its terminal (under the map; the Hacked tab is the same terminal, bigger) locks and unlocks the doors of any room: type a room number and its doors lock, or unlock if they are locked."),
+                "Shutting the outpost's door locks nothing - the officers open it like any other door - but a door you lock with the code stays shut for them too: at the computer's terminal (under the Nav map, or on the Commands tab) type SECURITY to lock yourself in. Somebody outside has to hack the keypad again to open it (typing SECURITY at the computer again, or E on the door from inside, undoes it yourself). " +
+                "On the computer, the Nav tab is a map of the floor (a ring spreads from every player and officer who moves, a padlock marks a locked room, the wheel zooms it, dragging moves it, pointing at a room names it and a click opens its card), and its terminal (under the map; the Commands tab is the same terminal, bigger) locks and unlocks the doors of any room: type a room number and its doors lock, or unlock if they are locked."),
             ("Finding a room", "Every door has a room number over it (101, 102 ... on floor 1; 201 ... on floor 2). Signs on the corridor walls say which rooms lie that way - " +
                 "\"ROOMS 111-120\" and an arrow. The arrow points along the corridor you are in, towards the doorway that starts the shortest walk to the nearest of those rooms. " +
                 "Dark red signs that say \"SECURITY OFFICE\" with an arrow lead the way to the guard outpost the same way."),

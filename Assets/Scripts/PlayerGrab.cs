@@ -42,10 +42,11 @@ namespace BuildingEscape
         void Update()
         {
             if (!wob && !TryGetComponent(out wob)) return;
+            UpkeepPlayerDrag();
             if (!Net.NetPlayer.IsLocalPlayer(wob)) return; // teammates are driven by their own machine
             if (Backpack.UiOpen || Vendor.ShopOpen || EscapeMenu.Open || ElevatorPanel.Open || OutpostUi.Open) return;
             if (wob.InCustody) return; // pinned or busted
-            if (Input.GetKeyDown(grabKey)) { if (Held) AskRelease(false); else TryGrab(); }
+            if (Input.GetKeyDown(grabKey)) { if (Held) AskRelease(false); else if (IsDragging) AskDropBody(); else TryGrab(); }
             if (Held && Input.GetKeyDown(throwKey)) AskRelease(true);
         }
 
@@ -77,6 +78,7 @@ namespace BuildingEscape
             var aimed = Crosshair.Aim;                       // what the crosshair is on first, then whatever is nearest
             var p = aimed.Kind == AimKind.Pickup ? aimed.Pickup : Pickup.FindNearest(transform, reach);
             if (p) p.TryGetComponent(out rb);
+            if (!rb && !p && TryGrabBody()) return;                     // (nothing to pick up: perhaps a body to drag)
             if (!rb)
             {
                 var origin = transform.position + Vector3.up * 0.3f;
@@ -144,6 +146,104 @@ namespace BuildingEscape
             Held = null; heldLoot = null; heldPickup = null;
         }
 
-        void OnDisable() { Release(false); }
+        // ------------------------------------------------------------------ dragging a body (the owner, 2026-10-23: "Eliminated guards and players bodies should be draggable (in order to hide them)")
+
+        DraggableBody dragging;
+
+        /// <summary>The body of an eliminated guard this player drags, or null (<see cref="DraggableBody"/>).</summary>
+        public DraggableBody Dragging => dragging != null && wob != null && dragging.Dragger == wob ? dragging : null;
+
+        /// <summary>The grab key with nothing to pick up: take hold of the nearest body in reach, if there is one (a networked run asks the host). True when there was one.</summary>
+        public bool TryGrabBody()
+        {
+            if (!wob) TryGetComponent(out wob);
+            if (!wob || wob.InCustody || Held || IsDragging) return false;
+            var body = DraggableBody.Nearest(transform, reach);
+            if (body != null)
+            {
+                if (Net.NetRole.Synced) Net.RunSync.Instance.RequestDragBody(body.Guard);
+                else ApplyDragBody(body);
+                return true;
+            }
+            var friend = BustedBodyNear();                               // (no guard's body in reach: perhaps a busted teammate's)
+            if (friend == null) return false;
+            if (Net.NetRole.Synced) Net.RunSync.Instance.RequestDragPlayerBody(friend);
+            else ApplyDragPlayerBody(friend);
+            return true;
+        }
+
+        WobblyPlayer draggingPlayer;
+
+        /// <summary>The busted teammate whose body this player drags, or null (<see cref="WobblyPlayer.DraggedBy"/>).</summary>
+        public WobblyPlayer DraggingPlayer => draggingPlayer != null && wob != null && draggingPlayer.DraggedBy == wob ? draggingPlayer : null;
+
+        /// <summary>Does this player drag a body now (a guard's or a teammate's)?</summary>
+        public bool IsDragging => Dragging != null || DraggingPlayer != null;
+
+        /// <summary>The nearest busted teammate within reach (flat distance, <see cref="DraggableBodyRules.GrabReach"/>) whom nobody drags yet, or null.</summary>
+        WobblyPlayer BustedBodyNear()
+        {
+            WobblyPlayer best = null; float bestD = float.MaxValue;
+            foreach (var p in WobblyPlayerRegistry.All)
+            {
+                if (!p || p == wob || p.Custody != CustodyState.Busted || p.DraggedBy != null) continue;
+                var d = p.transform.position - transform.position; d.y = 0f;
+                if (!DraggableBodyRules.CanGrab(d.magnitude, false) || d.magnitude >= bestD) continue;
+                best = p; bestD = d.magnitude;
+            }
+            return best;
+        }
+
+        /// <summary>This player now drags the body of this busted teammate (offline: at once; a networked run: the host said so, every machine applies it).</summary>
+        public void ApplyDragPlayerBody(WobblyPlayer friend)
+        {
+            if (!friend || friend == wob || IsDragging) return;
+            if (!wob) TryGetComponent(out wob);
+            if (!wob) return;
+            draggingPlayer = friend;
+            friend.DraggedBy = wob;
+            wob.DragFactor = DraggableBodyRules.DraggerSpeedShare;
+        }
+
+        /// <summary>Every frame, on every machine: a teammate who is not busted any more (bought back) is let go of; on the dragger's own machine, one who is too far away is too.</summary>
+        void UpkeepPlayerDrag()
+        {
+            if (draggingPlayer == null) return;
+            if (!draggingPlayer || draggingPlayer.Custody != CustodyState.Busted || wob.InCustody) { ApplyDropBody(); return; }
+            if (!Net.NetPlayer.IsLocalPlayer(wob)) return;
+            var d = draggingPlayer.transform.position - transform.position; d.y = 0f;
+            if (DraggableBodyRules.MustLetGo(d.magnitude)) AskDropBody();
+        }
+
+        void AskDropBody()
+        {
+            if (Net.NetRole.Synced) Net.RunSync.Instance.RequestDropBody();
+            else ApplyDropBody();
+        }
+
+        /// <summary>This player now drags the body (offline: at once; a networked run: the host said so, every machine applies it).</summary>
+        public void ApplyDragBody(DraggableBody body)
+        {
+            if (!body || Dragging != null) return;
+            if (!wob) TryGetComponent(out wob);
+            if (!wob) return;
+            dragging = body;
+            body.Begin(wob);
+        }
+
+        /// <summary>This player lets go of the body he drags.</summary>
+        public void ApplyDropBody()
+        {
+            if (dragging != null) dragging.End();
+            dragging = null;
+            if (draggingPlayer != null)
+            {
+                if (draggingPlayer && draggingPlayer.DraggedBy == wob) draggingPlayer.DraggedBy = null;
+                draggingPlayer = null;
+                if (wob) wob.DragFactor = 1f;
+            }
+        }
+
+        void OnDisable() { Release(false); ApplyDropBody(); }
     }
 }

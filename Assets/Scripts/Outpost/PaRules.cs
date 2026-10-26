@@ -19,6 +19,43 @@ namespace BuildingEscape
         public const float HearRange = 22f, AlertSeconds = 12f;
         /// <summary>How high the speakers hang (m).</summary>
         public const float Height = 3.2f;
+
+        /// <summary>
+        /// The round ceiling speaker (the owner, 2026-10-24: "they should just be attached to the ceiling like the attached image reference"): a flat disc <see cref="DiscDiameter"/> across and <see cref="DiscHeight"/> thick whose top is <see cref="CeilingGap"/> under the ceiling, with a
+        /// darker grille disc under it. (<see cref="Height"/> is the old hanging height; the speakers keep their places for the PA, only the model sits on the ceiling.)
+        /// </summary>
+        public const float DiscDiameter = 0.40f, DiscHeight = 0.05f, GrilleDiameter = 0.30f, GrilleHeight = 0.012f, CeilingGap = 0.03f;
+
+        /// <summary>
+        /// Where a hallway's speaker is hung: at <paramref name="centre"/> (the PA's place), or the nearest spot in the hallway that no light panel (<paramref name="panels"/>, their frames) covers: a speaker on a light is wrong (the owner, 2026-10-24). The speaker moves along the hallway
+        /// and across it, the smallest move first; where nothing is free it stays at the centre.
+        /// </summary>
+        public static Vector2 MountSpot(Vector2 centre, Rc hall, IReadOnlyList<Rc> panels)
+        {
+            float radius = DiscDiameter * 0.5f + 0.06f;
+            bool alongX = hall.W >= hall.D;
+            float half = (alongX ? hall.D : hall.W) * 0.5f;
+            int across = (int)(Mathf.Max(0f, half - 0.45f) / 0.4f);
+            var tries = new List<Vector2>();
+            for (int a = -7; a <= 7; a++)
+                for (int c = -across; c <= across; c++) tries.Add(new Vector2(a * 0.6f, c * 0.4f));
+            tries.Sort((p, q) => (p.x * p.x + p.y * p.y).CompareTo(q.x * q.x + q.y * q.y));
+            foreach (var t in tries)
+            {
+                var at = alongX ? new Vector2(centre.x + t.x, centre.y + t.y) : new Vector2(centre.x + t.y, centre.y + t.x);
+                if (at.x < hall.x0 + 0.3f || at.x > hall.x1 - 0.3f || at.y < hall.z0 + 0.3f || at.y > hall.z1 - 0.3f) continue;
+                if (!Covered(at, radius, panels)) return at;
+            }
+            return centre;
+        }
+
+        static bool Covered(Vector2 at, float radius, IReadOnlyList<Rc> panels)
+        {
+            if (panels == null) return false;
+            var disc = new Rc(at.x - radius, at.y - radius, at.x + radius, at.y + radius);
+            for (int i = 0; i < panels.Count; i++) if (disc.Overlaps(panels[i])) return true;
+            return false;
+        }
         /// <summary>How far from a speaker the PA is at full volume, and where it is silent (m).</summary>
         public const float FullRange = 6f, SilentRange = 28f;
         public const ulong AllOn = ulong.MaxValue;
@@ -142,7 +179,7 @@ namespace BuildingEscape
         }
     }
 
-    /// <summary>One hallway loudspeaker on the ceiling (a grey box with a grille): its place in <see cref="PaState.Speakers"/>.</summary>
+    /// <summary>One hallway loudspeaker on the ceiling (a round disc with a grille, flat against it): its place in <see cref="PaState.Speakers"/>.</summary>
     public sealed class LoudSpeaker : MonoBehaviour
     {
         public int Index;

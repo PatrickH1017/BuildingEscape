@@ -39,6 +39,7 @@ namespace BuildingEscape
             if (glassLeafMesh) Kill(glassLeafMesh);
             hallLeafMesh = null;
             hallGlassMat = hallBarMat = null; hallGlassTex = null;
+            DestroyPackDoorAssets();
         }
 
         void BuildDoors()
@@ -50,6 +51,7 @@ namespace BuildingEscape
             var manager = holder.AddComponent<DoorManager>();
             var mat = DoorMat();
             var byBeam = new Dictionary<WallBox, SlidingDoor>();
+            StartPackDoors();
             foreach (var w in layout.walls)
             {
                 if (w.kind == "header")
@@ -57,8 +59,11 @@ namespace BuildingEscape
                     var door = MakeDoor(holder.transform, w, mat);
                     if (IsDeadDoor(w)) { door.Locked = true; door.Permanent = true; }       // (a restroom: the door never opens)
                     byBeam[w] = door;
-                    if (door.Wide) DressHallDoor(door);                    // the main hallway doors get windows
-                    else if (InGlassOffice(w)) DressGlassDoor(door);       // the doors of the offices with a glass front are glass
+                    if (!DressPackDoor(door, w))                           // (floor 7: the pack's doors, see FloorGenerator.DoorSkin; any other floor, or if that fails, the old dressing)
+                    {
+                        if (door.Wide) DressHallDoor(door);                // the main hallway doors get windows
+                        else if (InGlassOffice(w)) DressGlassDoor(door);   // the doors of the offices with a glass front are glass
+                    }
                     manager.Add(door);
                 }
                 else if (w.kind == "lockheader")
@@ -74,6 +79,7 @@ namespace BuildingEscape
             try { ApplyDoorSlides(byBeam); }
             catch (System.Exception e) { Debug.LogWarning("[Doors] The doors narrow into their jambs as before (their slide plan failed): " + e.Message); }      // (decoration: never stops a floor)
             manager.OpenDoorsWithPeople();
+            LogPackDoors(manager.Count);
         }
 
         /// <summary>Is this doorway one of the restrooms (the planner marked it: Layout.deadDoors)?</summary>
