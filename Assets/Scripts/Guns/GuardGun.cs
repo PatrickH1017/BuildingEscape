@@ -124,7 +124,7 @@ namespace BuildingEscape
             var visual = GetComponent<GuardVisual>();
             var anim = visual ? visual.Anim : null;
             if (!anim) return;                                           // (his model is not there yet: tried again next frame)
-            held = HeldGun.Attach(anim, kind);
+            held = HeldGun.Attach(anim, kind, false, true, true);                   // (held with its Blender animation: the officers' pistol, a long gun's own; the owner, 2026-10-27)
             if (held) GunSounds.Prewarm();
         }
 
@@ -269,7 +269,17 @@ namespace BuildingEscape
             bool raised = wantRaise > 0.5f && !down;
             if (raised && !wasRaised) GunSounds.Aim(MuzzlePosition(), false, Spec.sounds);      // he brings the gun up: a rustle that gives him away
             wasRaised = raised;
-            if (mag.Reloading)
+            held.ReloadProgress = 0f;
+            if (mag.Reloading && held.Animated && !held.TwoHanded)
+            {
+                // the officers' pistol of the Blender files: the magazine change is its clip, at the reload's progress, the gun kept on the target
+                held.ReloadProgress = Mathf.Max(0.001f, mag.ReloadProgress(now));
+                var dir = aimPoint - held.Grip.position;
+                held.AimDirection = dir.sqrMagnitude > 0.25f ? dir.normalized : transform.forward;
+                held.Raise = 1f;
+            }
+            else if (mag.Reloading && held.Animated) held.Raise = 0f;                       // (a long gun of the Blender files: down at the low ready while he changes the magazine)
+            else if (mag.Reloading)
             {
                 // the gun tilts up while he changes the magazine
                 var flat = transform.forward; flat.y = 0f;
@@ -286,13 +296,16 @@ namespace BuildingEscape
             else LowReady();
         }
 
-        /// <summary>The gun held out low in front of him, pointing at the floor ahead, while he is not aiming (it shows in his hand instead of hanging against his leg).</summary>
+        /// <summary>
+        /// The gun held out low in front of him, pointing at the floor ahead, while he is not aiming (it shows in his hand instead of hanging against his leg). A gun held with its Blender animation is lowered as the file has it: the
+        /// pistol at his side, a long gun at the low ready across his body.
+        /// </summary>
         void LowReady()
         {
             var fwd = transform.forward; fwd.y = 0f;
             fwd = fwd.sqrMagnitude > 1e-4f ? fwd.normalized : Vector3.forward;
             held.AimDirection = (fwd * 0.75f + Vector3.down * 0.65f).normalized;
-            held.Raise = 0.55f;
+            held.Raise = held.Animated ? 0f : 0.55f;
         }
 
         void PlayReloadSounds(float now)

@@ -12,14 +12,20 @@ namespace BuildingEscape
         public bool useLocalMicrophone;
         [Tooltip("Normalised 0-1 loudness below which speech makes no noise at all.")]
         public float minLevel = 0.01f;
-        [Tooltip("How far a guard hears the quietest voice that is still above the microphone gate, in metres.")]
-        public float radiusAtGate = 3f;
-        [Tooltip("How far a guard hears a shout, in metres. In between, the louder you speak the further it carries.")]
-        public float radiusAtShout = 30f;
         public float emitInterval = 0.25f;
 
+        /// <summary>
+        /// How far a guard hears the quietest voice that is still above the microphone gate, and a shout (metres); in between, the louder you speak the further it carries. The owner, 2026-10-27: "It seems like you need to be
+        /// extremely close for them to hear you" - with 3 m at the gate and a shout at -14 dB a normal speaking voice (about -30 dBFS) carried only 8 m and a quiet one 3-5 m; now the quietest voice carries 8 m, a normal one about
+        /// 17 m (about as far as a teammate hears it, <see cref="Net.VoiceRules.AudibleLimit"/>), loud talking 25 m and a shout 30 m. Constants, not fields: the scene and the player prefab kept old values of the fields.
+        /// </summary>
+        public const float RadiusAtGate = 8f, RadiusAtShout = 30f;
+
         /// <summary>A shout, in dB relative to full scale (RMS). Quieter speech maps linearly in dB from the mic gate up to here.</summary>
-        public const float ShoutDb = -14f;
+        public const float ShoutDb = -18f;
+
+        /// <summary>A normal speaking voice on a headset microphone, in dB relative to full scale (RMS): what the tests speak at.</summary>
+        public const float NormalSpeechDb = -30f;
 
         float level, nextEmit;
 
@@ -38,7 +44,7 @@ namespace BuildingEscape
         }
 
         /// <summary>The hearing radius, in metres, a loudness (0..1) carries.</summary>
-        public float RadiusFor(float normalised) => Mathf.Lerp(radiusAtGate, radiusAtShout, Mathf.Clamp01(normalised));
+        public float RadiusFor(float normalised) => Mathf.Lerp(RadiusAtGate, RadiusAtShout, Mathf.Clamp01(normalised));
 
         AudioClip mic; string device; int lastPos;
         readonly float[] buf = new float[256];

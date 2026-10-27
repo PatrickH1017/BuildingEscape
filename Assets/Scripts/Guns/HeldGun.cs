@@ -12,6 +12,10 @@ namespace BuildingEscape
     /// shoulder with the elbow bent, the left hand on the foregrip (the forend, the pump) - both arms solved to those two points (a two-bone solver, the elbows kept down and out). The gun is scaled to the arms of whoever holds it
     /// (the rigs are very different sizes: a toon person's arm is a third of a metre, a Party character's nearly a metre), and when the left hand could not reach the gun is pulled back towards the chest until it can.
     /// With the gun lowered the animation carries it as it is. Whoever owns the gun sets <see cref="Raise"/> (0 lowered .. 1 raised) and <see cref="AimDirection"/> (a world direction) each frame.
+    /// A PLAYER's pistol is held with the dock worker's Blender animation instead (the owner, 2026-10-27; <see cref="Animated"/>, <see cref="PistolAnimation"/>): the raise, the aim, the shot and the reload are clips on the upper body,
+    /// the pistol sits in the hand where the Blender files hold it, and the code only turns the chest a little and the arm at the shoulder so that the barrel points at the crosshair (the shot's kick and the reload stay as they were made).
+    /// The long guns and the officers' pistol have their Blender animations too since the same day (<see cref="WeaponAnimation"/>): a long gun is held in both hands as its file holds it (the low ready, the raise, the aim, the shot) and
+    /// turned to the crosshair with both arms; first person keeps the sight picture of before.
     /// </summary>
     [DefaultExecutionOrder(100)]     // after the animation and the character animator have posed the body; the guard's flashlight (200) follows the muzzle
     public sealed class HeldGun : MonoBehaviour
@@ -75,7 +79,7 @@ namespace BuildingEscape
         /// <summary>Where the sounds of this gun's reload fall as shares of it (<see cref="ReloadMotionRules.StepFractions"/>), so the motion keeps time with them; null = the rifle's.</summary>
         public float[] ReloadSteps;
         /// <summary>The reload is shown by moving the gun from the sight line (first person, a gun with a sight, the layer working): the controller keeps the gun aimed then instead of tilting it up.</summary>
-        public bool FirstPersonReload => UseReloadMotion && AlignerAllowed && hasSight && fpShareNow > 0.5f;
+        public bool FirstPersonReload => !(animated && !twoHand) && UseReloadMotion && AlignerAllowed && hasSight && fpShareNow > 0.5f;
         /// <summary>The layer is switched on, has not failed for good, and is not resting after a frame it could not do (see <see cref="NoteFallback"/>).</summary>
         bool AlignerAllowed => UseSightsAligner && !(aimLayer != null && aimLayer.Failed) && Time.time >= alignerRetryAt;
         float alignerRetryAt;                    // after a frame the layer gave back with the gun fully up: no more tries until this time (the old solve and the old reload tilt run meanwhile)
@@ -203,8 +207,11 @@ namespace BuildingEscape
         bool hasArm, twoHand;
         float raiseNow, kick, armLength;
 
-        /// <summary>Puts a gun in the hands of this character. Null if the right hand cannot be found.</summary>
-        public static HeldGun Attach(CharacterAnimator anim, RangedWeapon.Kind kind, bool silenced = false)
+        /// <summary>
+        /// Puts a gun in the hands of this character. Null if the right hand cannot be found. <paramref name="animated"/>: the gun is held with its Blender animation when the rig can play it (<see cref="Animated"/>; the
+        /// pistol: the dock worker's clips, or the officers' when <paramref name="guard"/>; a long gun: its own clips). Otherwise it is posed by code as before 2026-10-27.
+        /// </summary>
+        public static HeldGun Attach(CharacterAnimator anim, RangedWeapon.Kind kind, bool silenced = false, bool animated = false, bool guard = false)
         {
             if (!anim || !RangedWeapon.Available) return null;
             var hand = anim.RightHand;                                    // a Tiny Toon person: the humanoid right hand
@@ -234,6 +241,7 @@ namespace BuildingEscape
             held.Foregrip = grip.Find("Foregrip");
             grip.localRotation = GripRotation(anim.ClipMode);
             if (held.twoHand && !held.Foregrip) held.twoHand = false;     // (a model without a foregrip is held in one hand)
+            if (animated) held.SetUpAnimated(anim, guard);
             return held;
         }
 
@@ -318,12 +326,13 @@ namespace BuildingEscape
             return null;
         }
 
-        /// <summary>A shot was fired: the barrel kicks up.</summary>
-        public void Kick() { kick = 1f; }
+        /// <summary>A shot was fired: the barrel kicks up (a held pistol of the Blender animation plays its shot).</summary>
+        public void Kick() { kick = 1f; lastShot = Time.time; }
 
         /// <summary>Take the gun away (the model is destroyed).</summary>
         public void Remove()
         {
+            if (animated) EndAnimated();
             if (Grip) Destroy(Grip.gameObject);
             if (aimLayer != null) { aimLayer.Dispose(); aimLayer = null; }
             HideForScope(false);
@@ -347,8 +356,10 @@ namespace BuildingEscape
         void LateUpdate()
         {
             if (!Grip || !hasArm) return;
+            if (animated && !twoHand) { AnimatedLateUpdate(); return; }
+            if (animated) AnimatedTwoHand();                       // (a long gun with its animation: the clip's hold turned to the aim; first person goes on below from that pose)
             AlignerUsed = false;
-            raiseNow = Mathf.MoveTowards(raiseNow, Mathf.Clamp01(Raise), Time.deltaTime * 6f);
+            if (!animated) raiseNow = Mathf.MoveTowards(raiseNow, Mathf.Clamp01(Raise), Time.deltaTime * 6f);
             kick = Mathf.MoveTowards(kick, 0f, Time.deltaTime * 9f);
             if (!sightSearched) FindSight();
             // first person with the gun up (not while it is being reloaded, which tilts it): the barrel points where the view does, so that the sight is on the line of sight
@@ -378,6 +389,7 @@ namespace BuildingEscape
             }
 
             float b = raiseNow;
+            if (animated) { b *= fpShare; if (b < 0.001f) return; }          // (an animated long gun: the hold below only in first person, by how far the view is at the eyes)
             if (twoHand) { TwoHandPose(aim, b); return; }
             float fp1 = FirstPersonShare(out var cam1);
             if (fp1 > 0.001f) { OneHandShouldered(aim, b, fp1, cam1); return; }
@@ -416,6 +428,291 @@ namespace BuildingEscape
             hand.rotation = Quaternion.Slerp(hand.rotation, gunRot * Quaternion.Inverse(Grip.localRotation), b);
         }
 
+        // ------------------------------------------------------------------ a player's pistol: the dock worker's Blender animation (the owner, 2026-10-27; see PistolAnimation)
+        // The clips pose the upper body (the raise, the aim, the shot, the reload); this only turns the chest a little and the arm at the shoulder so that the barrel points at the crosshair. The turn is measured from the AIM
+        // as the clips have it, not from the frame itself, so the shot's kick and the sway of the run stay in the picture. In first person the arm is in the picture (it holds the gun out, low and to the right of the
+        // crosshair) and the view no longer goes through the sights: the owner, 2026-10-27, "you can remove that for now if it doesnt work with the animation".
+
+        bool animated;
+        CharacterAnimator character;
+        WeaponAnimation.GunClips gunClips;
+        Transform clavicle, leftClavicle, chest, head, slide, magazine, pump;
+        Vector3 upperRest, clavicleRest, leftClavicleRest, slideRest, magRestPos, pumpRest;
+        Quaternion magRestRot;
+        float slideLength, raiseSeconds = 0.4f, shotSeconds = 0.233f, lastShot = -100f;
+        Quaternion sUpper, sFore, sHand;                     // the arm's bones and the way the face looks in the aim as the clips have it (see AnimatedLateUpdate)
+        Vector3 faceLocal;
+        bool steadyKnown, magDropped;
+
+        /// <summary>This pistol is held with the dock worker's Blender animation (a player's pistol on a rig that can play it).</summary>
+        public bool Animated => animated;
+        /// <summary>The gun has no round left: its slide stays back (a held pistol of the Blender animation shows it) until a reload's slide release. The owner's controller sets it.</summary>
+        public bool SlideLocked;
+
+        /// <summary>How much of the turn to the crosshair the chest takes (the head goes with it; at most this many degrees), the arm at the shoulder the rest; how much of what is left the head looks along, in third person.</summary>
+        const float ChestShare = 0.35f, ChestMaxDegrees = 30f, HeadLook = 0.6f;
+        /// <summary>
+        /// First person, while the magazine is changed: both shoulders are lifted this far up and forward (in units of the character's size), so that the hands and the gun come up into the picture. The reload was made for
+        /// a character who looks down at his hands; the first-person view looks straight ahead, and without this the hands would be below the bottom of the screen. Only the arms are drawn in first person.
+        /// </summary>
+        static readonly Vector2 FpReloadLift = new Vector2(0.28f, 0.08f);
+        /// <summary>First person: how fast (per second) the shoulder's place under the eyes follows the body (slower than the old hold's <see cref="ShoulderFollow"/>: the walk and the wobble of the body are averaged out, the pistol held out stays put in the picture).</summary>
+        const float AnimatedShoulderFollow = 0.4f;
+        // the reload's moments (the Blender file's frames 1-66 over the reload; see pistol_reload.py): the empty magazine leaves the grip (13), the new one is in the left hand (23) until it is seated (37), the left hand pulls
+        // the slide (44-47) and lets it go (48). The slide is locked back by SlideLock of its length while the gun is empty and pulled a further SlidePull; a shot throws it back by SlideKick for a frame.
+        const float ReloadFrames = 65f, MagOutFrame = 13f, MagInHandFrame = 23f, MagSeatedFrame = 37f, RackFrom = 44f, RackPulled = 47f, RackReleased = 48f;
+        const float SlideLock = 0.26f, SlidePull = 0.05f, SlideKick = 0.2f;
+        // the new magazine in the left hand (frames 23-36): its origin along the left hand's f, u and palm (in units of the character's size), and its long axis (+Y) and its +Z in the same frame
+        static readonly Vector3 MagInHand = new Vector3(0.04521f, 0f, 0.08995f), MagInHandY = new Vector3(-0.1378f, 0f, 0.9905f), MagInHandZ = new Vector3(0.9905f, 0f, 0.1378f);
+        /// <summary>The way the empty magazine leaves the grip, in the gun's frame (+Z the barrel, +Y the top): out of the bottom and a little back, along the grip.</summary>
+        static readonly Vector3 MagEject = new Vector3(0f, -0.9905f, -0.1378f);
+        float size = 1f;
+        Animator animator;
+
+        void SetUpAnimated(CharacterAnimator anim, bool guard)
+        {
+            if (!hasArm || !anim || !anim.CanPlayWeapons) return;
+            var an = anim.GetComponent<Animator>();
+            var model = Grip.Find(RangedWeapon.Specs[(int)Kind].name + "_Model");
+            float s = armLength / PistolAnimation.ArmAtSizeOne;
+            if (!an || !model) return;
+            WeaponAnimation.GunClips clips;
+            if (Kind == RangedWeapon.Kind.Pew)
+            {
+                clips = guard ? (WeaponAnimation.GunsEnabled ? WeaponAnimation.Guard() : null) : (PistolAnimation.Enabled ? PistolAnimation.Load() : null);
+                if (clips == null || !PistolAnimation.PlaceInHand(an, Grip, model, s)) return;
+            }
+            else
+            {
+                clips = WeaponAnimation.GunsEnabled && twoHand ? WeaponAnimation.Gun(Kind) : null;           // (a long gun the body could not hold in both hands keeps the code's hold)
+                var fitted = Grip.localScale;
+                if (clips == null || !WeaponAnimation.PlaceGun(an, Grip, model, WeaponAnimation.GunHold(Kind), s)) return;
+                gripScaleFitted = fitted; gripScaleBlender = Grip.localScale;
+            }
+            animated = true;
+            gunClips = clips;
+            character = anim;
+            animator = an;
+            size = s;
+            raiseSeconds = clips.raise.length;
+            shotSeconds = clips.fire.length;
+            clavicle = upper.parent;
+            leftClavicle = an.GetBoneTransform(HumanBodyBones.LeftShoulder);
+            chest = an.GetBoneTransform(HumanBodyBones.UpperChest);
+            if (!chest) chest = an.GetBoneTransform(HumanBodyBones.Chest);
+            head = an.GetBoneTransform(HumanBodyBones.Head);
+            upperRest = upper.localPosition;
+            if (clavicle) clavicleRest = clavicle.localPosition;
+            if (leftClavicle) leftClavicleRest = leftClavicle.localPosition;
+            foreach (Transform t in model.GetComponentsInChildren<Transform>(true))
+            {
+                if (!slide && t.name.Contains(WeaponAnimation.BoltPart)) slide = t;
+                if (!magazine && t.name.Contains("_Mag")) magazine = t;
+                if (!pump && t.name.Contains(WeaponAnimation.PumpPart)) pump = t;
+            }
+            if (pump) pumpRest = pump.localPosition;
+            if (slide)
+            {
+                slideRest = slide.localPosition;
+                var mf = slide.GetComponent<MeshFilter>();
+                slideLength = mf && mf.sharedMesh ? mf.sharedMesh.bounds.size.z * slide.localScale.z : 0f;
+            }
+            if (magazine) { magRestPos = magazine.localPosition; magRestRot = magazine.localRotation; }
+        }
+
+        /// <summary>The gun goes: the shoulders are put back where the skeleton has them (a first-person frame moves them).</summary>
+        void EndAnimated() => PutShouldersBack();
+
+        /// <summary>The joints a first-person frame moves (the shoulder that holds the pistol out, both shoulders lifted for a reload) back where the skeleton has them: the animation turns them but does not move them back.</summary>
+        void PutShouldersBack()
+        {
+            if (upper) upper.localPosition = upperRest;
+            if (clavicle) clavicle.localPosition = clavicleRest;
+            if (leftClavicle) leftClavicle.localPosition = leftClavicleRest;
+        }
+
+        /// <summary>Before the animation runs: the raise moves at the speed of the raise clip, and the character animator is told what to show.</summary>
+        void Update()
+        {
+            if (!animated || !Grip) return;
+            raiseNow = Mathf.MoveTowards(raiseNow, Mathf.Clamp01(Raise), Time.deltaTime / Mathf.Max(0.05f, raiseSeconds));
+            if (character) character.GunPose(gunClips, raiseNow, Time.time - lastShot, twoHand ? 0f : ReloadProgress);
+        }
+
+        void AnimatedLateUpdate()
+        {
+            AlignerUsed = false;
+            PutShouldersBack();                                                         // (the first-person shoulders of the frame before: nothing else puts them back)
+            float fp = FirstPersonShare(out var cam);
+            fpShareNow = fp;
+            float layer = character ? character.GunWeight : 0f;
+            float reloadW = character ? character.GunReloadWeight : 0f;
+            if (cam) { LocalDotShare = 0f; LocalScope = 0f; LocalArmMode = fp > 0.5f ? (reloadW > 0.01f ? 2 : 1) : 0; }          // (first person: the arm that holds the pistol out, and the left one too while it changes the magazine)
+            SlideAndMagazine();
+            if (fp > 0.001f && reloadW > 0.001f)
+            {
+                var lift = (Vector3.up * FpReloadLift.x + Quaternion.Euler(0f, cam.eulerAngles.y, 0f) * Vector3.forward * FpReloadLift.y) * (size * fp * reloadW);
+                if (clavicle) clavicle.position += lift;
+                if (leftClavicle) leftClavicle.position += lift;
+            }
+            // the aim as the clips have it, whenever it is shown just so (raised, no shot, no reload)
+            if (raiseNow >= 0.999f && layer > 0.999f && reloadW < 0.001f && Time.time - lastShot >= shotSeconds)
+            {
+                sUpper = upper.localRotation; sFore = fore.localRotation; sHand = hand.localRotation;
+                if (head) faceLocal = Quaternion.Inverse(head.rotation) * transform.forward;
+                steadyKnown = true;
+            }
+            float w = raiseNow * layer * (1f - reloadW);                               // (the reload is shown as it was made: the gun is not aimed meanwhile)
+            if (w < 0.001f) { fpShoulderSet = false; return; }
+            var aim = AimDirection.sqrMagnitude > 1e-4f ? AimDirection.normalized : transform.forward;
+            if (Mathf.Abs(aim.y) > 0.97f) aim = new Vector3(aim.x, Mathf.Sign(aim.y) * 0.97f, aim.z).normalized;
+            if (chest)
+            {
+                Quaternion.FromToRotation(SteadyBarrel(), aim).ToAngleAxis(out float deg, out var axis);
+                if (deg > 180f) deg -= 360f;
+                if (axis.sqrMagnitude > 0.5f) chest.rotation = Quaternion.AngleAxis(Mathf.Clamp(deg * ChestShare, -ChestMaxDegrees, ChestMaxDegrees) * w, axis) * chest.rotation;
+            }
+            upper.rotation = Quaternion.Slerp(Quaternion.identity, Quaternion.FromToRotation(SteadyBarrel(), aim), w) * upper.rotation;
+            if (head && steadyKnown && fp < 0.5f)
+                head.rotation = Quaternion.Slerp(Quaternion.identity, Quaternion.FromToRotation(head.rotation * faceLocal, aim), HeadLook * w) * head.rotation;
+            if (fp > 0.001f) StiffShoulder(cam, fp * w);
+        }
+
+        /// <summary>The barrel's direction in the aim as the clips have it, carried by the body as it is now (before the aim is known: the barrel as it is).</summary>
+        Vector3 SteadyBarrel()
+        {
+            var handRot = steadyKnown && clavicle ? clavicle.rotation * sUpper * sFore * sHand : hand.rotation;
+            return handRot * (Grip.localRotation * Vector3.forward);
+        }
+
+        /// <summary>First person: the shoulder rides the eyes (its offset from them followed slowly, see AnimatedShoulderFollow), so the pistol held out does not bob with the walk and the wobble of the body.</summary>
+        void StiffShoulder(Transform cam, float weight)
+        {
+            var yawRot = Quaternion.Euler(0f, cam.eulerAngles.y, 0f);
+            var raw = Quaternion.Inverse(yawRot) * (upper.position - cam.position);
+            if (!fpShoulderSet) { fpShoulder = raw; fpShoulderSet = true; }
+            else fpShoulder = Vector3.Lerp(fpShoulder, raw, 1f - Mathf.Exp(-AnimatedShoulderFollow * Time.deltaTime));
+            upper.position += Vector3.ClampMagnitude(cam.position + cam.rotation * fpShoulder - upper.position, ShoulderMaxMove) * weight;
+        }
+
+        /// <summary>
+        /// The pistol's moving parts as the Blender files have them: the slide thrown back by a shot, held back while the gun is empty and let go by the reload's slide release; the magazine that drops out of the grip, the new one
+        /// in the left hand and then in the grip.
+        /// </summary>
+        void SlideAndMagazine()
+        {
+            bool reloading = ReloadProgress > 0f && ReloadProgress < 1f;
+            float frame = 1f + Mathf.Clamp01(ReloadProgress) * ReloadFrames;
+            if (slide && slideLength > 0f)
+            {
+                float back = 0f, t = Time.time - lastShot;
+                if (t >= 0f && t < 1f / 30f) back = SlideKick * t * 30f;
+                else if (t >= 1f / 30f && t < 5f / 30f) back = SlideKick * (5f / 30f - t) * 7.5f;
+                if (reloading)
+                {
+                    float held = SlideLocked ? SlideLock : 0f;
+                    if (frame < RackFrom) back = Mathf.Max(back, held);
+                    else if (frame < RackPulled) back = Mathf.Lerp(held, SlideLock + SlidePull, (frame - RackFrom) / (RackPulled - RackFrom));
+                    else if (frame < RackReleased) back = SlideLock + SlidePull;
+                    else back = 0f;
+                }
+                else if (SlideLocked) back = Mathf.Max(back, SlideLock);
+                slide.localPosition = slideRest + Vector3.back * (back * slideLength);
+            }
+            if (!magazine) return;
+            if (reloading && frame >= MagOutFrame && frame < MagSeatedFrame)
+            {
+                if (!magDropped)
+                {
+                    magDropped = true;
+                    if (frame < MagInHandFrame) DroppedMagazine.Drop(magazine, Grip.TransformDirection(MagEject).normalized, Grip.right);          // (a reload picked up again later, after a stumble, drops none)
+                }
+                Vector3 w = default, f = default, u = default, palm = default;
+                bool inHand = frame >= MagInHandFrame && PistolAnimation.HandFrame(animator, out w, out f, out u, out palm, true);
+                magazine.gameObject.SetActive(inHand);
+                if (inHand)
+                {
+                    magazine.position = w + (f * MagInHand.x + u * MagInHand.y + palm * MagInHand.z) * size;
+                    magazine.rotation = Quaternion.LookRotation(f * MagInHandZ.x + u * MagInHandZ.y + palm * MagInHandZ.z, f * MagInHandY.x + u * MagInHandY.y + palm * MagInHandY.z);
+                }
+            }
+            else if (magDropped || !magazine.gameObject.activeSelf)
+            {
+                magDropped = reloading && frame >= MagOutFrame;                        // (a reload that is still on keeps its dropped magazine dropped; a new one drops again)
+                magazine.gameObject.SetActive(true);
+                magazine.localPosition = magRestPos; magazine.localRotation = magRestRot;
+            }
+        }
+
+        // ------------------------------------------------------------------ a long gun with its Blender animation (the owner, 2026-10-27; see WeaponAnimation)
+        // The clip holds the gun in both hands (the low ready, the raise, the aim, a shot). Third person: the chest takes a share of the turn to the crosshair, and the gun turns the rest about the middle of the shoulders as one piece with
+        // both hands on it - the arms are solved to the hands' new places, the left hand where the clip has it on the gun. The turn is measured from the aim AS THE CLIP HAS IT (as the pistol's), so a shot's kick stays in the picture.
+        // First person goes on to the hold of before from this pose (the sight on the line of sight, the reload motion, the scope), by how far the view is at the eyes.
+
+        /// <summary>How much of the turn to the crosshair the chest takes when a long gun is held (at most this many degrees); the gun and both arms take the rest.</summary>
+        const float TwoHandChestShare = 0.5f, TwoHandChestMaxDegrees = 35f;
+        Vector3 steadyBarrelLocal;           // the barrel in the aim as the clip has it, in the chest's frame
+        Vector3 gripScaleFitted, gripScaleBlender;          // the gun's size as the code's hold fits it to the arms (first person), and as the Blender file has it for this character (third person: both hands on it)
+
+        void AnimatedTwoHand()
+        {
+            LongGunParts();
+            float layer = character ? character.GunWeight : 0f;
+            float fp = FirstPersonShare(out _);
+            // first person shows the gun at the size the first-person view was made for (2026-10-20/23; the arms are not drawn there), third person at the file's size, which both hands fit: it grows about the grip as the view goes to the eyes
+            Grip.localScale = Vector3.Lerp(gripScaleBlender, gripScaleFitted, fp);
+            if (chest && raiseNow >= 0.999f && layer > 0.999f && Time.time - lastShot >= shotSeconds)
+            {
+                steadyBarrelLocal = Quaternion.Inverse(chest.rotation) * Grip.forward;
+                if (head) faceLocal = Quaternion.Inverse(head.rotation) * transform.forward;
+                steadyKnown = true;
+            }
+            float w = raiseNow * layer;
+            if (w < 0.001f || !chest || !lHand) { LeftHandGap = 0f; return; }
+            var aim = AimDirection.sqrMagnitude > 1e-4f ? AimDirection.normalized : transform.forward;
+            if (Mathf.Abs(aim.y) > 0.97f) aim = new Vector3(aim.x, Mathf.Sign(aim.y) * 0.97f, aim.z).normalized;
+            Quaternion.FromToRotation(SteadyLongBarrel(), aim).ToAngleAxis(out float deg, out var axis);
+            if (deg > 180f) deg -= 360f;
+            if (axis.sqrMagnitude > 0.5f) chest.rotation = Quaternion.AngleAxis(Mathf.Clamp(deg * TwoHandChestShare, -TwoHandChestMaxDegrees, TwoHandChestMaxDegrees) * w, axis) * chest.rotation;
+            // the left hand's place on the gun as the clip has it, before anything turns
+            var leftOnGun = Grip.InverseTransformPoint(lHand.position);
+            var leftRotOnGun = Quaternion.Inverse(Grip.rotation) * lHand.rotation;
+            var q = Quaternion.Slerp(Quaternion.identity, Quaternion.FromToRotation(SteadyLongBarrel(), aim), w);
+            var pivot = (upper.position + lUpper.position) * 0.5f;
+            var rPole = q * (fore.position - (upper.position + hand.position) * 0.5f);
+            var lPole = q * (lFore.position - (lUpper.position + lHand.position) * 0.5f);
+            var rTarget = pivot + q * (hand.position - pivot);
+            var rRot = q * hand.rotation;
+            SolveArm(upper, fore, hand, rTarget, rPole, 1f);
+            hand.rotation = rRot;
+            var lTarget = Grip.TransformPoint(leftOnGun);
+            SolveArm(lUpper, lFore, lHand, lTarget, lPole, 1f);
+            lHand.rotation = Grip.rotation * leftRotOnGun;
+            LeftHandGap = (lHand.position - lTarget).magnitude;
+            if (head && steadyKnown && fp < 0.5f)
+                head.rotation = Quaternion.Slerp(Quaternion.identity, Quaternion.FromToRotation(head.rotation * faceLocal, aim), HeadLook * w) * head.rotation;
+        }
+
+        /// <summary>The barrel's direction in the aim as the clip has it, carried by the chest as it is now (before the aim is known: the barrel as it is).</summary>
+        Vector3 SteadyLongBarrel() => steadyKnown && chest ? chest.rotation * steadyBarrelLocal : Grip.forward;
+
+        /// <summary>A long gun's moving parts as the Blender files move them: the bolt thrown back by a shot (the SMG, the rifle, the sniper rifle), the shotgun's pump and bolt worked after every shot.</summary>
+        void LongGunParts()
+        {
+            float t = Time.time - lastShot;
+            if (slide)
+            {
+                float back = Kind == RangedWeapon.Kind.Shotgun ? WeaponAnimation.PumpBoltTravel * WeaponAnimation.PumpOut(t) : WeaponAnimation.BoltKick[(int)Kind] * WeaponAnimation.BoltOut(t);
+                slide.localPosition = slideRest + Vector3.back * back;
+            }
+            if (pump) pump.localPosition = pumpRest + Vector3.back * (WeaponAnimation.PumpTravel * WeaponAnimation.PumpOut(t));
+        }
+
+        /// <summary>How far the shotgun's pump is back this frame (0..1; for the tests).</summary>
+        public float PumpBack => pump ? WeaponAnimation.PumpOut(Time.time - lastShot) : 0f;
+        /// <summary>The clips this gun is held with (null: posed by code).</summary>
+        public WeaponAnimation.GunClips Clips => animated ? gunClips : null;
+
         // ------------------------------------------------------------------ a gun in both hands
 
         /// <summary>The right hand near the shoulder on the pistol grip, the left on the foregrip; the gun level and pointing along <paramref name="aim"/>.</summary>
@@ -439,7 +736,8 @@ namespace BuildingEscape
             if (fp > 0.001f) pr = Vector3.Lerp(pr, FirstPersonGrip(viewCam, f, right, up, gunRot), fp);          // (the layer could not, or is off: the sight on the line of sight, in the middle of the screen, as before)
             var tl = pr + toForegrip;
             if (fp > 0.001f) tl += (-right * 0.075f + up * 0.085f) * fp;                               // (first person: the left hand grips the side of the handguard, so that its forearm is seen reaching in from the left)
-            SolveArm(upper, fore, hand, pr, -up * 0.8f + right * 0.6f, b);
+            var gripFromWrist = gunRot * Quaternion.Inverse(Grip.localRotation) * Vector3.Scale(Grip.localPosition, hand.lossyScale);          // (the code's hold has the grip on the wrist; a gun placed as a Blender file holds it sits a little along the hand)
+            SolveArm(upper, fore, hand, pr - gripFromWrist, -up * 0.8f + right * 0.6f, b);
             hand.rotation = Quaternion.Slerp(hand.rotation, gunRot * Quaternion.Inverse(Grip.localRotation), b);
             SolveArm(lUpper, lFore, lHand, tl, -up * 0.8f - right * 0.6f, b);
             lHand.rotation = Quaternion.Slerp(lHand.rotation, gunRot * Quaternion.Euler(0f, 0f, LeftRoll + FpLeftRoll * fp) * MirrorX(Quaternion.Inverse(Grip.localRotation)), b);

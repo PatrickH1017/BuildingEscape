@@ -6,6 +6,8 @@ namespace BuildingEscape
     /// <summary>
     /// Shows the equipped melee weapon in the player's right hand and swings it on left click with the
     /// retargeted slash1 animation. A swing stuns guards in front of you and shoves loose objects.
+    /// Since 2026-10-27 (the owner: "the hatchet swing, crowbar swing, bat swing ... attach the animations") a character who can play the Blender animations (<see cref="WeaponAnimation"/>) holds the weapon ready in front of him and
+    /// swings it with its own clip - the wind-up, the blow, the follow-through - played in the weapon's cooldown, the blow landing when the clip's weapon is at its fastest.
     /// With empty hands the same button throws a punch (<see cref="PunchRules"/>; the owner, 2026-10-18: "Add punching"): a short, quick blow that stuns a guard for a moment (and so frees a
     /// pinned friend), but does not count towards knocking him out. Swings, punches and what they hit are heard by teammates who are near (<see cref="Net.RunSync"/> announces them).
     /// </summary>
@@ -22,8 +24,17 @@ namespace BuildingEscape
         WobblyPlayer wobbly;
         GameObject heldModel;
         Pickup shown;
-        float nextSwing, swingStarted;
+        float nextSwing, swingStarted, swingSpeed = 1f;
         bool swinging;
+        WeaponAnimation.MeleeClips meleeClips;      // the weapon in the hand is held and swung with its Blender animation (null: the old slash clip)
+        MeleeWeapon.Kind shownKind;
+
+        /// <summary>The weapon in the hand is held and swung with its Blender animation (for the tests).</summary>
+        public bool Animated => meleeClips != null && heldModel;
+        /// <summary>The weapon's model in the hand (for the tests and the pictures).</summary>
+        public GameObject HeldModel => heldModel;
+        /// <summary>When the blow of a swing lands, in seconds after the click (for the tests).</summary>
+        public float HitDelayNow => meleeClips != null ? WeaponAnimation.SwingContact / Mathf.Max(0.1f, WeaponAnimation.SwingSpeed(meleeClips, shownKind)) : hitDelay;
 
         /// <summary>Swings / punches a teammate made that this machine heard (it only counts them: the sound is played, and falls silent with the distance), and what they hit (for the tests).</summary>
         public int RemoteSwingsHeard { get; private set; }
@@ -50,6 +61,7 @@ namespace BuildingEscape
             var eq = held;
             if (eq && !eq.TryGetComponent(out MeleeWeapon _)) eq = null;   // a gun in the hand is the GunController's
             if (eq != shown || (heldModel && !shown)) Show(eq);          // (the second part: the weapon in the hand was destroyed - a crowbar that snapped on a safe - and Unity says a destroyed object equals null, so "eq != shown" alone never noticed and the crowbar stayed in the hand)
+            PoseMelee();
 
             if (held == null)
             {
@@ -78,7 +90,7 @@ namespace BuildingEscape
         void Show(Pickup eq)
         {
             if (heldModel) Destroy(heldModel);
-            heldModel = null; shown = eq;
+            heldModel = null; shown = eq; meleeClips = null;
             if (!eq || !eq.TryGetComponent(out MeleeWeapon mw) || !MeleeWeapon.Available) return;
             var anim = vis ? vis.Anim : null;
             if (!anim) { shown = null; return; } // model not ready yet, retry next frame
@@ -87,9 +99,24 @@ namespace BuildingEscape
             if (!hand) hand = FindDeep(anim.transform, "RightHand");
             if (!hand) { Debug.LogWarning("MeleeController: RightHand bone not found on the character."); return; }
             heldModel = MeleeWeapon.BuildHeld(mw.kind, hand);
+            if (WeaponAnimation.MeleeEnabled && anim.CanPlayWeapons)
+            {
+                // the Blender animation: the weapon where its file holds it, held ready in front (PoseMelee)
+                var clips = WeaponAnimation.Melee(mw.kind);
+                var an = anim.GetComponent<Animator>();
+                if (clips != null && WeaponAnimation.PlaceMelee(an, heldModel.transform, mw.kind, WeaponAnimation.SizeOf(an))) { meleeClips = clips; shownKind = mw.kind; }
+            }
             var firstPerson = anim.GetComponent<FirstPersonMelee>();
             if (!firstPerson) firstPerson = anim.gameObject.AddComponent<FirstPersonMelee>();
             firstPerson.Hold(hand, heldModel.transform, anim);                      // (in first person the arm is raised so that the weapon is in the picture)
+        }
+
+        /// <summary>The weapon in the hand with its Blender animation: held ready, or the swing at its point (called every frame, before the animation runs).</summary>
+        void PoseMelee()
+        {
+            if (meleeClips == null || !heldModel) return;
+            var anim = vis ? vis.Anim : null;
+            if (anim) anim.MeleePose(meleeClips, swinging ? (Time.time - swingStarted) * swingSpeed : -1f);
         }
 
         static Transform FindDeep(Transform t, string n)
@@ -110,17 +137,28 @@ namespace BuildingEscape
             var spec = mw.Data;
             var anim = vis ? vis.Anim : null;
             var clip = MeleeWeapon.Catalog ? MeleeWeapon.Catalog.slash : null;
-            float speed = 1f;
-            bool useClip = anim && clip && !clip.empty;
-            if (useClip) anim.PlaySlash(clip, speed);
-            float len = useClip ? clip.length / speed : 0.6f;
-            if (!useClip) StartCoroutine(FallbackSwing(len)); // clip missing: still show a swing
-            Debug.Log($"Swing with {spec.name} (animation clip: {(useClip ? "slash1" : "none, using fallback")})");
+            float speed = 1f, len, hit = hitDelay;
+            bool blender = meleeClips != null && anim;
+            bool useClip = !blender && anim && clip && !clip.empty;
+            if (blender)
+            {
+                // the weapon's own swing (PoseMelee plays it): the whole clip in the cooldown, the blow when the weapon is at its fastest
+                swingSpeed = WeaponAnimation.SwingSpeed(meleeClips, mw.kind);
+                len = meleeClips.swing.length / swingSpeed;
+                hit = WeaponAnimation.SwingContact / swingSpeed;
+            }
+            else
+            {
+                if (useClip) anim.PlaySlash(clip, speed);
+                len = useClip ? clip.length / speed : 0.6f;
+                if (!useClip) StartCoroutine(FallbackSwing(len)); // clip missing: still show a swing
+            }
+            Debug.Log($"Swing with {spec.name} (animation clip: {(blender ? meleeClips.name + " swing (Blender)" : useClip ? "slash1" : "none, using fallback")})");
 
             GameAudio.Whoosh(transform.position);
-            yield return new WaitForSeconds(hitDelay);
+            yield return new WaitForSeconds(hit);
             Hit(spec, mw.kind);
-            yield return new WaitForSeconds(Mathf.Max(0f, len - hitDelay));
+            yield return new WaitForSeconds(Mathf.Max(0f, len - hit));
             nextSwing = Time.time + Mathf.Max(0f, spec.cooldown - len);
             }
             finally { swinging = false; }       // (whatever happens inside, an exception or a stopped coroutine: the next swing must be possible)
@@ -170,11 +208,13 @@ namespace BuildingEscape
         IEnumerator RemoteSwing(bool punch)
         {
             swinging = true;
+            swingStarted = Time.time;
             var anim = vis ? vis.Anim : null;
             var clip = MeleeWeapon.Catalog ? MeleeWeapon.Catalog.slash : null;
             float speed = punch ? PunchRules.AnimSpeed : 1f;
             float len = punch ? 0.35f : 0.6f;
-            if (anim && clip && !clip.empty) { anim.PlaySlash(clip, speed); len = clip.length / speed; }
+            if (!punch && meleeClips != null && anim) { swingSpeed = WeaponAnimation.SwingSpeed(meleeClips, shownKind); len = meleeClips.swing.length / swingSpeed; }          // (his weapon's own swing, as on his machine)
+            else if (anim && clip && !clip.empty) { anim.PlaySlash(clip, speed); len = clip.length / speed; }
             else if (!punch) StartCoroutine(FallbackSwing(len));
             yield return new WaitForSeconds(len);
             swinging = false;

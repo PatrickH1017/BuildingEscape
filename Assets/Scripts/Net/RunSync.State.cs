@@ -57,11 +57,13 @@ namespace BuildingEscape.Net
             if (tm != null) vResume.Value = tm.ResumeLevel;
             HostPublishOutpost();
             HostPublishPa();
+            HostPublishRadio();
         }
 
         void ClientApplyState()
         {
             RunUnlocks.NetSet(vUnlocks.Value);                    // (not tied to a floor: what was brought back stays unlocked)
+            ClientApplyRadio();                                   // (nor is the dock radio: it plays on while the team is up in the tower)
             var hm = HeistManager.Instance;
             var tm = TowerManager.Instance;
             if (hm == null || (tm != null && tm.Loading)) return; // a floor is being built; the next update is the right one

@@ -264,6 +264,27 @@ namespace BuildingEscape.EditorTools
                 tvProgram &= beats[i].shot == IntroShot.None || beats[i].shot == IntroShot.Off ? !tv.OnProgram : tv.OnProgram;
                 yield return Snap($"intro_tv_{i}_{beats[i].dock}");
             }
+            // between the workers' line and the vendor: a black "Later that night" card, and from it on the TV is off - no static, no hiss under the vendor (the owner, 2026-10-27)
+            intro.TestSeek(IntroRules.Beats[IntroRules.WorkerBeat].end - 1f);
+            yield return null; yield return null;
+            bool staticUnderWorkers = tv.OnStatic && intro.HissPlaying;
+            var night = IntroRules.Beats[IntroRules.NightBeat];
+            intro.TestSeek((night.start + night.end) * 0.5f);
+            yield return null; yield return null;
+            EtrCheck("tv: after the workers' line the screen goes black and says \"Later that night\"", IntroRules.NightCard(IntroCinematic.Clock) == 1f, $"(at {IntroCinematic.Clock:0.0} s)");
+            yield return Snap("intro_tv_night_card");
+            bool quietAtNight = true;
+            for (int i = IntroRules.NightBeat; i <= IntroRules.LastVendorBeat; i++)
+            {
+                intro.TestSeek(IntroRules.Beats[i].start + 0.3f);
+                yield return null; yield return null;
+                quietAtNight &= !tv.OnStatic && !tv.OnProgram && !intro.HissPlaying;
+            }
+            EtrCheck("tv: the static and its hiss stop with the night card and stay off under the vendor (they still run under the workers' line)", staticUnderWorkers && quietAtNight, $"(static under the workers {staticUnderWorkers}, quiet at night {quietAtNight})");
+            // the vendor's longest line typed out to its end: the words keep their size and wrap (the owner, 2026-10-27: "The font size of the words should never change")
+            intro.TestSeek(beats[IntroRules.FirstVendorBeat + 2].end - 0.1f);
+            yield return null; yield return null;
+            yield return Snap("intro_tv_longest_line_end");
             EtrCheck("tv: the camera stays inside the docks in every beat", camOk);
             EtrCheck("tv: the TV is dark at first, shows the boss during the monologue and static after it", tvProgram);
             // the worker's line: the two of them turn to each other

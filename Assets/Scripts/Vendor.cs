@@ -161,8 +161,12 @@ namespace BuildingEscape
             return true;
         }
 
-        /// <summary>Is entry <paramref name="index"/> of <see cref="Catalog"/> sold at the vending machines of the docks (the owner, 2026-10-23: "Vending machines should be used to buy consumables")?</summary>
-        public static bool OnMachine(int index) => index >= 0 && index < Catalog.Length && Catalog[index].machine;
+        /// <summary>
+        /// Is entry <paramref name="index"/> of <see cref="Catalog"/> sold at the vending machines of the docks (the owner, 2026-10-23: "Vending machines should be used to buy consumables")? Only the consumables
+        /// (the owner, 2026-10-27: "these options can be removed from the vending machine I only want consumables in the vending machine"): the coffee mug, the heavy stapler, the squeaky toy and the fire extinguisher keep
+        /// their <see cref="Product.machine"/> flag, so the dealer does not sell them either (mugs still lie about on the floors; the other three are not for sale anywhere now).
+        /// </summary>
+        public static bool OnMachine(int index) => index >= 0 && index < Catalog.Length && Catalog[index].machine && Catalog[index].isConsumable;
 
         static int[] machineProducts;
         /// <summary>The entries of <see cref="Catalog"/> the vending machines sell, in the order of the list.</summary>
@@ -173,7 +177,7 @@ namespace BuildingEscape
                 if (machineProducts == null)
                 {
                     var l = new List<int>();
-                    for (int i = 0; i < Catalog.Length; i++) if (Catalog[i].machine) l.Add(i);
+                    for (int i = 0; i < Catalog.Length; i++) if (OnMachine(i)) l.Add(i);
                     machineProducts = l.ToArray();
                 }
                 return machineProducts;

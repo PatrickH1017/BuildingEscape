@@ -209,6 +209,7 @@ namespace BuildingEscape
             BuildDockRooms(root.transform);
             BuildDartBoard(root.transform);
             BuildDockVending(root.transform, tx);          // (the vending machines: before the scatter below, which keeps clear of them)
+            BuildDockRadio(root.transform);                // (the radio in the corner beside them: the scatter keeps clear of it too)
 
             // and a basement's worth of junk everywhere else
             DockClutter = ScatterStorage(root.transform, seed, c, tx, zWall);
@@ -255,6 +256,31 @@ namespace BuildingEscape
 
         /// <summary>The inner face of the basement's outer walls (they are 0.4 m thick and centred on the edge of the floor).</summary>
         const float DockWallInner = 0.2f;
+
+        /// <summary>The doorway the dock radio is heard as far as: the middle of the opening in the wall between the two halves of the docks (the way to the elevator room).</summary>
+        public Vector3 DockRadioHeardTo => new Vector3(cellSize, 0f, rows * cellSize * 0.5f);
+
+        /// <summary>The floor the dock radio's boxes stand on and the room in front of them (x, z), kept clear of the scatter; empty when there is no radio.</summary>
+        public Rect DockRadioArea { get; private set; }
+
+        /// <summary>
+        /// The radio (the owner, 2026-10-27, with a picture of the corner beside the two vending machines: "I want the radio put in that corner on top of two boxes that are stacked on top of each other"): the corner where the main room's
+        /// south wall meets the building's east wall, east of the machines. Two long cardboard boxes, one on the other, their long side along the south wall (the top one turned a little), and the radio on them facing into the room
+        /// (<see cref="DockRadio"/>; nothing when its catalog is not set up).
+        /// </summary>
+        void BuildDockRadio(Transform parent)
+        {
+            DockRadioArea = default;
+            if (!Application.isPlaying || RadioCatalog.Instance == null || RadioCatalog.Instance.radio == null || !PropTable.TryGet("box_long", out var box)) return;
+            float east = cols * cellSize - DockWallInner, south = DockWallInner;
+            float len = box.D, wid = box.W, high = box.H;                          // (the box's long side is its depth: turned a quarter it runs along the wall)
+            float cx = east - 0.06f - len * 0.5f, cz = south + 0.06f + wid * 0.5f;
+            PlaceKey("box_long", cx, cz, 90f, parent, 0f, true);
+            PlaceKey("box_long", cx - 0.02f, cz + 0.01f, 86f, parent, high, true);
+            // it is heard as far as the doorway in the wall between the two halves of the docks, the way to the elevator room (the owner, 2026-10-27: "You should be able to hear it up until the door that leads to the room with the elevator")
+            DockRadio.Build(parent, new Vector3(cx - 0.03f, high * 2f, cz + 0.02f), -12f, new Vector3(cellSize, 0f, rows * cellSize * 0.5f));
+            DockRadioArea = Rect.MinMaxRect(east - len - 0.5f, south, east, cz + wid * 0.5f + 1.6f);
+        }
 
         /// <summary>
         /// The vending machines (the owner, 2026-10-23: both machines of the main room are the black one - "Use the black vending machine instead of the red" - and every machine sells the consumables, see <see cref="VendingMachine"/>; 2026-10-22: "add them both to the main room of the loading dock and add the smaller black one to the break room ... In the main room I want them on the wall across from the vendor"): the black Synty one
@@ -349,6 +375,7 @@ namespace BuildingEscape
                 DockVendingRules.KeepClear(vm, out float vx0, out float vz0, out float vx1, out float vz1);
                 clear.Add(new Vector4(vx0, vz0, vx1, vz1));
             }
+            if (DockRadioArea.width > 0f) clear.Add(new Vector4(DockRadioArea.xMin, DockRadioArea.yMin, DockRadioArea.xMax, DockRadioArea.yMax));          // the radio's boxes and the floor in front of them
             var placed = new List<Vector3>(); // x, z, radius
 
             bool Free(float x, float z, float r, bool againstWall = false)

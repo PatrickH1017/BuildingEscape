@@ -37,7 +37,7 @@ namespace BuildingEscape.EditorTools
                 longEnough &= beats[i].Length > 0f;
                 if (!string.IsNullOrEmpty(beats[i].line)) typed &= beats[i].line.Length / IntroRules.CharsPerSecond + 0.6f <= beats[i].Length;
             }
-            Check("intro: the beats follow one another from 0 to the total (57.6 s) with no gap or overlap", contiguous && longEnough && IntroRules.Total == 57.6f && beats.Length == 15);
+            Check("intro: the beats follow one another from 0 to the total (60.1 s) with no gap or overlap", contiguous && longEnough && IntroRules.Total == 60.1f && beats.Length == 16);
             Check("intro: every line is typed out with 0.6 s to read it before the next beat", typed);
             int last = beats.Length - 1, worker = -1;
             for (int i = 0; i < beats.Length; i++) if (beats[i].speaker == Speaker.Worker) worker = i;
@@ -46,25 +46,30 @@ namespace BuildingEscape.EditorTools
                 && beats[IntroRules.TvOnBeat].shot == IntroShot.Wide && beats[IntroRules.TvOnBeat].start == IntroRules.TvOnAt && string.IsNullOrEmpty(beats[IntroRules.TvOnBeat].line) && beats[IntroRules.TvOnBeat].Length > IntroRules.TvStaticSeconds + 1f);
             bool bossLines = true;
             for (int i = IntroRules.FirstBossBeat; i <= IntroRules.LastBossBeat; i++) bossLines &= beats[i].speaker == Speaker.Boss && !string.IsNullOrEmpty(beats[i].line) && beats[i].shot != IntroShot.None && beats[i].shot != IntroShot.Off;
-            Check("intro: the TV shows the boss's monologue (six lines, each said by the boss) until 32.4 s, then static",
-                bossLines && beats[IntroRules.LastBossBeat].end == IntroRules.ProgramEnd && beats[IntroRules.StaticBeat].shot == IntroShot.None && beats[IntroRules.WorkerBeat].shot == IntroShot.None && beats[last].shot == IntroShot.None && IntroRules.ProgramEnd == 32.4f
+            Check("intro: the TV shows the boss's monologue (six lines, each said by the boss) until 32.4 s, then static under the workers' line, then it is off (it is night: no static under the vendor; the owner, 2026-10-27)",
+                bossLines && beats[IntroRules.LastBossBeat].end == IntroRules.ProgramEnd && beats[IntroRules.StaticBeat].shot == IntroShot.None && beats[IntroRules.WorkerBeat].shot == IntroShot.None && beats[IntroRules.NightBeat].shot == IntroShot.Off && beats[IntroRules.DoorBeat].shot == IntroShot.Off && beats[last].shot == IntroShot.Off && IntroRules.ProgramEnd == 32.4f
                 && beats[IntroRules.FirstBossBeat].line == IntroContent.Line1 && beats[IntroRules.BonusBeat].line == IntroContent.Line3 && beats[IntroRules.LastBossBeat].line == IntroContent.Line6);
             Check("intro: after the broadcast one worker says the owner's new line (that's enough, time for revenge, meet up tonight, call the Vendor)",
                 worker == IntroRules.WorkerBeat && beats[worker].start >= IntroRules.ProgramEnd && beats[worker].line == "That's enough, it's time for revenge. Let's meet back up tonight. Call that Vendor you talked about." && IntroContent.FinalLine == beats[worker].line);
             bool vendorLines = true;
-            for (int i = IntroRules.FirstVendorBeat; i <= IntroRules.LastVendorBeat; i++) vendorLines &= beats[i].speaker == Speaker.Vendor && beats[i].dock == DockShot.Bay && beats[i].shot == IntroShot.None && !string.IsNullOrEmpty(beats[i].line);
+            for (int i = IntroRules.FirstVendorBeat; i <= IntroRules.LastVendorBeat; i++) vendorLines &= beats[i].speaker == Speaker.Vendor && beats[i].dock == DockShot.Bay && beats[i].shot == IntroShot.Off && !string.IsNullOrEmpty(beats[i].line);
             Check("intro: the vendor says the owner's four lines, one beat for each break, after the workers' line and his door (the last beat of the Intro)",
                 vendorLines && IntroRules.LastVendorBeat == last && IntroRules.FirstVendorBeat == IntroRules.DoorBeat + 1 && beats[IntroRules.DoorBeat].dock == DockShot.Bay && string.IsNullOrEmpty(beats[IntroRules.DoorBeat].line)
-                && beats[11].line == "I got your call, just remember I ain't cheap." && beats[12].line == "Every floor's got a quota, the longer I'm here the more it is."
-                && beats[13].line == "Just get the loot back to the elevator, my boys will take care of the rest. When my clients hit the quota it makes my job easier, so don't undercut it."
-                && beats[14].line == "Any cool weapons you find bring back to me, I might have a deal for ya. Good luck.");
+                && beats[12].line == "I got your call, just remember I ain't cheap." && beats[13].line == "Every floor's got a quota, the longer I'm here the more it is."
+                && beats[14].line == "Just get the loot back to the elevator, my boys will take care of the rest. When my clients hit the quota it makes my job easier, so don't undercut it."
+                && beats[15].line == "Any cool weapons you find bring back to me, I might have a deal for ya. Good luck.");
+            var night = beats[IntroRules.NightBeat];
+            Check("intro: right after the workers' line a quick black card says \"Later that night\", then the vendor's door (the owner, 2026-10-27)",
+                night.start == beats[IntroRules.WorkerBeat].end && night.end == beats[IntroRules.DoorBeat].start && string.IsNullOrEmpty(night.line) && night.speaker == Speaker.None && night.Length >= 2f && night.Length <= 3f
+                && IntroContent.NightCard == "Later that night" && IntroRules.NightCard(night.start - 0.01f) == 0f && IntroRules.NightCard(night.start + night.Length * 0.5f) == 1f && IntroRules.NightCard(night.end) == 0f
+                && IntroRules.NightCard(night.start + IntroRules.CardFade * 0.5f) > 0.4f && IntroRules.NightCard(night.start + IntroRules.CardFade * 0.5f) < 0.6f && IntroRules.NightCard(beats[IntroRules.WorkerBeat].start + 1f) == 0f);
             Check("intro: his door starts to roll up after the workers' line has ended and is all the way up before he speaks",
                 IntroRules.BayOpensAt >= beats[IntroRules.WorkerBeat].end && IntroRules.BayOpensAt + DockBayDoor.RollSeconds < beats[IntroRules.FirstVendorBeat].start);
             Check("intro: the camera starts across the docks, ends on the vendor's bay, and is on the two who talk for the workers' line", beats[0].dock == DockShot.Establish && beats[worker].dock == DockShot.TwoShot && beats[last].dock == DockShot.Bay);
             bool docks = true; var used = new System.Collections.Generic.HashSet<DockShot>();
             foreach (var b in beats) used.Add(b.dock);
             Check("intro: the cutscene uses all six camera set-ups in the docks (across the room, behind the workers, close on the TV, their faces, the two who talk, the vendor's bay)", used.Count == 6 && docks);
-            Check("intro: BeatAt finds the beat and says -1 outside the Intro", IntroRules.BeatAt(0f) == 0 && IntroRules.BeatAt(5.4f) == 1 && IntroRules.BeatAt(7.4f) == 2 && IntroRules.BeatAt(57.59f) == beats.Length - 1
+            Check("intro: BeatAt finds the beat and says -1 outside the Intro", IntroRules.BeatAt(0f) == 0 && IntroRules.BeatAt(5.4f) == 1 && IntroRules.BeatAt(7.4f) == 2 && IntroRules.BeatAt(60.09f) == beats.Length - 1
                 && IntroRules.BeatAt(-1f) == -1 && IntroRules.BeatAt(IntroRules.Total) == -1 && IntroRules.BeatAt(34.3f) == 9);
             Check("intro: letters appear at 30 a second and stop at the end of the line", IntroRules.VisibleChars("abcdef", 0f) == 0 && IntroRules.VisibleChars("abcdef", 0.1f) == 3
                 && IntroRules.VisibleChars("abcdef", 9f) == 6 && IntroRules.VisibleChars(null, 1f) == 0);

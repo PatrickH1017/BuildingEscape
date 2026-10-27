@@ -67,33 +67,35 @@ namespace BuildingEscape.EditorTools
             A23V("T6: using the machine opens its screen, a screen over the game (keys blocked, cursor free)", VendingScreen.Open && TestMode.PanelOpen && Crosshair.MenuOpen);
             int cash0, items0;
 
-            // ---- T6: a purchase takes the cash and puts the item in the pack, with the dealer's words
+            // ---- T6: the machines sell the consumables only (the owner, 2026-10-27: "I only want consumables in the vending machine"); a purchase takes the cash and puts the can in the pack, with the dealer's words
+            int speedIdx = System.Array.FindIndex(Vendor.Catalog, c => c.isConsumable && c.consumable == ConsumableKind.SpeedBurst);
+            int invisIdx = System.Array.FindIndex(Vendor.Catalog, c => c.isConsumable && c.consumable == ConsumableKind.Invisible);
+            var speedP = Vendor.Catalog[speedIdx]; var invisP = Vendor.Catalog[invisIdx];
             hm.TrySpend(hm.Cash); hm.AddCash(1000);
             cash0 = hm.Cash; items0 = pack.Items.Count;
-            VendingScreen.TestBuy(0);
+            VendingScreen.TestBuy(0);                                                    // (the coffee mug: the machine does not sell it any more)
             yield return new WaitForSeconds(0.3f);
-            var mug = pack.Items.FirstOrDefault(i => i && i.Label == "Coffee Mug");
-            A23V("T6: the coffee mug costs $60 and goes into the pack (the screen says so)", hm.Cash == cash0 - 60 && pack.Items.Count == items0 + 1 && mug != null && VendingScreen.Status.StartsWith("Bought Coffee Mug") && VendingScreen.Status.Contains("pack"), $"(cash {cash0} -> {hm.Cash}, '{VendingScreen.Status}')");
-            cash0 = hm.Cash; items0 = pack.Items.Count;
-            VendingScreen.TestBuy(3);
+            A23V("T6: the machines sell the consumables and nothing else - the coffee mug is refused, no cash taken", Vendor.MachineProducts.Length == ConsumableRules.Count && Vendor.MachineProducts.All(i => Vendor.Catalog[i].isConsumable)
+                && hm.Cash == cash0 && pack.Items.Count == items0 && VendingScreen.Status.StartsWith("The machine does not sell"), $"('{VendingScreen.Status}', {Vendor.MachineProducts.Length} products)");
+            VendingScreen.TestBuy(speedIdx);
             yield return new WaitForSeconds(0.3f);
-            A23V("T6: the fire extinguisher costs $600 and goes into the pack too", hm.Cash == cash0 - 600 && pack.Items.Count == items0 + 1 && pack.Items.Any(i => i && i.Label == "Fire Extinguisher"), $"(cash {cash0} -> {hm.Cash})");
+            A23V($"T6: a {speedP.name} costs ${speedP.price} and goes into the pack (the screen says so)", hm.Cash == cash0 - speedP.price && pack.Items.Count == items0 + 1 && pack.CountConsumable(ConsumableKind.SpeedBurst) == 1 && VendingScreen.Status.StartsWith("Bought " + speedP.name) && VendingScreen.Status.Contains("pack"), $"(cash {cash0} -> {hm.Cash}, '{VendingScreen.Status}')");
 
             // not enough cash: nothing happens but the answer
             hm.TrySpend(hm.Cash); hm.AddCash(100);
             cash0 = hm.Cash; items0 = pack.Items.Count;
-            VendingScreen.TestBuy(3);
-            A23V("T6: with $100 the $600 fire extinguisher is refused, no cash taken and nothing bought", hm.Cash == cash0 && pack.Items.Count == items0 && VendingScreen.Status.StartsWith("Not enough cash"), $"('{VendingScreen.Status}')");
+            VendingScreen.TestBuy(invisIdx);
+            A23V($"T6: with $100 the ${invisP.price} {invisP.name} is refused, no cash taken and nothing bought", hm.Cash == cash0 && pack.Items.Count == items0 && VendingScreen.Status.StartsWith("Not enough cash"), $"('{VendingScreen.Status}')");
 
             // no room in the pack: the cash stays too
             hm.TrySpend(hm.Cash); hm.AddCash(1000);
-            var ballast = AsksItem("Ballast", player.transform.position + Vector3.up * 0.5f); ballast.weight = Mathf.Max(0.1f, pack.capacity - pack.Weight - 0.5f);
+            var ballast = AsksItem("Ballast", player.transform.position + Vector3.up * 0.5f); ballast.weight = Mathf.Max(0.1f, pack.capacity - pack.Weight - 0.05f);
             pack.TryStore(ballast);
             cash0 = hm.Cash; items0 = pack.Items.Count;
-            VendingScreen.TestBuy(3);                                                    // the fire extinguisher: 2 kg
-            A23V("T6: with a pack that has no room the fire extinguisher is refused, no cash taken and nothing bought", hm.Cash == cash0 && pack.Items.Count == items0 && VendingScreen.Status.StartsWith("No room"), $"('{VendingScreen.Status}')");
+            VendingScreen.TestBuy(speedIdx);                                             // (a can weighs 0.3 kg: 0.05 kg is left)
+            A23V($"T6: with a pack that has no room the {speedP.name} is refused, no cash taken and nothing bought", hm.Cash == cash0 && pack.Items.Count == items0 && VendingScreen.Status.StartsWith("No room"), $"('{VendingScreen.Status}')");
             pack.Drop(ballast); yield return null; if (ballast) Destroy(ballast.gameObject);
-            foreach (var it in pack.Snapshot()) if (it && (it.Label == "Coffee Mug" || it.Label == "Fire Extinguisher")) { pack.Drop(it); if (it) Destroy(it.gameObject); }
+            foreach (var it in pack.Snapshot()) if (it && ConsumableItem.IsConsumable(it)) { pack.Drop(it); if (it) Destroy(it.gameObject); }
 
             // the screen shuts when the player walks away from the machine
             player.TeleportTo(new Vector3(centre.x, 1.1f, centre.z) + front * 12f, Quaternion.identity);

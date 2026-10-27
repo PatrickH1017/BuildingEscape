@@ -15,10 +15,11 @@ namespace BuildingEscape.EditorTools
             // ---- T6: the four consumables are the vending machines', and nothing else moved in the dealer's list
             var cat = Vendor.Catalog;
             var sold = Vendor.MachineProducts;
-            Check("vending (T6): the machines sell the four consumables, in the dealer's old order, at the old prices", sold.Length == 4 + ConsumableRules.Count && sold.Take(4).SequenceEqual(new[] { 0, 1, 2, 3 })
-                && cat[0].name == "Coffee Mug" && cat[0].price == 60 && cat[1].name == "Heavy Stapler" && cat[1].price == 250 && cat[2].name == "Squeaky Toy" && cat[2].price == 150 && cat[3].name == "Fire Extinguisher" && cat[3].price == 600);
-            Check("vending (T6): the dealer offers none of them, at any floor, and still offers the three melee weapons; the machines' products are exactly the flagged ones",
-                Enumerable.Range(0, 4).All(i => !Vendor.OnOffer(i, 1) && !Vendor.OnOffer(i, 13) && Vendor.OnMachine(i)) && Enumerable.Range(4, 3).All(i => Vendor.OnOffer(i, 1) && !Vendor.OnMachine(i)) && cat.Count(p => p.machine) == 4 + ConsumableRules.Count);
+            Check("vending (T6): the four throwables keep their places and prices in the dealer's list (coffee mug $60, heavy stapler $250, squeaky toy $150, fire extinguisher $600)",
+                cat[0].name == "Coffee Mug" && cat[0].price == 60 && cat[1].name == "Heavy Stapler" && cat[1].price == 250 && cat[2].name == "Squeaky Toy" && cat[2].price == 150 && cat[3].name == "Fire Extinguisher" && cat[3].price == 600);
+            Check("vending (2026-10-27): the machines sell the consumables and nothing else, in the list's order; the four throwables are sold neither there nor by the dealer; the dealer still offers the three melee weapons",
+                sold.SequenceEqual(Enumerable.Range(0, cat.Length).Where(i => cat[i].isConsumable)) && sold.Length == ConsumableRules.Count && sold.All(i => cat[i].machine && Vendor.OnMachine(i))
+                && Enumerable.Range(0, 4).All(i => !Vendor.OnOffer(i, 1) && !Vendor.OnOffer(i, 13) && !Vendor.OnMachine(i)) && Enumerable.Range(4, 3).All(i => Vendor.OnOffer(i, 1) && !Vendor.OnMachine(i)));
             Check("vending (T6): the dealer's other entries keep their places (the pew 7, its bullets 8, 17 entries up to the walkie talkie, the five consumables of 2026-10-25 come after it)", Vendor.PewIndex == 7 && Vendor.AmmoIndex == 8 && cat.Length == 17 + ConsumableRules.Count && Vendor.WalkieIndex == 16 && cat[Vendor.PewIndex].isGun && cat[Vendor.AmmoIndex].isAmmo && !Vendor.OnMachine(-1) && !Vendor.OnMachine(99));
 
             // ---- T23: both machines of the main room are the black one: two machines of one size stand side by side, centred on the vendor, against the wall, not overlapping

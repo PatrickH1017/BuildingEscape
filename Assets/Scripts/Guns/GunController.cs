@@ -140,7 +140,7 @@ namespace BuildingEscape
             if (!next) return true;
             var anim = vis ? vis.Anim : null;
             if (!anim || !RangedWeapon.Available) return false;
-            held = HeldGun.Attach(anim, next.kind, next.silenced);
+            held = HeldGun.Attach(anim, next.kind, next.silenced, true);          // (a player's gun: its Blender animation - the dock worker's pistol, PistolAnimation; a long gun's, WeaponAnimation)
             if (!held) return false;
             gun = next;
             reloadStep = next.Magazine.Reloading ? 0 : 99;
@@ -228,7 +228,8 @@ namespace BuildingEscape
 
         /// <summary>
         /// The arm: raised at the crosshair, or tilted up while the gun is being reloaded. In first person with a sight on the gun (<see cref="HeldGun.FirstPersonReload"/>) the gun stays aimed and the reload is shown by the gun itself, which
-        /// moves out of the sight line and back with the reload's progress (<see cref="ReloadMotionRules"/>, the owner, 2026-10-23); the sounds' times set where its steps fall.
+        /// moves out of the sight line and back with the reload's progress (<see cref="ReloadMotionRules"/>, the owner, 2026-10-23); the sounds' times set where its steps fall. A pistol held with the dock worker's Blender animation
+        /// (<see cref="HeldGun.Animated"/>, 2026-10-27) stays aimed and plays the reload clip at the reload's progress, in both views; a long gun held with its Blender animation goes down to the low ready for the reload in third person.
         /// </summary>
         void PoseArm(GunMagazine mag, Vector3 aimPoint, bool bodyFree)
         {
@@ -237,7 +238,21 @@ namespace BuildingEscape
             var from = held.Grip.position;
             var dir = aimPoint - from;
             if (dir.sqrMagnitude < 0.25f) dir = transform.forward;
-            if (mag.Reloading && held.FirstPersonReload)
+            if (held.Animated && !held.TwoHanded)
+            {
+                held.ReloadProgress = mag.Reloading ? Mathf.Max(0.001f, mag.ReloadProgress(Time.time)) : 0f;
+                held.SlideLocked = mag.Rounds <= 0;
+                held.AimDirection = dir.normalized;
+                held.Raise = 1f;
+            }
+            else if (mag.Reloading && held.Animated && !held.FirstPersonReload)
+            {
+                // a long gun with its Blender animation, in third person: it goes down to the low ready while the magazine is changed (its file has no reload) and comes up again after
+                held.ReloadProgress = 0f;
+                held.AimDirection = dir.normalized;
+                held.Raise = 0f;
+            }
+            else if (mag.Reloading && held.FirstPersonReload)
             {
                 if (held.ReloadSteps == null) held.ReloadSteps = ReloadMotionRules.StepFractions(GunSounds.ReloadTimes(gun.Data.sounds));
                 held.ReloadProgress = mag.ReloadProgress(Time.time);

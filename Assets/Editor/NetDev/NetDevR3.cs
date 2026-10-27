@@ -82,12 +82,36 @@ namespace BuildingEscape.EditorTools
             yield return Snap("inv_heavy");
             pack.capacity = 40f;
 
+            // ---- more loot than the list shows: it stays ten rows tall and scrolls inside the window (the owner, 2026-10-27)
+            pack.capacity = 1000f;
+            for (int i = 0; i < 14; i++)
+                gen.SpawnLoot(i % 4, player.transform.position + player.transform.forward * (2f + 1.5f * (i / 5)) + player.transform.right * (1.3f * (i % 5 - 2)) + Vector3.up * 0.8f, 1);
+            yield return new WaitForSeconds(0.6f);
+            foreach (var p in FindObjectsByType<Pickup>(FindObjectsSortMode.None))
+                if (p && p.Loot && p.isActiveAndEnabled && !pack.Contains(p) && pack.CanFit(p, out _)) pack.TryStore(p);
+            yield return new WaitForSeconds(0.6f);
+            float rows = Backpack.LootListRows * 50f - 6f;           // (rows of 44 with gaps of 6, before the window's scale)
+            float scale = HudTheme.S;
+            R3Check("more than ten pieces of loot in the pack", pack.LootCount > Backpack.LootListRows, $"loot={pack.LootCount}");
+            R3Check("the loot list is ten rows tall", pack.LootRowsShown == Backpack.LootListRows && Mathf.Abs(pack.LootViewHeight - rows * scale) < 1f, $"rows={pack.LootRowsShown} view={pack.LootViewHeight:F0} ten rows={rows * scale:F0}");
+            R3Check("the rest of the loot is below, to scroll to", pack.LootContentHeight > pack.LootViewHeight + 30f * scale, $"content={pack.LootContentHeight:F0} view={pack.LootViewHeight:F0}");
+            yield return Snap("inv_loot_top");
+            var lootScroll = (MenuKit.Scroll)typeof(Backpack).GetField("lootScroll", BindingFlags.NonPublic | BindingFlags.Instance).GetValue(pack);
+            lootScroll.pos = 100000f;
+            yield return new WaitForSeconds(0.4f);
+            R3Check("the list scrolls to its last row and no further", Mathf.Abs(lootScroll.pos - (pack.LootContentHeight - pack.LootViewHeight)) < 2f * scale + 1f, $"pos={lootScroll.pos:F0} content={pack.LootContentHeight:F0} view={pack.LootViewHeight:F0}");
+            yield return Snap("inv_loot_bottom");
+            lootScroll.pos = 0f;
+            pack.capacity = 40f;
+
             // ---- other window sizes
             foreach (var (sw, sh) in new[] { (1280, 720), (960, 540), (3840, 2160) })
             {
                 if (!SetGameViewSize(sw, sh)) { Log("[R3] SKIP other window sizes: the Game view cannot be resized from here"); break; }
                 yield return new WaitForSeconds(0.8f);
                 Log($"[R3] screen now {Screen.width}x{Screen.height}");
+                if (sh < 1000) R3Check($"at {sw}x{sh} the loot list shows the rows the window has room for (3 to 9)", pack.LootRowsShown >= 3 && pack.LootRowsShown < Backpack.LootListRows, $"rows={pack.LootRowsShown}");
+                else R3Check($"at {sw}x{sh} the loot list shows ten rows", pack.LootRowsShown == Backpack.LootListRows, $"rows={pack.LootRowsShown}");
                 yield return Snap($"inv_{sw}");
             }
             ResetGameViewSize();

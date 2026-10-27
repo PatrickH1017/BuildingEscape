@@ -53,8 +53,8 @@ namespace BuildingEscape
         public const float HoldSeconds = 1f;
         /// <summary>The host starts the Intro this long after every machine has its docks built, so nobody misses the first picture.</summary>
         public const float LeadIn = 2.5f;
-        /// <summary>The length of the Intro: the workers talking in a circle (5.4 s), the TV coming on and the workers lining up in front of it, the monologue on it (27 s), a moment of static, the workers' line, the vendor's bay door rolling up on him and his four lines.</summary>
-        public const float Total = 57.6f;
+        /// <summary>The length of the Intro: the workers talking in a circle (5.4 s), the TV coming on and the workers lining up in front of it, the monologue on it (27 s), a moment of static, the workers' line, a black "Later that night" card, the vendor's bay door rolling up on him and his four lines.</summary>
+        public const float Total = 60.1f;
         /// <summary>The TV comes on at this time (before it the workers stand in a circle talking and it is dark), shows static for <see cref="TvStaticSeconds"/> and then the picture; the workers look round at it, one after the other, and walk to their places in the line in front of it (the owner, 2026-10-20).</summary>
         public const float TvOnAt = 5.4f;
         public const float TvStaticSeconds = 0.5f;
@@ -65,16 +65,22 @@ namespace BuildingEscape
         /// <summary>The private jet flies across the windows during the window shot (on the TV).</summary>
         public const float JetStart = 23.8f, JetSeconds = 4.6f;
         /// <summary>The vendor's bay door starts to roll up (it takes <see cref="DockBayDoor.RollSeconds"/>) a little after the workers' line has ended (the owner, 2026-10-19 night: the vendor shows up after they say they are going to call).</summary>
-        public const float BayOpensAt = 39.9f;
+        public const float BayOpensAt = 42.4f;
         /// <summary>How many workers hang out in the break room: the players' characters, a coworker beside a lone player, and coworkers to make five (the owner, 2026-10-20).</summary>
         public const int Workers = 5;
         /// <summary>The workers take in the line that takes their bonuses this long after they have heard it, and only then do their heads drop (the owner, 2026-10-20: "they should wait until after they hear it").</summary>
         public const float DropAfterLine = 0.35f;
 
-        /// <summary>The beats that matter, by number: the dark TV, the TV coming on, the boss's first and last lines, the line that takes the bonuses, the static, the workers' line, the vendor's door and his four lines.</summary>
-        public const int OffBeat = 0, TvOnBeat = 1, FirstBossBeat = 2, BonusBeat = 4, LastBossBeat = 7, StaticBeat = 8, WorkerBeat = 9, DoorBeat = 10, FirstVendorBeat = 11, LastVendorBeat = 14;
+        /// <summary>The beats that matter, by number: the dark TV, the TV coming on, the boss's first and last lines, the line that takes the bonuses, the static, the workers' line, the night card, the vendor's door and his four lines.</summary>
+        public const int OffBeat = 0, TvOnBeat = 1, FirstBossBeat = 2, BonusBeat = 4, LastBossBeat = 7, StaticBeat = 8, WorkerBeat = 9, NightBeat = 10, DoorBeat = 11, FirstVendorBeat = 12, LastVendorBeat = 15;
 
-        /// <summary>The timeline: fifteen beats, 57.6 s. The words are in <see cref="IntroContent"/>.</summary>
+        /// <summary>
+        /// Between the workers' line and the vendor (the owner, 2026-10-27: "Add quick black screen that says "Later that night" right after the dock worker says "call the guys you know" but before the vendor scene"): the picture goes
+        /// black and <see cref="IntroContent.NightCard"/> is shown, fading in and out in <see cref="CardFade"/> s. From the card on the TV is off (it is night: no static and no hiss under the vendor's lines; the owner, 2026-10-27).
+        /// </summary>
+        public const float CardFade = 0.35f;
+
+        /// <summary>The timeline: sixteen beats, 60.1 s. The words are in <see cref="IntroContent"/>.</summary>
         public static readonly IntroBeat[] Beats =
         {
             new IntroBeat(0.0f, 5.4f, IntroShot.Off, DockShot.Establish, null, Speaker.None),
@@ -87,11 +93,12 @@ namespace BuildingEscape
             new IntroBeat(28.4f, 32.4f, IntroShot.Low, DockShot.Faces, IntroContent.Line6, Speaker.Boss),
             new IntroBeat(32.4f, 34.2f, IntroShot.None, DockShot.Behind, null, Speaker.None),
             new IntroBeat(34.2f, 39.4f, IntroShot.None, DockShot.TwoShot, IntroContent.FinalLine, Speaker.Worker),
-            new IntroBeat(39.4f, 41.8f, IntroShot.None, DockShot.Bay, null, Speaker.None),
-            new IntroBeat(41.8f, 44.3f, IntroShot.None, DockShot.Bay, IntroContent.VendorLine1, Speaker.Vendor),
-            new IntroBeat(44.3f, 47.4f, IntroShot.None, DockShot.Bay, IntroContent.VendorLine2, Speaker.Vendor),
-            new IntroBeat(47.4f, 53.6f, IntroShot.None, DockShot.Bay, IntroContent.VendorLine3, Speaker.Vendor),
-            new IntroBeat(53.6f, 57.6f, IntroShot.None, DockShot.Bay, IntroContent.VendorLine4, Speaker.Vendor),
+            new IntroBeat(39.4f, 41.9f, IntroShot.Off, DockShot.Bay, null, Speaker.None),
+            new IntroBeat(41.9f, 44.3f, IntroShot.Off, DockShot.Bay, null, Speaker.None),
+            new IntroBeat(44.3f, 46.8f, IntroShot.Off, DockShot.Bay, IntroContent.VendorLine1, Speaker.Vendor),
+            new IntroBeat(46.8f, 49.9f, IntroShot.Off, DockShot.Bay, IntroContent.VendorLine2, Speaker.Vendor),
+            new IntroBeat(49.9f, 56.1f, IntroShot.Off, DockShot.Bay, IntroContent.VendorLine3, Speaker.Vendor),
+            new IntroBeat(56.1f, 60.1f, IntroShot.Off, DockShot.Bay, IntroContent.VendorLine4, Speaker.Vendor),
         };
 
         /// <summary>Is the vote to skip won? At least half of the party must be holding (1 of 1, 1 of 2, 2 of 3, 2 of 4, 3 of 5).</summary>
@@ -124,6 +131,14 @@ namespace BuildingEscape
 
         /// <summary>How long a line takes to type out, which is how long it takes to say (s).</summary>
         public static float TypedSeconds(string line) => string.IsNullOrEmpty(line) ? 0f : line.Length / CharsPerSecond;
+
+        /// <summary>How much of the night card shows at this time: 0 outside its beat, 1 for most of it, faded in and out over <see cref="CardFade"/> at its two ends.</summary>
+        public static float NightCard(float t)
+        {
+            var b = Beats[NightBeat];
+            if (t < b.start || t >= b.end) return 0f;
+            return Math.Min(1f, Math.Min((t - b.start) / CardFade, (b.end - t) / CardFade));
+        }
 
         /// <summary>0 = black, 1 = the picture: faded in at the start and out at the end.</summary>
         public static float Fade(float t) => Math.Max(0f, Math.Min(1f, Math.Min(t / FadeIn, (Total - t) / FadeOut)));

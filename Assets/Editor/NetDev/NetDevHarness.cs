@@ -308,6 +308,7 @@ namespace BuildingEscape.EditorTools
             EditorApplication.isPlaying = true;
         }
         public static void DemoNet() => Start("demonet");
+        public static void RadioNet() => Start("radionet");
         public static void MeleeNet() => Start("meleenet");
         public static void PingNet() => Start("pingnet");
         public static void DevSpectate() => Start("devspectate");
@@ -407,6 +408,24 @@ namespace BuildingEscape.EditorTools
         public static void FpLook()
         {
             SessionState.SetString("netdev.mode", "fplook");
+            EditorSceneManager.OpenScene("Assets/Scenes/Greybox.unity");
+            EditorApplication.isPlaying = true;
+        }
+        public static void PistolAnim()
+        {
+            SessionState.SetString("netdev.mode", "pistolanim");
+            EditorSceneManager.OpenScene("Assets/Scenes/Greybox.unity");
+            EditorApplication.isPlaying = true;
+        }
+        public static void Radio()
+        {
+            SessionState.SetString("netdev.mode", "radio");
+            EditorSceneManager.OpenScene("Assets/Scenes/Greybox.unity");
+            EditorApplication.isPlaying = true;
+        }
+        public static void WeaponAnim()
+        {
+            SessionState.SetString("netdev.mode", "weaponanim");
             EditorSceneManager.OpenScene("Assets/Scenes/Greybox.unity");
             EditorApplication.isPlaying = true;
         }
@@ -586,7 +605,7 @@ namespace BuildingEscape.EditorTools
             started = Time.realtimeSinceStartup;
             VoiceChat.QaNoRealMic = true;                                  // (no solo run opens the real microphone: the voice scenarios install a tone input)
             GuardAI.DonutRollOverride = mode == "r7" ? -1f : 1f;           // (no donut breaks in the other scenarios: a guard standing still for 6 s could upset their timing)
-            if (mode != "offline" && mode != "sneak" && mode != "floors" && mode != "roomshots" && mode != "corelooks" && mode != "looks" && mode != "floatqa" && mode != "computerui" && mode != "r5" && mode != "r6" && mode != "r7" && mode != "r7look" && mode != "probe" && mode != "doors" && mode != "outpost" && mode != "pew" && mode != "pewlook" && mode != "weaponsheet" && mode != "meleelook" && mode != "gunsheet" && mode != "charsheet" && mode != "dresssheet" && mode != "themesheet" && mode != "fplook" && mode != "gunitems" && mode != "gunlook" && mode != "gunsafes" && mode != "guns" && mode != "gunui" && mode != "combat" && mode != "armour" && mode != "assetpreview" && mode != "citynew" && mode != "round12" && mode != "checklist" && mode != "docklook" && mode != "guardcall" && mode != "guardsight" && mode != "vending" && mode != "bardrag" && mode != "cones" && mode != "asks1021" && mode != "pingui" && mode != "dockseeds" && mode != "ui" && mode != "menus" && mode != "shaft" && mode != "pewloot" && mode != "demo" && mode != "demoui" && mode != "lootqa" && mode != "etr" && mode != "etrcarry" && mode != "etrscan" && mode != "introtv" && mode != "introoffline" && mode != "invui" && mode != "doorsslide" && mode != "citylook" && mode != "doorlooks" && mode != "asks1023" && mode != "asks1023b" && mode != "asks1023bui" && mode != "asks1023c" && mode != "asks1023d" && mode != "asks1023e" && mode != "asks1023f" && mode != "asks1023g" && mode != "walkielook" && mode != "asks1023v" && mode != "asks1023vui" && mode != "asks1023w" && mode != "pvpmap" && mode != "pvplineupui" && mode != "pvpbattlefield" && mode != "pvpbattlefieldui" && mode != "audiodevicesui" && mode != "guardalert" && mode != "lamppreview" && mode != "alarmlooks" && mode != "consumables" && mode != "safetynet" && mode != "propscan" && mode != "packkeys")
+            if (mode != "offline" && mode != "sneak" && mode != "floors" && mode != "roomshots" && mode != "corelooks" && mode != "looks" && mode != "floatqa" && mode != "computerui" && mode != "r5" && mode != "r6" && mode != "r7" && mode != "r7look" && mode != "probe" && mode != "doors" && mode != "outpost" && mode != "pew" && mode != "pewlook" && mode != "weaponsheet" && mode != "meleelook" && mode != "gunsheet" && mode != "charsheet" && mode != "dresssheet" && mode != "themesheet" && mode != "fplook" && mode != "pistolanim" && mode != "weaponanim" && mode != "radio" && mode != "gunitems" && mode != "gunlook" && mode != "gunsafes" && mode != "guns" && mode != "gunui" && mode != "combat" && mode != "armour" && mode != "assetpreview" && mode != "citynew" && mode != "round12" && mode != "checklist" && mode != "docklook" && mode != "guardcall" && mode != "guardsight" && mode != "vending" && mode != "bardrag" && mode != "cones" && mode != "asks1021" && mode != "pingui" && mode != "dockseeds" && mode != "ui" && mode != "menus" && mode != "shaft" && mode != "pewloot" && mode != "demo" && mode != "demoui" && mode != "lootqa" && mode != "etr" && mode != "etrcarry" && mode != "etrscan" && mode != "introtv" && mode != "introoffline" && mode != "invui" && mode != "doorsslide" && mode != "citylook" && mode != "doorlooks" && mode != "asks1023" && mode != "asks1023b" && mode != "asks1023bui" && mode != "asks1023c" && mode != "asks1023d" && mode != "asks1023e" && mode != "asks1023f" && mode != "asks1023g" && mode != "walkielook" && mode != "asks1023v" && mode != "asks1023vui" && mode != "asks1023w" && mode != "pvpmap" && mode != "pvplineupui" && mode != "pvpbattlefield" && mode != "pvpbattlefieldui" && mode != "audiodevicesui" && mode != "guardalert" && mode != "lamppreview" && mode != "alarmlooks" && mode != "consumables" && mode != "safetynet" && mode != "propscan" && mode != "packkeys")
                 yield return WaitFor(() => NetSession.Instance != null && SceneManager.GetActiveScene().name == NetConst.MenuScene, 30, "menu");
             switch (mode)
             {
@@ -642,6 +661,9 @@ namespace BuildingEscape.EditorTools
                 case "weaponsheet": yield return WeaponSheetScenario(); break;
                 case "meleelook": yield return MeleeLookScenario(); break;
                 case "fplook": yield return FpLookScenario(); break;
+                case "pistolanim": yield return PistolAnimScenario(); break;
+                case "weaponanim": yield return WeaponAnimScenario(); break;
+                case "radio": yield return RadioScenario(); break;
                 case "themesheet": yield return ThemeSheetScenario(); break;
                 case "dresssheet": yield return DressSheetScenario(); break;
                 case "charsheet": yield return CharSheetScenario(); break;
@@ -685,6 +707,7 @@ namespace BuildingEscape.EditorTools
                 case "etrscan": yield return EtrScanScenario(); break;
                 case "introtv": yield return EtrTvScenario(); break;
                 case "demonet": yield return System.Environment.GetEnvironmentVariable("BE_QA_ROLE") == "host" ? DemoHostScenario() : DemoClientScenario(); break;
+                case "radionet": yield return System.Environment.GetEnvironmentVariable("BE_QA_ROLE") == "host" ? RadioNetHostScenario() : RadioNetClientScenario(); break;
                 case "gunnet": yield return System.Environment.GetEnvironmentVariable("BE_QA_ROLE") == "host" ? GunHostScenario() : GunClientScenario(); break;
                 case "outpostnet": yield return System.Environment.GetEnvironmentVariable("BE_QA_ROLE") == "host" ? OutpostNetHostScenario() : OutpostNetClientScenario(); break;
                 case "shaftnet": yield return System.Environment.GetEnvironmentVariable("BE_QA_ROLE") == "host" ? ShaftHostScenario() : ShaftClientScenario(); break;
@@ -1136,7 +1159,7 @@ namespace BuildingEscape.EditorTools
             var pack = MyPack;
             Teleport(MachineSpot(0));                             // (the coffee mug is a vending machine's now: the owner, 2026-10-23)
             yield return new WaitForSeconds(1.0f);
-            RunSync.Instance.RequestMachineBuy(0, 0);                       // coffee mug
+            RunSync.Instance.RequestMachineBuy(0, Vendor.MachineProducts[1]);          // (the endurance laster, $150: since 2026-10-27 the machines sell the consumables only)
             yield return WaitFor(() => pack.Items.Count >= 1, 20, "mug in pack");
             Teleport(vendor.transform.position + Vector3.up * 1.1f);
             yield return new WaitForSeconds(1.0f);

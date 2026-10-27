@@ -36,6 +36,8 @@ namespace BuildingEscape
         public Vector3 Point(float side, float up, float outward) => transform.position + transform.right * side + Vector3.up * up + transform.forward * outward;
 
         public bool OnProgram => mode == Mode.Program;
+        /// <summary>Is the screen showing static (for the tests)?</summary>
+        public bool OnStatic => mode == Mode.Static;
 
         public static DockTv Build(Transform parent, Vector3 floorPoint)
         {

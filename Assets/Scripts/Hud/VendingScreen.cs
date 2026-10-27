@@ -6,7 +6,7 @@ namespace BuildingEscape
     /// The screen of a vending machine (the owner, 2026-10-23: "the UI should be a screen like the reference image attached (the green one)": a green terminal, a header and one wide button for each thing to buy). Opened by E on a machine
     /// (<see cref="VendingMachine.Use"/>), shut by Esc, by walking away from the machine or by its LEAVE button. While it is up it counts as a screen over the game (<see cref="TestMode.PanelOpen"/> asks: the game keys are blocked and the cursor is free).
     /// A click buys one: offline and on the host the dealer's purchase runs at once (<see cref="Vendor.BuyAtMachine"/>), a client asks the host (<see cref="Net.RunSync.RequestMachineBuy"/>), who checks the player is at the machine and answers with the usual notice.
-    /// What it sells is <see cref="Vendor.MachineProducts"/>, with the dealer's own names, prices and words (the line under the buttons is the blurb of the one the mouse is on). The look is the owner's reference picture: dark green, thin bright green edges.
+    /// What it sells is <see cref="Vendor.MachineProducts"/>, with the dealer's own names, prices and words (the line under the buttons is the blurb of the one the mouse is on). The look is the HUD's (the owner, 2026-10-27: "make the vending machine match the colors of" the cash card): the blue card with its ink outline, the gold coin and the green cash, an orange tag, dark blue rows with green prices, a yellow LEAVE pill.
     /// </summary>
     public sealed class VendingScreen : MonoBehaviour
     {
@@ -20,13 +20,6 @@ namespace BuildingEscape
         float statusUntil;
 
         static readonly Color Dim = new Color(0f, 0f, 0f, 0.55f);
-        static readonly Color PanelFill = new Color(0.02f, 0.09f, 0.07f, 0.97f);
-        static readonly Color Edge = new Color(0.30f, 0.95f, 0.60f, 1f);
-        static readonly Color EdgeDim = new Color(0.16f, 0.45f, 0.32f, 1f);
-        static readonly Color Button = new Color(0.04f, 0.18f, 0.13f, 1f);
-        static readonly Color ButtonHover = new Color(0.07f, 0.30f, 0.21f, 1f);
-        static readonly Color Ink = new Color(0.55f, 1f, 0.75f, 1f);
-        static readonly Color InkDim = new Color(0.30f, 0.55f, 0.42f, 1f);
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
         static void ResetStatics() { instance = null; Open = false; }
@@ -86,17 +79,16 @@ namespace BuildingEscape
             Say(vendor.BuyAtMachine(hm, pack, product, machine.TrayPoint));
         }
 
-        static Rect Grow(Rect r, float d) => new Rect(r.x - d, r.y - d, r.width + d * 2f, r.height + d * 2f);
-
         void OnGUI()
         {
             if (!Open || !machine) return;
             var ev = Event.current;
             GUI.depth = 5;                                              // (behind the HUD: its notices - the answer a client gets - show over the screen)
+            MenuKit.Begin();
             float s = HudTheme.S;
             var products = Vendor.MachineProducts;
-            float pw = Mathf.Min(560f * s, Screen.width - 40f * s), pad = 22f * s, gap = 9f * s, headH = 112f * s, footH = 112f * s;
-            float rowH = Mathf.Clamp((Screen.height - 32f * s - headH - footH - pad) / Mathf.Max(1, products.Length) - gap, 30f * s, 58f * s);          // (nine products since 2026-10-25: the rows shrink to fit a short window)
+            float pw = Mathf.Min(560f * s, Screen.width - 40f * s), pad = 22f * s, gap = 10f * s, headH = 96f * s, footH = 112f * s;
+            float rowH = Mathf.Clamp((Screen.height - 32f * s - headH - footH - pad) / Mathf.Max(1, products.Length) - gap, 30f * s, 58f * s);          // (the rows shrink to fit a short window)
             var minePack = LocalPlayer() ? LocalPlayer().GetComponent<Backpack>() : null;
             float ph = headH + products.Length * (rowH + gap) + footH + pad;
             var panel = new Rect((Screen.width - pw) * 0.5f, Mathf.Max(16f * s, (Screen.height - ph) * 0.5f), pw, ph);
@@ -110,11 +102,14 @@ namespace BuildingEscape
                 GUI.color = Dim;
                 GUI.DrawTexture(new Rect(0f, 0f, Screen.width, Screen.height), Texture2D.whiteTexture);
                 GUI.color = old;
-                HudTheme.Rounded(Grow(panel, 3f * s), Edge, 16f * s);
-                HudTheme.Rounded(panel, PanelFill, 14f * s);
-                HudTheme.Text(new Rect(panel.x + pad, panel.y + 14f * s, pw - pad * 2f, 22f * s), "CASH", 15f, InkDim, TextAnchor.MiddleLeft);
-                HudTheme.Text(new Rect(panel.x + pad, panel.y + 36f * s, pw - pad * 2f, 50f * s), HudTheme.Money(cash), 34f, Ink, TextAnchor.MiddleLeft);
-                HudTheme.Rounded(new Rect(panel.x + pad, panel.y + headH - 12f * s, pw - pad * 2f, 2f * s), EdgeDim, 1f * s);
+                HudTheme.Panel(panel);
+                // the head: the coin and the cash, as on the HUD's cash card, and the machine's tag
+                const string tag = "VENDING";
+                float tagW = HudTheme.Width(tag, 15f) + 28f * s;
+                HudTheme.Chip(new Rect(panel.xMax - pad - tagW, panel.y + 24f * s, tagW, 30f * s), tag, HudTheme.Warning, 15f);
+                HudIcons.Coin(new Rect(panel.x + pad, panel.y + 20f * s, 38f * s, 38f * s));
+                HudTheme.Text(new Rect(panel.x + pad + 46f * s, panel.y + 14f * s, pw - pad * 2f - 46f * s - tagW, 50f * s), HudTheme.Money(cash), 36f, HudTheme.Cash, TextAnchor.MiddleLeft);
+                HudTheme.Rounded(new Rect(panel.x + pad, panel.y + headH - 16f * s, pw - pad * 2f, 3f * s), HudTheme.Alpha(HudTheme.Ink, 0.45f), 1.5f * s);
             }
 
             float y = panel.y + headH;
@@ -128,11 +123,15 @@ namespace BuildingEscape
                 if (hover) hint = p.blurb;
                 if (ev.type == EventType.Repaint)
                 {
-                    HudTheme.Rounded(r, can ? Edge : EdgeDim, 10f * s);
-                    HudTheme.Rounded(Grow(r, -2f * s), hover && can ? ButtonHover : Button, 8f * s);
-                    HudTheme.Text(new Rect(r.x + 20f * s, r.y, r.width * 0.62f, r.height), p.name.ToUpperInvariant(), 22f, can ? Ink : InkDim, TextAnchor.MiddleLeft);
-                    HudTheme.Text(new Rect(r.xMax - 170f * s, r.y, 150f * s, r.height), HudTheme.Money(p.price), 22f, can ? Ink : InkDim, TextAnchor.MiddleRight);
-                    if (p.isConsumable && minePack) HudTheme.Text(new Rect(r.xMax - 250f * s, r.y, 70f * s, r.height), minePack.CountConsumable(p.consumable) + "/" + ConsumableRules.Of(p.consumable).limit, 16f, InkDim, TextAnchor.MiddleRight);          // (what the pack holds / the limit)
+                    HudTheme.Body(r, hover && can ? HudTheme.Light(HudTheme.Track, 0.16f) : HudTheme.Track, 12f, 2.5f, 3f, true);
+                    HudTheme.Text(new Rect(r.x + 20f * s, r.y, r.width * 0.58f, r.height), p.name.ToUpperInvariant(), 21f, can ? HudTheme.Bright : HudTheme.Dim, TextAnchor.MiddleLeft);
+                    HudTheme.Text(new Rect(r.xMax - 150f * s, r.y, 132f * s, r.height), HudTheme.Money(p.price), 22f, can ? HudTheme.Cash : HudTheme.Dim, TextAnchor.MiddleRight);
+                    if (p.isConsumable && minePack)
+                    {
+                        string have = minePack.CountConsumable(p.consumable) + "/" + ConsumableRules.Of(p.consumable).limit;          // (what the pack holds / the limit)
+                        float cw = HudTheme.Width(have, 14f) + 22f * s;
+                        HudTheme.Chip(new Rect(r.xMax - 160f * s - cw, r.center.y - 12f * s, cw, 24f * s), have, HudTheme.Info, 14f);
+                    }
                 }
                 if (ev.type == EventType.MouseDown && ev.button == 0 && hover) { ev.Use(); Buy(index); }
                 y += rowH + gap;
@@ -141,18 +140,11 @@ namespace BuildingEscape
             // the blurb of the one under the mouse, or what the last purchase said
             string line = Time.time < statusUntil && status.Length > 0 ? status : hint;
             if (ev.type == EventType.Repaint && line.Length > 0)
-                HudTheme.Text(new Rect(panel.x + pad, y + 2f * s, pw - pad * 2f, 26f * s), line, 16f, Ink, TextAnchor.MiddleLeft);
+                HudTheme.Text(new Rect(panel.x + pad, y + 2f * s, pw - pad * 2f, 26f * s), line, 16f, HudTheme.Muted, TextAnchor.MiddleLeft);
             y += 36f * s;
 
-            var leave = new Rect(panel.x + pad, y, pw - pad * 2f, 52f * s);
-            bool overLeave = leave.Contains(ev.mousePosition);
-            if (ev.type == EventType.Repaint)
-            {
-                HudTheme.Rounded(leave, Edge, 10f * s);
-                HudTheme.Rounded(Grow(leave, -2f * s), overLeave ? ButtonHover : Button, 8f * s);
-                HudTheme.Text(leave, "LEAVE", 20f, Ink, TextAnchor.MiddleCenter);
-            }
-            if (ev.type == EventType.MouseDown && ev.button == 0 && overLeave) { ev.Use(); Open = false; }
+            var leave = new Rect(panel.x + pad, y, pw - pad * 2f, 50f * s);
+            if (MenuKit.Button(leave, "LEAVE", HudTheme.Quota, 20f)) Open = false;
         }
     }
 }

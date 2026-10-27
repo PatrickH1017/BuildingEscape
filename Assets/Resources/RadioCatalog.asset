@@ -1,0 +1,44 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c4364010f44567f4892d1c77a5d8d561, type: 3}
+  m_Name: RadioCatalog
+  m_EditorClassIdentifier: 
+  radio: {fileID: 1538072803918672, guid: c732b10bf2d956f478a1a3598ae2a10e, type: 3}
+  stations:
+  - name: MIDNIGHT MODE
+    tracks:
+    - {fileID: 8300000, guid: bd339ee64c2de2949a137c81777c797e, type: 3}
+    - {fileID: 8300000, guid: 876d8c2cd51aaac48a5ac350c5fb7190, type: 3}
+    - {fileID: 8300000, guid: b17765b43b0e9bb4391ca7766dc58b1c, type: 3}
+    - {fileID: 8300000, guid: 11ca1c1b4261b17478ba26bbd0713197, type: 3}
+    - {fileID: 8300000, guid: 26600f6880f289a4098811a1b7c67c75, type: 3}
+    - {fileID: 8300000, guid: 9291ce6939cdc554f80243f37024ff87, type: 3}
+    - {fileID: 8300000, guid: c31c5f86d88e55443b81aca8ec4b68ad, type: 3}
+    - {fileID: 8300000, guid: 0bc4065e91583d34a821649b1ab8373d, type: 3}
+    - {fileID: 8300000, guid: 079f7b53895ba304ba3839daa09f9dd9, type: 3}
+    - {fileID: 8300000, guid: 36913446293a32247976ef39aaa1eff3, type: 3}
+  - name: HARD ROCK
+    tracks:
+    - {fileID: 8300000, guid: 348f348f09d8232458ab90cba007ac47, type: 3}
+    - {fileID: 8300000, guid: d680ab3e8002f7d488a86d72d5880466, type: 3}
+    - {fileID: 8300000, guid: 4be645bd1e89b0646a687b523c4c194c, type: 3}
+    - {fileID: 8300000, guid: 0f233a6a8e8be854fa0c1c7318ce9bb8, type: 3}
+    - {fileID: 8300000, guid: d834f911df34546479ebc7869f054019, type: 3}
+    - {fileID: 8300000, guid: d28de280d51aaa746b2a21099e617bfe, type: 3}
+    - {fileID: 8300000, guid: aedab1b3fab682a469fbe6076e799b2f, type: 3}
+    - {fileID: 8300000, guid: 41fbd855e439de649b07f9df3d21714c, type: 3}
+    - {fileID: 8300000, guid: da6c6b920b4a6c7459a9e26aa4babf1b, type: 3}
+    - {fileID: 8300000, guid: 9d4554948ba0a9b449f6e00ae2ef224d, type: 3}
+  - name: URBAN JAZZ
+    tracks:
+    - {fileID: 8300000, guid: 72368974817d70142815fb02c6691d3d, type: 3}
+    - {fileID: 8300000, guid: 89fec2a52c4ff8d4c9d00e92d699e6a0, type: 3}

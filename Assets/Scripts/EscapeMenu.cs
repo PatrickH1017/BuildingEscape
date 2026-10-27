@@ -79,7 +79,7 @@ namespace BuildingEscape
             }
         }
 
-        void LateUpdate() { shopWasOpen = Vendor.ShopOpen; panelWasOpen = ElevatorPanel.Open; outpostWasOpen = OutpostUi.Open; terminalWasOpen = DevTerminal.Open || VendingScreen.Open; }
+        void LateUpdate() { shopWasOpen = Vendor.ShopOpen; panelWasOpen = ElevatorPanel.Open; outpostWasOpen = OutpostUi.Open; terminalWasOpen = DevTerminal.Open || VendingScreen.Open || RadioScreen.Open; }
 
         void OnGUI()
         {

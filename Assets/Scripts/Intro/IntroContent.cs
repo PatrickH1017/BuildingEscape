@@ -25,6 +25,9 @@ namespace BuildingEscape
         /// </summary>
         public const string FinalLine = "That's enough, it's time for revenge. Let's meet back up tonight. Call that Vendor you talked about.";
 
+        /// <summary>The black card between the workers' line and the vendor (the owner's words, 2026-10-27).</summary>
+        public const string NightCard = "Later that night";
+
         /// <summary>The name over the vendor's lines.</summary>
         public const string VendorLabel = "THE VENDOR";
 

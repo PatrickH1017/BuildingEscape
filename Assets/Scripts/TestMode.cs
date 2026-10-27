@@ -14,7 +14,7 @@ namespace BuildingEscape
         public const string ConesPrefKey = "OvertimeEscape.TestMode.ShowGuardCones";
 
         /// <summary>True while the panel is open (the camera frees the cursor), the developer terminal is up (<see cref="DevTerminal"/>), the spectator's dev menu is (<see cref="DevSpectator"/>) or a vending machine's screen is (<see cref="VendingScreen"/>): all are screens over the game, and everything that asks whether a screen is up asks this.</summary>
-        public static bool PanelOpen => panelOpen || DevTerminal.Open || DevSpectator.MenuOpen || VendingScreen.Open;
+        public static bool PanelOpen => panelOpen || DevTerminal.Open || DevSpectator.MenuOpen || VendingScreen.Open || RadioScreen.Open;
         static bool panelOpen;
 
         bool open;

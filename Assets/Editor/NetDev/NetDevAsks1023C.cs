@@ -59,6 +59,15 @@ namespace BuildingEscape.EditorTools
                     meBody.linearVelocity = Vector3.zero;
                     vc.Muted = false;
                     A23C("T22: the player is not speaking before the tone starts, and the guards hear nothing", !vc.Speaking && vc.HearingRadius <= 0.01f);
+                    // a normal speaking voice first (the owner, 2026-10-27: "It seems like you need to be extremely close for them to hear you"): a tone as loud as speech on a headset microphone (-30 dBFS RMS)
+                    vc.UseTestInput(new BuildingEscape.Net.ToneVoiceInput(440f, Mathf.Pow(10f, VoiceNoise.NormalSpeechDb / 20f) * Mathf.Sqrt(2f)));
+                    float minRadius = 99f;
+                    for (float el = 0f; el < 1.2f; el += Time.deltaTime) { yield return null; if (el > 0.3f) minRadius = Mathf.Min(minRadius, vc.HearingRadius); }
+                    A23C("T22: at a normal speaking volume the voice carries 15-20 m, steadily (not only on the frames a packet comes in), and the guard 12 m away goes to look", vc.Speaking && minRadius >= 15f && vc.HearingRadius <= 20f && hearer.State == GuardState.Investigate,
+                        $"(speaking {vc.Speaking}, radius {vc.HearingRadius:0.0} m, lowest {minRadius:0.0} m, guard {hearer.State})");
+                    fState.SetValue(hearer, GuardState.Patrol);
+                    hearer.GetComponent<NavMeshAgent>().ResetPath();
+                    hearer.transform.rotation = Quaternion.LookRotation(away.normalized);
                     vc.UseTestInput(new BuildingEscape.Net.ToneVoiceInput(440f));
                     yield return new WaitForSeconds(1.2f);
                     A23C("T22: with a tone as the microphone the solo player is speaking and his voice carries 30 m", vc.Speaking && vc.HearingRadius > 20f, $"(speaking {vc.Speaking}, radius {vc.HearingRadius:0.0} m)");

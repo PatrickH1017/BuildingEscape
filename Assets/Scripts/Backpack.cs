@@ -401,7 +401,7 @@ namespace BuildingEscape
             if (wobbly && wobbly.InCustody) { UiOpen = false; target = null; return; } // pinned or busted: hands are full of officer
             CleanUp();
             bool talk = Vendor.ShopOpen || ElevatorPanel.Open || OutpostUi.Open;
-            if (Input.GetKeyDown(inventoryKey) && !Vendor.ShopOpen && !ElevatorPanel.Open && !OutpostUi.Open) { UiOpen = !UiOpen; scroll = Vector2.zero; }
+            if (Input.GetKeyDown(inventoryKey) && !Vendor.ShopOpen && !ElevatorPanel.Open && !OutpostUi.Open) { UiOpen = !UiOpen; scroll = Vector2.zero; lootScroll.pos = 0f; }
             if (!UiOpen && !talk && !EscapeMenu.Open && !TestMode.PanelOpen)
                 for (int d = 1; d <= WeaponBarRules.Slots; d++)
                     if (Input.GetKeyDown(KeyCode.Alpha0 + d) || Input.GetKeyDown(KeyCode.Keypad0 + d)) PressSlot(WeaponBarRules.SlotOfKey(d));
@@ -558,7 +558,7 @@ namespace BuildingEscape
             else
             {
                 ItemSection(f, "EQUIPMENT", HudTheme.Info, SlotHint, invEquip, true, w, ref picked, ref action, HudTheme.Dim);
-                ItemSection(f, "LOOT", HudTheme.Quota, SumValue(invLoot), invLoot, true, w, ref picked, ref action);
+                LootList(f, invLoot, view.height, ref picked, ref action);        // (a list of its own that scrolls: the owner, 2026-10-27)
                 ItemSection(f, "OTHER", HudTheme.Dim, null, invOther, true, w, ref picked, ref action);
                 if (MenuKit.Button(f.Row(40f, 10f), "DROP ALL LOOT", HudTheme.Danger, 19f)) { picked = null; action = -1; }
             }
@@ -754,6 +754,73 @@ namespace BuildingEscape
                 int a = ItemRow(f, list[i], inPack, weightNow);
                 if (a != ActNone) { picked = list[i]; action = a; }
             }
+        }
+
+        // ---- the loot in the pack (the owner, 2026-10-27: "I dont want inentory to get so long because of more items. Make the loot items its own list inside of the backpack that displays 10 items at a time then you scroll down within
+        // that list"): a box as tall as ten rows (fewer when there are fewer, or when a small window has no room for ten), with its own scroll bar; the rows are one line each - the coin, the name, its worth, $ per lb, its weight and DROP.
+        public const int LootListRows = 10;
+        const float LootRowHeight = 44f, LootRowGap = 6f;
+        readonly MenuKit.Scroll lootScroll = new MenuKit.Scroll();
+        readonly MenuKit.Flow lootFlow = new MenuKit.Flow();
+
+        /// <summary>How tall the loot box is and how tall the rows in it are, as last drawn (screen pixels; for the tests: the rows are taller than the box when it scrolls).</summary>
+        public float LootViewHeight { get; private set; }
+        public float LootContentHeight => lootScroll.ContentHeight;
+        /// <summary>How many rows the loot box showed, as last drawn.</summary>
+        public int LootRowsShown { get; private set; }
+
+        /// <summary>The rows the loot box shows: ten, fewer when there are fewer, and in a small window only as many as fit in the window's list (at least three), so the box never needs the window to scroll to see all of it.</summary>
+        static int Shown(int count, float room)
+        {
+            float s = HudTheme.S;
+            int fit = Mathf.FloorToInt((room - 28f * s + LootRowGap * s) / ((LootRowHeight + LootRowGap) * s));
+            return Mathf.Min(count, Mathf.Clamp(fit, 3, LootListRows));
+        }
+
+        void LootList(MenuKit.Flow f, List<Pickup> list, float room, ref Pickup picked, ref int action)
+        {
+            if (list.Count == 0) { LootViewHeight = 0f; LootRowsShown = 0; return; }
+            float s = HudTheme.S;
+            var head = f.Row(24f, 4f);
+            if (Event.current.type == EventType.Repaint)
+            {
+                HudTheme.Circle(new Vector2(head.x + 12f * s, head.center.y), 14f * s, HudTheme.Ink);
+                HudTheme.Circle(new Vector2(head.x + 12f * s, head.center.y), 9f * s, HudTheme.Quota);
+                HudTheme.Text(new Rect(head.x + 30f * s, head.y, 360f * s, head.height), list.Count > Shown(list.Count, room) ? "LOOT   " + list.Count + " ITEMS - SCROLL FOR MORE" : "LOOT", 15f, HudTheme.Muted, TextAnchor.MiddleLeft, false);
+                string total = SumValue(list);
+                if (!string.IsNullOrEmpty(total)) HudTheme.Text(new Rect(head.xMax - 240f * s, head.y, 232f * s, head.height), total, 15f, HudTheme.Quota, TextAnchor.MiddleRight, false);
+            }
+            int shown = LootRowsShown = Shown(list.Count, room);
+            var view = f.Row(shown * (LootRowHeight + LootRowGap) - LootRowGap, 8f);
+            LootViewHeight = view.height;
+            float cw = lootScroll.Begin(view, 0f);
+            var lf = lootFlow.At(0f, lootScroll.Top, cw);
+            for (int i = 0; i < list.Count; i++)
+            {
+                int a = LootRow(lf, list[i]);
+                if (a != ActNone) { picked = list[i]; action = a; }
+            }
+            lootScroll.End(view, lf.y);
+        }
+
+        /// <summary>One row of the loot box: the coin, the name, what it is worth, $ per lb, its weight, and DROP. Returns <see cref="ActDrop"/> when DROP was clicked.</summary>
+        int LootRow(MenuKit.Flow f, Pickup p)
+        {
+            float s = HudTheme.S;
+            var r = f.Row(LootRowHeight, LootRowGap);
+            MenuKit.Plate(r, 0.18f);
+            float bh = 32f * s;
+            var dropRect = new Rect(r.xMax - 100f * s, r.y + (r.height - bh) * 0.5f, 90f * s, bh);
+            int act = MenuKit.Button(dropRect, "DROP", HudTheme.Warning, 17f) ? ActDrop : ActNone;
+            if (Event.current.type != EventType.Repaint) return act;
+            float bs = 30f * s;
+            HudIcons.Coin(new Rect(r.x + 10f * s, r.y + (r.height - bs) * 0.5f, bs, bs));
+            float x0 = r.x + 50f * s, inner = dropRect.x - 12f * s - x0, nameW = inner * 0.46f, colW = inner * 0.18f;
+            HudTheme.Text(new Rect(x0, r.y, nameW, r.height), MenuKit.Fit(p.Label, 19f * s, nameW - 8f * s), 19f, HudTheme.Bright, TextAnchor.MiddleLeft, false);
+            HudTheme.Text(new Rect(x0 + nameW, r.y, colW, r.height), HudTheme.Money(p.Value), 17f, HudTheme.Quota, TextAnchor.MiddleLeft, false);
+            HudTheme.Text(new Rect(x0 + nameW + colW, r.y, colW, r.height), "$" + WeightUnits.PerLb(p.Value, p.weight).ToString("0") + " per lb", 15f, HudTheme.Dim, TextAnchor.MiddleLeft, false);
+            HudTheme.Text(new Rect(x0 + nameW + colW * 2f, r.y, colW, r.height), WeightUnits.Lbs(WeightOf(p)), 15f, HudTheme.Muted, TextAnchor.MiddleLeft, false);
+            return act;
         }
 
         /// <summary>A dim plate with a few words (an empty list).</summary>

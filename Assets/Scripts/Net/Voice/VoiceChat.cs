@@ -25,6 +25,7 @@ namespace BuildingEscape.Net
         const int MaxPacket = 4000;       // compressed bytes
         const int ReliableAbove = 1000;   // bigger than one unreliable packet: send fragmented
         const float SendHangover = 0.25f; // keep sending a moment after the level drops
+        const float MicRelease = 0.15f;   // how fast the measured level falls between packets (seconds to fall to about a third)
 
         public static VoiceChat Instance { get; private set; }
 
@@ -190,9 +191,11 @@ namespace BuildingEscape.Net
             if (!gotPacket)
             {
                 // No audio this frame (silence, or Steam sends nothing between words): the level must still fall,
-                // or the last loud word would keep guards hearing you.
+                // or the last loud word would keep guards hearing you. (It falls away over a few tenths of a second: a speech level is a few hundredths, and the straight
+                // fall it had took it to 0 in a single frame without a packet, so between two packets the guards heard nothing and the HUD's "guards hear you up to n m" flickered.
+                // Silence still ends the hearing at once: Speaking goes false SendHangover after the last loud packet.)
                 Speaking = wantMic && Time.unscaledTime - lastLoud < SendHangover;
-                MicLevel = Mathf.MoveTowards(MicLevel, 0f, Time.deltaTime * 2f);
+                MicLevel *= Mathf.Exp(-Time.deltaTime / MicRelease);
                 FeedGuards();
             }
             if (online) UpdateVoices(nm);

@@ -1,3 +1,4 @@
+using System.Linq;
 using BuildingEscape.EditorTools;
 using BuildingEscape.Net;
 using UnityEngine;
@@ -29,6 +30,7 @@ namespace BuildingEscape.EditorTools
             RulesTest();
             AppearanceTest();
             VoiceCurveTest();
+            RadioRulesTest();
             CustodyTest();
             RoomNumberTest();
             LightingTest();
@@ -199,6 +201,34 @@ namespace BuildingEscape.EditorTools
         }
 
         /// <summary>The voice loudness -> guard hearing distance curve.</summary>
+        /// <summary>The dock radio's rules (RadioRules): the buttons, the shuffled playlists, where a station is on the shared clock, the track titles.</summary>
+        public static void RadioRulesTest()
+        {
+            Check("radio: three stations on the first three of the eight buttons, the other five do nothing", RadioRules.StationCount == 3 && RadioRules.ButtonCount == 8
+                && RadioRules.StationOfButton(0) == 0 && RadioRules.StationOfButton(1) == 1 && RadioRules.StationOfButton(2) == 2 && Enumerable.Range(3, 5).All(b => RadioRules.StationOfButton(b) == -1) && RadioRules.StationOfButton(-1) == -1);
+            var o1 = RadioRules.Order(10, 1234); var o2 = RadioRules.Order(10, 1234); var o3 = RadioRules.Order(10, 99);
+            Check("radio: a playlist is every track once, the same order for the same seed (every machine), another for another seed", o1.OrderBy(x => x).SequenceEqual(Enumerable.Range(0, 10)) && o1.SequenceEqual(o2) && !o1.SequenceEqual(o3) && !o1.SequenceEqual(Enumerable.Range(0, 10)));
+            var lens = new[] { 100f, 50f, 30f };
+            var order = new[] { 2, 0, 1 };
+            bool a = RadioRules.Locate(lens, order, 10, out int s1, out float f1), b = RadioRules.Locate(lens, order, 35, out int s2, out float f2), c = RadioRules.Locate(lens, order, 179, out int s3, out float f3),
+                 d = RadioRules.Locate(lens, order, 180 + 31, out int s4, out float f4), e = RadioRules.Locate(lens, order, -5, out int s5, out float f5);
+            Check("radio: the shared clock gives the track and the second (30 s, then 100 s, then 50 s, and from the start again; before the start is the start)",
+                a && s1 == 0 && Mathf.Approximately(f1, 10f) && b && s2 == 1 && Mathf.Approximately(f2, 5f) && c && s3 == 2 && Mathf.Approximately(f3, 49f) && d && s4 == 1 && Mathf.Approximately(f4, 1f) && e && s5 == 0 && f5 == 0f);
+            Check("radio: each station starts its loop at its own place, the same for the same seed, within a day", RadioRules.StartOffset(7, 0) == RadioRules.StartOffset(7, 0) && RadioRules.StartOffset(7, 0) != RadioRules.StartOffset(7, 1)
+                && Enumerable.Range(0, 3).All(s => RadioRules.StartOffset(123456, s) >= 0 && RadioRules.StartOffset(123456, s) < 86400));
+            Check("radio: button 4 is the power, 5 and 6 the volume, 7 and 8 nothing; a button's action is what a request carries", RadioRules.FunctionOf(3) == RadioRules.Button.Power && RadioRules.FunctionOf(4) == RadioRules.Button.VolumeDown
+                && RadioRules.FunctionOf(5) == RadioRules.Button.VolumeUp && RadioRules.FunctionOf(6) == RadioRules.Button.None && RadioRules.FunctionOf(7) == RadioRules.Button.None && RadioRules.FunctionOf(0) == RadioRules.Button.Station
+                && RadioRules.ActionOf(1) == 1 && RadioRules.ActionOf(3) == RadioRules.ActionPower && RadioRules.ActionOf(5) == RadioRules.ActionVolumeUp && RadioRules.ActionOf(7) == -1
+                && RadioRules.ValidAction(RadioRules.ActionVolumeDown) && !RadioRules.ValidAction(5) && !RadioRules.ValidAction(-1));
+            Check("radio: the volume has 10 steps, 8 is the loudness of before (1), 10 a quarter louder, 0 silent, and stays within 0..10", Mathf.Approximately(RadioRules.VolumeGain(8), 1f) && Mathf.Approximately(RadioRules.VolumeGain(10), 1.25f)
+                && RadioRules.VolumeGain(0) == 0f && RadioRules.StepVolume(10, 1) == 10 && RadioRules.StepVolume(0, -1) == 0 && RadioRules.StepVolume(8, -1) == 7);
+            Check("radio: nothing to play is nothing to locate", !RadioRules.Locate(new float[0], new int[0], 5, out _, out _) && !RadioRules.Locate(null, null, 5, out _, out _));
+            Check("radio: the track titles", RadioRules.TrackTitle("WAV_Sonar_Dreams_full") == "Sonar Dreams" && RadioRules.TrackTitle("Be Faster_demo") == "Be Faster"
+                && RadioRules.TrackTitle("URBAN_JAZZ(STANDARD_WITH_SOLO)") == "Urban Jazz (with solo)" && RadioRules.TrackTitle("URBAN_JAZZ(STANDARD_WITHOUT_SOLO)") == "Urban Jazz (without solo)"
+                && RadioRules.TrackTitle("WAV_BIOSphere_full") == "BIOSphere" && RadioRules.TrackTitle("Can't Stop Me_demo") == "Can't Stop Me",
+                $"('{RadioRules.TrackTitle("WAV_Sonar_Dreams_full")}', '{RadioRules.TrackTitle("URBAN_JAZZ(STANDARD_WITH_SOLO)")}', '{RadioRules.TrackTitle("WAV_BIOSphere_full")}')");
+        }
+
         public static void VoiceCurveTest()
         {
             const float gate = 0.012f;
@@ -217,7 +247,11 @@ namespace BuildingEscape.EditorTools
             Check("voice: doubling the volume adds the same distance each time", Mathf.Abs((b - a) - (c - b)) < 0.001f);
             var go = new GameObject("vn"); var vn = go.AddComponent<VoiceNoise>();
             float r0 = vn.RadiusFor(0f), r1 = vn.RadiusFor(0.25f), r2 = vn.RadiusFor(0.5f), r3 = vn.RadiusFor(1f);
-            Check("voice: the louder you speak the further guards hear (3 m ... 30 m)", r0 < r1 && r1 < r2 && r2 < r3 && Mathf.Approximately(r0, 3f) && Mathf.Approximately(r3, 30f));
+            Check("voice: the louder you speak the further guards hear (8 m ... 30 m)", r0 < r1 && r1 < r2 && r2 < r3 && Mathf.Approximately(r0, VoiceNoise.RadiusAtGate) && Mathf.Approximately(r3, VoiceNoise.RadiusAtShout) && Mathf.Approximately(r0, 8f));
+            // the owner, 2026-10-27: "It seems like you need to be extremely close for them to hear you" - a normal speaking voice carries about as far as a teammate hears it
+            float normal = vn.RadiusFor(VoiceNoise.LevelFromRms(Mathf.Pow(10f, VoiceNoise.NormalSpeechDb / 20f), gate)), quiet = vn.RadiusFor(VoiceNoise.LevelFromRms(Mathf.Pow(10f, -34f / 20f), gate)), loud = vn.RadiusFor(VoiceNoise.LevelFromRms(Mathf.Pow(10f, -22f / 20f), gate));
+            Check($"voice: guards hear a normal speaking voice (-30 dBFS) from 15-20 m, a quiet one (-34 dBFS) from at least 11 m, loud talking (-22 dBFS) from at least 24 m (normal {normal:0.0} m, quiet {quiet:0.0} m, loud {loud:0.0} m)",
+                normal >= 15f && normal <= 20f && quiet >= 11f && loud >= 24f);
             Object.DestroyImmediate(go);
         }
         /// <summary>The pinned / busted / backup / buy-back rules (CustodyRules, BackupClock) and the player's custody state.</summary>

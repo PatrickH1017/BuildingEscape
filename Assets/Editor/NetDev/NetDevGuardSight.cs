@@ -57,6 +57,25 @@ namespace BuildingEscape.EditorTools
         }
 
         /// <summary>Stops a guard where he stands: no route, no hearing, the agent still, and nothing turns him.</summary>
+        Vector3 gsHomePos; Quaternion gsHomeRot; bool gsHomeSet;
+
+        /// <summary>
+        /// Puts the test guard back on his round at the start of the line, facing along it, before his meter is measured: the checks before put the player in his sight again and again, and a guard who sees a player long enough
+        /// notices him (as he should), calls and chases - and while he calls or chases there is no meter to measure (it found the test guard chasing from the 8 m step on since the spotting got quicker).
+        /// </summary>
+        void GuardSightCalm(GuardAI g, bool home = true)
+        {
+            if (g.State == GuardState.Patrol && !g.IsCalling) return;
+            const BindingFlags F = BindingFlags.NonPublic | BindingFlags.Instance;
+            var t = typeof(GuardAI);
+            t.GetField("calling", F)?.SetValue(g, false);
+            t.GetField("target", F)?.SetValue(g, null);
+            t.GetField("state", F)?.SetValue(g, GuardState.Patrol);
+            var agent = g.GetComponent<NavMeshAgent>();
+            if (agent && agent.isOnNavMesh) { agent.ResetPath(); agent.isStopped = true; agent.velocity = Vector3.zero; if (home && gsHomeSet) agent.Warp(gsHomePos); }
+            if (home && gsHomeSet) g.transform.rotation = gsHomeRot;
+        }
+
         static void GuardSightFreeze(GuardAI x)
         {
             x.patrolPoints = new Transform[0]; x.roam = null; x.hearingMultiplier = 0f;
@@ -104,6 +123,7 @@ namespace BuildingEscape.EditorTools
         /// <summary>Puts the player at <paramref name="at"/> (x and z), standing on the floor, then lets one frame go by so that the guard's Update sees him, and measures how fast the guard's meter fills over <paramref name="seconds"/>.</summary>
         IEnumerator GuardSightMeasure(GuardAI g, WobblyPlayer player, Vector3 at, float floorY, float seconds, GsMeasure m)
         {
+            GuardSightCalm(g);
             player.TeleportTo(new Vector3(at.x, floorY + 1.03f, at.z), player.transform.rotation);
             g.ForgetNotices();
             yield return null;
@@ -212,6 +232,7 @@ namespace BuildingEscape.EditorTools
             var heading = line.dir;
             g.transform.rotation = Quaternion.LookRotation(heading);
             yield return null;
+            gsHomePos = g.transform.position; gsHomeRot = g.transform.rotation; gsHomeSet = true;
             var gpos = g.transform.position;                                 // (the middle of his body)
             float floorY = line.floor.y;
             GuardSightCheck($"he stands at the start of the line, facing along it, eyes {g.EyePoint.y - floorY:0.00} m above the floor", warped && Vector3.Distance(new Vector3(gpos.x, 0f, gpos.z), new Vector3(line.floor.x, 0f, line.floor.z)) < 0.5f && Vector3.Angle(g.transform.forward, heading) < 1f);
@@ -423,12 +444,12 @@ namespace BuildingEscape.EditorTools
                 var alone = new GsMeasure();
                 yield return GuardSightMeasure(g, player, On(d), floorY, 0.4f, alone);
                 var placed = new List<GuardAI>(); var offsets = new List<float>();
-                float[] spots = { 3f, -3f, 6f, -6f };
+                float[] spots = { 3f, 6f, 1.5f, 4.5f };                // (all on the clear line in front of him: behind his back the floor may end in a wall, and an officer there sees nothing - rightly)
                 for (int i = 0; i < helpers.Count && i < spots.Length; i++)
                 {
                     var h = helpers[i];
                     var ha = h.GetComponent<NavMeshAgent>();
-                    if (ha == null || !ha.enabled) continue;
+                    if (ha == null || !ha.enabled || h.noticeGate != null) continue;          // (an officer on duty in the outpost sees only inside his room)
                     if (!ha.Warp(On(spots[i]))) continue;
                     h.transform.rotation = Quaternion.LookRotation(heading);
                     h.sightRange = g.sightRange; h.spotBase = g.spotBase; h.spotPerMetre = g.spotPerMetre;
@@ -437,7 +458,8 @@ namespace BuildingEscape.EditorTools
                 if (placed.Count >= 2)
                 {
                     player.TeleportTo(new Vector3(On(d).x, floorY + 1.03f, On(d).z), player.transform.rotation);
-                    foreach (var h in placed) h.ForgetNotices();
+                    foreach (var h in placed) { GuardSightCalm(h, false); h.ForgetNotices(); }
+                    GuardSightCalm(g);
                     g.ForgetNotices();
                     yield return null;
                     var p0 = new float[placed.Count + 1]; float t0 = Time.time;
@@ -466,11 +488,13 @@ namespace BuildingEscape.EditorTools
                 agentG.Warp(line.floor);
                 g.transform.rotation = Quaternion.LookRotation(heading);
                 foreach (var h in helpers) { h.sightRange = 0.1f; h.ForgetNotices(); }
-                g.ForgetNotices();
+                GuardSightCalm(g);
+                Put(g.transform.position - heading * 4f);                          // (out of his sight while he settles: the meter starts from nothing)
                 yield return new WaitForSeconds(0.3f);
+                g.ForgetNotices();
                 bool wasCalled = hm.BackupCalled;
                 gpos = g.transform.position;
-                float d = rangeFar;
+                float d = Mathf.Min(rangeFar, Mathf.Min(line.length - 2.5f, far - 2f));          // (a little inside the longest sight: a player put on its very edge is nudged out of it by the body's physics, or up onto what ends the line)
                 Put(On(d));
                 float start = Time.time;
                 yield return null;

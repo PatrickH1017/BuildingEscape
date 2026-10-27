@@ -100,7 +100,8 @@ namespace BuildingEscape
         AnimationClip slash;
         float slashT, slashSpeed = 1f;
         bool slashing;
-        public bool Slashing => slashing;
+        /// <summary>An attack is being played: the slash clip, or a melee weapon's Blender swing (<see cref="MeleePose"/>).</summary>
+        public bool Slashing => slashing || meleeSwinging;
 
         /// <summary>
         /// Plays an attack over whatever the character is doing. The Party rig samples the given (retargeted) clip;
@@ -138,6 +139,7 @@ namespace BuildingEscape
 
         bool clipMode;
         PlayableGraph graph;
+        AnimationPlayableOutput output;
         AnimationMixerPlayable mixer;
         AnimationClipPlayable[] play;
         AnimationClip[] slotClip;
@@ -179,7 +181,7 @@ namespace BuildingEscape
             anim.applyRootMotion = false; // the capsule moves, not the animation
             graph = PlayableGraph.Create("Toon " + name);
             graph.SetTimeUpdateMode(DirectorUpdateMode.GameTime);
-            var output = AnimationPlayableOutput.Create(graph, "Toon", anim);
+            output = AnimationPlayableOutput.Create(graph, "Toon", anim);
             mixer = AnimationMixerPlayable.Create(graph, SlotCount);
             play = new AnimationClipPlayable[SlotCount];
             for (int i = 0; i < SlotCount; i++)
@@ -261,6 +263,7 @@ namespace BuildingEscape
                 if (len > 0.01f && t >= len) play[i].SetTime(t % len);
             }
 
+            if (layersOn) FadeWeapons();                                           // (nobody holds the gun or the weapon any more: it was put away)
             if (jumping && Time.time >= jumpUntil) { jumping = false; play[(int)Slot.Jump].SetSpeed(0); }
             var want = pose == Pose.Down ? Slot.Down : pose == Pose.Dazed ? Slot.Stun : slashing ? Slot.Attack : jumping ? Slot.Jump : baseSlot;
             if (pose != Pose.Dazed && weight[(int)Slot.Stun] < 0.02f) play[(int)Slot.Stun].SetSpeed(0);      // (faded out: the loop rests until the next daze)
@@ -273,6 +276,168 @@ namespace BuildingEscape
             }
             for (int i = 0; i < SlotCount; i++)
                 mixer.SetInputWeight(i, sum > 0.001f ? weight[i] / sum : (i == (int)Slot.Idle ? 1f : 0f));
+        }
+
+        // ------------------------------------------------------------------ the weapons (clip mode on a humanoid rig: the Blender animations, see PistolAnimation and WeaponAnimation)
+
+        // the clips above go into a layer mixer: 0 = them, 1 = a gun held (the raise, the aim, a shot) over the upper body and the right arm (both arms for a long gun), 2 = a pistol's reload over both arms, 3 = a melee weapon (held ready,
+        // a swing) over the upper body and both arms. A gun's or a weapon's clips are put in when it is first held and changed when another one is.
+        AnimationLayerMixerPlayable layers;
+        AnimationMixerPlayable gunMix, meleeMix;
+        AnimationClipPlayable pRaise, pAim, pShot, pReload, mReady, mSwing;
+        WeaponAnimation.GunClips gunClips;
+        WeaponAnimation.MeleeClips meleeClips;
+        float raiseLength, shotLength, reloadLength;
+        bool layersOn, meleeSwinging;
+        int gunAsked = -10, meleeAsked = -10;    // the frames GunPose and MeleePose were last called in
+        float gunWeight, reloadWeight, meleeWeight;
+
+        /// <summary>Can this rig play the Blender weapon animations: clip mode and a humanoid avatar.</summary>
+        public bool CanPlayWeapons => clipMode && anim && anim.isHuman && graph.IsValid();
+
+        /// <summary>Can this rig play the pistol animation: the weapon layers and the clips in the build.</summary>
+        public bool CanPlayPistol => CanPlayWeapons && PistolAnimation.Load() != null;
+
+        /// <summary>How much of the upper body the gun's animation has this frame (0..1; for the tests).</summary>
+        public float GunWeight => layersOn && gunClips != null ? gunWeight : 0f;
+
+        /// <summary>How far the reload clip is shown this frame (0..1, eased in and out): the HeldGun lets go of the aim meanwhile.</summary>
+        public float GunReloadWeight => layersOn && gunClips != null ? reloadWeight * gunWeight : 0f;
+
+        /// <summary>How much of the upper body the melee weapon's animation has this frame (0..1; for the tests).</summary>
+        public float MeleeWeight => layersOn && meleeClips != null ? meleeWeight : 0f;
+
+        /// <summary>The clips of the gun / the melee weapon in the layers now (null: none yet).</summary>
+        public WeaponAnimation.GunClips GunClipsNow => gunClips;
+        public WeaponAnimation.MeleeClips MeleeClipsNow => meleeClips;
+
+        /// <summary>The weapons' layers, added to the graph the first time a weapon is held.</summary>
+        bool EnsureLayers()
+        {
+            if (layersOn) return true;
+            if (!CanPlayWeapons) return false;
+            layers = AnimationLayerMixerPlayable.Create(graph, 4);
+            output.SetSourcePlayable(layers);
+            graph.Connect(mixer, 0, layers, 0);
+            layers.SetInputWeight(0, 1f);
+            gunMix = AnimationMixerPlayable.Create(graph, 3);
+            meleeMix = AnimationMixerPlayable.Create(graph, 2);
+            graph.Connect(gunMix, 0, layers, 1);
+            graph.Connect(meleeMix, 0, layers, 3);
+            layers.SetLayerMaskFromAvatarMask(2, PistolAnimation.ReloadMask);
+            layers.SetLayerMaskFromAvatarMask(3, WeaponAnimation.UpperBody);
+            for (int i = 1; i < 4; i++) layers.SetInputWeight(i, 0f);
+            gunWeight = reloadWeight = meleeWeight = 0f;
+            layersOn = true;
+            return true;
+        }
+
+        /// <summary>A clip that does not run by itself: its time is set every frame.</summary>
+        AnimationClipPlayable Still(AnimationClip clip)
+        {
+            var p = AnimationClipPlayable.Create(graph, clip);
+            p.SetApplyFootIK(false);
+            p.SetSpeed(0);
+            return p;
+        }
+
+        /// <summary>Puts <paramref name="clip"/> into input <paramref name="input"/> of <paramref name="into"/> in place of <paramref name="old"/> (which goes; no clip leaves the input empty).</summary>
+        AnimationClipPlayable Swap<T>(AnimationClipPlayable old, AnimationClip clip, T into, int input) where T : struct, IPlayable
+        {
+            if (old.IsValid()) { graph.Disconnect(into, input); old.Destroy(); }
+            if (!clip) return default;
+            var p = Still(clip);
+            graph.Connect(p, 0, into, input);
+            return p;
+        }
+
+        void UseGunClips(WeaponAnimation.GunClips c)
+        {
+            if (c == gunClips) return;
+            pRaise = Swap(pRaise, c.raise, gunMix, 0);
+            pAim = Swap(pAim, c.aim, gunMix, 1);
+            pShot = Swap(pShot, c.fire, gunMix, 2);
+            pReload = Swap(pReload, c.reload, layers, 2);
+            layers.SetLayerMaskFromAvatarMask(1, c.twoHand ? WeaponAnimation.UpperBody : PistolAnimation.AimMask);
+            raiseLength = c.raise.length; shotLength = c.fire.length; reloadLength = c.reload ? c.reload.length : 0f;
+            gunClips = c;
+            gunWeight = reloadWeight = 0f;
+        }
+
+        void UseMeleeClips(WeaponAnimation.MeleeClips c)
+        {
+            if (c == meleeClips) return;
+            mReady = Swap(mReady, c.ready, meleeMix, 0);
+            mSwing = Swap(mSwing, c.swing, meleeMix, 1);
+            meleeClips = c;
+            meleeWeight = 0f;
+        }
+
+        /// <summary>
+        /// A gun's pose this frame (the HeldGun calls it every frame, before the animation runs): <paramref name="raise"/> 0 = lowered (a pistol at the side, a long gun at the low ready) .. 1 = aimed (the raise clip is shown at that point
+        /// of it, so lowering plays it backwards), <paramref name="sinceShot"/> the seconds since the last shot (the shot clip plays for as long as it lasts), <paramref name="reload"/> how far a pistol's reload has got (0 = none). A
+        /// pistol's upper body goes back to the walk and the run in the last quarter of the way down (a long gun stays in both hands); both at once while the body is knocked over or dazed. False when this rig cannot play it.
+        /// </summary>
+        public bool GunPose(WeaponAnimation.GunClips c, float raise, float sinceShot, float reload)
+        {
+            if (c == null || !EnsureLayers()) return false;
+            UseGunClips(c);
+            gunAsked = Time.frameCount;
+            bool down = pose == Pose.Down || pose == Pose.Dazed;
+            raise = Mathf.Clamp01(raise);
+            gunWeight = down ? Mathf.MoveTowards(gunWeight, 0f, Time.deltaTime * 10f) : c.twoHand ? Mathf.MoveTowards(gunWeight, 1f, Time.deltaTime * 8f) : Mathf.Clamp01(raise * 4f);
+            bool reloading = pReload.IsValid() && reload > 0f && reload < 1f;
+            reloadWeight = Mathf.MoveTowards(reloadWeight, reloading ? 1f : 0f, Time.deltaTime * 8f);
+            bool shot = raise >= 0.999f && sinceShot >= 0f && sinceShot < shotLength;
+            int slot = shot ? 2 : raise < 0.999f ? 0 : 1;
+            for (int i = 0; i < 3; i++) gunMix.SetInputWeight(i, i == slot ? 1f : 0f);
+            pRaise.SetTime(raise * raiseLength);
+            pShot.SetTime(shot ? sinceShot : 0f);
+            if (reloading) pReload.SetTime(reload * reloadLength);
+            layers.SetInputWeight(1, gunWeight);
+            layers.SetInputWeight(2, reloadWeight * gunWeight);
+            return true;
+        }
+
+        /// <summary>The dock worker's pistol (<see cref="PistolAnimation"/>): <see cref="GunPose"/> with its clips.</summary>
+        public bool PistolPose(float raise, float sinceShot, float reload) => GunPose(PistolAnimation.Load(), raise, sinceShot, reload);
+
+        /// <summary>
+        /// A melee weapon's pose this frame (its owner calls it every frame while it is in the hand, before the animation runs): held ready, or the swing <paramref name="swingTime"/> seconds into its clip (negative: no swing). The upper
+        /// body goes back to the walk and the run while the body is knocked over or dazed. False when this rig cannot play it.
+        /// </summary>
+        public bool MeleePose(WeaponAnimation.MeleeClips c, float swingTime)
+        {
+            if (c == null || !EnsureLayers()) return false;
+            UseMeleeClips(c);
+            meleeAsked = Time.frameCount;
+            bool down = pose == Pose.Down || pose == Pose.Dazed;
+            meleeSwinging = !down && swingTime >= 0f && swingTime < c.swing.length;
+            meleeWeight = Mathf.MoveTowards(meleeWeight, down ? 0f : 1f, Time.deltaTime * (down ? 10f : 8f));
+            meleeMix.SetInputWeight(0, meleeSwinging ? 0f : 1f);
+            meleeMix.SetInputWeight(1, meleeSwinging ? 1f : 0f);
+            mReady.SetTime(0);
+            mSwing.SetTime(meleeSwinging ? swingTime : 0f);
+            layers.SetInputWeight(3, meleeWeight);
+            return true;
+        }
+
+        /// <summary>Nobody asked for a gun's or a weapon's pose last frame (it was put away): its layers fade out.</summary>
+        void FadeWeapons()
+        {
+            if (gunAsked < Time.frameCount - 1)
+            {
+                gunWeight = Mathf.MoveTowards(gunWeight, 0f, Time.deltaTime * 8f);
+                reloadWeight = Mathf.MoveTowards(reloadWeight, 0f, Time.deltaTime * 8f);
+                layers.SetInputWeight(1, gunWeight);
+                layers.SetInputWeight(2, reloadWeight * gunWeight);
+            }
+            if (meleeAsked < Time.frameCount - 1)
+            {
+                meleeSwinging = false;
+                meleeWeight = Mathf.MoveTowards(meleeWeight, 0f, Time.deltaTime * 8f);
+                layers.SetInputWeight(3, meleeWeight);
+            }
         }
 
         void OnDestroy()

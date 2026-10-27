@@ -64,12 +64,14 @@ namespace BuildingEscape
         public bool WorkerIsToon(int i) => i >= 0 && i < actors.Count && !actors[i].party && actors[i].anim != null;
         public bool HasTv => tv != null;
         public Camera DockCamera => dockCam;
+        /// <summary>Is the TV's static hiss playing (for the tests)?</summary>
+        public bool HissPlaying => hiss && hiss.isPlaying;
 
         /// <summary>Tests (an offline Intro): jump to this second of it.</summary>
         public void TestSeek(float seconds) { if (offline && state == State.Playing) { offlineStart = Time.unscaledTimeAsDouble - seconds; t = seconds; } }
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
-        static void ResetStatics() { Current = null; TimesPlayed = 0; SkipForTests = false; TestHold = false; ForceInBatch = false; }
+        static void ResetStatics() { Current = null; TimesPlayed = 0; SkipForTests = false; TestHold = false; ForceInBatch = false; subtitleStyle = subtitleShadow = null; }
 
         enum State { Waiting, Playing, Done }
 
@@ -710,6 +712,55 @@ namespace BuildingEscape
 
         // ------------------------------------------------------------------ the screen
 
+        // the subtitles (the owner, 2026-10-27: "During intro the words become too small and long on the screen. The font size of the words should never change"): HudText shrinks a message until it fits one row, so a
+        // line got smaller as it was typed and a long one ended up tiny. The words now have one size (a share of the screen's height) and a long line wraps onto more rows.
+        static GUIStyle subtitleStyle, subtitleShadow;
+        static readonly GUIContent subtitleText = new GUIContent();
+        int tallestFor = -1; float tallestWidth, tallest;
+        int typedBeat = -1, typedChars = -1; string typedText;
+
+        /// <summary>The size of the subtitles' words: the same for every line.</summary>
+        static int SubtitleSize(float screenH) => Mathf.Max(14, Mathf.RoundToInt(screenH * 0.03f));
+
+        /// <summary>Bold, wrapped onto more rows when a line is long, never shrunk and never clipped; rich text, so the letters not typed yet can be drawn clear. Made once (not a new style every OnGUI).</summary>
+        static GUIStyle SubtitleStyle(int size, bool shadow)
+        {
+            var s = shadow ? subtitleShadow : subtitleStyle;
+            if (s == null)
+            {
+                s = new GUIStyle(GUI.skin.label) { fontStyle = FontStyle.Bold, alignment = TextAnchor.UpperLeft, wordWrap = true, richText = true, clipping = TextClipping.Overflow };
+                s.normal.textColor = shadow ? Color.black : HudTheme.Cream;
+                if (shadow) subtitleShadow = s; else subtitleStyle = s;
+            }
+            if (s.fontSize != size) s.fontSize = size;
+            return s;
+        }
+
+        /// <summary>How tall the longest line of the Intro is at this size and width (the plate is made that tall, so every line sits in the same place).</summary>
+        float TallestLine(int size, float width)
+        {
+            if (size == tallestFor && Mathf.Approximately(width, tallestWidth)) return tallest;
+            tallestFor = size; tallestWidth = width; tallest = 0f;
+            var style = SubtitleStyle(size, false);
+            foreach (var b in IntroRules.Beats)
+            {
+                if (string.IsNullOrEmpty(b.line)) continue;
+                subtitleText.text = b.line;
+                tallest = Mathf.Max(tallest, style.CalcHeight(subtitleText, width));
+            }
+            return tallest;
+        }
+
+        /// <summary>A beat's line with its first <paramref name="shown"/> letters typed and the rest there but clear (made again only when another letter appears).</summary>
+        string TypedLine(int beat, int shown)
+        {
+            if (beat == typedBeat && shown == typedChars) return typedText;
+            typedBeat = beat; typedChars = shown;
+            string line = IntroRules.Beats[beat].line;
+            typedText = shown >= line.Length ? line : line.Substring(0, shown) + "<color=#00000000>" + line.Substring(shown) + "</color>";
+            return typedText;
+        }
+
         void OnGUI()
         {
             var picture = rt ? rt : tvRt;
@@ -726,9 +777,23 @@ namespace BuildingEscape
             float fade = IntroRules.Fade(t);
             if (fade < 1f) { GUI.color = new Color(0f, 0f, 0f, 1f - fade); GUI.DrawTexture(pic, Texture2D.whiteTexture); GUI.color = Color.white; }
 
-            // the letterbox bars: the subtitles sit in the lower one and the skip meter in the upper one when the bars are tall enough (so nothing covers the
-            // picture); on a screen so wide that there are no bars they lie over the picture, on a dark plate
-            float barH = (H - ph) * 0.5f, plateH = H * 0.125f;
+            // the night card (the owner, 2026-10-27): a black screen that says "Later that night" between the workers' line and the vendor
+            float card = IntroRules.NightCard(t);
+            if (card > 0f)
+            {
+                GUI.color = new Color(0f, 0f, 0f, card); GUI.DrawTexture(new Rect(0f, 0f, W, H), Texture2D.whiteTexture);
+                int cardSize = Mathf.Max(18, Mathf.RoundToInt(H * 0.05f));
+                GUI.color = new Color(1f, 1f, 1f, card);
+                HudText.Label(new Rect(0f, H * 0.5f - cardSize, W, cardSize * 2f), IntroContent.NightCard, HudStyles.Label(cardSize, TextAnchor.MiddleCenter, FontStyle.Bold, HudTheme.Cream));
+                GUI.color = Color.white;
+            }
+
+            // the letterbox bars: the subtitles sit in the lower one and the skip meter in the upper one when the bars are tall enough for the longest line (so nothing covers the
+            // picture); on a screen so wide that they are not, the subtitles lie over the bottom of the picture, on a dark plate. Every line is in the same place.
+            float barH = (H - ph) * 0.5f;
+            int big = SubtitleSize(H), small = Mathf.Max(12, Mathf.RoundToInt(H * 0.022f));
+            float nameH = small * 1.5f, bodyW = W * 0.80f - 36f;
+            float plateH = Mathf.Max(H * 0.125f, nameH + 8f + TallestLine(big, bodyW) + 10f);
             bool lowerBar = barH >= plateH;
 
             // subtitles: who speaks, then the line typed out
@@ -736,17 +801,23 @@ namespace BuildingEscape
             if (bi >= 0 && !string.IsNullOrEmpty(IntroRules.Beats[bi].line))
             {
                 var beat = IntroRules.Beats[bi];
-                string typed = beat.line.Substring(0, IntroRules.VisibleChars(beat.line, t - beat.start));
                 bool worker = beat.speaker == Speaker.Worker;
                 bool vendor = beat.speaker == Speaker.Vendor;
                 string who = vendor ? IntroContent.VendorLabel : worker && speakerAt >= 0 && speakerAt < actors.Count ? actors[speakerAt].label : worker ? IntroContent.CoworkerLabel : IntroContent.BossLabel;
                 var plate = new Rect(pic.x + W * 0.10f, lowerBar ? pic.yMax + (barH - plateH) * 0.5f : pic.yMax - plateH - H * 0.03f, W * 0.80f, plateH);
-                if (!lowerBar) { GUI.color = new Color(0f, 0f, 0f, 0.55f * Mathf.Min(1f, fade * 2f)); GUI.DrawTexture(plate, Texture2D.whiteTexture); GUI.color = Color.white; }
-                int big = Mathf.Max(14, Mathf.RoundToInt(H * 0.036f)), small = Mathf.Max(12, Mathf.RoundToInt(H * 0.022f));
-                HudText.Label(new Rect(plate.x + 18f, plate.y + 6f, plate.width - 36f, small * 1.5f), who, HudStyles.Label(small, TextAnchor.UpperLeft, FontStyle.Bold, worker ? HudTheme.Info : vendor ? HudTheme.Cash : HudTheme.Quota));
-                var body = new Rect(plate.x + 18f, plate.y + small * 1.5f + 8f, plate.width - 36f, plate.height - small * 1.5f - 14f);
-                HudText.Label(new Rect(body.x + 2f, body.y + 2f, body.width, body.height), typed, HudStyles.Label(big, TextAnchor.UpperLeft, FontStyle.Bold, Color.black));
-                HudText.Label(body, typed, HudStyles.Label(big, TextAnchor.UpperLeft, FontStyle.Bold, HudTheme.Cream));
+                var body = new Rect(plate.x + 18f, plate.y + nameH + 8f, bodyW, plate.height - nameH - 8f);
+                if (!lowerBar)
+                {
+                    subtitleText.text = beat.line;
+                    float used = nameH + 8f + SubtitleStyle(big, false).CalcHeight(subtitleText, bodyW) + 10f;          // (the plate as tall as this line needs, from the same top)
+                    GUI.color = new Color(0f, 0f, 0f, 0.55f * Mathf.Min(1f, fade * 2f)); GUI.DrawTexture(new Rect(plate.x, plate.y, plate.width, used), Texture2D.whiteTexture); GUI.color = Color.white;
+                }
+                HudText.Label(new Rect(plate.x + 18f, plate.y + 6f, plate.width - 36f, nameH), who, HudStyles.Label(small, TextAnchor.UpperLeft, FontStyle.Bold, worker ? HudTheme.Info : vendor ? HudTheme.Cash : HudTheme.Quota));
+                // one size for every line, however long (the owner, 2026-10-27: "The font size of the words should never change"): a long line goes onto more rows. The whole line is laid out from its
+                // first letter, the letters not typed yet drawn clear, so no word jumps to the next row while it is being typed.
+                subtitleText.text = TypedLine(bi, IntroRules.VisibleChars(beat.line, t - beat.start));
+                GUI.Label(new Rect(body.x + 2f, body.y + 2f, body.width, body.height), subtitleText, SubtitleStyle(big, true));
+                GUI.Label(body, subtitleText, SubtitleStyle(big, false));
             }
 
             // the skip meter: HOLD SPACE TO SKIP, a bar that fills while it is held, and in a party how many are holding

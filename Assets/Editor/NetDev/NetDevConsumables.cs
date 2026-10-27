@@ -63,7 +63,7 @@ namespace BuildingEscape.EditorTools
                 var dk = ConsumableRules.Of((ConsumableKind)k);
                 listed &= idx > Vendor.WalkieIndex && Vendor.OnMachine(idx) && !Vendor.OnOffer(idx, 1) && !Vendor.OnOffer(idx, 13) && cat[idx].name == dk.name && cat[idx].price == dk.price && cat[idx].machine && sold.Contains(idx);
             }
-            Check("consumables: the vending machines list each of the five once (after the walkie talkie: the dealer's places are unchanged), at the rules' price, and the dealer sells none", listed && cat.Count(p => p.isConsumable) == 5 && sold.Length == 4 + ConsumableRules.Count);
+            Check("consumables: the vending machines list each of the five once (after the walkie talkie: the dealer's places are unchanged), at the rules' price, and the dealer sells none", listed && cat.Count(p => p.isConsumable) == 5 && sold.Length == ConsumableRules.Count);          // (only the consumables: the mug, stapler, toy and extinguisher left the machines, the owner 2026-10-27)
         }
     }
 

@@ -1002,7 +1002,7 @@ namespace BuildingEscape
             int silent = System.Array.FindIndex(Vendor.Catalog, p => p.isConsumable && p.consumable == ConsumableKind.SilentSteps);
             string said1 = vendor.BuyAtMachine(hm, pack, speed, machine.TrayPoint), said2 = vendor.BuyAtMachine(hm, pack, silent, machine.TrayPoint);
             yield return Wait(0.5f);
-            Check("solo: the vending machine sells the five consumables, and a speed burst and silent steps bought there are in my pack", Vendor.MachineProducts.Length >= 9 && pack.CountConsumable(ConsumableKind.SpeedBurst) == 1 && pack.CountConsumable(ConsumableKind.SilentSteps) == 1, $"('{said1}' / '{said2}')");
+            Check("solo: the vending machine sells the five consumables (and only them), and a speed burst and silent steps bought there are in my pack", Vendor.MachineProducts.Length == ConsumableRules.Count && pack.CountConsumable(ConsumableKind.SpeedBurst) == 1 && pack.CountConsumable(ConsumableKind.SilentSteps) == 1, $"('{said1}' / '{said2}')");
             pack.UseKind(ConsumableKind.SpeedBurst);
             pack.UseKind(ConsumableKind.SilentSteps);
             yield return Wait(0.6f);

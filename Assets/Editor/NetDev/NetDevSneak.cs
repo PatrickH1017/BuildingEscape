@@ -280,8 +280,8 @@ namespace BuildingEscape.EditorTools
                 yield return new WaitForSeconds(0.5f);
                 var before0 = target.State;
                 var dist = Vector3.Distance(player.transform.position, target.transform.position);
-                // whisper: below the threshold, nothing happens
-                vn.SetLevel(0.03f);
+                // whisper: below the threshold (minLevel), nothing happens
+                vn.SetLevel(vn.minLevel * 0.5f);
                 yield return new WaitForSeconds(1.0f);
                 SneakCheck("a murmur below the threshold is not heard", target.State == before0 || target.State == GuardState.Patrol,
                     $"(state {target.State}, level {vn.Level:0.00})");
@@ -298,7 +298,7 @@ namespace BuildingEscape.EditorTools
                 void OnVoice(NoiseEvent n) { if (n.Source == player.gameObject) heard.Add(n.Loudness); }
                 NoiseBus.OnNoise += OnVoice;
                 float murmur = VoiceNoise.LevelFromRms(0.02f, 0.012f);   // a low murmur
-                float loud = VoiceNoise.LevelFromRms(0.16f, 0.012f);     // talking loudly
+                float loud = VoiceNoise.LevelFromRms(0.08f, 0.012f);     // talking loudly (-22 dBFS; from -18 dBFS on it is a shout)
                 float shout = VoiceNoise.LevelFromRms(0.30f, 0.012f);    // a shout
                 var radii = new List<float>();
                 foreach (var lvl in new[] { murmur, loud, shout })

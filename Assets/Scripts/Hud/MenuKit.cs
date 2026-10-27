@@ -454,7 +454,9 @@ namespace BuildingEscape
                 pos = Mathf.Clamp(pos, 0f, max);
                 GUI.BeginGroup(view);
                 savedClip = clip;
-                clip = new Rect(0f, 0f, view.width, view.height);
+                // (only what can be seen of the area takes a click: inside another scrolling area that is the part of it the outer one shows)
+                float x0 = Mathf.Max(view.x, savedClip.x), y0 = Mathf.Max(view.y, savedClip.y), x1 = Mathf.Min(view.xMax, savedClip.xMax), y1 = Mathf.Min(view.yMax, savedClip.yMax);
+                clip = new Rect(x0 - view.x, y0 - view.y, Mathf.Max(0f, x1 - x0), Mathf.Max(0f, y1 - y0));
                 return view.width - inset * 2f - (max > 0f ? 14f * s : 0f);
             }
 
@@ -479,7 +481,11 @@ namespace BuildingEscape
                 switch (ev.GetTypeForControl(id))
                 {
                     case EventType.ScrollWheel:
-                        if (view.Contains(ev.mousePosition)) { pos = Mathf.Clamp(pos + ev.delta.y * 22f * s, 0f, max); ev.Use(); }
+                        if (view.Contains(ev.mousePosition))
+                        {
+                            float to = Mathf.Clamp(pos + ev.delta.y * 22f * s, 0f, max);
+                            if (to != pos) { pos = to; ev.Use(); }          // (at its end the wheel goes on to the area round it, if there is one)
+                        }
                         break;
                     case EventType.MouseDown:
                         if (ev.button == 0 && Grow(track, 5f * s).Contains(ev.mousePosition))

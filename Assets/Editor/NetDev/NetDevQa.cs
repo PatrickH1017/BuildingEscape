@@ -282,7 +282,7 @@ namespace BuildingEscape.EditorTools
                 if (role == "c1")
                 {
                     Teleport(MachineSpot(0)); yield return Settle(1.0f);                  // (the coffee mug is a vending machine's now: the owner, 2026-10-23)
-                    RunSync.Instance.RequestMachineBuy(0, 0);
+                    RunSync.Instance.RequestMachineBuy(0, Vendor.MachineProducts[1]);          // (the endurance laster, $150: since 2026-10-27 the machines sell the consumables only)
                     yield return WaitFor(() => pack.Items.Count >= 1, 30, "mug bought");
                     Teleport(CounterSpot(-1.0f)); yield return Settle(1.0f);
                 }
@@ -573,7 +573,7 @@ namespace BuildingEscape.EditorTools
                 Teleport(MachineSpot(0));
                 yield return Settle(1.5f);
                 int packBefore = MyPack.Items.Count;
-                RunSync.Instance.RequestMachineBuy(0, 0);
+                RunSync.Instance.RequestMachineBuy(0, Vendor.MachineProducts[1]);          // (the endurance laster, $150: since 2026-10-27 the machines sell the consumables only)
                 yield return WaitFor(() => MyPack.Items.Count == packBefore + 1, 30, "bought something to leave behind");
                 var leftBehind = MyPack.Items[MyPack.Items.Count - 1];
                 QaSignal("c2_item", leftBehind.NetId.ToString());
