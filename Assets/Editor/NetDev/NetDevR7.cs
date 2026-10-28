@@ -340,18 +340,18 @@ namespace BuildingEscape.EditorTools
             var victim = shielded.FirstOrDefault(g => !g.Dead);
             if (victim != null)
             {
-                int bullet = RangedWeapon.Specs[0].guardHits;
-                for (int i = 0; i < 3; i++) victim.BulletHitHost(bullet, false, null);
-                R7Check("three pew bullets do not put a light-shield guard down (three of ten hits each, nine) and do not knock him over", !victim.Dead && victim.Hits == 9 && victim.State != GuardState.Stunned, $"(hits {victim.Hits}, dead {victim.Dead}, {victim.State})");
+                float bullet = RangedWeapon.Specs[0].guardHits;
+                for (int i = 0; i < 5; i++) victim.BulletHitHost(bullet, false, null);
+                R7Check("five pew bullets do not put a light-shield guard down (five of 1.875 hits each, nine) and do not knock him over", !victim.Dead && victim.Hits == 9 && victim.State != GuardState.Stunned, $"(hits {victim.Hits}, dead {victim.Dead}, state {victim.State})");
                 victim.BulletHitHost(bullet, false, null);
-                R7Check("the fourth one does (four bullets where an unshielded guard takes three)", victim.Dead, $"(hits {victim.Hits})");
+                R7Check("the sixth one does (six bullets where an unshielded guard takes four)", victim.Dead, $"(hits {victim.Hits})");
             }
             var bare = armoured.Where(g => g && !g.Dead && !g.Armoured).ToList();
             if (bare.Count >= 2)
             {
-                int bullet = RangedWeapon.Specs[0].guardHits;
-                for (int i = 0; i < 3; i++) bare[0].BulletHitHost(bullet, false, null);
-                R7Check("an unshielded guard takes three pew bullets", bare[0].Dead, $"(hits {bare[0].Hits})");
+                float bullet = RangedWeapon.Specs[0].guardHits;
+                for (int i = 0; i < 4; i++) bare[0].BulletHitHost(bullet, false, null);
+                R7Check("an unshielded guard takes four pew bullets", bare[0].Dead, $"(hits {bare[0].Hits})");
                 float crowbarHp = MeleeWeapon.Specs[(int)MeleeWeapon.Kind.Crowbar].guardDamage;       // (the owner, 2026-10-22: a blow takes the weapon's damage off the guard's 100 HP; it used to take nothing)
                 for (int i = 0; i < 6; i++) bare[1].MeleeHitHost(0.05f, null, crowbarHp);
                 R7Check("six crowbar blows (15 HP each) leave an unshielded guard alive with 10 of his 100 HP", !bare[1].Dead && Mathf.Abs(bare[1].Health - 10f) < 0.01f, $"(health {bare[1].Health})");

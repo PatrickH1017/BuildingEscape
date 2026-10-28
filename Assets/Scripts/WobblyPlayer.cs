@@ -56,6 +56,8 @@ namespace BuildingEscape
         public bool StepsSilent { get; set; }
         /// <summary>Crouched: slower, lower, and a footstep only carries <see cref="crouchNoise"/> metres.</summary>
         public bool IsCrouching { get; private set; }
+        /// <summary>The gun is up at the sights (the right mouse button; the owner, 2026-10-27): set by the player's own <see cref="GunController"/>, and on a teammate's puppet by <c>NetPlayer</c>.</summary>
+        public bool IsAiming { get; set; }
         /// <summary>The loudness (guard hearing radius) a footstep has right now.</summary>
         public float CurrentFootstepNoise => StepsSilent ? 0f : IsSprinting ? sprintNoise : IsCrouching ? crouchNoise : footstepNoise;
         /// <summary>Set by NetPlayer on remote puppets, whose script is switched off.</summary>

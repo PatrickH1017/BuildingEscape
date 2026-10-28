@@ -403,6 +403,28 @@ namespace BuildingEscape
             return true;
         }
 
+        /// <summary>
+        /// The dev menu's "turn the alarm off / cancel the backup" (the owner, 2026-10-27: "the dev menu buttons for getting rid of wanted level/backup don't work"; host / offline): the backup is called off whatever started it, the Big Alarm - which the alarm panel can never shut off (<see cref="StandDown"/>
+        /// refuses) - and every mark are cleared, the officers the backup called leave and every other officer who was after somebody goes back to his round. True when anything was on.
+        /// </summary>
+        public bool DevClearAlert()
+        {
+            if (Phase != HeistPhase.Heist || !Net.NetRole.Simulates) return false;
+            bool was = backupClock.Active || BackupCalled || alertState.BigAlarm || alertState.MarkedCount > 0;
+            backupClock.Reset();
+            BackupCalled = false;
+            alertState.Reset(); netBigAlarm = false;
+            radiosJammedUntil = Time.time + CustodyRules.StandDownJamSeconds;
+            foreach (var g in new System.Collections.Generic.List<GuardAI>(GuardAI.All))
+            {
+                if (!g || g.Dead || g.IsPuppet) continue;
+                if (g.IsBackup) { was = true; Destroy(g.gameObject); }
+                else g.DevCalm();
+            }
+            if (was) Announce("ALL QUIET - the alarm is off and no more officers are coming");
+            return was;
+        }
+
         /// <summary>The party: how many players are in the run (<see cref="TestPartySize"/> when a test sets it).</summary>
         int PartySize()
         {

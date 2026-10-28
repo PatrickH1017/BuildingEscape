@@ -29,6 +29,10 @@ namespace BuildingEscape
             /// <summary>Held in both hands (the long guns): the left arm is in the clips too, and the gun stays at the low ready when it is not raised.</summary>
             public bool twoHand;
             public bool Valid => raise && aim && fire && raise.isHumanMotion && aim.isHumanMotion && fire.isHumanMotion && (!reload || reload.isHumanMotion);
+            /// <summary>The stances (the owner, 2026-10-27): the gun held at the hip and aimed, standing and running, in both hands, as loops (the pistol too, now in both hands).</summary>
+            public AnimationClip hipStand, hipRun, aimStand, aimRun;
+            /// <summary>The four stance loops are in the build and <see cref="StancesEnabled"/>: the gun is held with them (the raise clip is the low ready only).</summary>
+            public bool Stances => StancesEnabled && hipStand && hipRun && aimStand && aimRun && hipStand.isHumanMotion && hipRun.isHumanMotion && aimStand.isHumanMotion && aimRun.isHumanMotion;
         }
 
         /// <summary>A melee weapon's clips: held ready (a still pose) and the swing (it starts and ends on the ready).</summary>
@@ -46,6 +50,20 @@ namespace BuildingEscape
         public static string MeleeName(MeleeWeapon.Kind k) => k == MeleeWeapon.Kind.Crowbar ? "Crowbar" : k == MeleeWeapon.Kind.Bat ? "Bat" : "Hatchet";
         public static string MeleeFile(MeleeWeapon.Kind k) => MeleeName(k) + "_Swing";
         public const string Raise = "_Raise", Aim = "_Aim", Fire = "_Fire", Reload = "_Reload", Ready = "_Ready", Swing = "_Swing";
+
+        /// <summary>The guns are held with the owner's stance loops of 2026-10-27 (false: the raise / aim / fire clips of before are used alone).</summary>
+        public static bool StancesEnabled = true;
+
+        /// <summary>The file (and the clip in it) of a stance: "Rifle_HipFire_Stand", "Rifle_Aimed_Run" ... (<paramref name="gun"/>: <see cref="GunName"/>).</summary>
+        public static string StanceFile(string gun, bool aimed, bool run) => gun + (aimed ? "_Aimed" : "_HipFire") + (run ? "_Run" : "_Stand");
+
+        /// <summary>Loads a gun's four stance loops into <paramref name="c"/> (they stay unset when a file is missing: the gun is then held the way it was before the stances).</summary>
+        public static void LoadStances(GunClips c, string gun)
+        {
+            AnimationClip One(bool aimed, bool run) { string f = StanceFile(gun, aimed, run); return Find(Resources.LoadAll<AnimationClip>(Folder + "/" + f), f); }
+            c.hipStand = One(false, false); c.hipRun = One(false, true); c.aimStand = One(true, false); c.aimRun = One(true, true);
+            if (!(c.hipStand && c.hipRun && c.aimStand && c.aimRun)) Debug.LogWarning($"[WeaponAnimation] the {gun} stance clips are missing from Resources/{Folder}: the gun is held the old way");
+        }
 
         static GunClips[] guns;
         static bool[] gunLoaded;
@@ -70,7 +88,7 @@ namespace BuildingEscape
             string n = GunName(k);
             var all = Resources.LoadAll<AnimationClip>(Folder + "/" + GunFile(k));
             var c = new GunClips { name = n, raise = Find(all, n + Raise), aim = Find(all, n + Aim), fire = Find(all, n + Fire), twoHand = true };
-            if (c.Valid) guns[i] = c;
+            if (c.Valid) { LoadStances(c, n); guns[i] = c; }
             else Debug.LogWarning($"[WeaponAnimation] the {n} clips are missing from Resources/{Folder}: the gun is held the old way");
             return guns[i];
         }

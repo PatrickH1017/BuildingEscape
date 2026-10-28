@@ -26,7 +26,7 @@ namespace BuildingEscape.EditorTools
             FindObjectsByType<AmmoClip>(FindObjectsSortMode.None).Where(c => c && c.isActiveAndEnabled && Vector3.Distance(c.transform.position, at) < within).OrderBy(c => Vector3.Distance(c.transform.position, at)).FirstOrDefault();
 
         /// <summary>Shoots a guard down with the given drop roll (<see cref="GuardDrops.TestRoll"/>) and returns where he stood.</summary>
-        Vector3 KillWithRoll(GuardAI g, int roll, int hitsPerBullet)
+        Vector3 KillWithRoll(GuardAI g, int roll, float hitsPerBullet)
         {
             var at = g.transform.position;
             GuardDrops.TestRoll = roll;
@@ -53,7 +53,7 @@ namespace BuildingEscape.EditorTools
             var player = WobblyPlayerRegistry.All[0];
             var rb = player.GetComponent<Rigidbody>();
             var pack = player.GetComponent<Backpack>();
-            int pewHits = RangedWeapon.Specs[(int)RangedWeapon.Kind.Pew].guardHits;
+            float pewHits = RangedWeapon.Specs[(int)RangedWeapon.Kind.Pew].guardHits;
             var guards = GuardAI.All.Where(g => g && g.enabled && !g.IsPuppet && !g.IsBoss && g.name != "Guard_Outpost" && !g.Dead).ToList();
             A23B("(test) floor 2 has guards to try things on", guards.Count >= 5, $"({guards.Count})");
             if (guards.Count < 5) { Quit(1); yield break; }

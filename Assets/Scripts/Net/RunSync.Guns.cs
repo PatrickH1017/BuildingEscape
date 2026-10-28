@@ -20,6 +20,9 @@ namespace BuildingEscape.Net
         const float GunBurstSlack = 0.15f;       // s: messages of a fast gun arrive bunched when the network hiccups; the average rate is still the gun's
 
         readonly Dictionary<ulong, float> nextGunShot = new();
+        readonly Impact[] pelletImpacts = new Impact[16];
+        readonly Vector3[] pelletDirs = new Vector3[16];
+        readonly ShotTally tally = new ShotTally();
 
         /// <summary>Shots the host has accepted from players, itself included (for the tests).</summary>
         public int GunShotsAccepted { get; private set; }
@@ -28,17 +31,17 @@ namespace BuildingEscape.Net
         /// The local player fired a gun: the host (or this machine, if it is the host) decides what the bullets did. <paramref name="dir"/> is the aim; the spread of every pellet comes from <paramref name="seed"/>
         /// (<see cref="GunRules.PelletSeed"/>), the same on every machine.
         /// </summary>
-        public void RequestGunShot(Vector3 muzzle, Vector3 dir, int guardId, int seed)
+        public void RequestGunShot(Vector3 muzzle, Vector3 dir, int guardId, int seed, bool aiming = true)
         {
-            if (IsServer) HostGunShot(Me, muzzle, dir, guardId, seed);
-            else GunShotRequestRpc(muzzle, dir, (short)guardId, seed);
+            if (IsServer) HostGunShot(Me, muzzle, dir, guardId, seed, aiming);
+            else GunShotRequestRpc(muzzle, dir, (short)guardId, seed, aiming);
         }
 
         [Rpc(SendTo.Server)]
-        void GunShotRequestRpc(Vector3 muzzle, Vector3 dir, short guardId, int seed, RpcParams rp = default) =>
-            HostGunShot(rp.Receive.SenderClientId, muzzle, dir, guardId, seed);
+        void GunShotRequestRpc(Vector3 muzzle, Vector3 dir, short guardId, int seed, bool aiming, RpcParams rp = default) =>
+            HostGunShot(rp.Receive.SenderClientId, muzzle, dir, guardId, seed, aiming);
 
-        void HostGunShot(ulong who, Vector3 muzzle, Vector3 dir, int guardId, int seed)
+        void HostGunShot(ulong who, Vector3 muzzle, Vector3 dir, int guardId, int seed, bool aiming = true)
         {
             var np = PlayerOf(who);
             if (np == null || !IsFinite(muzzle) || !IsFinite(dir) || dir.sqrMagnitude < 0.25f) return;
@@ -56,38 +59,56 @@ namespace BuildingEscape.Net
 
             dir.Normalize();
             byte best = 0; int bestRank = -1; Vector3 firstEnd = default;
-            for (int i = 0; i < spec.Pellets; i++)                                     // (a shotgun's pellets: each its own spread, from the shot's seed)
+            int pellets = spec.Pellets;
+            float cone = spec.spread * PlayerBuffs.SpreadFactor(np.gameObject) * AimRules.SpreadFactor(aiming);          // (from the hip a shot scatters wider)
+            tally.Reset();
+            for (int i = 0; i < pellets; i++)                                          // (a shotgun's pellets: each its own spread, from the shot's seed)
             {
-                GunRules.Spread(GunRules.PelletSeed(seed, i), spec.spread * PlayerBuffs.SpreadFactor(np.gameObject), out float yaw, out float pitch);
+                GunRules.Spread(GunRules.PelletSeed(seed, i), cone, out float yaw, out float pitch);
                 var d = Quaternion.LookRotation(dir) * Quaternion.Euler(-pitch, yaw, 0f) * Vector3.forward;
                 var imp = Ballistics.Trace(muzzle, d, spec.range, np.transform, false);
                 if (imp.guard == null && i == 0) imp = Forgiven(imp, np.transform, muzzle, d, spec.range, guardId);
-                byte result = HostPellet(np, imp, d, spec);
+                pelletImpacts[i] = imp; pelletDirs[i] = d;
+                if (imp.guard != null && !imp.guard.Dead) tally.Note(imp.guard, imp.guard.IsHeadHit(imp.point.y));
                 if (i == 0) firstEnd = imp.point;
-                int rank = result == 0 ? 0 : result == 1 ? 1 : result == 4 ? 2 : result == 2 ? 3 : 4;      // (what the others are shown: a guard down for good beats a guard hit beats the dummy beats a wall)
+            }
+            var feedback = HitKind.None;
+            for (int i = 0; i < pellets; i++)
+            {
+                byte result = HostPellet(np, pelletImpacts[i], pelletDirs[i], gun.kind);
+                int rank = result == 0 ? 0 : result == 1 ? 1 : result == 4 ? 2 : result == 2 ? 3 : result == 5 ? 4 : 5;      // (what the others are shown: a guard down for good beats a headshot beats a guard hit beats the dummy beats a wall)
                 if (rank > bestRank) { bestRank = rank; best = result; }
+                feedback = BulletDamageRules.Stronger(feedback, result == 3 ? HitKind.Kill : result == 5 ? HitKind.Head : (result == 2 || result == 4) ? HitKind.Hit : HitKind.None);
             }
             NoiseBus.Emit(muzzle, gun.NoiseRadius, np.gameObject);                          // every guard within earshot comes to look
-            if (NetworkManager.ConnectedClientsIds.Count > 1) PlayerShotRpc((byte)np.Slot, firstEnd, best, seed);
+            if (feedback != HitKind.None)                                                   // (the hit marker and its sound go to the shooter alone: the owner, 2026-10-27)
+            {
+                if (who == Me) HitFeedback.Answer(feedback); else ShotFeedbackRpc((byte)feedback, RpcTarget.Single(who, RpcTargetUse.Temp));
+            }
+            if (NetworkManager.ConnectedClientsIds.Count > 1) PlayerShotRpc((byte)np.Slot, firstEnd, best, seed, aiming);
         }
 
         /// <summary>What one bullet (pellet) of a player's shot does where it lands, decided by the host. 0 flew off, 1 a wall or a desk, 2 a guard, 3 a guard down for good, 4 the dummy.</summary>
-        byte HostPellet(NetPlayer np, Impact imp, Vector3 dir, RangedWeapon.Spec spec)
+        byte HostPellet(NetPlayer np, Impact imp, Vector3 dir, RangedWeapon.Kind kind)
         {
+            var spec = RangedWeapon.Specs[(int)kind];
             byte result = 0;
             if (!imp.hit) return result;
             result = 1;
             if (imp.guard != null)
             {
                 bool wasDown = imp.guard.Dead;
-                imp.guard.BulletHitHost(spec.guardHits, false, np.gameObject);        // (a bullet damages, it never knocks over: the owner, 2026-10-19)
-                if (!wasDown) result = (byte)(imp.guard.Dead ? 3 : 2);
+                bool dealt = false, head = false;
+                if (!wasDown) dealt = tally.Take(imp.guard, out head);
+                // a set amount for each kind of ammunition, more for a headshot, a shotgun's shot dealt once to each officer (the owner, 2026-10-27)
+                if (dealt) imp.guard.BulletHitHost(BulletDamageRules.Hits(kind, head), false, np.gameObject);        // (a bullet damages, it never knocks over: the owner, 2026-10-19)
+                if (!wasDown) result = (byte)(imp.guard.Dead ? 3 : tally.HeadOf(imp.guard) ? 5 : 2);
                 if (imp.guard.TryGetComponent(out Rigidbody grb) && !grb.isKinematic) grb.AddForce(dir * spec.knock, ForceMode.VelocityChange);
             }
             else if (imp.dummy != null)
             {
                 if (!imp.dummy.Down) result = 4;
-                imp.dummy.ApplyDamage(spec.damage, np.transform.position);
+                if (tally.Take(imp.dummy, out _)) imp.dummy.ApplyDamage(BulletDamageRules.Damage(kind, false), np.transform.position);
             }
             else if (imp.body != null && imp.body.TryGetComponent(out WobblyPlayer rival) && rival.gameObject != np.gameObject)
             {
@@ -125,14 +146,21 @@ namespace BuildingEscape.Net
             return clear.guard == g ? clear : imp;                                     // a wall or a desk is in the way
         }
 
-        /// <summary>Host -> everybody but the shooter: his bullet ended here (see <see cref="GunController.ShowRemoteShot"/> for what the number means).</summary>
+        /// <summary>Host -> the shooter alone: what his bullets did to officers (1 a hit, 2 a headshot, 3 an elimination): the hit marker and its sound (<see cref="HitFeedback"/>; the owner, 2026-10-27).</summary>
+        [Rpc(SendTo.SpecifiedInParams)]
+        void ShotFeedbackRpc(byte kind, RpcParams rp = default)
+        {
+            if (kind >= 1 && kind <= 3) HitFeedback.Answer((HitKind)kind);
+        }
+
+        /// <summary>Host -> everybody but the shooter: his bullet ended here (see <see cref="GunController.ShowRemoteShot"/> for what the number means: 5 is a headshot that did not eliminate; <paramref name="aiming"/>: he fired with the gun up at the sights).</summary>
         [Rpc(SendTo.ClientsAndHost)]
-        void PlayerShotRpc(byte slot, Vector3 end, byte result, int seed)
+        void PlayerShotRpc(byte slot, Vector3 end, byte result, int seed, bool aiming)
         {
             if (!IsFinite(end)) return;
             var np = NetPlayer.BySlot(slot);
             if (!np || np.IsOwner) return;                                             // the shooter showed his own shot at once
-            if (np.TryGetComponent(out GunController gc)) gc.ShowRemoteShot(end, result, seed);
+            if (np.TryGetComponent(out GunController gc)) gc.ShowRemoteShot(end, result, seed, aiming);
         }
     }
 }

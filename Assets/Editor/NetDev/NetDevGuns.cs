@@ -47,6 +47,7 @@ namespace BuildingEscape.EditorTools
             var hm = HeistManager.Instance;
             yield return WaitFor(() => hm != null && TowerManager.Instance != null && !TowerManager.Instance.Loading && hm.Phase == HeistPhase.Hub, 60, "basement");
             hm.godMode = true; hm.freezeTimer = true;
+            GunController.TestAim = true;              // (the right mouse button held: the cone of the shots is the aimed one, since 2026-10-27 a shot from the hip scatters 1.5 times wider)
             var player = WobblyPlayerRegistry.All[0];
             var rb = player.GetComponent<Rigidbody>();
             var pack = player.GetComponent<Backpack>();
@@ -151,7 +152,7 @@ namespace BuildingEscape.EditorTools
                 if (spec.Pellets == 1)
                     GunCheck($"{tag} a bullet takes {spec.damage} health off the dummy", Mathf.Approximately(dmg, spec.damage), $"({h0} -> {dummy.Health})");
                 else
-                    GunCheck($"{tag} the {spec.Pellets} pellets each take {spec.damage} off the dummy, from {dist} m all {spec.Pellets} land", Mathf.Abs(dmg - hits * spec.damage) < 0.01f && hits == spec.Pellets, $"({hits} of {spec.Pellets} pellets, {dmg} health)");
+                    GunCheck($"{tag} the {spec.Pellets} pellets together take {spec.damage} off the dummy once (the owner, 2026-10-27: shotgun shells 75 damage within range), from {dist} m", Mathf.Approximately(dmg, spec.damage), $"({dmg} health)");
                 GunCheck($"{tag} one flash, {spec.Pellets} tracers, one gunshot with its tail, one case thrown out", fx.FlashesShown == flashes0 + 1 && fx.TracersShown == tracers0 + spec.Pellets && GunSounds.ShotsPlayed == shots0 + 1 && fx.CasingsShown == cases0 + 1,
                     $"(flashes {fx.FlashesShown - flashes0}, tracers {fx.TracersShown - tracers0}, shots {GunSounds.ShotsPlayed - shots0}, cases {fx.CasingsShown - cases0})");
                 GunCheck($"{tag} {(should ? "the shot is the suppressed one made for guns with a silencer on (the owner, 2026-10-20)" : "the shot is the loud recording: this gun is never silenced")}", GunSounds.SilencedShotsPlayed - silenced0 == (should ? 1 : 0), $"(silenced shots {GunSounds.SilencedShotsPlayed - silenced0})");

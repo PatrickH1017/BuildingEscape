@@ -70,7 +70,7 @@ namespace BuildingEscape
             if (player.IsStumbling || player.InCustody) { anim.Fall(); return; }
             anim.Recover();
             var v = player.VelocityOverride ?? rb.linearVelocity; v.y = 0f;
-            anim.Locomote(v.magnitude > 0.5f, Mathf.Clamp(v.magnitude / 3.5f, 0.6f, 1.6f));
+            anim.Locomote(v.magnitude > 0.5f, Mathf.Clamp(v.magnitude / 3.5f, 0.6f, 1.6f), v.magnitude);
         }
     }
 }

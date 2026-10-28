@@ -69,7 +69,7 @@ namespace BuildingEscape.EditorTools
                       WeaponCardRules.DamageLine(ms[bt].guardDamage) == "Damage: 25" && WeaponCardRules.StunLine(ms[bt].stun) == "Stun Time: 3s" &&
                       WeaponCardRules.DamageLine(ms[ht].guardDamage) == "Damage: 35" && WeaponCardRules.StunLine(ms[ht].stun) == "Stun Time: 6s");
                 var pew = RangedWeapon.Specs[(int)RangedWeapon.Kind.Pew];
-                Check("vendor cards (T10): the pistol says Damage: 40 (a bullet is four hits of ten HP) and Stun Time: 0s (a bullet does not stun)", WeaponCardRules.DamageLine(WeaponCardRules.GunDamage(pew.guardHits)) == "Damage: 40" && WeaponCardRules.StunLine(pew.stun) == "Stun Time: 0s");
+                                Check("vendor cards (T10): the pistol says Damage: 25 (light ammo, the owner, 2026-10-27) and Stun Time: 0s (a bullet does not stun)", WeaponCardRules.DamageLine(WeaponCardRules.GunDamage(pew.guardHits)) == "Damage: 25" && WeaponCardRules.StunLine(pew.stun) == "Stun Time: 0s");
                 Check("vendor cards (T10): a number is written whole when it is whole and with one decimal when it is not; a stun is never negative", WeaponCardRules.Number(15f) == "15" && WeaponCardRules.Number(2.5f) == "2.5" && WeaponCardRules.Number(0.0f) == "0" && WeaponCardRules.StunLine(-3f) == "Stun Time: 0s");
             }
 

@@ -7,7 +7,7 @@ namespace BuildingEscape
     /// guard outpost's and the safes' sounds, which are always generated.
     /// </summary>
     public enum SoundId { DoorOpen, DoorClose, ElevatorDing, Keys, KeysRun, RadioStatic, RadioCall,
-                          KeypadBeep, HackWin, HackFail, Alarm, SafeOpen, SafeWrong, Pry, CrowbarSnap, Paper, AlarmOff, MetalLock, Punch, Munch, Ping }
+                          KeypadBeep, HackWin, HackFail, Alarm, SafeOpen, SafeWrong, Pry, CrowbarSnap, Paper, AlarmOff, MetalLock, Punch, Munch, Ping, HitMarker, HitHead, HitKill }
 
     /// <summary>
     /// Finds the clip for a <see cref="SoundId"/>. A real clip assigned in the AudioCatalog wins; while there is none, a placeholder is
@@ -22,7 +22,7 @@ namespace BuildingEscape
             ProceduralSound.DoorVariants, ProceduralSound.DoorVariants, 1,
             ProceduralSound.KeyVariants, ProceduralSound.KeyVariants,
             ProceduralSound.RadioVariants, ProceduralSound.CallVariants,
-            OutpostSound.KeypadVariants, 1, 1, 1, 1, 1, OutpostSound.PryVariants, 1, 1, 1, 1, OutpostSound.PunchVariants, OutpostSound.MunchVariants, OutpostSound.PingVariants,
+            OutpostSound.KeypadVariants, 1, 1, 1, 1, 1, OutpostSound.PryVariants, 1, 1, 1, 1, OutpostSound.PunchVariants, OutpostSound.MunchVariants, OutpostSound.PingVariants, OutpostSound.HitVariants, OutpostSound.HitVariants, OutpostSound.HitVariants,
         };
 
         static AudioClip[][] made = new AudioClip[GeneratedVariants.Length][];
@@ -119,6 +119,9 @@ namespace BuildingEscape
                 case SoundId.Punch: return OutpostSound.Punch(variant);
                 case SoundId.Munch: return OutpostSound.Munch(variant);
                 case SoundId.Ping: return OutpostSound.Ping(variant);
+                case SoundId.HitMarker: return OutpostSound.HitTick();
+                case SoundId.HitHead: return OutpostSound.HitHead();
+                case SoundId.HitKill: return OutpostSound.HitKill();
                 default: return ProceduralSound.RadioCall(variant);
             }
         }

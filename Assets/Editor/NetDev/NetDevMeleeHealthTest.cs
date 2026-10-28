@@ -60,9 +60,9 @@ namespace BuildingEscape.EditorTools
             Check("melee health: a blow with no damage changes nothing", Mathf.Approximately(GuardHealthRules.DamageAfterBlow(4.5f, 0f), 4.5f) && Mathf.Approximately(GuardHealthRules.DamageAfterBlow(4.5f, -3f), 4.5f));
 
             // ---- bullets and blows take from the same pool, and the guns kill exactly as before
-            int pewHits = RangedWeapon.Specs[(int)RangedWeapon.Kind.Pew].guardHits;
-            Check("melee health: a pew bullet (4 hits) is 40 HP, three of them still put a guard down and two do not", Mathf.Approximately(GuardHealthRules.HitsToHp(pewHits), 40f) && GunRules.BulletsToKill(GuardHealthRules.BaseHitsToKill, pewHits) == 3 && !GuardHealthRules.IsDown(2 * pewHits, GuardHealthRules.BaseHitsToKill) && GuardHealthRules.IsDown(3 * pewHits, GuardHealthRules.BaseHitsToKill));
-            float mixed = pewHits;                                                                                      // one pew bullet: 40 HP gone
+            float pewHits = RangedWeapon.Specs[(int)RangedWeapon.Kind.Pew].guardHits;
+                        Check("melee health: a pew bullet (2.5 hits) is 25 HP, four of them put a guard down and three do not", Mathf.Approximately(GuardHealthRules.HitsToHp(pewHits), 25f) && GunRules.BulletsToKill(GuardHealthRules.BaseHitsToKill, pewHits) == 4 && !GuardHealthRules.IsDown(3 * pewHits, GuardHealthRules.BaseHitsToKill) && GuardHealthRules.IsDown(4 * pewHits, GuardHealthRules.BaseHitsToKill));
+            float mixed = RangedWeapon.Specs[(int)RangedWeapon.Kind.Rifle].guardHits;                                                                                      // one pew bullet: 40 HP gone
             for (int i = 0; i < 3; i++) mixed = GuardHealthRules.DamageAfterBlow(mixed, crowbar);                         // three crowbar hits: 45 more, 15 left
             bool aliveAfterThree = !GuardHealthRules.IsDown(mixed, GuardHealthRules.BaseHitsToKill) && Mathf.Approximately(GuardHealthRules.HealthLeft(mixed, GuardHealthRules.BaseHitsToKill), 15f);
             mixed = GuardHealthRules.DamageAfterBlow(mixed, crowbar);

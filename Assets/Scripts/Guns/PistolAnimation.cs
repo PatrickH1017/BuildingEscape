@@ -37,7 +37,7 @@ namespace BuildingEscape
                 name = "Pistol", raise = one.FirstOrDefault(a => a.name == Raise), aim = one.FirstOrDefault(a => a.name == Aim), fire = one.FirstOrDefault(a => a.name == Fire),
                 reload = rel.FirstOrDefault(a => a.name == Reload),
             };
-            if (c.Valid && c.reload) clips = c;
+            if (c.Valid && c.reload) { WeaponAnimation.LoadStances(c, "Pistol"); clips = c; }
             else Debug.LogWarning("[PistolAnimation] the pistol clips are missing from Resources/" + Folder + ": the pistol is held the old way");
             return clips;
         }

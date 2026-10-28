@@ -34,10 +34,10 @@ namespace BuildingEscape
         public Transform LeftHand => clipMode && anim && anim.isHuman ? anim.GetBoneTransform(HumanBodyBones.LeftHand) : null;
 
         /// <summary>Call every frame. Idle or run, with the run animation sped up or slowed to match the movement.</summary>
-        public void Locomote(bool moving, float speed = 1f)
+        public void Locomote(bool moving, float speed = 1f, float metersPerSecond = -1f)
         {
             if (!anim || pose == Pose.Down || pose == Pose.Dazed) return;
-            if (clipMode) { LocomoteClips(moving, speed); pose = moving ? Pose.Run : Pose.Idle; return; }
+            if (clipMode) { moveMs = !moving ? 0f : metersPerSecond >= 0f ? metersPerSecond : speed * 3.5f; LocomoteClips(moving, speed); pose = moving ? Pose.Run : Pose.Idle; return; }
             anim.speed = moving ? speed : 1f;
             if (Time.time < lockUntil) return; // let a jump / get-up finish first
             var next = moving ? Pose.Run : Pose.Idle;
@@ -285,6 +285,8 @@ namespace BuildingEscape
         AnimationLayerMixerPlayable layers;
         AnimationMixerPlayable gunMix, meleeMix;
         AnimationClipPlayable pRaise, pAim, pShot, pReload, mReady, mSwing;
+        AnimationClipPlayable pHipStand, pHipRun, pAimStand, pAimRun;          // (the gun's stances, inputs 3 to 6 of gunMix; see GunPose)
+        float moveMs, runShare, standT;                                          // (how fast the body moves, m/s; how much of the upper body's run the stance shows; the standing loops' clock)
         WeaponAnimation.GunClips gunClips;
         WeaponAnimation.MeleeClips meleeClips;
         float raiseLength, shotLength, reloadLength;
@@ -297,6 +299,15 @@ namespace BuildingEscape
 
         /// <summary>Can this rig play the pistol animation: the weapon layers and the clips in the build.</summary>
         public bool CanPlayPistol => CanPlayWeapons && PistolAnimation.Load() != null;
+
+        /// <summary>The metres a second from which the stance loops show the run (below the first: standing), and from which they show all of it. A creeping player (2.8 m/s) shows most of it.</summary>
+        public const float StanceWalkMs = 1f, StanceRunMs = 3.5f;
+        /// <summary>Where in its cycle the legs' run (or walk) clip is when the stances' run loops start (a share of the cycle; tuned by eye).</summary>
+        public const float StanceRunPhase = 0f;
+        /// <summary>How much of the run the gun's stance shows this frame (0 standing .. 1 running; for the tests).</summary>
+        public float RunShare => runShare;
+        /// <summary>The gun in the layers is held with the stance loops (for the tests).</summary>
+        public bool StanceActive => layersOn && gunClips != null && gunClips.Stances;
 
         /// <summary>How much of the upper body the gun's animation has this frame (0..1; for the tests).</summary>
         public float GunWeight => layersOn && gunClips != null ? gunWeight : 0f;
@@ -320,7 +331,7 @@ namespace BuildingEscape
             output.SetSourcePlayable(layers);
             graph.Connect(mixer, 0, layers, 0);
             layers.SetInputWeight(0, 1f);
-            gunMix = AnimationMixerPlayable.Create(graph, 3);
+            gunMix = AnimationMixerPlayable.Create(graph, 7);
             meleeMix = AnimationMixerPlayable.Create(graph, 2);
             graph.Connect(gunMix, 0, layers, 1);
             graph.Connect(meleeMix, 0, layers, 3);
@@ -357,8 +368,13 @@ namespace BuildingEscape
             pRaise = Swap(pRaise, c.raise, gunMix, 0);
             pAim = Swap(pAim, c.aim, gunMix, 1);
             pShot = Swap(pShot, c.fire, gunMix, 2);
+            bool st = c.Stances;
+            pHipStand = Swap(pHipStand, st ? c.hipStand : null, gunMix, 3);
+            pHipRun = Swap(pHipRun, st ? c.hipRun : null, gunMix, 4);
+            pAimStand = Swap(pAimStand, st ? c.aimStand : null, gunMix, 5);
+            pAimRun = Swap(pAimRun, st ? c.aimRun : null, gunMix, 6);
             pReload = Swap(pReload, c.reload, layers, 2);
-            layers.SetLayerMaskFromAvatarMask(1, c.twoHand ? WeaponAnimation.UpperBody : PistolAnimation.AimMask);
+            layers.SetLayerMaskFromAvatarMask(1, c.twoHand || c.Stances ? WeaponAnimation.UpperBody : PistolAnimation.AimMask);
             raiseLength = c.raise.length; shotLength = c.fire.length; reloadLength = c.reload ? c.reload.length : 0f;
             gunClips = c;
             gunWeight = reloadWeight = 0f;
@@ -388,11 +404,40 @@ namespace BuildingEscape
             gunWeight = down ? Mathf.MoveTowards(gunWeight, 0f, Time.deltaTime * 10f) : c.twoHand ? Mathf.MoveTowards(gunWeight, 1f, Time.deltaTime * 8f) : Mathf.Clamp01(raise * 4f);
             bool reloading = pReload.IsValid() && reload > 0f && reload < 1f;
             reloadWeight = Mathf.MoveTowards(reloadWeight, reloading ? 1f : 0f, Time.deltaTime * 8f);
-            bool shot = raise >= 0.999f && sinceShot >= 0f && sinceShot < shotLength;
-            int slot = shot ? 2 : raise < 0.999f ? 0 : 1;
-            for (int i = 0; i < 3; i++) gunMix.SetInputWeight(i, i == slot ? 1f : 0f);
-            pRaise.SetTime(raise * raiseLength);
-            pShot.SetTime(shot ? sinceShot : 0f);
+            if (c.Stances)
+            {
+                // the stances (the owner, 2026-10-27): the gun is held with the loops, mixed by how far it is raised (the low ready of the raise clip, the hip, the sights) and how fast the body moves (standing, running). The shot has no
+                // clip of its own here: its kick is made by the HeldGun. The standing loops run on a clock of their own; the running loops keep the step of the legs' own run (or walk) clip.
+                float hip = AimRules.HipShare(raise), aimed = AimRules.AimShare(raise);
+                float runWant = moveMs <= 0f ? 0f : Mathf.InverseLerp(StanceWalkMs, StanceRunMs, moveMs);
+                runShare = Mathf.MoveTowards(runShare, runWant, Time.deltaTime * 6f);
+                float h = hip * (1f - aimed), a = hip * aimed;
+                gunMix.SetInputWeight(0, 1f - hip);
+                gunMix.SetInputWeight(1, 0f);
+                gunMix.SetInputWeight(2, 0f);
+                gunMix.SetInputWeight(3, h * (1f - runShare));
+                gunMix.SetInputWeight(4, h * runShare);
+                gunMix.SetInputWeight(5, a * (1f - runShare));
+                gunMix.SetInputWeight(6, a * runShare);
+                pRaise.SetTime(0f);
+                standT += Time.deltaTime;
+                pHipStand.SetTime(Mathf.Repeat(standT, c.hipStand.length));
+                pAimStand.SetTime(Mathf.Repeat(standT, c.aimStand.length));
+                var leg = baseSlot == Slot.Walk ? Slot.Walk : Slot.Run;
+                float legLen = slotClip[(int)leg].length;
+                float phase = legLen > 0.01f ? Mathf.Repeat((float)play[(int)leg].GetTime() / legLen + StanceRunPhase, 1f) : 0f;
+                pHipRun.SetTime(phase * c.hipRun.length);
+                pAimRun.SetTime(phase * c.aimRun.length);
+            }
+            else
+            {
+                bool shot = raise >= 0.999f && sinceShot >= 0f && sinceShot < shotLength;
+                int slot = shot ? 2 : raise < 0.999f ? 0 : 1;
+                for (int i = 0; i < 3; i++) gunMix.SetInputWeight(i, i == slot ? 1f : 0f);
+                for (int i = 3; i < 7; i++) gunMix.SetInputWeight(i, 0f);
+                pRaise.SetTime(raise * raiseLength);
+                pShot.SetTime(shot ? sinceShot : 0f);
+            }
             if (reloading) pReload.SetTime(reload * reloadLength);
             layers.SetInputWeight(1, gunWeight);
             layers.SetInputWeight(2, reloadWeight * gunWeight);

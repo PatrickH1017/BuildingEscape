@@ -189,6 +189,9 @@ namespace BuildingEscape.EditorTools
             var live = GuardAI.All.Where(g => g && !g.Dead && !g.IsPuppet).ToList();
             GunNetCheck("host: every guard carries a pew (the test switch arms this floor)", live.Count > 0 && live.All(g => g.Armed) && duty != null, $"({live.Count(g => g.Armed)} of {live.Count})");
             if (pew == null || duty == null) { Log($"[GunNet] host DONE fails={gunNetFails}"); Quit(1); yield break; }
+            if (GunSafeProp.Active != null) GunSafeProp.Active.HostResult(true);          // (the pew lies in the gun safe since 2026-10-23: open it, as PewLoot does)
+            yield return new WaitForSeconds(1.5f);
+            GunNetCheck("host: the gun safe is open and the pew is in the world", GunSafeProp.Active != null && GunSafeProp.Active.IsOpen && pew.gameObject.activeSelf);
             var cult = System.Globalization.CultureInfo.InvariantCulture;
             Signal("h_floor4", string.Format(cult, "{0} {1} {2:0.###} {3:0.###} {4:0.###} {5:0.###}", pew.NetId, duty.NetId, duty.transform.position.x, duty.transform.position.z, pew.transform.position.x, pew.transform.position.z));
             yield return WaitSig("c_sees", 120);
@@ -207,10 +210,20 @@ namespace BuildingEscape.EditorTools
             int accepted0 = RunSync.Instance.GunShotsAccepted;
             yield return WaitSig("c_shot", 120);
             yield return new WaitForSeconds(0.8f);
-            GunNetCheck("host: it accepted all three shots of the client", RunSync.Instance.GunShotsAccepted - accepted0 == 3, $"({RunSync.Instance.GunShotsAccepted - accepted0})");
-            GunNetCheck("host: the guard on duty is down for good (three bullets, four hits each)", duty.Dead && duty.Hits >= 10, $"(dead {duty.Dead}, hits {duty.Hits})");
-            GunNetCheck("host: the client's three shots were shown on this machine", cgc != null && cgc.ShotsSeen == 3, $"({(cgc != null ? cgc.ShotsSeen : -1)})");
+            GunNetCheck("host: it accepted all four shots of the client", RunSync.Instance.GunShotsAccepted - accepted0 == 4, $"({RunSync.Instance.GunShotsAccepted - accepted0})");
+            GunNetCheck("host: the guard on duty is down for good (four bullets, 25 HP each: light ammo)", duty.Dead && duty.Hits >= 10, $"(dead {duty.Dead}, hits {duty.Hits})");
+            GunNetCheck("host: the client's four shots were shown on this machine", cgc != null && cgc.ShotsSeen == 4, $"({(cgc != null ? cgc.ShotsSeen : -1)})");
             Signal("h_shot_ok");
+
+            // ---- the client aims: the host sees his gun come up to the sights, and go back to the hip when he lets go
+            yield return WaitSig("c_aim_on", 90);
+            yield return new WaitForSeconds(1.2f);
+            GunNetCheck("host: the client holds the right mouse button: he is aiming here (the flag came over) and his gun is up at the sights", cgc != null && cgc.Aiming && cgc.Held != null && cgc.Held.RaiseNow > 0.95f, cgc != null && cgc.Held != null ? $"(aiming {cgc.Aiming}, raise {cgc.Held.RaiseNow:0.00}, stances {(cgc.Held.Clips != null && cgc.Held.Clips.Stances)})" : "(no gun)");
+            Signal("h_aim_on_ok");
+            yield return WaitSig("c_aim_off", 90);
+            yield return new WaitForSeconds(1.2f);
+            GunNetCheck("host: the client lets go: he is not aiming here and his gun is back at the hip", cgc != null && !cgc.Aiming && cgc.Held != null && Mathf.Abs(cgc.Held.RaiseNow - AimRules.HipRaise) < 0.04f, cgc != null && cgc.Held != null ? $"(aiming {cgc.Aiming}, raise {cgc.Held.RaiseNow:0.00})" : "(no gun)");
+            Signal("h_aim_off_ok");
 
             // ---- the client drops it; the host picks it up and fires one shot: the client shows it
             yield return WaitSig("c_dropped", 90);
@@ -278,6 +291,7 @@ namespace BuildingEscape.EditorTools
             var wob = me.GetComponent<WobblyPlayer>();
             var rb = wob.GetComponent<Rigidbody>();
             var pack = MyPack;
+            yield return WaitFor(() => pew.gameObject.activeSelf, 20, "the gun safe open on this machine (the pew in the world)");
             wob.TeleportTo(pew.transform.position + new Vector3(0.6f, 1.1f, 0f), wob.transform.rotation);
             rb.linearVelocity = Vector3.zero;
             yield return new WaitForSeconds(1.2f);
@@ -316,13 +330,27 @@ namespace BuildingEscape.EditorTools
                 yield return new WaitForSeconds(0.4f);
                 AimCamera(cam, wob, duty != null ? duty.transform.position + Vector3.up * 0.3f : chest);
                 bool f3 = gc.Fire();
-                GunNetCheck("client: all three bullets left the gun", f1 && f2 && f3 && gc.ShotsFired == 3 && gc.Gun.Magazine.Rounds == 5, $"({f1}, {f2}, {f3}, fired {gc.ShotsFired}, rounds {gc.Gun.Magazine.Rounds})");
+                yield return new WaitForSeconds(0.4f);
+                AimCamera(cam, wob, duty != null ? duty.transform.position + Vector3.up * 0.3f : chest);
+                bool f4 = gc.Fire();
+                GunNetCheck("client: all four bullets left the gun", f1 && f2 && f3 && f4 && gc.ShotsFired == 4 && gc.Gun.Magazine.Rounds == 4, $"({f1}, {f2}, {f3}, {f4}, fired {gc.ShotsFired}, rounds {gc.Gun.Magazine.Rounds})");
             }
             yield return new WaitForSeconds(0.5f);
             Signal("c_shot");
             yield return WaitSig("h_shot_ok", 60);
+            yield return new WaitForSeconds(0.8f);
+            GunNetCheck("client: a hit marker flashed for the bullets that landed, and the last - the elimination - had its own marker and sound, which the host sent him (the owner, 2026-10-27)", HitFeedback.Count >= 4 && HitFeedback.Count <= 5 && HitFeedback.Last == HitKind.Kill && HitFeedback.LastSound == SoundId.HitKill, $"(markers {HitFeedback.Count}, last {HitFeedback.Last}, {HitFeedback.LastSound})");
             yield return new WaitForSeconds(1.0f);
             GunNetCheck("client: the guard is down here too (the host's flag in the snapshot)", duty != null && duty.Dead, duty != null ? $"(dead {duty.Dead})" : "");
+
+            // ---- the hip and the sights: the host must see them (his checks are on the other side)
+            GunController.TestAim = true;
+            Signal("c_aim_on");
+            yield return WaitSig("h_aim_on_ok", 60);
+            GunController.TestAim = false;
+            Signal("c_aim_off");
+            yield return WaitSig("h_aim_off_ok", 60);
+            GunController.TestAim = null;
 
             // ---- drop it for the host
             pack.Drop(pew);

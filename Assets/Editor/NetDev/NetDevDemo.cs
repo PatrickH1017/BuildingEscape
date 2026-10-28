@@ -150,12 +150,20 @@ namespace BuildingEscape.EditorTools
                 float h0 = dummy.Health;
                 bool fired = gc.Fire();
                 yield return null;
-                DemoCheck("a bullet takes 60 health off the dummy", fired && Mathf.Approximately(h0 - dummy.Health, 60f), $"({h0} -> {dummy.Health})");
+                DemoCheck("a bullet takes 25 health off the dummy (light ammo, the owner, 2026-10-27)", fired && Mathf.Approximately(h0 - dummy.Health, 25f), $"({h0} -> {dummy.Health})");
                 yield return new WaitForSeconds(0.35f);
                 AimCamera(Camera.main, player, aimAt);
                 gc.Fire();
                 yield return null;
-                DemoCheck("two bullets bring it down", dummy.Down || dummy.Health <= 0f, $"(health {dummy.Health})");
+                DemoCheck("two bullets leave it standing (50 of 100 health)", !dummy.Down && Mathf.Approximately(dummy.Health, 50f), $"(health {dummy.Health})");
+                for (int more = 0; more < 2; more++)
+                {
+                    yield return new WaitForSeconds(0.35f);
+                    AimCamera(Camera.main, player, aimAt);
+                    gc.Fire();
+                    yield return null;
+                }
+                DemoCheck("four bullets bring it down", dummy.Down || dummy.Health <= 0f, $"(health {dummy.Health})");
             }
             if (rig) rig.enabled = true;
 

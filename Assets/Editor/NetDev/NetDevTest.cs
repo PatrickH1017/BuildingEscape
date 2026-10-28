@@ -91,6 +91,7 @@ namespace BuildingEscape.EditorTools
             AlarmRulesTest();
             DockPosterRulesTest();
             ConsumablesRulesTest();
+            BulletDamageRulesTest();
             Asks1023ETest();
             SightsAimTest();
             string v = NetConst.BuildVersion;
@@ -837,8 +838,8 @@ namespace BuildingEscape.EditorTools
                 strongest &= pew.damage > mw.damage && pew.knock > mw.knock && pew.noise > mw.noise && pew.fireInterval < mw.cooldown;
             Check("gun: the pew beats the crowbar, the bat and the hatchet in damage, knock-back, noise and speed (it does not stun: the owner, 2026-10-19)", strongest && pew.stun == 0f);
             Check("gun: a bullet counts as several hits on a guard", pew.guardHits >= 2);
-            Check("gun: three bullets knock a guard out (a melee weapon needs ten hits; the owner, 2026-10-18: 3 shots to knock down a guard)", GunRules.BulletsToKill(10, pew.guardHits) == 3);
-            Check("gun: the boss takes more bullets", GunRules.BulletsToKill(30, pew.guardHits) == 8 && GunRules.BulletsToKill(10, 1) == 10 && GunRules.BulletsToKill(0, 0) == 1);
+                        Check("gun: four bullets knock a guard out (a melee weapon needs ten hits; the owner, 2026-10-27: light ammo, 25 HP a hit)", GunRules.BulletsToKill(10, pew.guardHits) == 4);
+                        Check("gun: the boss takes more bullets", GunRules.BulletsToKill(30, pew.guardHits) == 12 && GunRules.BulletsToKill(10, 1) == 10 && GunRules.BulletsToKill(0, 0) == 1);
 
             // spread: inside the cone, even over it, and repeatable
             float maxR = 0f, sumX = 0f, sumY = 0f; int n = 4000; bool inside = true;

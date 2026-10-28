@@ -267,7 +267,7 @@ namespace BuildingEscape
                 GUILayout.BeginHorizontal();
                 if (GUILayout.Button("Call backup now (starts the 30 s repeat)")) hm.CallBackup(null);
                 if (GUILayout.Button("Cancel backup call"))
-                    Say(hm.StandDown() ? "Backup called off: no more officers are coming" : "No backup call going - nothing to cancel");
+                    Say(hm.DevClearAlert() ? "Backup called off: the alarm and the marks are cleared, the extra officers are gone" : "No backup call or alarm going - nothing to cancel");
                 GUILayout.EndHorizontal();
             }
 
@@ -283,7 +283,7 @@ namespace BuildingEscape
         {
             Header("Alarm (reinforcements)");
             // The reinforcement alarm: what a guard's radio does. Two officers now, one more every 30 s until it is called off.
-            GUILayout.Label("Reinforcements: " + (hm && hm.BackupActive ? "ON (an officer every 30 s)" : "off"));
+            GUILayout.Label("Reinforcements: " + (hm && hm.BackupActive ? "ON (an officer every 30 s)" : "off") + "     Big Alarm: " + (hm && hm.BigAlarmActive ? "ON" : "off") + "     Marked: " + (hm ? hm.MarkedCount : 0));
             GUILayout.BeginHorizontal();
             if (GUILayout.Button("Trip the alarm (call reinforcements)"))
             {
@@ -295,7 +295,7 @@ namespace BuildingEscape
                 }
             }
             if (GUILayout.Button("Turn alarm OFF (call them off)"))
-                Say(hm && hm.StandDown() ? "Reinforcements called off" : "No reinforcements going - nothing to switch off");
+                Say(hm && hm.DevClearAlert() ? "Alarm off: the reinforcements are gone and nobody is marked" : "No reinforcements or alarm going - nothing to switch off");
             GUILayout.EndHorizontal();
             if (Time.time < statusUntil) GUILayout.Label(status);          // (the answer shows here, next to the buttons)
         }

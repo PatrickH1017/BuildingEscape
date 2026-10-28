@@ -57,6 +57,18 @@ namespace BuildingEscape.EditorTools
             { WeaponAnimation.MeleeFile(MeleeWeapon.Kind.Hatchet), Melee(MeleeWeapon.Kind.Hatchet) },
         };
 
+        // the stance files (the owner, 2026-10-27): for each gun the hip-fire and the aimed pose, standing (60 frames) and running (20 / 24 frames), each ONE loop of the whole take, named like its file
+        static IEnumerable<KeyValuePair<string, Cut[]>> StanceCuts()
+        {
+            foreach (var gun in new[] { "Pistol", "Smg", "Rifle", "Shotgun", "Sniper" })
+                foreach (var aimed in new[] { false, true })
+                    foreach (var run in new[] { false, true })
+                    {
+                        string f = WeaponAnimation.StanceFile(gun, aimed, run);
+                        yield return new KeyValuePair<string, Cut[]>(f, new[] { new Cut(f, 1, run ? (aimed ? 24 : 20) : 60, true) });
+                    }
+        }
+
         [MenuItem("Employees Take Revenge/Setup Weapon Animations")]
         static void Menu()
         {
@@ -84,7 +96,7 @@ namespace BuildingEscape.EditorTools
             }
             var mapping = source.humanDescription;
             bool ok = true;
-            foreach (var pair in Cuts)
+            foreach (var pair in Cuts.Concat(StanceCuts()))
             {
                 string path = Folder + pair.Key + ".fbx";
                 var imp = AssetImporter.GetAtPath(path) as ModelImporter;

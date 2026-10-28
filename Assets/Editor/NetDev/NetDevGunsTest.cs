@@ -26,9 +26,9 @@ namespace BuildingEscape.EditorTools
                 S[pew].unlockFloor == 3 && S[smg].unlockFloor == 5 && S[shotgun].unlockFloor == 6 && S[rifle].unlockFloor == 8 && S[sniper].unlockFloor == 10);
             Check("guns: the sub machine gun fires fastest, then the rifle, the pew, the shotgun, the sniper rifle slowest; the sniper rifle hits hardest and reaches furthest, the sub machine gun shortest of the rifles",
                 S[smg].fireInterval < S[rifle].fireInterval && S[rifle].fireInterval < S[pew].fireInterval && S[pew].fireInterval < S[shotgun].fireInterval && S[shotgun].fireInterval < S[sniper].fireInterval
-                && S[sniper].damage > S[pew].damage && S[pew].damage > S[rifle].damage && S[rifle].damage > S[smg].damage && S[sniper].range > S[rifle].range && S[rifle].range > S[smg].range);
-            Check("guns: a shotgun fires eight pellets (one hit of ten each), every other gun one bullet; a bullet does not knock a guard over (the owner: the new guns stun for nothing)",
-                S[shotgun].Pellets == 8 && S[shotgun].guardHits == 1 && S[pew].Pellets == 1 && S[smg].Pellets == 1 && S[rifle].Pellets == 1 && S[sniper].Pellets == 1
+                && S[sniper].damage > S[rifle].damage && S[rifle].damage > S[pew].damage && S[pew].damage >= S[smg].damage && S[sniper].range > S[rifle].range && S[rifle].range > S[smg].range);
+            Check("guns: a shotgun fires eight pellets (75 HP a shot, dealt once), every other gun one bullet; a bullet does not knock a guard over (the owner: the new guns stun for nothing)",
+                S[shotgun].Pellets == 8 && Mathf.Approximately(S[shotgun].guardHits, 7.5f) && S[pew].Pellets == 1 && S[smg].Pellets == 1 && S[rifle].Pellets == 1 && S[sniper].Pellets == 1
                 && S[smg].stun == 0f && S[rifle].stun == 0f && S[shotgun].stun == 0f && S[sniper].stun == 0f && S[sniper].guardHits == 10);
             Check("guns: the pistol is held in one hand, every other gun in two; the pistol and the sub machine gun sound like the handgun, the rifle and the sniper rifle like the assault rifle, the shotgun like the shotgun",
                 S[pew].hold == RangedWeapon.HoldStyle.OneHand && S[smg].hold == RangedWeapon.HoldStyle.TwoHand && S[rifle].hold == RangedWeapon.HoldStyle.TwoHand && S[shotgun].hold == RangedWeapon.HoldStyle.TwoHand && S[sniper].hold == RangedWeapon.HoldStyle.TwoHand

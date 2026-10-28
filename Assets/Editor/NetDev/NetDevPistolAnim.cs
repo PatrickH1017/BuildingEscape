@@ -44,6 +44,8 @@ namespace BuildingEscape.EditorTools
             yield return WaitFor(() => hm != null && TowerManager.Instance != null && !TowerManager.Instance.Loading && hm.Phase == HeistPhase.Hub, 60, "basement");
             hm.godMode = true;
             GunController.TestCursorLocked = true;
+            GunController.TestAim = true;              // (the right mouse button held: since 2026-10-27 a gun is at the hip without it, and these scenarios look at the aimed pose)
+            WeaponAnimation.StancesEnabled = false;    // (these scenarios look at the raise / aim / fire clips: the officers' and the fallback of a gun whose stance loops are missing; the stances have the GunStance scenario)
             Time.captureDeltaTime = 1f / 30f;          // (every frame is a thirtieth of a second, however slow a batch run draws: the shot clip lasts seven frames)
             var player = WobblyPlayerRegistry.All[0];
             var pack = player.GetComponent<Backpack>();

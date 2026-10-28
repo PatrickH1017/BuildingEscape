@@ -29,6 +29,10 @@ namespace BuildingEscape.Net
         readonly NetworkVariable<bool> hidden = new(false,
             NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
 
+        // Aiming (the gun is up at the sights), written by the owner: teammates see the gun at the hip or at the sights (the owner, 2026-10-27).
+        readonly NetworkVariable<bool> aiming = new(false,
+            NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
+
         // Crouched, written by the owner: teammates see the crouch (the puppet's own script is off).
         readonly NetworkVariable<bool> crouched = new(false,
             NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
@@ -147,9 +151,10 @@ namespace BuildingEscape.Net
         {
             if (!IsSpawned || wobbly == null) return;
             if (!IsServer) wobbly.ApplyCustody((CustodyState)custody.Value, pinSecondsLeft.Value, bustedLevel.Value);
-            if (IsOwner) { hidden.Value = wobbly.IsHidden; crouched.Value = wobbly.IsCrouching; return; }
+            if (IsOwner) { hidden.Value = wobbly.IsHidden; crouched.Value = wobbly.IsCrouching; aiming.Value = wobbly.IsAiming; return; }
             wobbly.IsHidden = hidden.Value;
             wobbly.SetPuppetCrouch(crouched.Value);
+            wobbly.IsAiming = aiming.Value;
             // Puppets are kinematic, so derive their speed from how far they moved for the animator.
             float dt = Mathf.Max(Time.deltaTime, 0.0001f);
             var v = (transform.position - lastPos) / dt;

@@ -192,8 +192,8 @@ namespace BuildingEscape
         }
 
         /// <summary>How many bullets knock a guard out: he goes down after <paramref name="hitsToKill"/> hits and a bullet counts as <paramref name="hitsPerBullet"/>.</summary>
-        public static int BulletsToKill(int hitsToKill, int hitsPerBullet) =>
-            (Math.Max(1, hitsToKill) + Math.Max(1, hitsPerBullet) - 1) / Math.Max(1, hitsPerBullet);
+        public static int BulletsToKill(float hitsToKill, float hitsPerBullet) =>
+            Math.Max(1, (int)Math.Ceiling(Math.Max(1f, hitsToKill) / (hitsPerBullet <= 0f ? 1f : hitsPerBullet) - 1e-4));
 
         /// <summary>
         /// Should an armed guard stand still and shoot (true), or keep running at the player (false)? He shoots when he sees a free player

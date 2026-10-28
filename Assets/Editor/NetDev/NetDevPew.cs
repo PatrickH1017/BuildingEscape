@@ -375,23 +375,29 @@ namespace BuildingEscape.EditorTools
                 AimCamera(cam, player, victim.transform.position + Vector3.up * 0.3f);
                 aimPoint.Invoke(gc, args);
                 PewCheck("the crosshair on a standing guard is a foe", (bool)args[0]);
-                int hits0 = victim.Hits;
+                float dmg0 = victim.Damage; float bulletHits = RangedWeapon.Specs[(int)RangedWeapon.Kind.Pew].guardHits;
                 AimCamera(cam, player, victim.transform.position + Vector3.up * 0.3f);
                 bool firedAtVictim = gc.Fire();
                 var li = gc.LastImpact;
                 yield return null;
-                PewCheck("one bullet counts as four hits on a guard and does not knock him over (the owner, 2026-10-19: bullets damage, melee knocks over)", victim.Hits == hits0 + 4 && victim.State != GuardState.Stunned && !victim.Dead,
-                    $"(fired {firedAtVictim}, hits {victim.Hits}, {victim.State}; bullet from {gc.LastMuzzle} dir {gc.LastDirection}, hit {(li.hit ? li.collider.name : "nothing")} at {li.distance:0.0} m, guard at {victim.transform.position}, player {player.transform.position})");
+                PewCheck("one bullet is 25 HP (2.5 of the ten hits) to a guard and does not knock him over (the owner, 2026-10-27: light ammo 25 a hit)", Mathf.Approximately(victim.Damage, dmg0 + bulletHits) && victim.State != GuardState.Stunned && !victim.Dead,
+                    $"(fired {firedAtVictim}, damage {victim.Damage}, {victim.State}; bullet from {gc.LastMuzzle} dir {gc.LastDirection}, hit {(li.hit ? li.collider.name : "nothing")} at {li.distance:0.0} m, guard at {victim.transform.position}, player {player.transform.position})");
+                bool second = false, third = false, fourth = false;
                 yield return new WaitForSeconds(0.32f);
                 AimCamera(cam, player, victim.transform.position + Vector3.up * 0.3f);
-                bool second = gc.Fire();
+                second = gc.Fire();
                 yield return null;
-                PewCheck("the second bullet hits him again, but he is not down yet (eight of ten hits)", second && !victim.Dead && victim.Hits == hits0 + 8, $"(hits {victim.Hits}, dead {victim.Dead})");
+                PewCheck("the second bullet hits him again, but he is not down yet (five of ten hits)", second && !victim.Dead && Mathf.Approximately(victim.Damage, dmg0 + 2f * bulletHits), $"(damage {victim.Damage}, dead {victim.Dead})");
                 yield return new WaitForSeconds(0.32f);
                 AimCamera(cam, player, victim.transform.position + Vector3.up * 0.3f);
-                bool third = gc.Fire();
+                third = gc.Fire();
                 yield return null;
-                PewCheck("the third bullet puts him down for good", third && victim.Dead, $"(hits {victim.Hits}, dead {victim.Dead})");
+                PewCheck("the third bullet leaves him on his feet (seven and a half of ten hits)", third && !victim.Dead && Mathf.Approximately(victim.Damage, dmg0 + 3f * bulletHits), $"(damage {victim.Damage}, dead {victim.Dead})");
+                yield return new WaitForSeconds(0.32f);
+                AimCamera(cam, player, victim.transform.position + Vector3.up * 0.3f);
+                fourth = gc.Fire();
+                yield return null;
+                PewCheck("the fourth bullet puts him down for good", fourth && victim.Dead, $"(damage {victim.Damage}, dead {victim.Dead})");
                 args = new object[] { true };
                 AimCamera(cam, player, victim.transform.position + Vector3.up * 0.3f);
                 aimPoint.Invoke(gc, args);

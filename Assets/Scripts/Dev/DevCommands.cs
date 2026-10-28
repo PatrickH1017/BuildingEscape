@@ -23,7 +23,7 @@ namespace BuildingEscape
                     foreach (var g in Object.FindObjectsByType<GuardAI>(FindObjectsSortMode.None)) if (g && !g.IsPuppet) g.Stun(DevCommandRules.StunSeconds, null);
                     return "stun";
                 case DevCommand.CallBackup: hm.CallBackup(null); return "backup";
-                case DevCommand.CancelBackup: hm.StandDown(); return "stand down";
+                case DevCommand.CancelBackup: hm.DevClearAlert(); return "alarm off";
                 case DevCommand.GodMode: hm.godMode = !hm.godMode; return "god " + (hm.godMode ? "on" : "off");
                 case DevCommand.FreeTeam:
                     foreach (var p in WobblyPlayerRegistry.All) if (p) { p.PinImmuneUntil = 0f; hm.FreePinned(p); hm.ReleaseBusted(p); }          // (as the dev menu's "Free me", for everybody)

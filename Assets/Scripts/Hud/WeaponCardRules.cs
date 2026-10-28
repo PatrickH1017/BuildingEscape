@@ -23,6 +23,6 @@ namespace BuildingEscape
         public static string StunLine(float seconds) => "Stun Time: " + Number(Math.Max(0f, seconds)) + "s";
 
         /// <summary>What a bullet of a gun takes off a guard: the hits of the damage count it is worth, in HP.</summary>
-        public static float GunDamage(int guardHits) => GuardHealthRules.HitsToHp(Math.Max(0, guardHits));
+        public static float GunDamage(float guardHits) => GuardHealthRules.HitsToHp(Math.Max(0f, guardHits));
     }
 }

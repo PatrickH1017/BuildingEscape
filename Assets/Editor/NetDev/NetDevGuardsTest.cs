@@ -22,15 +22,15 @@ namespace BuildingEscape.EditorTools
                 Mathf.Approximately(GuardLoadouts.BulletShare(ShieldTier.None), 1f) && Mathf.Approximately(GuardLoadouts.BulletShare(ShieldTier.Light), 0.75f) && Mathf.Approximately(GuardLoadouts.BulletShare(ShieldTier.Medium), 0.5f)
                 && Mathf.Approximately(GuardLoadouts.BulletShare(ShieldTier.Heavy), 0.3f) && Mathf.Approximately(GuardLoadouts.DamageTaken(4f, ShieldTier.Heavy, true), 4f) && Mathf.Approximately(GuardLoadouts.DamageTaken(4f, ShieldTier.Medium), 2f));
             int B(RangedWeapon.Kind gun, ShieldTier tier, float health = 10f) => GuardLoadouts.BulletsToKill(health, S[(int)gun].guardHits, tier);
-            Check("bullets: the pew needs 3 bullets for an unshielded guard, 4 through a light shield, 5 through a medium one (the vest of floor 4 was this), 9 through a heavy one",
-                B(pewK, ShieldTier.None) == 3 && B(pewK, ShieldTier.Light) == 4 && B(pewK, ShieldTier.Medium) == 5 && B(pewK, ShieldTier.Heavy) == 9,
+            Check("bullets: the pew needs 4 bullets for an unshielded guard, 6 through a light shield, 8 through a medium one, 14 through a heavy one (light ammo, 25 HP a bullet: the owner, 2026-10-27)",
+                B(pewK, ShieldTier.None) == 4 && B(pewK, ShieldTier.Light) == 6 && B(pewK, ShieldTier.Medium) == 8 && B(pewK, ShieldTier.Heavy) == 14,
                 $"({B(pewK, ShieldTier.None)}, {B(pewK, ShieldTier.Light)}, {B(pewK, ShieldTier.Medium)}, {B(pewK, ShieldTier.Heavy)})");
-            Check("bullets: the sniper rifle needs 1 for an unshielded guard, 2 through a light or a medium shield, 4 through a heavy one; the rifle 3 / 5 (medium); the SMG 5 / 7 / 10 / 17",
+            Check("bullets: the sniper rifle needs 1 for an unshielded guard, 2 through a light or a medium shield, 4 through a heavy one; the rifle 3 / 5 (medium); the SMG 4 / 6 / 8 / 14",
                 B(sniperK, ShieldTier.None) == 1 && B(sniperK, ShieldTier.Light) == 2 && B(sniperK, ShieldTier.Medium) == 2 && B(sniperK, ShieldTier.Heavy) == 4
                 && B(rifleK, ShieldTier.None) == 3 && B(rifleK, ShieldTier.Medium) == 5
-                && B(smgK, ShieldTier.None) == 5 && B(smgK, ShieldTier.Light) == 7 && B(smgK, ShieldTier.Medium) == 10 && B(smgK, ShieldTier.Heavy) == 17);
-            Check("bullets: it takes a shotgun's pellets ten to knock out an unshielded guard and 34 through a heavy shield; the boss (30) takes 8 pew bullets",
-                B(shotgunK, ShieldTier.None) == 10 && B(shotgunK, ShieldTier.Heavy) == 34 && B(pewK, ShieldTier.None, 30f) == 8);
+                && B(smgK, ShieldTier.None) == 4 && B(smgK, ShieldTier.Light) == 6 && B(smgK, ShieldTier.Medium) == 8 && B(smgK, ShieldTier.Heavy) == 14);
+            Check("bullets: a shotgun shot is 75 HP: two shots knock out an unshielded guard and five through a heavy shield; the boss (30) takes 12 pew bullets",
+                B(shotgunK, ShieldTier.None) == 2 && B(shotgunK, ShieldTier.Heavy) == 5 && B(pewK, ShieldTier.None, 30f) == 12);
 
             // ---- the guns that end a player's floor
             Check("elimination: only a shotgun and a sniper rifle end a player's floor, the pew, the SMG and the rifle only knock down",

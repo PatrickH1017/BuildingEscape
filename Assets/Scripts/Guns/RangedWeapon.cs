@@ -38,10 +38,10 @@ namespace BuildingEscape
             public string name;
             /// <summary>Kilograms in the pack, and how long the gun is in metres when held (the pack models are not built to scale).</summary>
             public float weight, length;
-            /// <summary>Health a bullet takes off a training dummy (a melee hit takes 11 to 22); for a shotgun, what each pellet takes.</summary>
+            /// <summary>Health a bullet takes off a training dummy (a melee hit takes 11 to 22): the gun's ammunition's body-shot damage (BulletDamageRules), for a shotgun what a whole shot takes.</summary>
             public float damage;
-            /// <summary>How many of a guard's hits to knock-out one bullet counts as (a melee hit counts as one); for a shotgun, what each pellet counts as.</summary>
-            public int guardHits;
+            /// <summary>How many of a guard's hits (10 HP each) a body shot with this gun counts as (a melee hit counts as one): its ammunition's damage (the owner, 2026-10-27: light 25, medium 40, heavy 100, shotgun 75 a shot; BulletDamageRules). A headshot does more: RangedWeapon.HitsFor.</summary>
+            public float guardHits;
             /// <summary>Seconds a guard hit by a bullet is stunned, and the shove (m/s) a bullet gives a loose object.</summary>
             public float stun, knock;
             /// <summary>How far a gunshot is heard: guards within this many metres come to look.</summary>
@@ -90,35 +90,35 @@ namespace BuildingEscape
             new Spec
             {
                 name = "Pew", weight = 0.6f, length = 0.30f,
-                damage = 60f, guardHits = 4, stun = 0f, knock = 16f, noise = 45f, silencedNoise = 12f, silencerLength = 0.16f, weaponClass = WeaponClass.Pistol,
+                damage = BulletDamageRules.LightBody, guardHits = BulletDamageRules.LightBody / GuardHealthRules.HpPerHit, stun = 0f, knock = 16f, noise = 45f, silencedNoise = 12f, silencerLength = 0.16f, weaponClass = WeaponClass.Pistol,
                 magazine = 8, spareClips = 2, reloadSeconds = 2.2f, fireInterval = 0.3f, range = 45f, spread = 1.2f,
                 hold = HoldStyle.OneHand, sounds = SoundSet.Handgun, kick = 9f, flash = 1f, unlockFloor = 3, ammoName = "Pistol Clip", clipPrice = 120, ammoPlural = "pistol bullets", pitch = 1f,
             },
             new Spec
             {
                 name = "SMG", weight = 0.95f, length = 0.50f,
-                damage = 24f, guardHits = 2, stun = 0f, knock = 4f, noise = 40f, silencedNoise = 11f, silencerLength = 0.16f, weaponClass = WeaponClass.SubMachineGun,
+                damage = BulletDamageRules.LightBody, guardHits = BulletDamageRules.LightBody / GuardHealthRules.HpPerHit, stun = 0f, knock = 4f, noise = 40f, silencedNoise = 11f, silencerLength = 0.16f, weaponClass = WeaponClass.SubMachineGun,
                 magazine = 24, spareClips = 2, reloadSeconds = 2.0f, fireInterval = 0.085f, range = 38f, spread = 3.4f,
                 hold = HoldStyle.TwoHand, sounds = SoundSet.Handgun, kick = 3f, flash = 0.9f, unlockFloor = 5, ammoName = "SMG Magazine", clipPrice = 480, ammoPlural = "SMG bullets", pitch = 1.08f,
             },
             new Spec
             {
                 name = "Rifle", weight = 1.7f, length = 0.90f,
-                damage = 42f, guardHits = 4, stun = 0f, knock = 8f, noise = 55f, silencedNoise = 14f, silencerLength = 0.20f, weaponClass = WeaponClass.Rifle,
+                damage = BulletDamageRules.MediumBody, guardHits = BulletDamageRules.MediumBody / GuardHealthRules.HpPerHit, stun = 0f, knock = 8f, noise = 55f, silencedNoise = 14f, silencerLength = 0.20f, weaponClass = WeaponClass.Rifle,
                 magazine = 30, spareClips = 2, reloadSeconds = 2.6f, fireInterval = 0.12f, range = 70f, spread = 1.6f,
                 hold = HoldStyle.TwoHand, sounds = SoundSet.Rifle, kick = 4f, flash = 1.1f, unlockFloor = 8, ammoName = "Rifle Magazine", clipPrice = 750, ammoPlural = "rifle bullets", pitch = 1f,
             },
             new Spec
             {
                 name = "Shotgun", weight = 1.8f, length = 1.00f,
-                damage = 14f, guardHits = 1, stun = 0f, knock = 2f, noise = 60f, silencedNoise = 60f, silencerLength = 0f, weaponClass = WeaponClass.Shotgun,
+                damage = BulletDamageRules.ShotgunBody, guardHits = BulletDamageRules.ShotgunBody / GuardHealthRules.HpPerHit, stun = 0f, knock = 2f, noise = 60f, silencedNoise = 60f, silencerLength = 0f, weaponClass = WeaponClass.Shotgun,
                 magazine = 6, spareClips = 2, reloadSeconds = 3.0f, fireInterval = 0.85f, range = 24f, spread = 5.5f,
                 pellets = 8, hold = HoldStyle.TwoHand, sounds = SoundSet.Shotgun, kick = 12f, flash = 1.6f, unlockFloor = 6, ammoName = "Shotgun Shells", clipPrice = 420, ammoPlural = "shotgun shells", pitch = 1f,
             },
             new Spec
             {
                 name = "Sniper", weight = 2.4f, length = 1.15f,
-                damage = 150f, guardHits = 10, stun = 0f, knock = 20f, noise = 85f, silencedNoise = 85f, silencerLength = 0f, weaponClass = WeaponClass.Sniper,
+                damage = BulletDamageRules.HeavyBody, guardHits = BulletDamageRules.HeavyBody / GuardHealthRules.HpPerHit, stun = 0f, knock = 20f, noise = 85f, silencedNoise = 85f, silencerLength = 0f, weaponClass = WeaponClass.Sniper,
                 magazine = 5, spareClips = 2, reloadSeconds = 3.4f, fireInterval = 1.35f, range = 120f, spread = 0.25f,
                 hold = HoldStyle.TwoHand, sounds = SoundSet.Rifle, kick = 14f, flash = 1.5f, unlockFloor = 10, ammoName = "Sniper Rounds", clipPrice = 600, ammoPlural = "sniper rounds", pitch = 0.78f,
             },
@@ -126,6 +126,9 @@ namespace BuildingEscape
 
         public Kind kind;
         public Spec Data => Specs[(int)kind];
+
+        /// <summary>How many of an officer's hits (10 HP each) one bullet of this gun counts as: a body shot, or a headshot (the owner, 2026-10-27).</summary>
+        public float HitsFor(bool head) => BulletDamageRules.Hits(kind, head);
 
         /// <summary>
         /// The spare clips this particular gun starts with: -1 = what its spec says (a gun bought from the dealer, or handed over by the test menu); 0 = none, the way a gun FOUND in a safe is (the owner, 2026-10-19: "Guns found

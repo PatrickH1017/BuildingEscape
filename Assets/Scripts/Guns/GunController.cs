@@ -52,6 +52,17 @@ namespace BuildingEscape
         float remoteAimUntil;
         float nextAmmoNotice;
 
+        // ---- hip fire and aiming (the owner, 2026-10-27; AimRules, HitFeedback, BulletDamageRules)
+        /// <summary>The gun is up at the sights (the right mouse button held); otherwise it is fired from the hip, into a wider cone. For a teammate: what his machine says (a networked run).</summary>
+        public bool Aiming { get; private set; }
+        /// <summary>A test's own aiming button (null: the real right mouse button).</summary>
+        public static bool? TestAim;
+        /// <summary>A test's own point to aim the shots at (null: where the crosshair points).</summary>
+        public static Vector3? TestAimPoint;
+        readonly Impact[] pelletImpacts = new Impact[16];
+        readonly Vector3[] pelletDirs = new Vector3[16];
+        readonly ShotTally tally = new ShotTally();
+
         void Awake()
         {
             pack = GetComponent<Backpack>();
@@ -86,6 +97,8 @@ namespace BuildingEscape
 
             bool viewed = pack.Viewed;
             bool usable = viewed && CanUse();
+            Aiming = viewed ? (TestAim ?? (usable && Input.GetMouseButton(1))) : wobbly && wobbly.IsAiming;
+            if (viewed && wobbly) wobbly.IsAiming = Aiming;
             if (viewed)
             {
                 var aimPoint = AimPoint(out bool foe);
@@ -113,7 +126,7 @@ namespace BuildingEscape
         public static bool? TestCursorLocked;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
-        static void ResetTestTrigger() { TestTrigger = null; TestCursorLocked = null; }
+        static void ResetTestTrigger() { TestTrigger = null; TestCursorLocked = null; TestAim = null; TestAimPoint = null; }
 
         static bool TriggerHeld() => TestTrigger ?? Input.GetMouseButton(0);
 
@@ -157,14 +170,14 @@ namespace BuildingEscape
             var aim = Time.time < remoteAimUntil ? remoteAim : transform.forward;
             if (aim.sqrMagnitude < 1e-4f) aim = transform.forward;
             held.AimDirection = aim.normalized;
-            held.Raise = 1f;
+            held.Raise = Aiming ? 1f : AimRules.HipRaise;                       // (a teammate's gun at his hip or at his sights: the owner, 2026-10-27)
         }
 
         /// <summary>
         /// Another machine's player fired and the host says the bullet ended at <paramref name="end"/> (<paramref name="result"/>: 0 flew off, 1 a wall or
         /// a desk, 2 a guard, 3 a guard now down for good, 4 the training dummy): the flash, the tracer, the shot and what it hit, from his gun.
         /// </summary>
-        public void ShowRemoteShot(Vector3 end, byte result, int seed = 0)
+        public void ShowRemoteShot(Vector3 end, byte result, int seed = 0, bool aiming = true)
         {
             if (!gun) return;                                            // (his gun is not drawn on this machine yet)
             ShotsSeen++;
@@ -177,7 +190,7 @@ namespace BuildingEscape
                 // the other pellets of a shotgun shot: his aim with their own spread (the seed is the same on every machine), drawn where each would land here
                 var aim = end - muzzle;
                 if (aim.sqrMagnitude < 0.01f) break;
-                GunRules.Spread(GunRules.PelletSeed(seed, i), spec.spread * PlayerBuffs.SpreadFactor(gameObject), out float yaw, out float pitch);
+                GunRules.Spread(GunRules.PelletSeed(seed, i), spec.spread * PlayerBuffs.SpreadFactor(gameObject) * AimRules.SpreadFactor(aiming), out float yaw, out float pitch);
                 var d = Quaternion.LookRotation(aim.normalized) * Quaternion.Euler(-pitch, yaw, 0f) * Vector3.forward;
                 var imp = Ballistics.Trace(muzzle, d, spec.range, transform, false);
                 fx.Pellet(muzzle, imp.point, imp.hit);
@@ -207,6 +220,7 @@ namespace BuildingEscape
         Vector3 AimPoint(out bool foe)
         {
             foe = false;
+            if (TestAimPoint.HasValue) return TestAimPoint.Value;
             float range = gun.Data.range;
             var cam = Camera.main;
             var r = Rig;
@@ -243,7 +257,7 @@ namespace BuildingEscape
                 held.ReloadProgress = mag.Reloading ? Mathf.Max(0.001f, mag.ReloadProgress(Time.time)) : 0f;
                 held.SlideLocked = mag.Rounds <= 0;
                 held.AimDirection = dir.normalized;
-                held.Raise = 1f;
+                held.Raise = mag.Reloading || Aiming ? 1f : AimRules.HipRaise;          // (the hip: the raise clip stops half way; the sights: all the way up; the owner, 2026-10-27)
             }
             else if (mag.Reloading && held.Animated && !held.FirstPersonReload)
             {
@@ -271,7 +285,7 @@ namespace BuildingEscape
             {
                 held.ReloadProgress = 0f;
                 held.AimDirection = dir.normalized;
-                held.Raise = 1f;
+                held.Raise = Aiming ? 1f : AimRules.HipRaise;                           // (hip fire unless the right mouse button is held: the owner, 2026-10-27)
             }
         }
 
@@ -336,43 +350,63 @@ namespace BuildingEscape
             var port = held ? held.PortPosition : null;
             var casing = RangedWeapon.CasingOf(gun.kind);
             bool hitSounded = false, foeSeen = false;
-            for (int i = 0; i < spec.Pellets; i++)
+            int pellets = spec.Pellets;
+            float cone = spec.spread * PlayerBuffs.SpreadFactor(gameObject) * AimRules.SpreadFactor(Aiming);          // (from the hip a shot scatters wider)
+            tally.Reset();
+            for (int i = 0; i < pellets; i++)
             {
-                GunRules.Spread(GunRules.PelletSeed(seed, i), spec.spread * PlayerBuffs.SpreadFactor(gameObject), out float yaw, out float pitch);
+                GunRules.Spread(GunRules.PelletSeed(seed, i), cone, out float yaw, out float pitch);
                 var d = Quaternion.LookRotation(dir) * Quaternion.Euler(-pitch, yaw, 0f) * Vector3.forward;
                 var imp = Ballistics.Trace(origin, d, spec.range, transform, false);
+                pelletImpacts[i] = imp; pelletDirs[i] = d;
+                if (imp.guard != null && !imp.guard.Dead) tally.Note(imp.guard, imp.guard.IsHeadHit(imp.point.y));
                 if (i == 0) { LastMuzzle = muzzle; LastDirection = d; LastImpact = imp; }
-                if (!synced) Land(imp, d, spec, ref hitSounded);         // (in a networked run the host decides what the bullets do)
-                else if (imp.hit && ((imp.guard != null && !imp.guard.Dead) || (imp.dummy != null && !imp.dummy.Down))) foeSeen = true;
+                if (synced && imp.hit && ((imp.guard != null && !imp.guard.Dead) || (imp.dummy != null && !imp.dummy.Down))) foeSeen = true;
                 if (i == 0) fx.Shot(muzzle, imp.point, imp.hit, rightSide, gun.silenced, port, spec.FlashScale, casing);
                 else fx.Pellet(muzzle, imp.point, imp.hit);
+            }
+            if (!synced)                                                      // (in a networked run the host decides what the bullets do)
+            {
+                var feedback = HitKind.None;
+                for (int i = 0; i < pellets; i++) Land(pelletImpacts[i], pelletDirs[i], spec, ref hitSounded, ref feedback);
+                HitFeedback.Play(feedback);                                   // (the hit marker and its sound: a hit, a headshot, an elimination; the owner, 2026-10-27)
             }
             GunSounds.Shot(muzzle, true, gun.silenced, spec.sounds, spec.Pitch);
             if (held) held.Kick();
             if (synced)
             {
                 // the same hit sound at once (a guess: the host may disagree), then the host does the rest and tells everybody else
-                if (foeSeen) GameAudio.BulletHit(false, LastImpact.point);
-                Net.RunSync.Instance.RequestGunShot(origin, dir, LastImpact.guard != null ? LastImpact.guard.NetId : -1, seed);
+                if (foeSeen) { GameAudio.BulletHit(false, LastImpact.point); HitFeedback.Guess(); }          // (the host's answer adds the headshot or the elimination: RunSync.ShotFeedbackRpc)
+                Net.RunSync.Instance.RequestGunShot(origin, dir, LastImpact.guard != null ? LastImpact.guard.NetId : -1, seed, Aiming);
             }
             else NoiseBus.Emit(muzzle, gun.NoiseRadius, gameObject);          // every guard within earshot comes to look
         }
 
         /// <summary>What a bullet (a pellet) does where it lands. <paramref name="soundPlayed"/>: the hit sound of this shot has been played (a shotgun's eight pellets make one).</summary>
-        void Land(Impact imp, Vector3 dir, RangedWeapon.Spec spec, ref bool soundPlayed)
+        void Land(Impact imp, Vector3 dir, RangedWeapon.Spec spec, ref bool soundPlayed, ref HitKind feedback)
         {
             if (!imp.hit) return;
             if (imp.guard != null)
             {
-                bool wasDown = imp.guard.Dead;
-                imp.guard.BulletHitHost(spec.guardHits, false, gameObject);          // (a bullet damages, it never knocks over: the owner, 2026-10-19)
-                if (!wasDown && !soundPlayed) { GameAudio.BulletHit(imp.guard.Dead, imp.point); soundPlayed = true; }
-                if (imp.guard.TryGetComponent(out Rigidbody grb) && !grb.isKinematic) grb.AddForce(dir * spec.knock, ForceMode.VelocityChange);
+                var g = imp.guard;
+                bool wasDown = g.Dead;
+                // a set amount for each kind of ammunition, more for a headshot, and a shotgun's shot is dealt once to each officer however many pellets hit him (the owner, 2026-10-27)
+                if (!wasDown && tally.Take(g, out bool head))
+                {
+                    g.BulletHitHost(gun.HitsFor(head), false, gameObject);          // (a bullet damages, it never knocks over: the owner, 2026-10-19)
+                    feedback = BulletDamageRules.Stronger(feedback, BulletDamageRules.Feedback(g.Dead, head));
+                    if (!soundPlayed) { GameAudio.BulletHit(g.Dead, imp.point); soundPlayed = true; }
+                }
+                if (g.TryGetComponent(out Rigidbody grb) && !grb.isKinematic) grb.AddForce(dir * spec.knock, ForceMode.VelocityChange);
             }
             else if (imp.dummy != null)
             {
-                if (!imp.dummy.Down && !soundPlayed) { GameAudio.BulletHit(false, imp.point); soundPlayed = true; }
-                imp.dummy.Hit(spec.damage, transform.position);
+                if (!imp.dummy.Down)
+                {
+                    feedback = BulletDamageRules.Stronger(feedback, HitKind.Hit);
+                    if (!soundPlayed) { GameAudio.BulletHit(false, imp.point); soundPlayed = true; }
+                }
+                if (tally.Take(imp.dummy, out _)) imp.dummy.Hit(BulletDamageRules.Damage(gun.kind, false), transform.position);
             }
             else if (imp.body != null && imp.body.TryGetComponent(out WobblyPlayer rival) && rival.gameObject != gameObject)
             {

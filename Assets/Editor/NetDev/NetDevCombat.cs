@@ -115,7 +115,7 @@ namespace BuildingEscape.EditorTools
             var pack = player.GetComponent<Backpack>();
             var cam = Camera.main;
             var rig = FindFirstObjectByType<CameraFollow>();
-            int pewBullet = RangedWeapon.Specs[(int)RangedWeapon.Kind.Pew].guardHits;
+            float pewBullet = RangedWeapon.Specs[(int)RangedWeapon.Kind.Pew].guardHits;
             var fStun = typeof(GuardAI).GetField("stunUntil", BindingFlags.NonPublic | BindingFlags.Instance);
             CombatCheck("(test) the guard's stun time is where the test expects it", fStun != null);
 
@@ -132,7 +132,7 @@ namespace BuildingEscape.EditorTools
             // ================= 2. what bullets do through each shield; the vests; no clip from a guard with no gun
             var bare = all3.Where(g => !g.Loadout.Armed && !g.Dead).ToList();
             var tiers = new[] { ShieldTier.None, ShieldTier.Light, ShieldTier.Medium, ShieldTier.Heavy };
-            var expectBullets = new[] { 3, 4, 5, 9 };
+            var expectBullets = new[] { 4, 6, 8, 14 };                          // (25 HP a bullet = 2.5 of ten hits; the shield takes its share of that: .75 / .5 / .3 - the owner, 2026-10-27)
             var expectParts = new[] { 0, GuardArmour.VestParts(ShieldTier.Light), GuardArmour.VestParts(ShieldTier.Medium), GuardArmour.VestParts(ShieldTier.Heavy) };
             int dropped0 = GuardDrops.Dropped;
             GuardDrops.TestRoll = 0;                                             // (T25: the roll that leaves nothing; every eliminated guard rolls, 0 bullets is the most likely)
@@ -162,8 +162,8 @@ namespace BuildingEscape.EditorTools
                 yield return null;
                 GuardDrops.TestRoll = -1;
                 var clip = FindObjectsByType<AmmoClip>(FindObjectsSortMode.None).OrderBy(c => Vector3.Distance(c.transform.position, vpos)).FirstOrDefault();
-                CombatCheck("an armed guard (pistol, light shield) goes down after four bullets and drops three bullets of pistol ammunition where he fell (the roll of 99)",
-                    victim.Dead && n == 4 && GuardDrops.Dropped == dropped0 + 1 && clip != null && clip.kind == RangedWeapon.Kind.Pew && clip.rounds == 3 && Vector3.Distance(clip.transform.position, vpos) < 2.5f,
+                CombatCheck("an armed guard (pistol, light shield) goes down after six bullets and drops three bullets of pistol ammunition where he fell (the roll of 99)",
+                    victim.Dead && n == 6 && GuardDrops.Dropped == dropped0 + 1 && clip != null && clip.kind == RangedWeapon.Kind.Pew && clip.rounds == 3 && Vector3.Distance(clip.transform.position, vpos) < 2.5f,
                     clip != null ? $"({n} bullets, {clip.rounds} bullets for {clip.kind} {Vector3.Distance(clip.transform.position, vpos):0.0} m away)" : $"({n} bullets, no bullets)");
                 var menu = new GameObject("TestModeForTest").AddComponent<TestMode>();
                 typeof(TestMode).GetMethod("GiveGun", BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.Instance).Invoke(menu, new object[] { pack, RangedWeapon.Kind.Pew });
@@ -198,7 +198,7 @@ namespace BuildingEscape.EditorTools
                 var before = a.State;
                 a.BulletHitHost(pewBullet, false, player.gameObject);
                 bool lookedAround = before == GuardState.Chase || before == GuardState.Stunned || a.State == GuardState.Calling || a.State == GuardState.Investigate;
-                CombatCheck("a bullet does its four hits to a guard, does not knock him over, and he reacts: a patrolling guard stops and radios for backup (he goes after the shooter when the call is through)", a.Hits == pewBullet && a.State != GuardState.Stunned && !a.Dead && lookedAround, $"(was {before}, now {a.State}, hits {a.Hits})");
+                CombatCheck("a bullet does its 2.5 hits (25 HP) to a guard, does not knock him over, and he reacts: a patrolling guard stops and radios for backup (he goes after the shooter when the call is through)", Mathf.Approximately(a.Damage, pewBullet) && a.State != GuardState.Stunned && !a.Dead && lookedAround, $"(was {before}, now {a.State}, damage {a.Damage})");
 
                 // ---- shot while he holds a player down: the player is free and he has let go
                 a.SetLoadout(a.Loadout);                                           // (no change)

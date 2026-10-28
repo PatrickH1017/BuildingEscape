@@ -334,6 +334,62 @@ namespace BuildingEscape
             return o;
         }
 
+        public const int HitVariants = 1;
+
+        /// <summary>The hit marker's sound for a plain hit (the owner, 2026-10-27): a short dry tick, 1.85 kHz with a click on it. A placeholder.</summary>
+        public static float[] HitTick()
+        {
+            var o = new float[Dsp.Samples(0.1f)];
+            float ph = 0f, dec = Dsp.DecayPerSample(0.02f), env = 1f;
+            for (int i = 0; i < o.Length; i++) { ph += 1850f / SR; ph -= (int)ph; o[i] = Dsp.Sine(ph) * env; env *= dec; }
+            int click = Dsp.Samples(0.0025f);
+            for (int i = 0; i < click && i < o.Length; i++) o[i] += (i % 2 == 0 ? 0.7f : -0.7f) * (1f - i / (float)click);
+            Dsp.FadeEnds(o, 0.002f);
+            Dsp.Normalize(o, 0.5f);
+            return o;
+        }
+
+        /// <summary>The hit marker's sound for a headshot: a bright metallic ding, 2.64 and 3.96 kHz ringing for a fifth of a second. A placeholder.</summary>
+        public static float[] HitHead()
+        {
+            var o = new float[Dsp.Samples(0.3f)];
+            float p1 = 0f, p2 = 0f, dec = Dsp.DecayPerSample(0.07f), env = 1f;
+            for (int i = 0; i < o.Length; i++)
+            {
+                p1 += 2640f / SR; p1 -= (int)p1; p2 += 3960f / SR; p2 -= (int)p2;
+                o[i] = (Dsp.Sine(p1) + 0.55f * Dsp.Sine(p2)) * env;
+                env *= dec;
+            }
+            int click = Dsp.Samples(0.002f);
+            for (int i = 0; i < click && i < o.Length; i++) o[i] += (i % 2 == 0 ? 0.8f : -0.8f) * (1f - i / (float)click);
+            Dsp.FadeEnds(o, 0.003f);
+            Dsp.Normalize(o, 0.6f);
+            return o;
+        }
+
+        /// <summary>The hit marker's sound for an elimination: a heavy falling thump with a noise burst and a short high ping on top, nearly half a second. A placeholder.</summary>
+        public static float[] HitKill()
+        {
+            var o = new float[Dsp.Samples(0.4f)];
+            float ph = 0f, env = 1f, dec = Dsp.DecayPerSample(0.11f);
+            for (int i = 0; i < o.Length; i++)
+            {
+                float t = i / (float)o.Length;
+                float hz = Dsp.Lerp(200f, 62f, System.Math.Min(1f, t * 3f));
+                ph += hz / SR; ph -= (int)ph;
+                o[i] = Dsp.Sine(ph) * env * 0.9f;
+                env *= dec;
+            }
+            int at = Dsp.Samples(0.06f);
+            float pp = 0f, pe = 1f, pd = Dsp.DecayPerSample(0.06f);
+            for (int i = 0; at + i < o.Length; i++) { pp += 1180f / SR; pp -= (int)pp; o[at + i] += Dsp.Sine(pp) * pe * 0.45f; pe *= pd; }
+            uint seed = 12345u; int burst = Dsp.Samples(0.04f);
+            for (int i = 0; i < burst && i < o.Length; i++) { seed = seed * 1664525u + 1013904223u; float nz = ((seed >> 8) & 0xFFFF) / 32768f - 1f; o[i] += nz * (1f - i / (float)burst) * 0.5f; }
+            Dsp.FadeEnds(o, 0.004f);
+            Dsp.Normalize(o, 0.7f);
+            return o;
+        }
+
         public const int PingVariants = 1;
 
         /// <summary>A ping (the owner, 2026-10-21): two short bright notes going up (A5, then E6), soft at both ends - a marker has gone up. The game shifts its pitch a little for each player's slot.</summary>

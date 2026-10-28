@@ -322,6 +322,23 @@ namespace BuildingEscape
             TurnToShooter(by);
         }
 
+        /// <summary>Did a bullet that hit him at this height (world y) hit his head (the owner, 2026-10-27: "headshots should deal more damage than body shots")? The top fifth of his body, from his feet (<see cref="BulletDamageRules.HeadFrom"/>), times his scale.</summary>
+        public bool IsHeadHit(float hitY)
+        {
+            float s = Mathf.Abs(transform.lossyScale.y);
+            return BulletDamageRules.IsHeadshot(hitY, transform.position.y - GuardRules.FeetBelowMiddle * s, GuardRules.BodyHeight * s);
+        }
+
+        /// <summary>The dev menu's "alarm off" (the owner, 2026-10-27): he gives up whatever he was doing about the players - a chase, an investigation, a radio call - and goes back to his round (host / offline). A body on the floor is left alone.</summary>
+        public void DevCalm()
+        {
+            if (Dead || IsPuppet) return;
+            ReleaseHold(true);
+            calling = false; callTimer = 0f; callAnyway = false; callOnGetUp = false;
+            target = null; hitBy = null; noticed.Clear();
+            if (State != GuardState.Stunned) { State = GuardState.Patrol; waitUntil = 0f; GoNextPatrol(); }
+        }
+
         void CutRadioAndRelease()
         {
             calling = false; callTimer = 0f; // a weapon hit cuts the radio call

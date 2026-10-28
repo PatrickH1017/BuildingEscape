@@ -236,7 +236,7 @@ namespace BuildingEscape.EditorTools
 
             // ---- (the vest of floor 4, which halved bullets, is now the medium shield of the guard's loadout: see GuardsTest)
             var pew = RangedWeapon.Specs[(int)RangedWeapon.Kind.Pew];
-            Check("armour: an unshielded officer takes three pew bullets, one with a medium shield (the old vest) five", GunRules.BulletsToKill(10, pew.guardHits) == 3 && GuardLoadouts.BulletsToKill(10f, pew.guardHits, ShieldTier.Medium) == 5);
+                        Check("armour: an unshielded officer takes four pew bullets (light ammo, 25 HP), one with a medium shield (the old vest) eight", GunRules.BulletsToKill(10, pew.guardHits) == 4 && GuardLoadouts.BulletsToKill(10f, pew.guardHits, ShieldTier.Medium) == 8);
 
             // ---- a body goes away (the owner: "Guards bodies should de-spawn"): 15 s, then a second of sinking
             Check("corpse: a body lies there for 15 s, sinks away in one more second and is gone", GuardRules.CorpseSink(0f) == 0f && GuardRules.CorpseSink(14.9f) == 0f && GuardRules.CorpseSink(15.5f) > 0.4f && GuardRules.CorpseSink(15.5f) < 0.6f && GuardRules.CorpseSink(16f) >= 1f && GuardRules.CorpseSink(60f) == 1f);
