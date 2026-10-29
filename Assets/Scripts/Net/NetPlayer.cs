@@ -42,6 +42,19 @@ namespace BuildingEscape.Net
         readonly NetworkVariable<byte> pinSecondsLeft = new(0);
         readonly NetworkVariable<byte> bustedLevel = new(0);
 
+        // The officer who drags this arrested player to the outpost (a guards net id, -1 none), the struggle and the drop (the owner's restraint clips, 2026-10-28): the host decides and publishes, every machine shows it; the button is the owners.
+        readonly NetworkVariable<int> draggedByGuard = new(-1);
+        readonly NetworkVariable<bool> struggleActive = new(false);
+        readonly NetworkVariable<byte> struggleStamina = new((byte)100);
+        readonly NetworkVariable<byte> shoveCount = new((byte)0);
+        readonly NetworkVariable<byte> dropCount = new((byte)0);
+        readonly NetworkVariable<int> droppedBy = new(-1);
+        readonly NetworkVariable<bool> struggleHeld = new(false, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
+        int lastDrop;
+        // The freeing (the owner's restraint clips): how far a teammate has got (the host), and whom this player is freeing (his own machine: a slot, -1 none).
+        readonly NetworkVariable<byte> freeProgress = new((byte)0);
+        readonly NetworkVariable<int> rescueSlot = new(-1, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
+
         int pendingSlot = -1;
         bool held;
         Rigidbody rb;
@@ -68,6 +81,7 @@ namespace BuildingEscape.Net
             netTransform = GetComponent<NetworkTransform>();
             if (IsServer && pendingSlot >= 0) slot.Value = pendingSlot;
             All.Add(this);
+            lastDrop = dropCount.Value;
             lastPos = transform.position;
 
             var visual = GetComponent<PlayerVisual>();
@@ -147,11 +161,49 @@ namespace BuildingEscape.Net
             bustedLevel.Value = (byte)Mathf.Clamp(bustedOnLevel, 0, 255);
         }
 
+        /// <summary>Host: this player is dragged by this officer to the outpost, or (null) no longer.</summary>
+        public void HostSetDragger(GuardAI g) { if (IsServer) draggedByGuard.Value = g ? g.NetId : -1; }
+
+        /// <summary>Host: the struggle of the player an officer drags: struggling now, the stamina (0..1) and how many times the officer has shoved him.</summary>
+        public void HostSetStruggle(bool active, float stamina01, int shoves)
+        {
+            if (!IsServer) return;
+            struggleActive.Value = active;
+            struggleStamina.Value = (byte)Mathf.Clamp(Mathf.RoundToInt(stamina01 * 100f), 0, 100);
+            shoveCount.Value = (byte)(shoves & 255);
+        }
+
+        /// <summary>Host: this officer was hit and let go of the player (the drop is shown on every machine).</summary>
+        public void HostSetDrop(GuardAI g, int count)
+        {
+            if (!IsServer) return;
+            droppedBy.Value = g ? g.NetId : -1;
+            dropCount.Value = (byte)(count & 255);
+        }
+
+        /// <summary>Host: how far the teammates have got in freeing this busted player (0..1).</summary>
+        public void HostSetFreeProgress(float progress01)
+        {
+            if (!IsServer) return;
+            freeProgress.Value = (byte)Mathf.Clamp(Mathf.RoundToInt(progress01 * 100f), 0, 100);
+        }
+
+        static int SlotOrNone(WobblyPlayer p) => p && p.TryGetComponent(out NetPlayer np) && np.IsSpawned ? np.Slot : -1;
+
         void Update()
         {
             if (!IsSpawned || wobbly == null) return;
-            if (!IsServer) wobbly.ApplyCustody((CustodyState)custody.Value, pinSecondsLeft.Value, bustedLevel.Value);
-            if (IsOwner) { hidden.Value = wobbly.IsHidden; crouched.Value = wobbly.IsCrouching; aiming.Value = wobbly.IsAiming; return; }
+            if (!IsServer)
+            {
+                wobbly.ApplyCustody((CustodyState)custody.Value, pinSecondsLeft.Value, bustedLevel.Value);
+                wobbly.DraggedByGuard = draggedByGuard.Value >= 0 ? NetIds.Get<GuardAI>(draggedByGuard.Value) : null;
+                wobbly.StruggleActive = struggleActive.Value; wobbly.StruggleStamina = struggleStamina.Value / 100f; wobbly.ShoveCount = shoveCount.Value;
+                if (dropCount.Value != lastDrop) { lastDrop = dropCount.Value; wobbly.NoteDrop(droppedBy.Value >= 0 ? NetIds.Get<GuardAI>(droppedBy.Value) : null, lastDrop); }
+                wobbly.FreeProgress = freeProgress.Value / 100f;
+            }
+            if (IsOwner) { hidden.Value = wobbly.IsHidden; crouched.Value = wobbly.IsCrouching; aiming.Value = wobbly.IsAiming; struggleHeld.Value = wobbly.StruggleHeld; rescueSlot.Value = SlotOrNone(wobbly.RescueTarget); return; }
+            wobbly.StruggleHeld = struggleHeld.Value;
+            { var rp = rescueSlot.Value >= 0 ? BySlot(rescueSlot.Value) : null; wobbly.RescueTarget = rp ? rp.GetComponent<WobblyPlayer>() : null; }
             wobbly.IsHidden = hidden.Value;
             wobbly.SetPuppetCrouch(crouched.Value);
             wobbly.IsAiming = aiming.Value;

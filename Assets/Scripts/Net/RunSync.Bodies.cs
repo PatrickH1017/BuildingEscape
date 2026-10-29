@@ -66,7 +66,7 @@ namespace BuildingEscape.Net
             var victim = NetPlayer.BySlot(slot);
             var pg = np ? np.GetComponent<PlayerGrab>() : null;
             var vw = victim ? victim.GetComponent<WobblyPlayer>() : null;
-            if (pg == null || vw == null || victim == np || pg.Held || pg.IsDragging || vw.Custody != CustodyState.Busted || vw.DraggedBy != null) return;
+            if (pg == null || vw == null || victim == np || pg.Held || pg.IsDragging || vw.Custody != CustodyState.Busted || vw.DraggedBy != null || vw.DraggedByGuard != null) return;
             if (np.TryGetComponent(out WobblyPlayer wp) && wp.InCustody) return;
             if (!Near(np.transform, victim.transform, DraggableBodyRules.GrabReach + 1.5f)) return;               // (a little more than the reach: the request is a moment old)
             PlayerBodyDragRpc((sbyte)victim.Slot, (sbyte)np.Slot);

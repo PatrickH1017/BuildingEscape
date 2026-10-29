@@ -221,7 +221,7 @@ namespace BuildingEscape.EditorTools
             yield return WaitSig("c_shot", 120);
             yield return new WaitForSeconds(0.8f);
             DemoNetCheck("host: it accepted both shots", RunSync.Instance.GunShotsAccepted - accepted0 == 2, $"({RunSync.Instance.GunShotsAccepted - accepted0})");
-            DemoNetCheck("host: the dummy is down after two bullets (60 health each)", dummy != null && h0 - dummy.Health >= 99f && dummy.Down, dummy != null ? $"({h0} -> {dummy.Health}, down {dummy.Down})" : "");
+            DemoNetCheck("host: the dummy lost half its health to the two bullets (25 each: damage by ammunition, 2.72) and is still standing", dummy != null && Mathf.Approximately(h0 - dummy.Health, 50f) && !dummy.Down, dummy != null ? $"({h0} -> {dummy.Health}, down {dummy.Down})" : "");
             DemoNetCheck("host: the client's two shots were shown here", cgc != null && cgc.ShotsSeen == 2, $"({(cgc != null ? cgc.ShotsSeen : -1)})");
             Signal("h_shot_ok");
             yield return WaitSig("c_done", 90);
@@ -302,7 +302,7 @@ namespace BuildingEscape.EditorTools
                 DemoNetCheck("client: both bullets left the gun", f1 && f2 && gc.ShotsFired == 2, $"({f1}, {f2})");
                 yield return new WaitForSeconds(1.0f);
                 float h1 = RunSync.Instance.DummyHealth;
-                DemoNetCheck("client: the host's health of the dummy (published here) went down to nothing", h0 - h1 >= 99f || h1 <= 0f, $"({h0} -> {h1})");
+                DemoNetCheck("client: the host's health of the dummy (published here) went down by half", Mathf.Approximately(h0 - h1, 50f), $"({h0} -> {h1})");
             }
             Signal("c_shot");
             yield return WaitSig("h_shot_ok", 60);

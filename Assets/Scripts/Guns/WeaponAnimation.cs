@@ -41,6 +41,10 @@ namespace BuildingEscape
             public string name;
             public AnimationClip ready, swing;
             public bool Valid => ready && swing && ready.isHumanMotion && swing.isHumanMotion;
+            /// <summary>The melee holds (the owner, 2026-10-28): the weapon held idle and ready, standing and running, as loops (the swing starts from them).</summary>
+            public AnimationClip idleStand, idleRun, readyStand, readyRun;
+            /// <summary>The four loops are in the build and <see cref="StancesEnabled"/>: the weapon is held with them (the swing file's own ready pose is not shown).</summary>
+            public bool Stances => StancesEnabled && idleStand && idleRun && readyStand && readyRun && idleStand.isHumanMotion && idleRun.isHumanMotion && readyStand.isHumanMotion && readyRun.isHumanMotion;
         }
 
         // ---- names: the files (Resources/Animations/<file>.fbx) and the clips cut from them (Editor/WeaponAnimationSetup)
@@ -63,6 +67,17 @@ namespace BuildingEscape
             AnimationClip One(bool aimed, bool run) { string f = StanceFile(gun, aimed, run); return Find(Resources.LoadAll<AnimationClip>(Folder + "/" + f), f); }
             c.hipStand = One(false, false); c.hipRun = One(false, true); c.aimStand = One(true, false); c.aimRun = One(true, true);
             if (!(c.hipStand && c.hipRun && c.aimStand && c.aimRun)) Debug.LogWarning($"[WeaponAnimation] the {gun} stance clips are missing from Resources/{Folder}: the gun is held the old way");
+        }
+
+        /// <summary>The file (and the clip in it) of a melee hold: "Bat_Idle_Stand", "Bat_Ready_Run" ... (<paramref name="weapon"/>: <see cref="MeleeName"/>).</summary>
+        public static string MeleeStanceFile(string weapon, bool ready, bool run) => weapon + (ready ? "_Ready" : "_Idle") + (run ? "_Run" : "_Stand");
+
+        /// <summary>Loads a melee weapon's four hold loops into <paramref name="c"/> (they stay unset when a file is missing: the weapon is then held the way it was before).</summary>
+        public static void LoadMeleeStances(MeleeClips c, string weapon)
+        {
+            AnimationClip One(bool ready, bool run) { string f = MeleeStanceFile(weapon, ready, run); return Find(Resources.LoadAll<AnimationClip>(Folder + "/" + f), f); }
+            c.idleStand = One(false, false); c.idleRun = One(false, true); c.readyStand = One(true, false); c.readyRun = One(true, true);
+            if (!(c.idleStand && c.idleRun && c.readyStand && c.readyRun)) Debug.LogWarning($"[WeaponAnimation] the {weapon} hold clips are missing from Resources/{Folder}: it is held the old way");
         }
 
         static GunClips[] guns;
@@ -116,7 +131,7 @@ namespace BuildingEscape
             string n = MeleeName(k);
             var all = Resources.LoadAll<AnimationClip>(Folder + "/" + MeleeFile(k));
             var c = new MeleeClips { name = n, ready = Find(all, n + Ready), swing = Find(all, n + Swing) };
-            if (c.Valid) melee[i] = c;
+            if (c.Valid) { LoadMeleeStances(c, n); melee[i] = c; }
             else Debug.LogWarning($"[WeaponAnimation] the {n} swing is missing from Resources/{Folder}: it is swung the old way");
             return melee[i];
         }

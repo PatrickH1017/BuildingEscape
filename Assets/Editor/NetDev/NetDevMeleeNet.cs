@@ -59,6 +59,16 @@ namespace BuildingEscape.EditorTools
             yield return WaitSig("c_hit2", 90);
             yield return new WaitForSeconds(1.0f);
             MeleeCheck("host: a second blow takes the same again (70 of 100 HP left) and he is still up to be hit", g != null && !g.Dead && Mathf.Abs(g.Health - (g.MaxHealth - 2f * crowbarHp)) < 0.01f, $"(health {g?.Health} of {g?.MaxHealth})");
+            // ---- the client holds the right mouse button: the host sees his crowbar at the ready, and at the idle again when he lets go
+            var cmc = clientPlayer ? clientPlayer.GetComponent<MeleeController>() : null;
+            yield return WaitSig("c_ready_on", 90);
+            yield return new WaitForSeconds(1.2f);
+            MeleeCheck("host: the client holds the right mouse button: his crowbar is at the ready here (the flag came over)", cmc != null && cmc.Ready && cmc.ReadyShare > 0.95f, cmc != null ? $"(ready {cmc.Ready}, share {cmc.ReadyShare:0.00}, animated {cmc.Animated})" : "(no melee controller)");
+            Signal("h_ready_on_ok");
+            yield return WaitSig("c_ready_off", 90);
+            yield return new WaitForSeconds(1.2f);
+            MeleeCheck("host: the client lets go: his crowbar is at the idle here", cmc != null && !cmc.Ready && cmc.ReadyShare < 0.05f, cmc != null ? $"(ready {cmc.Ready}, share {cmc.ReadyShare:0.00})" : "(no melee controller)");
+            Signal("h_ready_off_ok");
             Signal("h_done");
             yield return WaitSig("c_done", 60);
             Log($"[MeleeNet] host DONE fails={meleeFails}");
@@ -107,6 +117,13 @@ namespace BuildingEscape.EditorTools
                 g.WeaponHit(4f, Mine.gameObject);
                 Signal("c_hit2");
             }
+            GunController.TestAim = true;
+            Signal("c_ready_on");
+            yield return WaitSig("h_ready_on_ok", 60);
+            GunController.TestAim = false;
+            Signal("c_ready_off");
+            yield return WaitSig("h_ready_off_ok", 60);
+            GunController.TestAim = null;
             yield return WaitSig("h_done", 60);
             Signal("c_done");
             Log($"[MeleeNet] client DONE fails={meleeFails}");

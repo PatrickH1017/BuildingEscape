@@ -3,14 +3,14 @@ using UnityEngine.AI;
 
 namespace BuildingEscape
 {
-    public enum GuardState { Patrol, Investigate, Chase, Stunned, Calling, Pinning }
+    public enum GuardState { Patrol, Investigate, Chase, Stunned, Calling, Pinning, Dragging }          // (Dragging: he drags an arrested player by the head to the outpost, GuardAI.Drag.cs)
 
     /// <summary>
     /// Security guard / robot: patrols waypoints, investigates noise, chases players it sees.
     /// Hidden players are only caught at very short range.
     /// </summary>
     [RequireComponent(typeof(NavMeshAgent))]
-    public class GuardAI : MonoBehaviour
+    public partial class GuardAI : MonoBehaviour
     {
         public Transform[] patrolPoints;
         /// <summary>If set, the guard wanders to random points from this instead of walking patrolPoints.</summary>
@@ -247,7 +247,7 @@ namespace BuildingEscape
         void OnNoise(NoiseEvent n)
         {
             if (IsPuppet) return;
-            if (State == GuardState.Stunned || State == GuardState.Chase || State == GuardState.Calling || State == GuardState.Pinning) return;
+            if (State == GuardState.Stunned || State == GuardState.Chase || State == GuardState.Calling || State == GuardState.Pinning || State == GuardState.Dragging) return;
             if (noticeGate != null && !noticeGate(n.Position)) return;      // deaf to anything outside the room he guards
             float dist = Vector3.Distance(transform.position, n.Position);
             if (dist > n.Loudness * hearingMultiplier) return;
@@ -467,7 +467,7 @@ namespace BuildingEscape
         /// </summary>
         public void PaAlert(Vector3 target)
         {
-            if (IsPuppet || Dead || State == GuardState.Pinning || State == GuardState.Stunned || State == GuardState.Chase || !agent || !agent.isOnNavMesh) return;
+            if (IsPuppet || Dead || State == GuardState.Pinning || State == GuardState.Dragging || State == GuardState.Stunned || State == GuardState.Chase || !agent || !agent.isOnNavMesh) return;
             eating = false;
             if (calling) { calling = false; callTimer = 0f; }
             bool fresh = !(State == GuardState.Investigate && Time.time < paUntil);
@@ -527,8 +527,9 @@ namespace BuildingEscape
                 case GuardState.Calling: WatchWhileCalling(); break;
                 case GuardState.Chase: UpdateChase(); break;
                 case GuardState.Pinning: UpdatePinning(); break;
+                case GuardState.Dragging: UpdateDragging(); break;
             }
-            if (State != GuardState.Chase && State != GuardState.Calling && State != GuardState.Pinning) ScanForPlayers();
+            if (State != GuardState.Chase && State != GuardState.Calling && State != GuardState.Pinning && State != GuardState.Dragging) ScanForPlayers();
             if (State == GuardState.Patrol || State == GuardState.Investigate) ScanForBodies();
         }
 
@@ -762,6 +763,7 @@ namespace BuildingEscape
         /// <summary>He is hit, stunned or knocked out while holding someone: they are freed (host).</summary>
         public void ReleaseHold(bool freeThem = false)
         {
+            if (Dragging != null) DropCaptive();             // (hit, stunned or knocked out while he drags a captive: he lets go of him, GuardAI.Drag.cs)
             var p = holding;
             if (!p) return;
             holding = null;

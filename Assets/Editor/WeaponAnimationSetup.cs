@@ -69,6 +69,25 @@ namespace BuildingEscape.EditorTools
                     }
         }
 
+        // the melee hold files (the owner, 2026-10-28): for each weapon Idle and Ready, standing (60 frames) and running (20 / 24 frames), each ONE loop of the whole take, named like its file
+        static IEnumerable<KeyValuePair<string, Cut[]>> MeleeStanceCuts()
+        {
+            foreach (var weapon in new[] { "Crowbar", "Bat", "Hatchet" })
+                foreach (var ready in new[] { false, true })
+                    foreach (var run in new[] { false, true })
+                    {
+                        string f = WeaponAnimation.MeleeStanceFile(weapon, ready, run);
+                        yield return new KeyValuePair<string, Cut[]>(f, new[] { new Cut(f, 1, run ? (ready ? 24 : 20) : 60, true) });
+                    }
+        }
+
+        // the owner's restraint, drag and rescue files (2026-10-28): each ONE clip of the whole take, named like its file; the dragging ones loop
+        static IEnumerable<KeyValuePair<string, Cut[]>> RestraintCuts()
+        {
+            foreach (var n in RestraintClips.All)
+                yield return new KeyValuePair<string, Cut[]>(n, new[] { new Cut(n, 1, RestraintClips.Frames(n), RestraintClips.Loops(n)) });
+        }
+
         [MenuItem("Employees Take Revenge/Setup Weapon Animations")]
         static void Menu()
         {
@@ -96,7 +115,7 @@ namespace BuildingEscape.EditorTools
             }
             var mapping = source.humanDescription;
             bool ok = true;
-            foreach (var pair in Cuts.Concat(StanceCuts()))
+            foreach (var pair in Cuts.Concat(StanceCuts()).Concat(MeleeStanceCuts()).Concat(RestraintCuts()))
             {
                 string path = Folder + pair.Key + ".fbx";
                 var imp = AssetImporter.GetAtPath(path) as ModelImporter;

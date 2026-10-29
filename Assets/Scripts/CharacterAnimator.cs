@@ -264,6 +264,7 @@ namespace BuildingEscape
             }
 
             if (layersOn) FadeWeapons();                                           // (nobody holds the gun or the weapon any more: it was put away)
+            if (layersOn) StepBody();
             if (jumping && Time.time >= jumpUntil) { jumping = false; play[(int)Slot.Jump].SetSpeed(0); }
             var want = pose == Pose.Down ? Slot.Down : pose == Pose.Dazed ? Slot.Stun : slashing ? Slot.Attack : jumping ? Slot.Jump : baseSlot;
             if (pose != Pose.Dazed && weight[(int)Slot.Stun] < 0.02f) play[(int)Slot.Stun].SetSpeed(0);      // (faded out: the loop rests until the next daze)
@@ -286,6 +287,9 @@ namespace BuildingEscape
         AnimationMixerPlayable gunMix, meleeMix;
         AnimationClipPlayable pRaise, pAim, pShot, pReload, mReady, mSwing;
         AnimationClipPlayable pHipStand, pHipRun, pAimStand, pAimRun;          // (the gun's stances, inputs 3 to 6 of gunMix; see GunPose)
+        AnimationClipPlayable mIdleStand, mIdleRun, mReadyStand, mReadyRun;    // (the melee holds, inputs 2 to 5 of meleeMix; see MeleePose)
+        float meleeStandT, meleeReadyShare, swingBlend;
+        int runShareFrame = -1;
         float moveMs, runShare, standT;                                          // (how fast the body moves, m/s; how much of the upper body's run the stance shows; the standing loops' clock)
         WeaponAnimation.GunClips gunClips;
         WeaponAnimation.MeleeClips meleeClips;
@@ -293,6 +297,10 @@ namespace BuildingEscape
         bool layersOn, meleeSwinging;
         int gunAsked = -10, meleeAsked = -10;    // the frames GunPose and MeleePose were last called in
         float gunWeight, reloadWeight, meleeWeight;
+        AnimationClipPlayable pBody;
+        AnimationClip bodyClip;
+        float bodyWeight;
+        bool bodyOn;
 
         /// <summary>Can this rig play the Blender weapon animations: clip mode and a humanoid avatar.</summary>
         public bool CanPlayWeapons => clipMode && anim && anim.isHuman && graph.IsValid();
@@ -306,6 +314,30 @@ namespace BuildingEscape
         public const float StanceRunPhase = 0f;
         /// <summary>How much of the run the gun's stance shows this frame (0 standing .. 1 running; for the tests).</summary>
         public float RunShare => runShare;
+        /// <summary>How much of the run the stances show: smoothed once a frame (0 standing .. 1 running).</summary>
+        float StepRunShare()
+        {
+            if (runShareFrame != Time.frameCount)
+            {
+                runShareFrame = Time.frameCount;
+                float want = moveMs <= 0f ? 0f : Mathf.InverseLerp(StanceWalkMs, StanceRunMs, moveMs);
+                runShare = Mathf.MoveTowards(runShare, want, Time.deltaTime * 6f);
+            }
+            return runShare;
+        }
+
+        /// <summary>Where the legs' own run (or walk) clip is in its cycle (0..1), plus <see cref="StanceRunPhase"/>: the running loops of the guns and the melee weapons take their time from it.</summary>
+        float LegPhase()
+        {
+            var leg = baseSlot == Slot.Walk ? Slot.Walk : Slot.Run;
+            float legLen = slotClip[(int)leg].length;
+            return legLen > 0.01f ? Mathf.Repeat((float)play[(int)leg].GetTime() / legLen + StanceRunPhase, 1f) : 0f;
+        }
+
+        /// <summary>How far the melee weapon is up at the ready this frame (0 idle .. 1 ready, eased; for the first person view and the tests).</summary>
+        public float MeleeReadyShare => layersOn && meleeClips != null && meleeClips.Stances ? meleeReadyShare : 0f;
+        /// <summary>The melee weapon in the layers is held with the hold loops (for the tests).</summary>
+        public bool MeleeStanceActive => layersOn && meleeClips != null && meleeClips.Stances;
         /// <summary>The gun in the layers is held with the stance loops (for the tests).</summary>
         public bool StanceActive => layersOn && gunClips != null && gunClips.Stances;
 
@@ -327,12 +359,12 @@ namespace BuildingEscape
         {
             if (layersOn) return true;
             if (!CanPlayWeapons) return false;
-            layers = AnimationLayerMixerPlayable.Create(graph, 4);
+            layers = AnimationLayerMixerPlayable.Create(graph, 5);          // (4: a full-body clip, see PlayBody)
             output.SetSourcePlayable(layers);
             graph.Connect(mixer, 0, layers, 0);
             layers.SetInputWeight(0, 1f);
             gunMix = AnimationMixerPlayable.Create(graph, 7);
-            meleeMix = AnimationMixerPlayable.Create(graph, 2);
+            meleeMix = AnimationMixerPlayable.Create(graph, 6);
             graph.Connect(gunMix, 0, layers, 1);
             graph.Connect(meleeMix, 0, layers, 3);
             layers.SetLayerMaskFromAvatarMask(2, PistolAnimation.ReloadMask);
@@ -385,6 +417,11 @@ namespace BuildingEscape
             if (c == meleeClips) return;
             mReady = Swap(mReady, c.ready, meleeMix, 0);
             mSwing = Swap(mSwing, c.swing, meleeMix, 1);
+            bool st = c.Stances;
+            mIdleStand = Swap(mIdleStand, st ? c.idleStand : null, meleeMix, 2);
+            mIdleRun = Swap(mIdleRun, st ? c.idleRun : null, meleeMix, 3);
+            mReadyStand = Swap(mReadyStand, st ? c.readyStand : null, meleeMix, 4);
+            mReadyRun = Swap(mReadyRun, st ? c.readyRun : null, meleeMix, 5);
             meleeClips = c;
             meleeWeight = 0f;
         }
@@ -409,8 +446,7 @@ namespace BuildingEscape
                 // the stances (the owner, 2026-10-27): the gun is held with the loops, mixed by how far it is raised (the low ready of the raise clip, the hip, the sights) and how fast the body moves (standing, running). The shot has no
                 // clip of its own here: its kick is made by the HeldGun. The standing loops run on a clock of their own; the running loops keep the step of the legs' own run (or walk) clip.
                 float hip = AimRules.HipShare(raise), aimed = AimRules.AimShare(raise);
-                float runWant = moveMs <= 0f ? 0f : Mathf.InverseLerp(StanceWalkMs, StanceRunMs, moveMs);
-                runShare = Mathf.MoveTowards(runShare, runWant, Time.deltaTime * 6f);
+                StepRunShare();
                 float h = hip * (1f - aimed), a = hip * aimed;
                 gunMix.SetInputWeight(0, 1f - hip);
                 gunMix.SetInputWeight(1, 0f);
@@ -423,9 +459,7 @@ namespace BuildingEscape
                 standT += Time.deltaTime;
                 pHipStand.SetTime(Mathf.Repeat(standT, c.hipStand.length));
                 pAimStand.SetTime(Mathf.Repeat(standT, c.aimStand.length));
-                var leg = baseSlot == Slot.Walk ? Slot.Walk : Slot.Run;
-                float legLen = slotClip[(int)leg].length;
-                float phase = legLen > 0.01f ? Mathf.Repeat((float)play[(int)leg].GetTime() / legLen + StanceRunPhase, 1f) : 0f;
+                float phase = LegPhase();
                 pHipRun.SetTime(phase * c.hipRun.length);
                 pAimRun.SetTime(phase * c.aimRun.length);
             }
@@ -451,7 +485,7 @@ namespace BuildingEscape
         /// A melee weapon's pose this frame (its owner calls it every frame while it is in the hand, before the animation runs): held ready, or the swing <paramref name="swingTime"/> seconds into its clip (negative: no swing). The upper
         /// body goes back to the walk and the run while the body is knocked over or dazed. False when this rig cannot play it.
         /// </summary>
-        public bool MeleePose(WeaponAnimation.MeleeClips c, float swingTime)
+        public bool MeleePose(WeaponAnimation.MeleeClips c, float swingTime, float ready = 0f)
         {
             if (c == null || !EnsureLayers()) return false;
             UseMeleeClips(c);
@@ -459,12 +493,76 @@ namespace BuildingEscape
             bool down = pose == Pose.Down || pose == Pose.Dazed;
             meleeSwinging = !down && swingTime >= 0f && swingTime < c.swing.length;
             meleeWeight = Mathf.MoveTowards(meleeWeight, down ? 0f : 1f, Time.deltaTime * (down ? 10f : 8f));
-            meleeMix.SetInputWeight(0, meleeSwinging ? 0f : 1f);
-            meleeMix.SetInputWeight(1, meleeSwinging ? 1f : 0f);
-            mReady.SetTime(0);
-            mSwing.SetTime(meleeSwinging ? swingTime : 0f);
+            if (c.Stances)
+            {
+                // the holds (the owner, 2026-10-28): idle or ready (the right mouse button), standing or running (the speed, the legs' step); a swing blends in over the hold in a tenth of a second and back out after it
+                swingBlend = Mathf.MoveTowards(swingBlend, meleeSwinging ? 1f : 0f, Time.deltaTime * (meleeSwinging ? 14f : 9f));
+                meleeReadyShare = AimRules.Smooth(ready);
+                float run = StepRunShare(), hold = 1f - swingBlend;
+                meleeMix.SetInputWeight(0, 0f);
+                meleeMix.SetInputWeight(1, swingBlend);
+                meleeMix.SetInputWeight(2, hold * (1f - meleeReadyShare) * (1f - run));
+                meleeMix.SetInputWeight(3, hold * (1f - meleeReadyShare) * run);
+                meleeMix.SetInputWeight(4, hold * meleeReadyShare * (1f - run));
+                meleeMix.SetInputWeight(5, hold * meleeReadyShare * run);
+                meleeStandT += Time.deltaTime;
+                mIdleStand.SetTime(Mathf.Repeat(meleeStandT, c.idleStand.length));
+                mReadyStand.SetTime(Mathf.Repeat(meleeStandT, c.readyStand.length));
+                float phase = LegPhase();
+                mIdleRun.SetTime(phase * c.idleRun.length);
+                mReadyRun.SetTime(phase * c.readyRun.length);
+                mReady.SetTime(0);
+                mSwing.SetTime(meleeSwinging ? swingTime : swingBlend > 0.001f ? c.swing.length : 0f);
+            }
+            else
+            {
+                meleeMix.SetInputWeight(0, meleeSwinging ? 0f : 1f);
+                meleeMix.SetInputWeight(1, meleeSwinging ? 1f : 0f);
+                for (int i = 2; i < 6; i++) meleeMix.SetInputWeight(i, 0f);
+                mReady.SetTime(0);
+                mSwing.SetTime(meleeSwinging ? swingTime : 0f);
+            }
             layers.SetInputWeight(3, meleeWeight);
             return true;
+        }
+
+        // ---- a full-body clip (the owner's restraint, drag and rescue clips, 2026-10-28): the top layer, no mask, over everything the character was doing. Whoever plays it sets its time every frame (SetBodyTime: the clip does not run by itself, so that two
+        // characters that play the two halves of one scene can be held at the same moment).
+        /// <summary>This rig can play a full-body clip (a humanoid in clip mode).</summary>
+        public bool CanPlayBody => CanPlayWeapons;
+        /// <summary>A full-body clip is playing or fading (the weapons in the hands are put away meanwhile).</summary>
+        public bool BodyActive => layersOn && (bodyOn || bodyWeight > 0.001f);
+        /// <summary>How much of the body the full-body clip has this frame (0..1).</summary>
+        public float BodyWeightNow => layersOn ? bodyWeight : 0f;
+        /// <summary>The full-body clip now playing (null: none).</summary>
+        public AnimationClip BodyClipNow => bodyOn ? bodyClip : null;
+
+        /// <summary>Plays <paramref name="clip"/> over the whole body (it fades in); false when this rig cannot.</summary>
+        public bool PlayBody(AnimationClip clip)
+        {
+            if (!clip || !EnsureLayers()) return false;
+            if (!pBody.IsValid() || bodyClip != clip)
+            {
+                pBody = Swap(pBody, clip, layers, 4);
+                bodyClip = clip;
+                layers.SetInputWeight(4, bodyWeight);
+            }
+            bodyOn = true;
+            return true;
+        }
+
+        /// <summary>The time (s) of the full-body clip.</summary>
+        public void SetBodyTime(float t) { if (pBody.IsValid()) pBody.SetTime(t); }
+
+        /// <summary>The full-body clip fades out and the character goes back to what he was doing.</summary>
+        public void StopBody() { bodyOn = false; }
+
+        void StepBody()
+        {
+            if (!pBody.IsValid()) { bodyWeight = 0f; return; }
+            bodyWeight = Mathf.MoveTowards(bodyWeight, bodyOn ? 1f : 0f, Time.deltaTime / 0.15f);
+            layers.SetInputWeight(4, bodyWeight);
+            if (!bodyOn && bodyWeight <= 0f) { pBody = Swap(pBody, null, layers, 4); bodyClip = null; }
         }
 
         /// <summary>Nobody asked for a gun's or a weapon's pose last frame (it was put away): its layers fade out.</summary>

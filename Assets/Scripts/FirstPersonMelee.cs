@@ -26,12 +26,12 @@ namespace BuildingEscape
 
         void LateUpdate()
         {
-            if (!weapon || !upper || !fore || !hand) return;
+            if (!weapon || !upper || !fore || !hand || (anim && anim.BodyActive)) return;
             var r = CameraFollow.Current;
             float share = 0f;
             if (r && r.ViewedBody && transform.IsChildOf(r.ViewedBody)) share = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.5f, 0.95f, r.Zoom));
             bool swing = anim && anim.Slashing;
-            float want = share * (swing ? 0f : 1f);
+            float want = share * (swing ? 0f : 1f) * (1f - (anim ? anim.MeleeReadyShare : 0f));          // (the ready of the owner's melee holds is the clip's own first-person picture: the fist and the handle at the right edge)
             weight = Mathf.MoveTowards(weight, want, Time.deltaTime * 7f);
             if (!r) return;
             var cam = r.transform;

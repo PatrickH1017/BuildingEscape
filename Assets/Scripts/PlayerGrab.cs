@@ -186,7 +186,7 @@ namespace BuildingEscape
             WobblyPlayer best = null; float bestD = float.MaxValue;
             foreach (var p in WobblyPlayerRegistry.All)
             {
-                if (!p || p == wob || p.Custody != CustodyState.Busted || p.DraggedBy != null) continue;
+                if (!p || p == wob || p.Custody != CustodyState.Busted || p.DraggedBy != null || p.DraggedByGuard != null) continue;
                 var d = p.transform.position - transform.position; d.y = 0f;
                 if (!DraggableBodyRules.CanGrab(d.magnitude, false) || d.magnitude >= bestD) continue;
                 best = p; bestD = d.magnitude;

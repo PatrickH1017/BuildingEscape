@@ -170,6 +170,7 @@ namespace BuildingEscape.EditorTools
                     yield return FpLookAimAndReload(gcn, kind, vpMuzzle);
             }
             if (previous) { pack.Drop(previous); Destroy(previous.gameObject); previous = null; yield return new WaitForSeconds(0.3f); }
+            GunController.TestAim = false;             // (the idle hold of a melee weapon: with the right mouse button held it is raised to the ready, whose first-person picture is the MeleeStance scenario's)
             var crowbar = MeleeWeapon.Create(MeleeWeapon.Kind.Crowbar, at, null).GetComponent<Pickup>();
             pack.TryStore(crowbar);
             yield return new WaitForSeconds(0.3f);

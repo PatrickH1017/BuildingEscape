@@ -92,6 +92,7 @@ namespace BuildingEscape.EditorTools
             DockPosterRulesTest();
             ConsumablesRulesTest();
             BulletDamageRulesTest();
+            RestraintRulesTest();
             Asks1023ETest();
             SightsAimTest();
             string v = NetConst.BuildVersion;

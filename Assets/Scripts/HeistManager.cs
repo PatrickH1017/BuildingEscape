@@ -264,9 +264,25 @@ namespace BuildingEscape
         {
             var guard = p.PinnedBy;
             SetCustody(p, CustodyState.Busted, 0f, Floor);
-            if (guard) guard.ReleaseHold();
+            if (guard && !guard.BeginDrag(p)) guard.ReleaseHold();           // (an officer who can drags him by the head to the outpost, GuardAI.Drag.cs)
             Announce($"{Who(p)} BUSTED - buy them back from the vendor at the Loading Docks");
             CheckTeamDown();
+        }
+
+        /// <summary>
+        /// A teammate cut a busted player free (the owner's restraint clips, 2026-10-28: he held E beside him for <see cref="RestraintRules.FreeSeconds"/>): the captive is on his feet again with the same few seconds in which nobody can pin him as after a break-free.
+        /// Host / offline. The vendor's buy-back is unchanged.
+        /// </summary>
+        public bool FreeCaptive(WobblyPlayer p, WobblyPlayer by)
+        {
+            if (!p || !Net.NetRole.Simulates || p.Custody != CustodyState.Busted) return false;
+            p.PinImmuneUntil = Time.time + CustodyRules.PinImmunitySeconds;
+            p.FreeProgress = 0f;
+            var np = p.GetComponent<Net.NetPlayer>();
+            if (np && np.IsSpawned) np.HostSetFreeProgress(0f);
+            SetCustody(p, CustodyState.Free, 0f, 0);
+            Announce($"{Who(p, "was", "were")} freed");          // (PLACEHOLDER wording: the owner writes the words)
+            return true;
         }
 
         /// <summary>Vendor buy-back: the busted player is out (host). The caller already took the money.</summary>

@@ -21,6 +21,7 @@ a row above the weapon bar shows what you carry and what is running.
 37. Damage by ammunition. Light ammo (the pistol and the SMG) does 25 to an officer's body and 40 to his head; medium ammo (the rifle) 40 and 60; heavy ammo (the sniper rifle) 100; a shotgun shell does 75 to an officer in range (its eight pellets count as one hit on each officer). An officer has 100 health; a shield takes a share of every bullet. A hit to the head (the top fifth of his body) does more than a hit to the body.
 38. The hit marker. A small X flashes at the crosshair when your bullet hits an officer (white, with a tick); a headshot flashes gold with a ding; the shot that puts an officer down for good flashes red, bigger, with a thump.
 39. Every gun has its own hip-fire and aiming animations, standing and running (the pistol is held in both hands now): your character and your teammates' hold the pistol, the SMG, the rifle, the shotgun and the sniper rifle at the chest, or up at the sights while the right mouse button is held, and the gun moves with the run. A shot kicks the barrel up. Reloading still lowers a long gun.
+40. The crowbar, the bat and the hatchet have hold animations too, idle and standing or running: the weapon is held up in front of you, and while the right mouse button is held it is raised to the ready, cocked back over the shoulder (your teammates see it). The swing is the same as before.
 '@
 Save-Src
 "README_SEND_2026-10-27.txt written"

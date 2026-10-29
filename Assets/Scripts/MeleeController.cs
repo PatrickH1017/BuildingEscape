@@ -61,6 +61,7 @@ namespace BuildingEscape
             var eq = held;
             if (eq && !eq.TryGetComponent(out MeleeWeapon _)) eq = null;   // a gun in the hand is the GunController's
             if (eq != shown || (heldModel && !shown)) Show(eq);          // (the second part: the weapon in the hand was destroyed - a crowbar that snapped on a safe - and Unity says a destroyed object equals null, so "eq != shown" alone never noticed and the crowbar stayed in the hand)
+            UpdateReady(eq, held);
             PoseMelee();
 
             if (held == null)
@@ -114,9 +115,43 @@ namespace BuildingEscape
         /// <summary>The weapon in the hand with its Blender animation: held ready, or the swing at its point (called every frame, before the animation runs).</summary>
         void PoseMelee()
         {
+            if (heldModel)
+            {
+                var a0 = vis ? vis.Anim : null;
+                bool away = a0 && a0.BodyActive;                                       // (the owner's restraint clips: the hands are tied, the weapon is put away while one plays)
+                if (heldModel.activeSelf == away) heldModel.SetActive(!away);
+            }
             if (meleeClips == null || !heldModel) return;
             var anim = vis ? vis.Anim : null;
-            if (anim) anim.MeleePose(meleeClips, swinging ? (Time.time - swingStarted) * swingSpeed : -1f);
+            if (anim) anim.MeleePose(meleeClips, swinging ? (Time.time - swingStarted) * swingSpeed : -1f, readyNow);
+        }
+
+        // ---- the ready (the owner, 2026-10-28: the melee holds, "Idle is the melee hip fire, Ready is the melee aimed"): the right mouse button held with a melee weapon in the hand raises it to the ready (the same flag the guns' aiming sends:
+        // the teammates are told); it changes nothing but the pose - the swing, its timing and its damage are as they were
+        float readyNow;
+        /// <summary>The weapon is held at the ready (the right mouse button; a teammate's from the flag he sends).</summary>
+        public bool Ready { get; private set; }
+        /// <summary>How far up at the ready the weapon is (0 idle .. 1; for the tests).</summary>
+        public float ReadyShare => readyNow;
+
+        void UpdateReady(Pickup eq, Pickup held)
+        {
+            bool viewed = pack && pack.Viewed;
+            bool want = false;
+            if (eq && meleeClips != null)
+            {
+                if (viewed)
+                {
+                    bool menu = Crosshair.MenuOpen || Backpack.UiOpen || Vendor.ShopOpen || EscapeMenu.Open || TestMode.PanelOpen || ElevatorPanel.Open || OutpostUi.Open;
+                    bool free = !(wobbly && wobbly.InCustody) && !(grab && grab.Held);
+                    want = GunController.TestAim ?? (!menu && free && (GunController.TestCursorLocked ?? Cursor.lockState == CursorLockMode.Locked) && Input.GetMouseButton(1));
+                    if (wobbly) wobbly.IsAiming = want;
+                }
+                else want = wobbly && wobbly.IsAiming && !wobbly.InCustody;
+            }
+            else if (viewed && wobbly && held == null) wobbly.IsAiming = false;               // (empty hands: nothing is raised; a gun's own controller sets the flag while one is in the hand)
+            Ready = want;
+            readyNow = AimRules.Ease(readyNow, want, Time.deltaTime);
         }
 
         static Transform FindDeep(Transform t, string n)

@@ -65,7 +65,7 @@ namespace BuildingEscape
 #if UNITY_EDITOR
         // Test hooks (Editor only): drive the movement and crouch without a keyboard.
         [System.NonSerialized] public Vector3? testMove;
-        [System.NonSerialized] public bool testSprint, testCrouch;
+        [System.NonSerialized] public bool testSprint, testCrouch, testStruggle;
 #endif
         /// <summary>Raised when the player jumps (used to play the jump animation).</summary>
         public event System.Action Jumped;
@@ -75,6 +75,28 @@ namespace BuildingEscape
         public float DragFactor { get; set; } = 1f;
         /// <summary>The player who drags THIS player's body (this player is busted: T12), or null. Every machine knows it (<see cref="PlayerGrab.ApplyDragPlayerBody"/>); the machine that owns this body pulls it along.</summary>
         public WobblyPlayer DraggedBy { get; set; }
+        /// <summary>The officer who drags this arrested player by the head to the guards outpost (the owner's restraint clips, 2026-10-28), or null. The host's officer sets it; every machine knows it (<c>NetPlayer</c> carries it).</summary>
+        public GuardAI DraggedByGuard { get; set; }
+        /// <summary>The struggle button (Space) is held while an officer drags him (the owner's machine reads the key; the host reads it from <c>NetPlayer</c>).</summary>
+        public bool StruggleHeld { get; set; }
+        /// <summary>He is struggling now (the host decides: the button is held and he has stamina): the officer's drag is slow, the clip shows it.</summary>
+        public bool StruggleActive { get; set; }
+        /// <summary>The struggle stamina, 0 (empty) .. 1 (full): the host's.</summary>
+        public float StruggleStamina { get; set; } = 1f;
+        /// <summary>How many times the officer has shoved him (the host counts; a change is a shove on every machine).</summary>
+        public int ShoveCount { get; set; }
+        /// <summary>How many times an officer has had to let go of this player because he was hit, the officer who did, and when (every machine: the drop clip runs from that moment).</summary>
+        public int DropCount { get; private set; }
+        public GuardAI DroppedBy { get; private set; }
+        public float DropTime { get; private set; } = -999f;
+        /// <summary>The officer let go of this player because he was hit (the host calls it; the other machines when <c>NetPlayer</c> carries the news).</summary>
+        public void NoteDrop(GuardAI by, int count) { DropCount = count; DroppedBy = by; DropTime = Time.time; }
+        /// <summary>How far a teammate has got in freeing this busted player, 0 .. 1 (the host counts it, PlayerRescue; every machine knows it).</summary>
+        public float FreeProgress { get; set; }
+        /// <summary>The busted player this one is freeing now (holding E beside him), or null: his own machine decides, every machine knows it.</summary>
+        public WobblyPlayer RescueTarget { get; set; }
+        /// <summary>The frame a teammate last worked on this player (the host: a captive nobody works on winds back).</summary>
+        public int RescuedFrame { get; set; } = -999;
 
         Rigidbody rb;
         float stumbleUntil, nextStep, nextRigLookup;
@@ -88,6 +110,9 @@ namespace BuildingEscape
         float standHeight;
         Vector3 standCenter;
         bool crouchApplied;
+        int standDirection = 1;
+        bool lying;
+        RigidbodyConstraints standConstraints;
 
         void Awake()
         {
@@ -95,7 +120,7 @@ namespace BuildingEscape
             rb.maxDepenetrationVelocity = PlayerSafetyRules.MaxDepenetrationSpeed;          // (the friends' playtest, 2026-10-23: officers squeezing a body into a corner threw it up through the ceiling: the push out of an overlap is slow now)
             capsule = GetComponent<CapsuleCollider>();
             TryGetComponent(out grab);
-            if (capsule) { standHeight = capsule.height; standCenter = capsule.center; }
+            if (capsule) { standHeight = capsule.height; standCenter = capsule.center; standDirection = capsule.direction; }
             if (!GetComponent<Backpack>()) gameObject.AddComponent<Backpack>();
             if (!GetComponent<FootstepPlayer>()) gameObject.AddComponent<FootstepPlayer>();
             if (!GetComponent<MeleeController>()) gameObject.AddComponent<MeleeController>();
@@ -107,6 +132,8 @@ namespace BuildingEscape
             if (usePartyCharacter && !GetComponent<PlayerVisual>()) gameObject.AddComponent<PlayerVisual>();
             if (!GetComponent<PlayerArmourVisual>()) gameObject.AddComponent<PlayerArmourVisual>();          // (the vest of the armour he wears: every machine reads his pack)
             if (!GetComponent<HeldWalkie>()) gameObject.AddComponent<HeldWalkie>();                              // (the walkie talkie he holds out: the same)
+            if (!GetComponent<RestraintVisual>()) gameObject.AddComponent<RestraintVisual>();
+            if (!GetComponent<PlayerRescue>()) gameObject.AddComponent<PlayerRescue>();                          // (a teammate frees him: hold E beside him)                    // (tied up, dragged, freed: the owner's restraint clips, 2026-10-28)
         }
 
         // This script only runs for the body this machine controls (NetPlayer switches it off on every teammate's puppet). The
@@ -172,12 +199,19 @@ namespace BuildingEscape
                 rb.AddForce(Vector3.up * jumpImpulse, ForceMode.VelocityChange);
                 Jumped?.Invoke();
             }
+            // the struggle (the owner's restraint clips, 2026-10-28): an officer drags him by the head, he holds Space to dig his heels in
+            bool struggleKey = Input.GetKey(KeyCode.Space);
+#if UNITY_EDITOR
+            struggleKey |= testStruggle;
+#endif
+            StruggleHeld = struggleKey && Custody == CustodyState.Busted && DraggedByGuard != null && !OutpostUi.Open && !inputLocked;
             if (IsStumbling && Time.time > stumbleUntil) IsStumbling = false;
         }
 
         void SetCrouch(bool crouching)
         {
             IsCrouching = crouching;
+            if (lying) { crouchApplied = false; IsCrouching = false; return; }                // (a body on the floor keeps its laid-down capsule)
             if (!capsule || crouching == crouchApplied) return;
             crouchApplied = crouching;
             // a lower capsule with the feet where they were
@@ -272,16 +306,55 @@ namespace BuildingEscape
 
         void FollowDragger()
         {
-            var by = DraggedBy;
+            if (Custody != CustodyState.Busted) { DraggedBy = null; DraggedByGuard = null; dragTrailLive = false; return; }
+            Transform by = DraggedByGuard ? DraggedByGuard.transform : DraggedBy ? DraggedBy.transform : null;          // (a teammate, or an officer: the owner's restraint clips)
             if (!by) { dragTrailLive = false; return; }
-            if (Custody != CustodyState.Busted) { DraggedBy = null; dragTrailLive = false; return; }
-            var p = by.transform.position;
+            var p = by.position;
             if (!dragTrailLive) { dragTrail.Begin(rb.position.x, rb.position.z, p.x, p.z); dragTrailLive = true; }
             dragTrail.Add(p.x, p.z);
             dragTrail.Advance(Time.deltaTime, out float nx, out float nz);          // (inside FixedUpdate Time.deltaTime is the fixed step)
             rb.MovePosition(new Vector3(nx, rb.position.y, nz));
             rb.linearVelocity = new Vector3(0f, rb.linearVelocity.y, 0f);
         }
+
+        /// <summary>The restraint clips can show this body (a humanoid in clip mode, the clips in the build): a pinned player is not tipped over, the clip lies him down.</summary>
+        bool RestraintShown()
+        {
+            var v = GetComponent<PlayerVisual>();
+            return v && v.Anim && v.Anim.CanPlayBody && RestraintClips.Get(RestraintClips.Hogtied) != null;
+        }
+
+        /// <summary>
+        /// The capsule laid down on the floor (along the body's forward, its bottom where the feet were) and the body kept from turning over, or standing again. The body's own pivot stays where it is: the clip draws the character on the floor under it
+        /// (<see cref="RestraintVisual"/>).
+        /// </summary>
+        void SetLying(bool on)
+        {
+            if (lying == on) return;
+            lying = on;
+            if (rb)
+            {
+                if (on) { standConstraints = rb.constraints; rb.constraints = RigidbodyConstraints.FreezeRotation; }
+                else rb.constraints = standConstraints;
+            }
+            if (!capsule) return;
+            if (on)
+            {
+                capsule.direction = 2;
+                capsule.height = standHeight;
+                capsule.center = new Vector3(standCenter.x, standCenter.y - standHeight * 0.5f + capsule.radius, standCenter.z);
+            }
+            else
+            {
+                capsule.direction = standDirection;
+                capsule.height = standHeight;
+                capsule.center = standCenter;
+                crouchApplied = false;
+            }
+        }
+
+        /// <summary>The body is shown lying by a restraint clip (for the tests).</summary>
+        public bool IsLying => lying;
 
         /// <summary>Pinned / busted: the body lies where it fell. No walking, no righting torque; it just settles.</summary>
         void HoldDown()
@@ -290,7 +363,7 @@ namespace BuildingEscape
             rb.linearVelocity = new Vector3(v.x * 0.8f, v.y, v.z * 0.8f);
             rb.angularVelocity *= 0.95f;
             // still upright (e.g. just put into an elevator car): keep tipping until the body lies on the ground
-            if (Vector3.Dot(transform.up, Vector3.up) > 0.6f) rb.AddTorque(transform.right * 3f, ForceMode.Acceleration);
+            if (!lying && Vector3.Dot(transform.up, Vector3.up) > 0.6f) rb.AddTorque(transform.right * 3f, ForceMode.Acceleration);
         }
 
         /// <summary>
@@ -309,17 +382,27 @@ namespace BuildingEscape
             {
                 IsHidden = false;
                 if (grab) grab.Release(false); // whatever was being carried is dropped
-                if (was == CustodyState.Free && rb && !rb.isKinematic)
+                if (was == CustodyState.Free)
                 {
-                    // taken down: tipped over onto the ground (only the machine that owns the body moves it)
-                    rb.AddForce(-transform.forward * 1.5f, ForceMode.VelocityChange);
-                    rb.AddTorque(transform.right * 5f, ForceMode.VelocityChange);
-                    NoiseBus.Emit(transform.position, 8f, gameObject);
+                    // taken down. A character who can play the owner's restraint clips (2026-10-28) is shown lying by the clip: the capsule is laid down on the floor and the body stays as it is. Any other is tipped over onto the ground as before
+                    // (only the machine that owns the body moves it)
+                    bool shown = RestraintShown();
+                    if (shown) SetLying(true);
+                    if (rb && !rb.isKinematic)
+                    {
+                        if (!shown)
+                        {
+                            rb.AddForce(-transform.forward * 1.5f, ForceMode.VelocityChange);
+                            rb.AddTorque(transform.right * 5f, ForceMode.VelocityChange);
+                        }
+                        NoiseBus.Emit(transform.position, 8f, gameObject);
+                    }
                 }
             }
             else
             {
                 PinnedBy = null;
+                SetLying(false);
                 if (rb && !rb.isKinematic) rb.AddForce(Vector3.up * 2f, ForceMode.VelocityChange); // gets back up
             }
             CustodyChanged?.Invoke(state);

@@ -127,6 +127,30 @@ namespace BuildingEscape.EditorTools
             EditorSceneManager.OpenScene("Assets/Scenes/Greybox.unity");
             EditorApplication.isPlaying = true;
         }
+        public static void RestraintRescue()
+        {
+            SessionState.SetString("netdev.mode", "restraintrescue");
+            EditorSceneManager.OpenScene("Assets/Scenes/Greybox.unity");
+            EditorApplication.isPlaying = true;
+        }
+        public static void RestraintGuard()
+        {
+            SessionState.SetString("netdev.mode", "restraintguard");
+            EditorSceneManager.OpenScene("Assets/Scenes/Greybox.unity");
+            EditorApplication.isPlaying = true;
+        }
+        public static void Restraint()
+        {
+            SessionState.SetString("netdev.mode", "restraint");
+            EditorSceneManager.OpenScene("Assets/Scenes/Greybox.unity");
+            EditorApplication.isPlaying = true;
+        }
+        public static void MeleeStance()
+        {
+            SessionState.SetString("netdev.mode", "meleestance");
+            EditorSceneManager.OpenScene("Assets/Scenes/Greybox.unity");
+            EditorApplication.isPlaying = true;
+        }
         public static void GunStance()
         {
             SessionState.SetString("netdev.mode", "gunstance");
@@ -332,6 +356,7 @@ namespace BuildingEscape.EditorTools
         public static void DevSpectate() => Start("devspectate");
         public static void DevDenied() => Start("devdenied");
         public static void DragNet() => Start("dragnet");
+        public static void RestraintNet() => Start("restraintnet");
         public static void PingUi()
         {
             SessionState.SetString("netdev.mode", "pingui");
@@ -623,7 +648,7 @@ namespace BuildingEscape.EditorTools
             started = Time.realtimeSinceStartup;
             VoiceChat.QaNoRealMic = true;                                  // (no solo run opens the real microphone: the voice scenarios install a tone input)
             GuardAI.DonutRollOverride = mode == "r7" ? -1f : 1f;           // (no donut breaks in the other scenarios: a guard standing still for 6 s could upset their timing)
-            if (mode != "offline" && mode != "sneak" && mode != "floors" && mode != "roomshots" && mode != "corelooks" && mode != "looks" && mode != "floatqa" && mode != "computerui" && mode != "r5" && mode != "r6" && mode != "r7" && mode != "r7look" && mode != "probe" && mode != "doors" && mode != "outpost" && mode != "pew" && mode != "pewlook" && mode != "weaponsheet" && mode != "meleelook" && mode != "gunsheet" && mode != "charsheet" && mode != "dresssheet" && mode != "themesheet" && mode != "fplook" && mode != "pistolanim" && mode != "weaponanim" && mode != "radio" && mode != "gunitems" && mode != "gunlook" && mode != "gunsafes" && mode != "guns" && mode != "gunui" && mode != "combat" && mode != "armour" && mode != "assetpreview" && mode != "citynew" && mode != "round12" && mode != "checklist" && mode != "docklook" && mode != "guardcall" && mode != "guardsight" && mode != "vending" && mode != "bardrag" && mode != "cones" && mode != "asks1021" && mode != "pingui" && mode != "dockseeds" && mode != "ui" && mode != "menus" && mode != "shaft" && mode != "pewloot" && mode != "demo" && mode != "demoui" && mode != "lootqa" && mode != "etr" && mode != "etrcarry" && mode != "etrscan" && mode != "introtv" && mode != "introoffline" && mode != "invui" && mode != "doorsslide" && mode != "citylook" && mode != "doorlooks" && mode != "asks1023" && mode != "asks1023b" && mode != "asks1023bui" && mode != "asks1023c" && mode != "asks1023d" && mode != "asks1023e" && mode != "asks1023f" && mode != "asks1023g" && mode != "walkielook" && mode != "asks1023v" && mode != "asks1023vui" && mode != "asks1023w" && mode != "pvpmap" && mode != "pvplineupui" && mode != "pvpbattlefield" && mode != "pvpbattlefieldui" && mode != "audiodevicesui" && mode != "guardalert" && mode != "lamppreview" && mode != "alarmlooks" && mode != "consumables" && mode != "bulletdamage" && mode != "aimhip" && mode != "gunstance" && mode != "safetynet" && mode != "propscan" && mode != "packkeys")
+            if (mode != "offline" && mode != "sneak" && mode != "floors" && mode != "roomshots" && mode != "corelooks" && mode != "looks" && mode != "floatqa" && mode != "computerui" && mode != "r5" && mode != "r6" && mode != "r7" && mode != "r7look" && mode != "probe" && mode != "doors" && mode != "outpost" && mode != "pew" && mode != "pewlook" && mode != "weaponsheet" && mode != "meleelook" && mode != "gunsheet" && mode != "charsheet" && mode != "dresssheet" && mode != "themesheet" && mode != "fplook" && mode != "pistolanim" && mode != "weaponanim" && mode != "radio" && mode != "gunitems" && mode != "gunlook" && mode != "gunsafes" && mode != "guns" && mode != "gunui" && mode != "combat" && mode != "armour" && mode != "assetpreview" && mode != "citynew" && mode != "round12" && mode != "checklist" && mode != "docklook" && mode != "guardcall" && mode != "guardsight" && mode != "vending" && mode != "bardrag" && mode != "cones" && mode != "asks1021" && mode != "pingui" && mode != "dockseeds" && mode != "ui" && mode != "menus" && mode != "shaft" && mode != "pewloot" && mode != "demo" && mode != "demoui" && mode != "lootqa" && mode != "etr" && mode != "etrcarry" && mode != "etrscan" && mode != "introtv" && mode != "introoffline" && mode != "invui" && mode != "doorsslide" && mode != "citylook" && mode != "doorlooks" && mode != "asks1023" && mode != "asks1023b" && mode != "asks1023bui" && mode != "asks1023c" && mode != "asks1023d" && mode != "asks1023e" && mode != "asks1023f" && mode != "asks1023g" && mode != "walkielook" && mode != "asks1023v" && mode != "asks1023vui" && mode != "asks1023w" && mode != "pvpmap" && mode != "pvplineupui" && mode != "pvpbattlefield" && mode != "pvpbattlefieldui" && mode != "audiodevicesui" && mode != "guardalert" && mode != "lamppreview" && mode != "alarmlooks" && mode != "consumables" && mode != "bulletdamage" && mode != "aimhip" && mode != "gunstance" && mode != "meleestance" && mode != "restraint" && mode != "restraintguard" && mode != "restraintrescue" && mode != "safetynet" && mode != "propscan" && mode != "packkeys")
                 yield return WaitFor(() => NetSession.Instance != null && SceneManager.GetActiveScene().name == NetConst.MenuScene, 30, "menu");
             switch (mode)
             {
@@ -656,6 +681,10 @@ namespace BuildingEscape.EditorTools
                 case "bulletdamage": yield return BulletDamageScenario(); break;
                 case "aimhip": yield return AimHipScenario(); break;
                 case "gunstance": yield return GunStanceScenario(); break;
+                case "meleestance": yield return MeleeStanceScenario(); break;
+                case "restraint": yield return RestraintScenario(); break;
+                case "restraintguard": yield return RestraintGuardScenario(); break;
+                case "restraintrescue": yield return RestraintRescueScenario(); break;
                 case "consumablesnet": yield return System.Environment.GetEnvironmentVariable("BE_QA_ROLE") == "host" ? ConsumablesHostScenario() : ConsumablesClientScenario(); break;
                 case "safetynet": yield return SafetyNetScenario(); break;
                 case "propscan": yield return PropScanScenario(); break;
@@ -708,6 +737,7 @@ namespace BuildingEscape.EditorTools
                 case "devspectate": yield return System.Environment.GetEnvironmentVariable("BE_QA_ROLE") == "host" ? DevSpectateHostScenario() : DevSpectateClientScenario(); break;
                 case "devdenied": yield return System.Environment.GetEnvironmentVariable("BE_QA_ROLE") == "host" ? DevDeniedHostScenario() : DevDeniedClientScenario(); break;
                 case "dragnet": yield return System.Environment.GetEnvironmentVariable("BE_QA_ROLE") == "host" ? DragNetHostScenario() : DragNetClientScenario(); break;
+                case "restraintnet": yield return System.Environment.GetEnvironmentVariable("BE_QA_ROLE") == "host" ? RestraintNetHostScenario() : RestraintNetClientScenario(); break;
                 case "dockseeds": yield return DockSeedsScenario(); break;
                 case "checklist": yield return ChecklistScenario(); break;
                 case "assetpreview": yield return AssetPreviewScenario(); break;

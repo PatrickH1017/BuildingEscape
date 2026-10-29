@@ -48,7 +48,13 @@ namespace BuildingEscape
             else
             {
                 int price = CustodyRules.BuyBackPrice(p.BustedOnLevel);
-                HudWidgets.CustodyMine(false, 0, 0f, $"Your team can buy you back from the vendor at the Loading Docks (${price})", price);
+                string help = p.DraggedByGuard != null ? "Hold SPACE to struggle" : p.FreeProgress > RestraintRules.FreeShownFrom ? "A teammate is freeing you" : $"Your team can buy you back from the vendor at the Loading Docks (${price})";          // (PLACEHOLDER wording for the first two: the owner writes the words)
+                HudWidgets.CustodyMine(false, 0, 0f, help, price);
+                if (p.DraggedByGuard != null)
+                {
+                    float s = Screen.height / 1080f;
+                    HudWidgets.ProgressRing(new Vector2(Screen.width * 0.5f, Screen.height * 0.32f + 190f * s), 84f * s, 7f * s, p.StruggleStamina, HudTheme.Quota, HudTheme.Dim);          // (the struggle stamina)
+                }
             }
         }
 

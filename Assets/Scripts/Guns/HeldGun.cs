@@ -353,9 +353,11 @@ namespace BuildingEscape
             if (reloadWeight <= 0f) reloadPose = default(ReloadMotionRules.Pose);
         }
 
+        bool putAway;
+
         void LateUpdate()
         {
-            if (!Grip || !hasArm) return;
+            if (!Grip || !hasArm || putAway) return;
             if (animated && !twoHand) { AnimatedLateUpdate(); return; }
             if (animated) AnimatedTwoHand();                       // (a long gun with its animation: the clip's hold turned to the aim; first person goes on below from that pose)
             AlignerUsed = false;
@@ -537,6 +539,12 @@ namespace BuildingEscape
         /// <summary>Before the animation runs: the raise moves at the speed of the raise clip, and the character animator is told what to show.</summary>
         void Update()
         {
+            if (Grip && character && character.BodyActive)              // (the owner's restraint clips: the hands are tied, the gun is put away while one plays)
+            {
+                if (!putAway) { putAway = true; Grip.gameObject.SetActive(false); }
+                return;
+            }
+            if (putAway && Grip) { putAway = false; Grip.gameObject.SetActive(true); }
             if (!animated || !Grip) return;
             raiseNow = Mathf.MoveTowards(raiseNow, Mathf.Clamp01(Raise), Time.deltaTime / Mathf.Max(0.05f, raiseSeconds));
             if (character) character.GunPose(gunClips, raiseNow, Time.time - lastShot, twoHand ? 0f : ReloadProgress);

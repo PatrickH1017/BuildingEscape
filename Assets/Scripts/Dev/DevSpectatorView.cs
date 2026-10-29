@@ -73,7 +73,7 @@ namespace BuildingEscape
             switch (s)
             {
                 case GuardState.Investigate: return HudTheme.Warning;
-                case GuardState.Chase: case GuardState.Pinning: return HudTheme.Danger;
+                case GuardState.Chase: case GuardState.Pinning: case GuardState.Dragging: return HudTheme.Danger;
                 case GuardState.Calling: return HudTheme.Quota;
                 case GuardState.Stunned: return HudTheme.Info;
                 default: return HudTheme.Muted;

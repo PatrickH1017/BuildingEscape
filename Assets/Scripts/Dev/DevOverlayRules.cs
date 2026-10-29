@@ -57,6 +57,7 @@ namespace BuildingEscape
                 case GuardState.Stunned: return "STUNNED";
                 case GuardState.Calling: return "CALLING";
                 case GuardState.Pinning: return "PINNING";
+                case GuardState.Dragging: return "DRAGGING";
                 default: return s.ToString().ToUpperInvariant();
             }
         }
